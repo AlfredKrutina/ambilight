@@ -1,0 +1,20 @@
+{
+  "C_Cpp.intelliSenseEngine": "default",
+  "idf.espIdfPath": "/Users/alfred/esp-idf",
+  "idf.pythonInstallPath": "/Users/alfred/.espressif/python_env/idf5.5_py3.9_env/bin/python",
+  "idf.openOcdConfigs": [
+    "board/esp32c6-builtin.cfg"
+  ],
+  "idf.port": "/dev/tty.usbmodem101",
+  "idf.toolsPath": "/Users/alfred/.espressif/tools",
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32c6"
+  },
+  "clangd.path": "/Users/alfred/.espressif/tools/tools/esp-clang/esp-19.1.2_20250312/esp-clang/bin/clangd",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=/Users/alfred/Documents/my_local_projects/esp-homekit_respb_try_V1/build"
+  ],
+  "idf.flashType": "JTAG"
+}

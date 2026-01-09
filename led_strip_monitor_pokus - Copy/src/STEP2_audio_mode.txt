@@ -1,0 +1,17 @@
+# Audio Processor - Mode Awareness
+# File: src/audio_processor.py
+# Location: Inside run() method, after line 129 "while self.running:"
+# Add BEFORE line 130 "if self.paused:"
+
+            # MODE-AWARE: Only process audio in music mode
+            current_mode = getattr(self, 'current_mode', 'music')
+            if current_mode != "music":
+                # Not music mode - pause to save CPU
+                if self.stream:
+                    with self.lock:
+                        try:
+                            self.stream.close()
+                        except: pass
+                        self.stream = None
+                time.sleep(0.5)
+                continue

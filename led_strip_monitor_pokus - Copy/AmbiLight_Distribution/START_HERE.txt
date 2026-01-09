@@ -1,0 +1,37 @@
+═══════════════════════════════════════════════════════════════
+                   AmbiLight - Distribution Package
+═══════════════════════════════════════════════════════════════
+
+📦 WHAT'S INSIDE:
+
+  AmbiLight\              - The application folder
+  └── AmbiLight.exe       - Main application
+  └── INSTALL_WINDOWS.bat - Installation helper
+  └── README_INSTALLATION.txt - Full installation guide
+  └── _internal\          - Required libraries
+  └── config\             - Configuration files
+  └── resources\          - Icons and assets
+
+═══════════════════════════════════════════════════════════════
+🚀 QUICK START:
+═══════════════════════════════════════════════════════════════
+
+1. Copy the "AmbiLight" folder to your PC
+   (e.g., C:\Program Files\ or Documents\)
+
+2. Open the folder and double-click "INSTALL_WINDOWS.bat"
+   (This creates Desktop shortcut and adds to Startup)
+
+3. Run "AmbiLight.exe" or use the Desktop shortcut
+
+4. Right-click the tray icon to open Settings
+
+═══════════════════════════════════════════════════════════════
+📖 FULL INSTRUCTIONS:
+═══════════════════════════════════════════════════════════════
+
+Open: AmbiLight\README_INSTALLATION.txt
+
+═══════════════════════════════════════════════════════════════
+                       Enjoy your AmbiLight 🌈
+═══════════════════════════════════════════════════════════════

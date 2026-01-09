@@ -1,0 +1,47 @@
+# ========================================
+# FIX #2: app.py - PŘIDEJ MODE HANDLER METODU
+# ========================================
+# Problém: Metoda _on_mode_change() neexistuje!
+# Řešení: Přidej novou metodu do třídy AmbiLightApplication
+
+#UMÍSTĚNÍ: V souboru app.py, kolem řádku 360-361
+# PŘED metodou "_sync_state_from_config(self):"
+# PO řádku "# But we don't have that in UI yet."
+
+# VLOŽ mezi line 361 a 362:
+
+    def _on_mode_change(self, new_mode: str):
+        """Handle mode changes and optimize resources"""
+        old_mode = getattr(self.app_state, 'mode', 'screen')
+        print(f"⟳ Mode Change: {old_mode} → {new_mode}")
+        
+        self.app_state.mode = new_mode
+        
+        # Resource optimization
+        if new_mode == "screen":
+            print("  → Screen: ENABLED | Audio: PAUSED")
+            if hasattr(self, 'audio_processor'):
+                self.audio_processor.current_mode = new_mode
+            
+        elif new_mode == "music":
+            print("  → Screen: PERIODIC | Audio: ENABLED")
+            if hasattr(self, 'audio_processor'):
+                self.audio_processor.current_mode = new_mode
+            
+        elif new_mode in ["light", "pc_health"]:
+            print("  → Screen: IDLE | Audio: PAUSED")
+            if hasattr(self, 'audio_processor'):
+                self.audio_processor.current_mode = new_mode
+        
+        # Update config
+        self.config.global_settings.start_mode = new_mode
+        self.config.save()
+        
+        print(f"✓ Mode: {new_mode}")
+
+# KONTROLA: Po přidání by měla být struktura:
+# Line 360: # But we don't have that in UI yet.
+# Line 361: (prázdný)  
+# Line 362-391: def _on_mode_change(...) <-- NOVÁ METODA
+# Line 392: (prázdný)
+# Line 393: def _sync_state_from_config(self):

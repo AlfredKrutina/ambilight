@@ -1,0 +1,20 @@
+{
+  "C_Cpp.intelliSenseEngine": "default",
+  "idf.espIdfPathWin": "C:\\Users\\alfid\\esp\\v5.5\\esp-idf",
+  "idf.pythonInstallPath": "C:\\Users\\alfid\\.espressif\\tools\\idf-python\\3.11.2\\python.exe",
+  "idf.openOcdConfigs": [
+    "board/esp32c6-builtin.cfg"
+  ],
+  "idf.toolsPathWin": "C:\\Users\\alfid\\.espressif",
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32c6"
+  },
+  "clangd.path": "C:\\Users\\alfid\\.espressif\\tools\\esp-clang\\esp-19.1.2_20250312\\esp-clang\\bin\\clangd.exe",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=c:\\Users\\alfid\\ESP_Projects\\led_strip_monitor_pokus - Copy\\esp32c3_firmware\\build"
+  ],
+  "idf.flashType": "JTAG",
+  "idf.portWin": "COM3"
+}

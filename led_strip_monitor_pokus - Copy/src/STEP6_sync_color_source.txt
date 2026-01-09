@@ -1,0 +1,8 @@
+# App State - Music Color Source Sync
+# File: src/app.py
+# Location: In main loop (_tick method), update app_state with music color source
+# Add around line 360-380 where modes are processed:
+
+        # Sync music color source to app_state for capture thread
+        if self.app_state.mode == "music":
+            self.app_state.music_color_source = self.config.music_mode.color_source

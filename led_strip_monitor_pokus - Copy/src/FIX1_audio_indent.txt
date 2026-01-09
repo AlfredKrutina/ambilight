@@ -1,0 +1,39 @@
+# FIX #1: audio_processor.py - OPRAVA INDENTACE
+# Soubor: src/audio_processor.py
+# Řádky: 129-143
+# NAHRAĎ (špatná indentace):
+
+        while self.running:
+            if self.paused:
+                 # MODE-AWARE: Only process audio in music mode
+            current_mode = getattr(self, 'current_mode', 'music')
+            if current_mode != "music":
+                # Not music mode - pause to save CPU
+                if self.stream:
+                    with self.lock:
+                        try:
+                            self.stream.close()
+                        except: pass
+                        self.stream = None
+                time.sleep(0.5)
+                continue
+
+# TÍMTO (správná indentace a pořadí):
+
+        while self.running:
+            # MODE-AWARE: Only process audio in music mode
+            current_mode = getattr(self, 'current_mode', 'music')
+            if current_mode != "music":
+                # Not music mode - pause to save CPU
+                if self.stream:
+                    with self.lock:
+                        try:
+                            self.stream.close()
+                        except: pass
+                        self.stream = None
+                time.sleep(0.5)
+                continue
+            
+            if self.paused:
+                time.sleep(0.5)
+                continue

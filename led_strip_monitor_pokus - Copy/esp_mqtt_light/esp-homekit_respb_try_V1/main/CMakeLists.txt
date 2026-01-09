@@ -1,0 +1,22 @@
+idf_component_register(
+    SRCS 
+        "app_main.c"
+        "provisioning_manager.c"
+        "mqtt_handler.c"
+        "led_controller.c"
+        "led_strip_driver.c"
+    INCLUDE_DIRS 
+        "."
+    REQUIRES
+        nvs_flash
+        esp_wifi
+        esp_netif
+        esp_event
+        mqtt
+        espressif__led_strip
+        esp_driver_rmt
+        esp_driver_gpio
+        wifi_provisioning
+        protocomm
+        bt
+)

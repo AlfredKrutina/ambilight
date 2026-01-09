@@ -1,0 +1,40 @@
+menu "Alfred LED Controller Configuration"
+
+    config LED_STRIP_GPIO
+        int "LED Strip GPIO Pin"
+        range 0 48
+        default 8
+        help
+            GPIO pin connected to LED strip data line (WS2812B DIN).
+            For ESP32-C6, use any available GPIO (e.g., GPIO8).
+
+    config LED_STRIP_NUM_LEDS
+        int "Number of LEDs in strip"
+        range 1 300
+        default 60
+        help
+            Total number of addressable LEDs in the strip.
+            Used for memory allocation and animation calculations.
+
+    config MQTT_BROKER_IP
+        string "MQTT Broker IP Address"
+        default "192.168.1.125"
+        help
+            IP address or hostname of the MQTT broker (Raspberry Pi).
+            Format: "mqtt://192.168.1.125" or "mqtt://hostname.local"
+
+    config PROV_DEVICE_NAME
+        string "BLE Provisioning Device Name"
+        default "Alfred-C6"
+        help
+            Name visible during BLE provisioning in ESP BLE Prov app.
+            Will be appended with last 3 MAC address bytes for uniqueness.
+
+    config PROV_POP_PASSWORD
+        string "Provisioning Proof of Possession Password"
+        default "abcd1234"
+        help
+            Password for secure BLE provisioning (Security 1).
+            Must match password entered in provisioning app.
+
+endmenu

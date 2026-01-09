@@ -1,0 +1,20 @@
+# Reactive Bass Fix - Apply manually
+# Find line ~1168 in app.py:
+#   if delta > 0.1 and bass_energy > 0.4:
+# Change to:
+#   if delta > 0.03 and bass_energy > 0.25:
+
+# Find line ~1173:
+#   self.bass_flash *= 0.85
+# Change to:
+#   self.bass_flash *= 0.70
+
+# Find line ~1150:
+#   bass_energy = (v_sub * 1.8 + v_bass * 1.2) / 3.0
+# Change to:
+#   bass_energy = (v_sub * 2.5 + v_bass * 1.5) / 4.0
+
+# Find line ~1153:
+#   sens = (settings.bass_sensitivity / 100.0) * 2.0
+# Change to:
+#   sens = (settings.bass_sensitivity / 100.0) * 2.5

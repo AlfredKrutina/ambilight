@@ -1,0 +1,7 @@
+# FIX #3: app.py - INIT MODE TRACKING
+# Soubor: src/app.py
+# Umístění: Kolem line 114-116, TĚSNĚ PO self.audio_processor.start()
+# PŘIDEJ tyto 2 řádky:
+
+        # Initialize mode tracking for resource optimization
+        self.audio_processor.current_mode = self.config.global_settings.start_mode

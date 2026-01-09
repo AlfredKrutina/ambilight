@@ -1,0 +1,33 @@
+# FIX #2: app.py - PŘIDEJ MODE HANDLER
+# Soubor: src/app.py
+# Umístění: Kolem line 360-380, PŘED metodu _sync_state_from_config
+# PŘIDEJ tuto novou metodu do třídy AmbiLightApplication:
+
+    def _on_mode_change(self, new_mode: str):
+        """Handle mode changes and optimize resources"""
+        old_mode = getattr(self.app_state, 'mode', 'screen')
+        print(f"⟳ Mode Change: {old_mode} → {new_mode}")
+        
+        self.app_state.mode = new_mode
+        
+        # Resource optimization
+        if new_mode == "screen":
+            print("  → Screen: ENABLED | Audio: PAUSED")
+            if hasattr(self, 'audio_processor'):
+                self.audio_processor.current_mode = new_mode
+            
+        elif new_mode == "music":
+            print("  → Screen: PERIODIC | Audio: ENABLED")
+            if hasattr(self, 'audio_processor'):
+                self.audio_pro cessor.current_mode = new_mode
+            
+        elif new_mode in ["light", "pc_health"]:
+            print("  → Screen: IDLE | Audio: PAUSED")
+            if hasattr(self, 'audio_processor'):
+                self.audio_processor.current_mode = new_mode
+        
+        # Update config
+        self.config.global_settings.start_mode = new_mode
+        self.config.save()
+        
+        print(f"✓ Mode: {new_mode}")

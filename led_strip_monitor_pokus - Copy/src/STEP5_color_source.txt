@@ -1,0 +1,6 @@
+# Music Color Source Tracking
+# File: src/app_config.py
+# Location: In MusicModeSettings dataclass (around line 240-265)
+# Add this field to the dataclass:
+
+    color_source: str = "spectrum"  # "spectrum" or "monitor"

@@ -1,0 +1,13 @@
+pyaudiowpatch
+PyQt6
+pyserial
+Pillow
+numpy
+mss
+dxcam
+keyboard
+psutil
+opencv-python
+netifaces
+zeroconf
+sounddevice

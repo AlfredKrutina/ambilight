@@ -1,0 +1,7 @@
+# Main App - Initialize mode tracking
+# File: src/app.py
+# Location: In __init__ method, after audio_processor initialization (around line 110-120)
+
+        # Initialize mode tracking for resource optimization
+        self.audio_processor.current_mode = self.config.global_settings.start_mode
+        self.app_state.mode = self.config.global_settings.start_mode

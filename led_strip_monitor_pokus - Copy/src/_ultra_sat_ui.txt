@@ -1,0 +1,26 @@
+# Ultra Saturation UI - Add to Screen/Monitor tab
+
+# In settings_dialog.py, add after other scan/brightness controls:
+
+# === ULTRA SATURATION ===
+h_ultra = QHBoxLayout()
+self.chk_ultra_sat = QCheckBox("Ultra Saturation (Prevent Washed Colors)")
+self.chk_ultra_sat.setChecked(self.config.screen_mode.ultra_saturation if hasattr(self.config.screen_mode, 'ultra_saturation') else False)
+self.chk_ultra_sat.toggled.connect(lambda checked: setattr(self.config.screen_mode, 'ultra_saturation', checked))
+h_ultra.addWidget(self.chk_ultra_sat)
+
+# Slider for amount
+self.sl_ultra_amount = QSlider(Qt.Orientation.Horizontal)
+self.sl_ultra_amount.setRange(10, 50)  # 1.0 to 5.0 (divided by 10)
+amount = getattr(self.config.screen_mode, 'ultra_saturation_amount', 2.5)
+self.sl_ultra_amount.setValue(int(amount * 10))
+self.sl_ultra_amount.valueChanged.connect(lambda v: setattr(self.config.screen_mode, 'ultra_saturation_amount', v / 10.0))
+
+self.lbl_ultra_val = QLabel(f"{amount:.1f}x")
+self.sl_ultra_amount.valueChanged.connect(lambda v: self.lbl_ultra_val.setText(f"{v/10.0:.1f}x"))
+
+h_ultra.addWidget(QLabel("Boost:"))
+h_ultra.addWidget(self.sl_ultra_amount)
+h_ultra.addWidget(self.lbl_ultra_val)
+
+layout.addLayout(h_ultra)

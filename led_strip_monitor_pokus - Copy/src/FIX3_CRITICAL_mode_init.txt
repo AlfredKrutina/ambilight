@@ -1,0 +1,35 @@
+# ========================================
+# FIX #3: app.py - INIT MODE TRACKING
+# ========================================
+# Problém: current_mode se nenastavuje při startu!
+# Řešení: Přidej 2 řádky po audio_processor.start()
+
+# UMÍSTĚNÍ: V souboru app.py, __init__ metoda
+# Kolem řádků 114-116
+# TĚSNĚ PO "self.audio_processor.start()"
+
+# AKTUÁLNĚ (řádky 110-116):
+        # 4. AUDIO PROCESSOR
+        self.audio_processor = AudioProcessor(
+            device_index=self.config.music_mode.audio_device_index
+        )
+        self.audio_processor.start()
+        
+        self._sync_state_from_config()
+
+# ZMĚŇ NA (přidej 2 řádky):
+        # 4. AUDIO PROCESSOR
+        self.audio_processor = AudioProcessor(
+            device_index=self.config.music_mode.audio_device_index
+        )
+        self.audio_processor.start()
+        
+        # Initialize mode tracking for resource optimization
+        self.audio_processor.current_mode = self.config.global_settings.start_mode
+        
+        self._sync_state_from_config()
+
+# PŘIDÁVÁŠ:
+# Line 117: # Initialize mode tracking for resource optimization
+# Line 118: self.audio_processor.current_mode = self.config.global_settings.start_mode
+#  Line 119: (prázdný)

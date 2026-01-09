@@ -1,0 +1,35 @@
+# Main App - Mode Change Handler
+# File: src/app.py
+# Add this new method to AmbiLightApplication class (around line 360-400)
+
+    def _on_mode_change(self, new_mode: str):
+        """Handle mode changes and optimize resources"""
+        old_mode = getattr(self.app_state, 'mode', 'screen')
+        print(f"⟳ Mode Change: {old_mode} → {new_mode}")
+        
+        self.app_state.mode = new_mode
+        
+        # Resource optimization based on mode
+        if new_mode == "screen":
+            print("  → Screen capture: ENABLED")
+            print("  → Audio processing: PAUSED")
+            if hasattr(self, 'audio_processor'):
+                self.audio_processor.current_mode = new_mode
+            
+        elif new_mode == "music":
+            print("  → Screen capture: (periodic if monitor colors)")
+            print("  → Audio processing: ENABLED")
+            if hasattr(self, 'audio_processor'):
+                self.audio_processor.current_mode = new_mode
+            
+        elif new_mode in ["light", "pc_health"]:
+            print("  → Screen capture: IDLE")
+            print("  → Audio processing: PAUSED")
+            if hasattr(self, 'audio_processor'):
+                self.audio_processor.current_mode = new_mode
+        
+        # Update config
+        self.config.global_settings.start_mode = new_mode
+        self.config.save()
+        
+        print(f"✓ Mode switched to: {new_mode}")

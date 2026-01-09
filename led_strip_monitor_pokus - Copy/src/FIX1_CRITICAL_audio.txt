@@ -1,0 +1,46 @@
+# ========================================
+# FIX #1: audio_processor.py - KRITICKÁ OPRAVA INDENTACE
+# ========================================
+# Problém: Mode check má špatnou indentaci a nikdy se nevykoná!
+# Řešení: Přesuň mode check PŘED "if self.paused:" a oprav indentaci
+
+# NAJDI řádky 129-143 (aktuálně ŠPATNÉ):
+        while self.running:
+            if self.paused:
+                 # MODE-AWARE: Only process audio in music mode
+            current_mode = getattr(self, 'current_mode', 'music')
+            if current_mode != "music":
+                # Not music mode - pause to save CPU
+                if self.stream:
+                    with self.lock:
+                        try:
+                            self.stream.close()
+                        except: pass
+                        self.stream = None
+                time.sleep(0.5)
+                continue
+
+# SMAŽ tyto řádky a NAHRAĎ tímto (SPRÁVNÉ):
+        while self.running:
+            # MODE-AWARE: Only process audio in music mode
+            current_mode = getattr(self, 'current_mode', 'music')
+            if current_mode != "music":
+                # Not music mode - pause to save CPU
+                if self.stream:
+                    with self.lock:
+                        try:
+                            self.stream.close()
+                        except: pass
+                        self.stream = None
+                time.sleep(0.5)
+                continue
+            
+            if self.paused:
+                time.sleep(0.5)
+                continue
+
+# KLÍČOVÉ ZMĚNY:
+# 1. Mode check JE PRVNÍ (line 130-142)
+# 2. "if self.paused:" JE DRUHÝ (line 144-146)
+# 3. Správná indentace (4 mezery per level)
+# 4. Odstraněn zbytečný komentář z line 131

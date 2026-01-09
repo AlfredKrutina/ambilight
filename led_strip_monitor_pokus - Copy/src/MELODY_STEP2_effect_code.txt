@@ -1,0 +1,61 @@
+# App.py - Add Melody Smart Effect
+# File: src/app.py
+# Location: In music mode effects section, AFTER reactive_bass (around line 1200)
+# ADD NEW EFFECT before spectrum_rotate:
+
+        elif settings.effect == "melody_smart":
+            # MELODY SMART - Intelligent melody recognition
+            # Flash on note onsets, color from pitch, brightness from beat
+            
+            # Enable melody detection if not already
+            if not self.audio_processor.melody_enabled:
+                self.audio_processor.enable_melody_detection(True)
+            
+            # Get melody analysis
+            melody = self.audio_processor.get_melody_analysis()
+            analysis = self.audio_processor.get_analysis()
+            
+            # State management
+            if not hasattr(self, 'melody_flash'):
+                self.melody_flash = 0.0
+                self.melody_color_hue = 180.0  # Start at cyan
+                self.melody_brightness = 0.3
+            
+            # ONSET DETECTION: Flash on new notes
+            if melody.get('onset', False):
+                self.melody_flash = 1.0
+                
+                # Update color based on pitch
+                pitch = melody.get('pitch', 0)
+                if pitch > 80:  # Valid pitch
+                    # Map pitch to hue (low=red, mid=green, high=blue)
+                    # Range: ~80Hz (low) to ~1000Hz (high)
+                    hue_normalized = min((pitch - 80) / (1000 - 80), 1.0)
+                    self.melody_color_hue = hue_normalized * 270  # 0-270 degrees (red->green->blue)
+            
+            # BEAT SYNC: Brightness boost on beats
+            if melody.get('beat', False):
+                self.melody_brightness = min(self.melody_brightness * 1.5, 1.0)
+            
+            # DECAY
+            self.melody_flash *= 0.75  # Fast flash decay
+            self.melody_brightness *= 0.92  # Slow brightness decay
+            self.melody_brightness = max(self.melody_brightness, 0.2)  # Floor
+            
+            # CALCULATE FINAL BRIGHTNESS
+            melody_strength = melody.get('pitch_confidence', 0) * analysis.get('overall_loudness', 0.3)
+            flash_component = self.melody_flash * 0.6
+            steady_component = melody_strength * 0.4
+            final_bright = max(flash_component + steady_component, 0.15) * self.melody_brightness
+            final_bright = min(final_bright, 1.0)
+            
+            # GENERATE COLOR from hue
+            import colorsys
+            sat = 0.95 if melody.get('has_melody', False) else 0.6  # More saturated when clear melody
+            rgb_norm = colorsys.hsv_to_rgb(self.melody_color_hue / 360.0, sat, 1.0)
+            color = tuple(int(c * 255) for c in rgb_norm)
+            
+            # Apply to all LEDS
+            targets = [scale(color, final_bright)] * total_leds
+            
+            return targets, settings.brightness

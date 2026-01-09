@@ -1,0 +1,14 @@
+# UI Settings - Add Melody Smart to Dropdown
+# File: src/ui/settings_dialog.py
+# Location: Find music effect dropdown population (search for "cb_effect.addItem")
+# ADD this item to the list (around line 900-920):
+
+        self.cb_effect.addItem("Melody Smart 🎵", "melody_smart")
+
+# Should be added along with other effects like:
+# - Energy
+# - Spectrum
+# - VU Meter
+# - Strobe
+# - Reactive Bass
+# - Melody Smart 🎵  <-- NEW

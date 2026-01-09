@@ -1,0 +1,38 @@
+# Audio Processor - Add Melody Detection Support
+# File: src/audio_processor.py
+# Add after __init__ method (around line 30)
+
+        # Melody detection (lazy-init)
+        self.melody_detector = None
+        self.melody_enabled = False
+        self.latest_melody = {'onset': False, 'pitch': 0, 'beat': False, 'has_melody': False}
+
+# Add new methods AFTER get_analysis() method (around line 107):
+
+    def enable_melody_detection(self, enabled: bool):
+        """Enable/disable melody detection (resource optimization)"""
+        self.melody_enabled = enabled
+        
+        if enabled and self.melody_detector is None:
+            try:
+                from melody_detector import MelodyDetector
+                self.melody_detector = MelodyDetector(self.analyzer.sr)
+                print("✓ Melody detection enabled")
+            except Exception as e:
+                print(f"⚠ Melody detection unavailable: {e}")
+                self.melody_enabled = False
+    
+    def get_melody_analysis(self) -> dict:
+        """Get latest melody analysis"""
+        with self.lock:
+            return self.latest_melody
+
+# Add in run() method, in audio processing section (around line 192):
+# AFTER: analysis_result = self.analyzer.process_audio_frame(audio_data)
+# BEFORE: with self.lock: self.latest_analysis = analysis_result
+
+                    # Melody analysis (if enabled)
+                    if self.melody_enabled and self.melody_detector:
+                        melody_result = self.melody_detector.process_frame(audio_data)
+                        with self.lock:
+                            self.latest_melody = melody_result

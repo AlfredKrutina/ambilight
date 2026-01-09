@@ -1,0 +1,18 @@
+═══════════════════════════════════════════════════════════════
+          Visual C++ Redistributable Information
+═══════════════════════════════════════════════════════════════
+
+If AmbiLight crashes on startup, you may need to install:
+Microsoft Visual C++ 2015-2022 Redistributable (x64)
+
+Download from:
+https://aka.ms/vs/17/release/vc_redist.x64.exe
+
+Installation:
+1. Download the file
+2. Run vc_redist.x64.exe
+3. Follow the installation wizard
+4. Restart your PC
+5. Try running AmbiLight again
+
+═══════════════════════════════════════════════════════════════
