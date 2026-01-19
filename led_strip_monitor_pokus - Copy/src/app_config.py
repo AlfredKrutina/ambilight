@@ -216,6 +216,9 @@ class LedSegment:
         if 'pixel_end' not in d: d['pixel_end'] = 0
         if 'music_effect' not in d: d['music_effect'] = "default"
         if 'role' not in d: d['role'] = "auto"
+        # Backward compatibility: old configs won't have ref_width/ref_height
+        if 'ref_width' not in d: d['ref_width'] = 0
+        if 'ref_height' not in d: d['ref_height'] = 0
         return LedSegment(**d)
 
 @dataclass

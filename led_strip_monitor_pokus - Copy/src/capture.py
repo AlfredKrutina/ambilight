@@ -55,11 +55,25 @@ class CaptureThread(threading.Thread):
         for mon_idx, segs in self._cached_map.items():
             # Get Monitor Dimensions
             # MSS monitors include 'all' at 0, so mapping is mon_idx + 1 usually
+            # MSS[0] = All screens combined
+            # MSS[1] = Primary monitor
+            # MSS[2] = Secondary monitor
+            # etc.
             idx = mon_idx + 1
-            if idx >= len(monitors): idx = 1 if len(monitors) > 1 else 0
+            if idx >= len(monitors): 
+                idx = 1 if len(monitors) > 1 else 0
+            
+            if idx < 0 or idx >= len(monitors):
+                print(f"WARNING: Invalid monitor index {idx} (mon_idx={mon_idx}, monitors={len(monitors)})")
+                continue
             
             mon = monitors[idx]
-            mon_w, mon_h = mon['width'], mon['height']
+            mon_w, mon_h = int(mon['width']), int(mon['height'])
+            
+            # Validate monitor dimensions
+            if mon_w <= 0 or mon_h <= 0:
+                print(f"WARNING: Invalid monitor dimensions {mon_w}x{mon_h} for monitor {idx}")
+                continue
             
             # Calculate per-edge padding in pixels
             pad_top_px = int(mon_h * (padding_top / 100.0))
@@ -76,8 +90,22 @@ class CaptureThread(threading.Thread):
                 else:
                     p_s, p_e = int(seg.pixel_start), int(seg.pixel_end)
                     
-                # Scaling Logic
-                if getattr(seg, 'ref_width', 0) > 0:
+                # CRITICAL: Scaling Logic - must respect edge orientation
+                # Top/Bottom edges: pixel_start/pixel_end are horizontal (0 to width)
+                # Left/Right edges: pixel_start/pixel_end are vertical (0 to height)
+                if getattr(seg, 'ref_width', 0) > 0 and getattr(seg, 'ref_height', 0) > 0:
+                    if seg.edge in ['top', 'bottom']:
+                        # Horizontal edge: scale by width
+                        scale = mon_w / float(seg.ref_width)
+                        p_s = int(p_s * scale)
+                        p_e = int(p_e * scale)
+                    else:  # left, right
+                        # Vertical edge: scale by height
+                        scale = mon_h / float(seg.ref_height)
+                        p_s = int(p_s * scale)
+                        p_e = int(p_e * scale)
+                elif getattr(seg, 'ref_width', 0) > 0:
+                    # Fallback: if only ref_width is set, use it for all edges (backward compatibility)
                     scale = mon_w / float(seg.ref_width)
                     p_s = int(p_s * scale)
                     p_e = int(p_e * scale)
@@ -223,12 +251,25 @@ class CaptureThread(threading.Thread):
                 try:
                     # 3. Capture Phase
                     for mon_idx, segs in self._cached_map.items():
-                        # Map user monitor index to MSS index (MSS[0]=All, MSS[1]=Primary)
+                        # Map user monitor index to MSS index (MSS[0]=All, MSS[1]=Primary, MSS[2]=Secondary...)
+                        # This mapping is consistent across Windows, macOS, and Linux
                         target_mss_idx = mon_idx + 1
                         if target_mss_idx >= len(sct.monitors):
                             target_mss_idx = 1 if len(sct.monitors) > 1 else 0
+                        
+                        if target_mss_idx < 0 or target_mss_idx >= len(sct.monitors):
+                            print(f"WARNING: Invalid MSS monitor index {target_mss_idx} (mon_idx={mon_idx}, monitors={len(sct.monitors)})")
+                            continue
                             
                         monitor_def = sct.monitors[target_mss_idx]
+                        
+                        # Debug: Log monitor info on first capture (only once per session)
+                        if not hasattr(self, '_monitor_info_logged'):
+                            print(f"DEBUG: Monitor detection - Total MSS monitors: {len(sct.monitors)}")
+                            for i, m in enumerate(sct.monitors):
+                                print(f"  MSS[{i}]: {m['width']}x{m['height']} @ ({m['left']}, {m['top']})")
+                            self._monitor_info_logged = True
+                        
                         sct_img = sct.grab(monitor_def)
                         
                         if sct_img is None: continue

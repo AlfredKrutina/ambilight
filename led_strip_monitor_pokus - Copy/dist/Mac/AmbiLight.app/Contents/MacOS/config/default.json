@@ -36,8 +36,8 @@
             15
         ],
         "brightness": 146,
-        "effect": "custom_zones",
-        "speed": 45,
+        "effect": "chase",
+        "speed": 100,
         "extra": 50,
         "custom_zones": [
             {
@@ -70,9 +70,9 @@
         "homekit_enabled": false
     },
     "screen_mode": {
-        "monitor_index": 1,
-        "scan_depth_percent": 7,
-        "padding_percent": 0,
+        "monitor_index": 0,
+        "scan_depth_percent": 6,
+        "padding_percent": 2,
         "saturation_boost": 2.2,
         "ultra_saturation": true,
         "ultra_saturation_amount": 2.5,
@@ -140,19 +140,19 @@
         },
         "active_calibration_profile": "normal",
         "scan_mode": "advanced",
-        "padding_top": 1,
-        "padding_bottom": 0,
+        "padding_top": 3,
+        "padding_bottom": 5,
         "padding_left": 0,
         "padding_right": 0,
-        "scan_depth_top": 8,
-        "scan_depth_bottom": 8,
+        "scan_depth_top": 5,
+        "scan_depth_bottom": 5,
         "scan_depth_left": 7,
         "scan_depth_right": 7,
         "segments": [
             {
                 "led_start": 0,
                 "led_end": 18,
-                "monitor_idx": 1,
+                "monitor_idx": 0,
                 "edge": "left",
                 "depth": 10,
                 "reverse": true,
@@ -167,7 +167,7 @@
             {
                 "led_start": 19,
                 "led_end": 52,
-                "monitor_idx": 1,
+                "monitor_idx": 0,
                 "edge": "top",
                 "depth": 10,
                 "reverse": false,
@@ -182,7 +182,7 @@
             {
                 "led_start": 53,
                 "led_end": 71,
-                "monitor_idx": 1,
+                "monitor_idx": 0,
                 "edge": "right",
                 "depth": 10,
                 "reverse": false,
@@ -197,7 +197,7 @@
             {
                 "led_start": 72,
                 "led_end": 107,
-                "monitor_idx": 1,
+                "monitor_idx": 0,
                 "edge": "bottom",
                 "depth": 10,
                 "reverse": true,

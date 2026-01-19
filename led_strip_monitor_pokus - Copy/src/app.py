@@ -704,33 +704,38 @@ class AmbiLightApplication:
         @brief Process Light Mode (Static/Effects).
         @details
         Generates LED colors based on the selected effect (Static, Breathing, Rainbow, Chase).
+        CRITICAL: Uses segments to respect all monitor edges (top, bottom, left, right).
         
         @return Tuple[list, int]: Returns (list_of_colors, brightness_value).
                   list_of_colors is a list of (R, G, B) tuples.
         """
         settings = self.config.light_mode
-            # Získání barvy a jasu
+        # Získání barvy a jasu
         r, g, b = settings.color
         brightness = settings.brightness
-            
-            # Application Logic
+        
+        # Application Logic
         effect = settings.effect
-            
+        
+        # Get segments from screen_mode config (defines physical LED layout)
+        screen_config = self.config.screen_mode
+        total_leds = self.config.global_settings.led_count
+        
+        # Initialize target array with black
+        mapped_targets = [(0, 0, 0)] * total_leds
+        
         if effect == "custom_zones":
-            total_leds = self.config.global_settings.led_count
             byte_array_data = self._process_light_custom_zones(total_leds, settings.custom_zones)
             # Convert bytearray to list of (R,G,B) tuples
-            mapped_targets = []
             for i in range(0, len(byte_array_data), 3):
                 # Assuming GRB order from _process_light_custom_zones, convert to RGB
-                mapped_targets.append((byte_array_data[i+1], byte_array_data[i], byte_array_data[i+2]))
+                if i // 3 < total_leds:
+                    mapped_targets[i // 3] = (byte_array_data[i+1], byte_array_data[i], byte_array_data[i+2])
             return mapped_targets, settings.brightness
-            
-        if effect == "static":
-            # Static Color
-            pass # Use defaults
-                
-        elif effect == "breathing":
+        
+        # Calculate brightness factor (for breathing effect)
+        br_factor = brightness / 255.0
+        if effect == "breathing":
             # Breathing Effect
             # Speed 1..100 -> Period 0.5s..5s
             # speed=50 -> 2.0s
@@ -741,51 +746,115 @@ class AmbiLightApplication:
             # Min brightness?
             min_bright = getattr(settings, "extra", 0) / 255.0 # 0..255 -> 0..1
             # brightness is max
-            br_factor = min_bright + (factor * (1.0 - min_bright))
-            brightness = int(brightness * br_factor)
-                
-        elif effect == "rainbow":
-            leds = []
-            # Speed controls hue rotation
-            speed_factor = settings.speed / 10.0
-            hue_shift = (time.time() * speed_factor) % 1.0
-            
-            total_leds = self.config.global_settings.led_count
-            for i in range(total_leds): 
-                # Spatially distributed rainbow
-                hue = (hue_shift + (i / total_leds)) % 1.0
-                rr, gg, bb = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
-                # Apply master brightness
-                br = brightness / 255.0
-                leds.append((int(rr * 255 * br), int(gg * 255 * br), int(bb * 255 * br)))
-            return leds, brightness
-
-        elif effect == "chase":
-            # Running dot/segment
-            total_leds = self.config.global_settings.led_count
-            leds = [(0,0,0)] * total_leds
-            speed = settings.speed / 50.0 # 0.02 - 2.0 multiplier
-            pos = int((self.animation_tick * speed * 0.5) % total_leds)
-            for i in range(10): # Trail length
-                idx = (pos - i) % total_leds
-                fade = 1.0 - (i / 10.0)
-                leds[idx] = (
-                    int(r * fade), 
-                    int(g * fade), 
-                    int(b * fade)
-                )
-            return leds, brightness
-
-        # Default: Apply Color & Brightness to all
-        mapped_targets = []
-        br_factor = brightness / 255.0
+            br_factor = (min_bright + (factor * (1.0 - min_bright))) * (brightness / 255.0)
+        
+        # Calculate final color
         r_final = int(r * br_factor)
         g_final = int(g * br_factor)
         b_final = int(b * br_factor)
-            
-        total_leds = self.config.global_settings.led_count
-        for _ in range(total_leds):
-            mapped_targets.append((r_final, g_final, b_final))
+        
+        # CRITICAL: Use segments to map colors to physical LED positions
+        # This ensures all edges (top, bottom, left, right) are respected
+        if screen_config.segments:
+            # Apply effect to each segment individually
+            for seg in screen_config.segments:
+                seg_len = abs(seg.led_end - seg.led_start) + 1
+                step = 1 if seg.led_start <= seg.led_end else -1
+                
+                if effect == "chase":
+                    # Chase effect: running dot through all segments sequentially
+                    # Calculate total LED count across all segments for wrapping
+                    total_seg_leds = sum(abs(s.led_end - s.led_start) + 1 for s in screen_config.segments)
+                    speed = settings.speed / 50.0 # 0.02 - 2.0 multiplier
+                    global_pos = int((self.animation_tick * speed * 0.5) % total_seg_leds)
+                    
+                    # Find which segment contains the current position
+                    seg_start_global = 0
+                    for prev_seg in screen_config.segments:
+                        if prev_seg == seg:
+                            break
+                        seg_start_global += abs(prev_seg.led_end - prev_seg.led_start) + 1
+                    
+                    seg_end_global = seg_start_global + seg_len
+                    seg_local_pos = global_pos - seg_start_global
+                    
+                    # Apply chase within this segment if global position is in range
+                    if seg_start_global <= global_pos < seg_end_global:
+                        for i in range(seg_len):
+                            idx = seg.led_start + (i * step)
+                            if 0 <= idx < total_leds:
+                                # Local index within segment (0 to seg_len-1)
+                                local_idx = i if step > 0 else (seg_len - 1 - i)
+                                # Distance from chase position
+                                dist = abs(local_idx - seg_local_pos)
+                                if dist < 10:  # Trail length
+                                    fade = 1.0 - (dist / 10.0)
+                                    mapped_targets[idx] = (
+                                        int(r * fade * br_factor),
+                                        int(g * fade * br_factor),
+                                        int(b * fade * br_factor)
+                                    )
+                elif effect == "rainbow":
+                    # Rainbow effect: spatial distribution across all segments
+                    # Calculate global position across all segments
+                    seg_start_global = 0
+                    for prev_seg in screen_config.segments:
+                        if prev_seg == seg:
+                            break
+                        seg_start_global += abs(prev_seg.led_end - prev_seg.led_start) + 1
+                    
+                    total_seg_leds = sum(abs(s.led_end - s.led_start) + 1 for s in screen_config.segments)
+                    
+                    for i in range(seg_len):
+                        idx = seg.led_start + (i * step)
+                        if 0 <= idx < total_leds:
+                            # Global LED index across all segments
+                            global_led_idx = seg_start_global + i
+                            # Spatially distributed rainbow
+                            speed_factor = settings.speed / 10.0
+                            hue_shift = (time.time() * speed_factor) % 1.0
+                            hue = (hue_shift + (global_led_idx / total_seg_leds)) % 1.0
+                            rr, gg, bb = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+                            mapped_targets[idx] = (
+                                int(rr * 255 * br_factor),
+                                int(gg * 255 * br_factor),
+                                int(bb * 255 * br_factor)
+                            )
+                else:
+                    # Static or Breathing: apply color to all LEDs in segment
+                    for i in range(seg_len):
+                        idx = seg.led_start + (i * step)
+                        if 0 <= idx < total_leds:
+                            mapped_targets[idx] = (r_final, g_final, b_final)
+        else:
+            # Fallback: No segments defined - apply to all LEDs (backward compatibility)
+            if effect == "chase":
+                speed = settings.speed / 50.0
+                pos = int((self.animation_tick * speed * 0.5) % total_leds)
+                for i in range(10): # Trail length
+                    idx = (pos - i) % total_leds
+                    fade = 1.0 - (i / 10.0)
+                    mapped_targets[idx] = (
+                        int(r * fade * br_factor),
+                        int(g * fade * br_factor),
+                        int(b * fade * br_factor)
+                    )
+            elif effect == "rainbow":
+                speed_factor = settings.speed / 10.0
+                hue_shift = (time.time() * speed_factor) % 1.0
+                for i in range(total_leds):
+                    hue = (hue_shift + (i / total_leds)) % 1.0
+                    rr, gg, bb = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+                    mapped_targets[i] = (
+                        int(rr * 255 * br_factor),
+                        int(gg * 255 * br_factor),
+                        int(bb * 255 * br_factor)
+                    )
+            else:
+                # Static or Breathing: apply to all
+                for i in range(total_leds):
+                    mapped_targets[i] = (r_final, g_final, b_final)
+        
         return mapped_targets, brightness
 
 
@@ -1366,9 +1435,20 @@ class AmbiLightApplication:
             # Apply brightness to color
             final_color = scale(color, final_bright)
             
-            # Fill all LEDs
-            for i in range(total_leds):
-                targets[i] = final_color
+            # CRITICAL: Apply to segments, not all LEDs
+            # This ensures all edges (top, bottom, left, right) are respected
+            if screen_config.segments:
+                for seg in screen_config.segments:
+                    seg_len = abs(seg.led_end - seg.led_start) + 1
+                    step = 1 if seg.led_start <= seg.led_end else -1
+                    for i in range(seg_len):
+                        idx = seg.led_start + (i * step)
+                        if 0 <= idx < total_leds:
+                            targets[idx] = final_color
+            else:
+                # Fallback: apply to all LEDs
+                for i in range(total_leds):
+                    targets[i] = final_color
             
             return targets, settings.brightness
 
@@ -1619,7 +1699,24 @@ class AmbiLightApplication:
             final_val = min(1.0, floor + (self.energy_val * sens_mult))
             
             c_mix = get_7band_mix_color(0.2,0.2,0.2,0.2,0.2,0.2,0.2)
-            return [scale(c_mix, final_val)] * total_leds, settings.brightness
+            
+            # CRITICAL: Apply to segments, not all LEDs
+            # This ensures all edges (top, bottom, left, right) are respected
+            targets = [(0,0,0)] * total_leds
+            if screen_config.segments:
+                for seg in screen_config.segments:
+                    seg_len = abs(seg.led_end - seg.led_start) + 1
+                    step = 1 if seg.led_start <= seg.led_end else -1
+                    for i in range(seg_len):
+                        idx = seg.led_start + (i * step)
+                        if 0 <= idx < total_leds:
+                            targets[idx] = scale(c_mix, final_val)
+            else:
+                # Fallback: apply to all LEDs
+                for i in range(total_leds):
+                    targets[i] = scale(c_mix, final_val)
+            
+            return targets, settings.brightness
 
         elif settings.effect == "vumeter":
             # VU METER - Vertical bar graph visualization
@@ -1640,23 +1737,66 @@ class AmbiLightApplication:
             # Create VU meter bars
             targets = [(0,0,0)] * total_leds
             
-            # Split LEDs into 3 zones
-            third = total_leds // 3
-            
-            # Bottom third: Bass (Red-ish)
-            for i in range(third):
-                brightness = low_level * (i / third)  # Gradient
-                targets[i] = scale((255, 50, 0), brightness)
-            
-            # Middle third: Mids (Green-ish)
-            for i in range(third, third * 2):
-                brightness = mid_level * ((i - third) / third)
-                targets[i] = scale((50, 255, 50), brightness)
-            
-            # Top third: Highs (Blue-ish)
-            for i in range(third * 2, total_leds):
-                brightness = high_level * ((i - third * 2) / (total_leds - third * 2))
-                targets[i] = scale((50, 150, 255), brightness)
+            # CRITICAL: Use segments to map VU meter to physical LED positions
+            # This ensures all edges (top, bottom, left, right) are respected
+            if screen_config.segments:
+                # Collect LEDs by edge for VU meter mapping
+                leds_bottom = []
+                leds_mid = []  # Left + Right
+                leds_top = []
+                
+                for seg in screen_config.segments:
+                    seg_len = abs(seg.led_end - seg.led_start) + 1
+                    step = 1 if seg.led_start <= seg.led_end else -1
+                    indices = []
+                    for i in range(seg_len):
+                        idx = seg.led_start + (i * step)
+                        if 0 <= idx < total_leds:
+                            indices.append(idx)
+                    
+                    if seg.edge == "bottom":
+                        leds_bottom.extend(indices)
+                    elif seg.edge in ["left", "right"]:
+                        leds_mid.extend(indices)
+                    elif seg.edge == "top":
+                        leds_top.extend(indices)
+                
+                # Apply VU meter colors to each zone
+                # Bottom: Bass (Red-ish)
+                if leds_bottom:
+                    for i, idx in enumerate(leds_bottom):
+                        brightness = low_level * (i / max(len(leds_bottom), 1))
+                        targets[idx] = scale((255, 50, 0), brightness)
+                
+                # Middle: Mids (Green-ish) - Left + Right
+                if leds_mid:
+                    for i, idx in enumerate(leds_mid):
+                        brightness = mid_level * (i / max(len(leds_mid), 1))
+                        targets[idx] = scale((50, 255, 50), brightness)
+                
+                # Top: Highs (Blue-ish)
+                if leds_top:
+                    for i, idx in enumerate(leds_top):
+                        brightness = high_level * (i / max(len(leds_top), 1))
+                        targets[idx] = scale((50, 150, 255), brightness)
+            else:
+                # Fallback: Split LEDs into 3 zones (backward compatibility)
+                third = total_leds // 3
+                
+                # Bottom third: Bass (Red-ish)
+                for i in range(third):
+                    brightness = low_level * (i / third)  # Gradient
+                    targets[i] = scale((255, 50, 0), brightness)
+                
+                # Middle third: Mids (Green-ish)
+                for i in range(third, third * 2):
+                    brightness = mid_level * ((i - third) / third)
+                    targets[i] = scale((50, 255, 50), brightness)
+                
+                # Top third: Highs (Blue-ish)
+                for i in range(third * 2, total_leds):
+                    brightness = high_level * ((i - third * 2) / (total_leds - third * 2))
+                    targets[i] = scale((50, 150, 255), brightness)
             
 
             
@@ -1841,13 +1981,29 @@ class AmbiLightApplication:
             if self.strobe_intensity > 0.5:
                 # Bright flash
                 color = (255, 255, 255)
-                brightness = self.strobe_intensity
+                brightness_val = self.strobe_intensity
             else:
                 # Subtle glow with color from spectrum
                 color = get_7band_mix_color(v_sub, v_bass, v_lmid, v_mid, v_hmid, v_pres, v_bril)
-                brightness = max(self.strobe_intensity * 0.3, min_br_val)
+                brightness_val = max(self.strobe_intensity * 0.3, min_br_val)
             
-            return [color] * total_leds, brightness
+            # CRITICAL: Apply to segments, not all LEDs
+            # This ensures all edges (top, bottom, left, right) are respected
+            targets = [(0,0,0)] * total_leds
+            if screen_config.segments:
+                for seg in screen_config.segments:
+                    seg_len = abs(seg.led_end - seg.led_start) + 1
+                    step = 1 if seg.led_start <= seg.led_end else -1
+                    for i in range(seg_len):
+                        idx = seg.led_start + (i * step)
+                        if 0 <= idx < total_leds:
+                            targets[idx] = scale(color, brightness_val)
+            else:
+                # Fallback: apply to all LEDs
+                for i in range(total_leds):
+                    targets[i] = scale(color, brightness_val)
+            
+            return targets, settings.brightness
 
         else: 
             # SPECTRUM (Standard & Punchy)

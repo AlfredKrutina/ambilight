@@ -72,11 +72,25 @@ class SettingsDialog(QDialog):
         # Initialize temp_calibration_points EARLY to avoid Preview Error during UI init
         self.temp_calibration_points = getattr(config.screen_mode, 'calibration_points', [])
         
-        screens = QApplication.screens()
-        for i, screen in enumerate(screens):
-            overlay = ScanningAreaOverlay()
-            overlay.monitor_idx = i # Set index
-            self.scan_overlays.append(overlay)
+        # CRITICAL: Use MSS for monitor detection to ensure consistency with capture thread
+        # MSS and QApplication.screens() may have different ordering on Mac
+        try:
+            import mss
+            with mss.mss() as sct:
+                # MSS[0] = All screens, MSS[1+] = Individual monitors
+                # Create overlay for each monitor (skip index 0 = All)
+                for i in range(1, len(sct.monitors)):
+                    overlay = ScanningAreaOverlay(parent=self)
+                    overlay.monitor_idx = i - 1  # Convert MSS index (1-based) to UI index (0-based)
+                    self.scan_overlays.append(overlay)
+        except Exception as e:
+            print(f"WARNING: Could not detect monitors via MSS: {e}. Using QApplication.screens() as fallback.")
+            # Fallback: Use QApplication.screens() if MSS fails
+            screens = QApplication.screens()
+            for i, screen in enumerate(screens):
+                overlay = ScanningAreaOverlay(parent=self)
+                overlay.monitor_idx = i
+                self.scan_overlays.append(overlay)
             
         # Overlay for Scanning Visualization (CalibrationOverlay) - Kept single as it moves? 
         # Actually CalibrationOverlay might need similar treatment, but focusing on Scan Area first.
@@ -2602,20 +2616,43 @@ class SettingsDialog(QDialog):
         print(f"DEBUG: Updating scan overlays - Depth: {d_pct}%, Padding: {pad}%")
         
         if hasattr(self, 'scan_overlays'):
-            screens = QApplication.screens()
-            for i, overlay in enumerate(self.scan_overlays):
-                if i < len(screens):
-                    size = screens[i].size()
-                    w, h = size.width(), size.height()
-                    
-                    if not overlay.isVisible():
-                        overlay.show_regions(
-                            w, h, 
-                            d_pct, 
-                            pad_top=pad, pad_bottom=pad, pad_left=pad, pad_right=pad
-                        )
-                    else:
-                        overlay.update_params(depth_pct=d_pct, pad_top=pad, pad_bottom=pad, pad_left=pad, pad_right=pad)
+            # CRITICAL: Use MSS for monitor dimensions to ensure consistency with capture thread
+            # This ensures overlay shows on correct monitor even if QApplication.screens() order differs
+            try:
+                import mss
+                with mss.mss() as sct:
+                    # MSS[0] = All screens, MSS[1+] = Individual monitors
+                    for i, overlay in enumerate(self.scan_overlays):
+                        mss_idx = i + 1  # Convert UI index (0-based) to MSS index (1-based)
+                        if mss_idx < len(sct.monitors):
+                            monitor = sct.monitors[mss_idx]
+                            w, h = monitor['width'], monitor['height']
+                            
+                            if not overlay.isVisible():
+                                overlay.show_regions(
+                                    w, h, 
+                                    d_pct, 
+                                    pad_top=pad, pad_bottom=pad, pad_left=pad, pad_right=pad
+                                )
+                            else:
+                                overlay.update_params(depth_pct=d_pct, pad_top=pad, pad_bottom=pad, pad_left=pad, pad_right=pad)
+            except Exception as e:
+                print(f"WARNING: Could not get monitor dimensions via MSS: {e}. Using QApplication.screens() as fallback.")
+                # Fallback: Use QApplication.screens() if MSS fails
+                screens = QApplication.screens()
+                for i, overlay in enumerate(self.scan_overlays):
+                    if i < len(screens):
+                        size = screens[i].size()
+                        w, h = size.width(), size.height()
+                        
+                        if not overlay.isVisible():
+                            overlay.show_regions(
+                                w, h, 
+                                d_pct, 
+                                pad_top=pad, pad_bottom=pad, pad_left=pad, pad_right=pad
+                            )
+                        else:
+                            overlay.update_params(depth_pct=d_pct, pad_top=pad, pad_bottom=pad, pad_left=pad, pad_right=pad)
         
         # CRITICAL: Ensure overlay stays behind settings dialog
         # Use QTimer.singleShot to ensure this happens after overlay is shown
@@ -2641,17 +2678,23 @@ class SettingsDialog(QDialog):
             for overlay in self.scan_overlays:
                 if overlay.isVisible():
                     overlay.lower()
+                    # On Mac, explicitly ensure parent relationship
+                    if is_mac() and overlay.parent() != self:
+                        overlay.setParent(self)
         
         # Ensure settings dialog is on top and has focus
+        # On Mac, this is critical - parent window must be raised
         self.raise_()
         self.activateWindow()
         
-        # On Mac, additional step may be needed
+        # On Mac, additional steps for reliable focus
         if is_mac():
-            # Force window to front on Mac
+            # Force window to front on Mac - multiple calls for reliability
             self.show()
             self.raise_()
             self.activateWindow()
+            # Additional delay to ensure window system processes the change
+            QTimer.singleShot(100, lambda: (self.raise_(), self.activateWindow()))
 
     def _toggle_scan_preview(self, checked):
         """Toggle scan area preview overlay on/off"""
@@ -3333,23 +3376,48 @@ class SettingsDialog(QDialog):
         
         # Update all monitor overlays with per-edge depth values
         if hasattr(self, 'scan_overlays'):
-            screens = QApplication.screens()
-            for i, overlay in enumerate(self.scan_overlays):
-                if i < len(screens):
-                    size = screens[i].size()
-                    w, h = size.width(), size.height()
-                    
-                    if not overlay.isVisible():
-                        overlay.show_regions(
-                            w, h, 
-                            depth_top, depth_bottom, depth_left, depth_right,
-                            pad_top, pad_bottom, pad_left, pad_right
-                        )
-                    else:
-                        overlay.update_params(
-                            depth_top, depth_bottom, depth_left, depth_right,
-                            pad_top, pad_bottom, pad_left, pad_right
-                        )
+            # CRITICAL: Use MSS for monitor dimensions to ensure consistency with capture thread
+            try:
+                import mss
+                with mss.mss() as sct:
+                    # MSS[0] = All screens, MSS[1+] = Individual monitors
+                    for i, overlay in enumerate(self.scan_overlays):
+                        mss_idx = i + 1  # Convert UI index (0-based) to MSS index (1-based)
+                        if mss_idx < len(sct.monitors):
+                            monitor = sct.monitors[mss_idx]
+                            w, h = monitor['width'], monitor['height']
+                            
+                            if not overlay.isVisible():
+                                overlay.show_regions(
+                                    w, h, 
+                                    depth_top, depth_bottom, depth_left, depth_right,
+                                    pad_top, pad_bottom, pad_left, pad_right
+                                )
+                            else:
+                                overlay.update_params(
+                                    depth_top, depth_bottom, depth_left, depth_right,
+                                    pad_top, pad_bottom, pad_left, pad_right
+                                )
+            except Exception as e:
+                print(f"WARNING: Could not get monitor dimensions via MSS: {e}. Using QApplication.screens() as fallback.")
+                # Fallback: Use QApplication.screens() if MSS fails
+                screens = QApplication.screens()
+                for i, overlay in enumerate(self.scan_overlays):
+                    if i < len(screens):
+                        size = screens[i].size()
+                        w, h = size.width(), size.height()
+                        
+                        if not overlay.isVisible():
+                            overlay.show_regions(
+                                w, h, 
+                                depth_top, depth_bottom, depth_left, depth_right,
+                                pad_top, pad_bottom, pad_left, pad_right
+                            )
+                        else:
+                            overlay.update_params(
+                                depth_top, depth_bottom, depth_left, depth_right,
+                                pad_top, pad_bottom, pad_left, pad_right
+                            )
         
         # CRITICAL: Ensure overlay stays behind settings dialog
         # Use QTimer.singleShot to ensure this happens after overlay is shown
