@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QApplication, QFormLayout, QInputDialog, QMessageBox,
     QScrollArea, QFrame, QTableWidget, QHeaderView, QTableWidgetItem, QListWidget
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QEvent
 from PyQt6.QtGui import QColor, QIcon
 import serial.tools.list_ports
 import copy
@@ -2621,6 +2621,38 @@ class SettingsDialog(QDialog):
         # Use QTimer.singleShot to ensure this happens after overlay is shown
         QTimer.singleShot(10, self._ensure_overlay_behind_dialog)
 
+    def showEvent(self, event):
+        """
+        Override showEvent to ensure overlay stays behind dialog when dialog is shown.
+        This is critical on Mac to prevent overlay from blocking UI.
+        """
+        super().showEvent(event)
+        # Use QTimer to ensure this happens after window is fully shown
+        QTimer.singleShot(10, self._ensure_overlay_behind_dialog)
+    
+    def _ensure_overlay_behind_dialog(self):
+        """
+        Helper method to ensure overlay stays behind settings dialog.
+        This prevents overlay from blocking UI on Mac.
+        Must be called after overlay is shown.
+        """
+        # Lower all overlays to ensure they stay behind settings dialog
+        if hasattr(self, 'scan_overlays'):
+            for overlay in self.scan_overlays:
+                if overlay.isVisible():
+                    overlay.lower()
+        
+        # Ensure settings dialog is on top and has focus
+        self.raise_()
+        self.activateWindow()
+        
+        # On Mac, additional step may be needed
+        if is_mac():
+            # Force window to front on Mac
+            self.show()
+            self.raise_()
+            self.activateWindow()
+
     def _toggle_scan_preview(self, checked):
         """Toggle scan area preview overlay on/off"""
         if checked:
@@ -3319,9 +3351,9 @@ class SettingsDialog(QDialog):
                             pad_top, pad_bottom, pad_left, pad_right
                         )
         
-        # Keep Settings dialog focused and on top
-        self.raise_()
-        self.activateWindow()
+        # CRITICAL: Ensure overlay stays behind settings dialog
+        # Use QTimer.singleShot to ensure this happens after overlay is shown
+        QTimer.singleShot(10, self._ensure_overlay_behind_dialog)
     
     def _toggle_scan_preview(self, checked):
         """Toggle scan area preview overlay on/off"""

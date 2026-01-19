@@ -2033,8 +2033,12 @@ class AmbiLightApplication:
         if hasattr(self, 'settings_dialog') and self.settings_dialog is not None:
             if self.settings_dialog.isVisible():
                 print("DEBUG: Settings Dialog already open - bringing to front")
-                self.settings_dialog.raise_()
-                self.settings_dialog.activateWindow()
+                # Ensure any overlays stay behind settings dialog
+                if hasattr(self.settings_dialog, '_ensure_overlay_behind_dialog'):
+                    self.settings_dialog._ensure_overlay_behind_dialog()
+                else:
+                    self.settings_dialog.raise_()
+                    self.settings_dialog.activateWindow()
                 return
 
         devices = self.audio_processor.get_devices()
@@ -2056,6 +2060,9 @@ class AmbiLightApplication:
         
         # NON-BLOCKING: Show instead of exec()
         self.settings_dialog.show()
+        # Ensure any overlays stay behind settings dialog
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(10, lambda: self.settings_dialog._ensure_overlay_behind_dialog() if hasattr(self.settings_dialog, '_ensure_overlay_behind_dialog') else None)
         self.settings_dialog.raise_()
         self.settings_dialog.activateWindow()
     

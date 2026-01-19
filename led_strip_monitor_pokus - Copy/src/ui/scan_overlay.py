@@ -6,13 +6,21 @@ from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import Qt, QTimer, QRect
 from PyQt6.QtGui import QPainter, QBrush, QPen, QColor
 from PyQt6.QtWidgets import QApplication
+from utils import is_mac
 
 class ScanningAreaOverlay(QWidget):
     """Fullscreen overlay showing scanning area on monitor"""
     
     def __init__(self, parent=None):
         # Overlay should be behind Settings and NEVER steal focus
-        super().__init__(parent, Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool | Qt.WindowType.WindowDoesNotAcceptFocus)
+        # WindowStaysOnBottomHint ensures overlay stays behind other windows (especially on Mac)
+        window_flags = (
+            Qt.WindowType.FramelessWindowHint | 
+            Qt.WindowType.Tool | 
+            Qt.WindowType.WindowDoesNotAcceptFocus |
+            Qt.WindowType.WindowStaysOnBottomHint
+        )
+        super().__init__(parent, window_flags)
         
         # Make transparent
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -48,7 +56,10 @@ class ScanningAreaOverlay(QWidget):
         
         self.visualize_mode = True
         self.show()
-        self.raise_()
+        # CRITICAL: Never use raise_() - overlay must stay behind settings dialog
+        # Use lower() to ensure overlay is behind all other windows
+        # This prevents overlay from blocking settings dialog on Mac
+        self.lower()
         
     def calculate_regions(self, w, h, depth_top_pct, depth_bottom_pct, depth_left_pct, depth_right_pct, pad_top, pad_bottom, pad_left, pad_right):
         """Calculate scanning rectangles with per-edge depth support"""
