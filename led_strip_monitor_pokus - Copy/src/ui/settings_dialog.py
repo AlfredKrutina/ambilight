@@ -13,6 +13,7 @@ import copy
 from app_config import AppConfig, GlobalSettings, LightModeSettings, ScreenModeSettings, MusicModeSettings, DeviceSettings
 from startup import enable_autostart, disable_autostart
 from ui.themes import get_theme
+from utils import is_mac
 from ui.calibration import CalibrationOverlay
 from ui.custom_widgets import ColorPickerButton, CollapsibleBox, DraggableList, NoScrollFilter
 from ui.led_wizard import LedWizardDialog
@@ -607,7 +608,7 @@ class SettingsDialog(QDialog):
                  self.config.global_settings.devices[row].name = new_name
 
     def _add_new_device(self):
-        new_dev = DeviceSettings(name="New Controller", port="COMx", led_count=60)
+        new_dev = DeviceSettings(name="New Controller", port="", led_count=60)  # Empty = auto-detect
         self.config.global_settings.devices.append(new_dev)
         self._refresh_device_table()
         
@@ -730,10 +731,15 @@ class SettingsDialog(QDialog):
         # Capture Method
         row4 = QHBoxLayout()
         row4.addWidget(QLabel("Capture Engine:"))
-        row4.addWidget(self.create_help_label("• MSS: Standard CPU capture. Compatible with everything.\n• DXCam: High-speed GPU capture (NVIDIA/AMD/Intel). Recommended for gaming."))
+        help_text = "• MSS: Standard CPU capture. Compatible with everything."
+        if not is_mac():
+            help_text += "\n• DXCam: High-speed GPU capture (NVIDIA/AMD/Intel). Recommended for gaming."
+        row4.addWidget(self.create_help_label(help_text))
         self.cb_capture = QComboBox()
         self.cb_capture.addItem("MSS (CPU - Compatible)", "mss")
-        self.cb_capture.addItem("DXCam (GPU - High Performance)", "dxcam")
+        if not is_mac():
+            # DXCAM is Windows-only
+            self.cb_capture.addItem("DXCam (GPU - High Performance)", "dxcam")
         row4.addWidget(self.cb_capture)
         l_adv.addLayout(row4)
         
@@ -2611,9 +2617,9 @@ class SettingsDialog(QDialog):
                     else:
                         overlay.update_params(depth_pct=d_pct, pad_top=pad, pad_bottom=pad, pad_left=pad, pad_right=pad)
         
-        # Keep Settings dialog focused and on top
-        self.raise_()
-        self.activateWindow()
+        # CRITICAL: Ensure overlay stays behind settings dialog
+        # Use QTimer.singleShot to ensure this happens after overlay is shown
+        QTimer.singleShot(10, self._ensure_overlay_behind_dialog)
 
     def _toggle_scan_preview(self, checked):
         """Toggle scan area preview overlay on/off"""

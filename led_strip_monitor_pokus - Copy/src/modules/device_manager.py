@@ -119,7 +119,7 @@ class DeviceManager:
         print(f"DeviceManager: Creating handler for {cfg.name} ({cfg.type})")
         if cfg.type == "serial":
             # Avoid empty ports
-            if not cfg.port or cfg.port == "COMx": return
+            if not cfg.port or cfg.port == "COMx" or cfg.port.strip() == "": return
             h = SerialHandler(port=cfg.port, baud_rate=115200)
             h.start()
             self.handlers[cfg.id] = h

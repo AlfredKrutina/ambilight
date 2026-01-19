@@ -30,12 +30,12 @@ def main():
     Command Line Arguments:
     - --silent: Start minimized to system tray.
     - --config: Specify configuration profile (default: default.json).
-    - --enable-autostart: Register application to run on Windows boot.
-    - --disable-autostart: Unregister application from Windows boot.
+    - --enable-autostart: Register application to run on system boot.
+    - --disable-autostart: Unregister application from system boot.
     
     @return None (Runs sys.exit())
     """
-    parser = argparse.ArgumentParser(description="AmbiLight Windows Application")
+    parser = argparse.ArgumentParser(description="AmbiLight Application")
     parser.add_argument("--silent", action="store_true", help="Start minimized to tray")
     parser.add_argument("--config", type=str, default="default.json", help="Config profile name")
     parser.add_argument("--enable-autostart", action="store_true", help="Enable autostart")
@@ -62,10 +62,13 @@ def main():
     qt_app.setWindowIcon(QIcon("resources/icon_app.png"))
     
     # Windows-specific: Set AppUserModelID for proper taskbar grouping
+    # Mac/Linux: This is not needed, skip silently
     try:
-        import ctypes
-        myappid = 'ambilight.ledcontroller.1.0'  # Arbitrary string
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        import platform
+        if platform.system() == "Windows":
+            import ctypes
+            myappid = 'ambilight.ledcontroller.1.0'  # Arbitrary string
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except:
         pass  # Not on Windows or failed
     

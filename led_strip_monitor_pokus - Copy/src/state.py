@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from typing import List, Tuple
 import time
+from utils import is_mac
 
 ColorTuple = Tuple[int, int, int]  # (R, G, B)
 
@@ -44,7 +45,7 @@ class AppState:
     profile: str = "gaming"
     
     # Serial
-    serial_port: str = "COM3"
+    serial_port: str = "" # Empty = auto-detect
     autostart: bool = False
 
     # Music Mode

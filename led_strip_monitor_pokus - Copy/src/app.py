@@ -2,11 +2,21 @@ import time
 import traceback
 import math
 import colorsys
-import keyboard
 import copy
 from typing import Tuple, List, Optional
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QMessageBox
 from PyQt6.QtCore import QTimer
+from utils import is_mac
+
+# Try to import keyboard library with graceful degradation
+KEYBOARD_AVAILABLE = False
+try:
+    import keyboard
+    KEYBOARD_AVAILABLE = True
+except ImportError:
+    print("⚠️  Keyboard library not available - hotkeys will be disabled")
+except Exception as e:
+    print(f"⚠️  Keyboard library error: {e} - hotkeys will be disabled")
 
 # Modules
 from state import AppState
@@ -134,12 +144,25 @@ class AmbiLightApplication:
         return self.config
 
     def _init_hotkeys(self):
-        """Setup Global Hotkeys"""
+        """Setup Global Hotkeys with graceful degradation"""
+        if not KEYBOARD_AVAILABLE:
+            if self.config.global_settings.hotkeys_enabled:
+                print("⚠️  Hotkeys are enabled in config but keyboard library is not available")
+                if is_mac():
+                    print("   On macOS, keyboard hotkeys require accessibility permissions.")
+                    print("   Please grant accessibility permissions in System Preferences > Security & Privacy > Privacy > Accessibility")
+                # Show UI warning only once
+                if not hasattr(self, '_hotkey_warning_shown'):
+                    self._show_hotkey_warning()
+                    self._hotkey_warning_shown = True
+            return
+        
+        if not self.config.global_settings.hotkeys_enabled:
+            return
+
         try:
             keyboard.unhook_all()
-            if not self.config.global_settings.hotkeys_enabled:
-                return
-
+            
             # Helper
             def reg(key, func):
                 if key and key != "<None>":
@@ -149,6 +172,11 @@ class AmbiLightApplication:
                         print(f"DEBUG: Registered '{key}' successfully")
                     except Exception as e: 
                         print(f"✗ Invalid Hotkey '{key}': {e}")
+                        # On Mac, this might be a permissions issue
+                        if is_mac() and "permission" in str(e).lower():
+                            if not hasattr(self, '_hotkey_warning_shown'):
+                                self._show_hotkey_warning()
+                                self._hotkey_warning_shown = True
 
             # Register
             reg(self.config.global_settings.hotkey_toggle, self._toggle_lights_hotkey)
@@ -168,6 +196,33 @@ class AmbiLightApplication:
             print(f"✓ Hotkeys Initialized")
         except Exception as e:
             print(f"✗ Hotkey Error: {e}")
+            if is_mac():
+                if not hasattr(self, '_hotkey_warning_shown'):
+                    self._show_hotkey_warning()
+                    self._hotkey_warning_shown = True
+
+    def _show_hotkey_warning(self):
+        """Show UI warning about hotkey permissions"""
+        try:
+            msg = QMessageBox(self.main_window)
+            msg.setIcon(QMessageBox.Icon.Warning)
+            msg.setWindowTitle("Hotkeys Disabled")
+            if is_mac():
+                msg.setText("Keyboard hotkeys require accessibility permissions on macOS.")
+                msg.setInformativeText(
+                    "To enable hotkeys:\n"
+                    "1. Open System Preferences\n"
+                    "2. Go to Security & Privacy > Privacy > Accessibility\n"
+                    "3. Add AmbiLight to the list and enable it\n"
+                    "4. Restart the application"
+                )
+            else:
+                msg.setText("Keyboard hotkeys are not available.")
+                msg.setInformativeText("The keyboard library could not be initialized.")
+            msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msg.exec()
+        except Exception as e:
+            print(f"Could not show hotkey warning dialog: {e}")
 
     def _switch_mode_threadsafe(self, mode):
         """Dispatch mode switch to Main Thread"""
@@ -397,7 +452,12 @@ class AmbiLightApplication:
             self.app_state.screen_mode = self.config.screen_mode  # Full object for ultra_saturation
         
         # Hardware / Capture
-        self.app_state.capture_method = self.config.global_settings.capture_method
+        # Platform validation: DXCAM is Windows-only
+        capture_method = self.config.global_settings.capture_method
+        if is_mac() and capture_method == "dxcam":
+            print("⚠️  DXCAM is not available on macOS, using MSS instead")
+            capture_method = "mss"
+        self.app_state.capture_method = capture_method
 
     def _on_update_loop(self):
         """

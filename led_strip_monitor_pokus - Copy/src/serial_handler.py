@@ -82,6 +82,9 @@ class SerialHandler(threading.Thread):
         Constructs the binary protocol frame:
         [0xFF] [Index, R, G, B, Index, R, G, B ...] [0xFE]
         Executed by the internal thread.
+        
+        @param brightness: Brightness value in range 0-100 (percent) or 0-255 (legacy).
+                          Values > 100 are automatically normalized to 0-100 range.
         """
         if not self.connected or not self.ser:
             return
@@ -94,7 +97,24 @@ class SerialHandler(threading.Thread):
             
             TARGET_LEDS = 200
             packet = bytearray([0xFF]) # Start byte
-            scale = brightness / 100.0
+            
+            # Brightness normalization: Accept both 0-100 and 0-255 ranges
+            # If brightness > 100, assume it's 0-255 range and normalize to 0-100
+            if brightness > 100:
+                # Legacy 0-255 range: convert to 0-100
+                brightness_normalized = (brightness / 255.0) * 100.0
+            else:
+                # Already in 0-100 range
+                brightness_normalized = float(brightness)
+            
+            # Clamp to valid range
+            brightness_normalized = max(0.0, min(100.0, brightness_normalized))
+            scale = brightness_normalized / 100.0
+            
+            # Debug: Log brightness normalization (only once per session)
+            if not hasattr(self, '_brightness_debug_logged'):
+                print(f"DEBUG: Serial brightness - Input: {brightness}, Normalized: {brightness_normalized:.1f}%, Scale: {scale:.3f}")
+                self._brightness_debug_logged = True
             
             # 1. Validate Length
             current_len = len(colors)
@@ -104,6 +124,8 @@ class SerialHandler(threading.Thread):
                 else:
                     colors = colors[:TARGET_LEDS]
             
+            # Debug: Log first few colors before sending (only once per session)
+            debug_sent_colors = []
             # Optimization: Pre-calculate integers
             for i, (r, g, b) in enumerate(colors):
                 r = int(r * scale)
@@ -113,12 +135,33 @@ class SerialHandler(threading.Thread):
                 # 0xFF = Start Frame
                 # 0xFE = End Frame
                 # Max Data Value MUST be 253 (0xFD) to avoid collision!
+                r_clamped = max(0, min(253, r))
+                g_clamped = max(0, min(253, g))
+                b_clamped = max(0, min(253, b))
+                
                 packet.append(i & 0xFF)
-                packet.append(max(0, min(253, r)))
-                packet.append(max(0, min(253, g)))
-                packet.append(max(0, min(253, b)))
+                packet.append(r_clamped)
+                packet.append(g_clamped)
+                packet.append(b_clamped)
+                
+                # Debug: Collect first 3 colors for logging (only once per session)
+                if i < 3 and not hasattr(self, '_serial_color_debug_logged'):
+                    debug_sent_colors.append({
+                        'index': i,
+                        'rgb_before': (r, g, b),
+                        'rgb_after_scale': (int(r * scale), int(g * scale), int(b * scale)),
+                        'rgb_clamped': (r_clamped, g_clamped, b_clamped)
+                    })
                 
             packet.append(0xFE) # End byte
+            
+            # Debug: Log first colors being sent (only once per session)
+            if debug_sent_colors and not hasattr(self, '_serial_color_debug_logged'):
+                print("DEBUG: First colors being sent via serial:")
+                for dc in debug_sent_colors:
+                    print(f"  LED {dc['index']}: RGB{dc['rgb_before']} -> Scaled{dc['rgb_after_scale']} -> Clamped{dc['rgb_clamped']}")
+                print(f"  Packet size: {len(packet)} bytes (expected: {1 + TARGET_LEDS * 4 + 1} = {1 + TARGET_LEDS * 4 + 1})")
+                self._serial_color_debug_logged = True
             
             self.ser.write(packet)
             self.last_colors = colors
@@ -294,3 +337,92 @@ def get_available_ports() -> List[str]:
     for port, desc, hwid in serial.tools.list_ports.comports():
         ports.append(port)
     return ports
+
+
+def verify_serial_protocol_format(colors: List[ColorTuple], brightness: int = 100) -> dict:
+    """
+    @brief Test function to verify serial protocol format.
+    @details
+    Creates a test packet and verifies its format matches firmware expectations.
+    This is useful for debugging color transmission issues.
+    
+    @param colors: List of (R, G, B) tuples (should be 200 LEDs)
+    @param brightness: Brightness value (0-100 or 0-255)
+    @return dict: Verification results with packet details
+    """
+    TARGET_LEDS = 200
+    
+    # Normalize brightness (same logic as _write_packet)
+    if brightness > 100:
+        brightness_normalized = (brightness / 255.0) * 100.0
+    else:
+        brightness_normalized = float(brightness)
+    brightness_normalized = max(0.0, min(100.0, brightness_normalized))
+    scale = brightness_normalized / 100.0
+    
+    # Build packet (same as _write_packet)
+    packet = bytearray([0xFF])  # Start byte
+    
+    # Validate length
+    current_len = len(colors)
+    if current_len != TARGET_LEDS:
+        if current_len < TARGET_LEDS:
+            colors = colors + [(0,0,0)] * (TARGET_LEDS - current_len)
+        else:
+            colors = colors[:TARGET_LEDS]
+    
+    # Build packet
+    sample_colors = []
+    for i, (r, g, b) in enumerate(colors):
+        r_scaled = int(r * scale)
+        g_scaled = int(g * scale)
+        b_scaled = int(b * scale)
+        
+        r_clamped = max(0, min(253, r_scaled))
+        g_clamped = max(0, min(253, g_scaled))
+        b_clamped = max(0, min(253, b_scaled))
+        
+        packet.append(i & 0xFF)
+        packet.append(r_clamped)
+        packet.append(g_clamped)
+        packet.append(b_clamped)
+        
+        # Sample first 3 LEDs
+        if i < 3:
+            sample_colors.append({
+                'led_index': i,
+                'rgb_input': (r, g, b),
+                'rgb_scaled': (r_scaled, g_scaled, b_scaled),
+                'rgb_clamped': (r_clamped, g_clamped, b_clamped),
+                'packet_bytes': [i & 0xFF, r_clamped, g_clamped, b_clamped]
+            })
+    
+    packet.append(0xFE)  # End byte
+    
+    # Verify packet format
+    expected_size = 1 + (TARGET_LEDS * 4) + 1  # Start + Data + End
+    is_valid = len(packet) == expected_size
+    is_valid = is_valid and packet[0] == 0xFF  # Start byte
+    is_valid = is_valid and packet[-1] == 0xFE  # End byte
+    
+    # Check for protocol violations (0xFF or 0xFE in data)
+    has_violations = False
+    violation_positions = []
+    for i in range(1, len(packet) - 1):  # Skip start and end bytes
+        if packet[i] == 0xFF or packet[i] == 0xFE:
+            has_violations = True
+            violation_positions.append(i)
+    
+    return {
+        'valid': is_valid and not has_violations,
+        'packet_size': len(packet),
+        'expected_size': expected_size,
+        'brightness_input': brightness,
+        'brightness_normalized': brightness_normalized,
+        'scale': scale,
+        'sample_colors': sample_colors,
+        'has_protocol_violations': has_violations,
+        'violation_positions': violation_positions,
+        'start_byte_correct': packet[0] == 0xFF,
+        'end_byte_correct': packet[-1] == 0xFE
+    }

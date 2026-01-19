@@ -234,6 +234,8 @@ class CaptureThread(threading.Thread):
                         if sct_img is None: continue
 
                         # Raw Buffer -> Numpy (Zero Copy optimized)
+                        # MSS returns BGRA format: [B, G, R, A] per pixel
+                        # This is consistent across Windows, macOS, and Linux
                         pixels_raw = np.frombuffer(sct_img.bgra, dtype=np.uint8)
                         
                         # Reshape: H, W, 4 (BGRA)
@@ -244,6 +246,11 @@ class CaptureThread(threading.Thread):
                             continue  # Skip malformed frames
                         
                         # Reshape to 3D array (height, width, channels)
+                        # Format: pixels[y, x] = [B, G, R, A] where:
+                        #   pixels[y, x][0] = Blue  (0-255)
+                        #   pixels[y, x][1] = Green (0-255)
+                        #   pixels[y, x][2] = Red   (0-255)
+                        #   pixels[y, x][3] = Alpha (0-255, usually 255 for opaque)
                         try:
                             pixels = pixels_raw.reshape((sct_img.height, sct_img.width, 4))
                         except ValueError as e:
@@ -256,6 +263,13 @@ class CaptureThread(threading.Thread):
                         if h == 0 or w == 0:
                             print(f"ERROR: Invalid pixel dimensions: {w}x{h}")
                             continue
+                        
+                        # Debug: Verify BGRA format on first frame (only once per session)
+                        if not hasattr(self, '_bgra_format_verified'):
+                            # Sample first pixel to verify format
+                            sample_pixel = pixels[0, 0]
+                            print(f"DEBUG: BGRA format verification - First pixel: B={sample_pixel[0]}, G={sample_pixel[1]}, R={sample_pixel[2]}, A={sample_pixel[3]}")
+                            self._bgra_format_verified = True
 
                         # 4. Processing Phase (Optimized)
                         for seg in segs:
@@ -290,8 +304,26 @@ class CaptureThread(threading.Thread):
                                     colors = res[:, 0] # (cnt, 4)
                                     
                                 # Map to Global Indices (BGRA -> RGB) + Apply Color Correction
+                                # CRITICAL COLOR CONVERSION:
+                                # MSS returns BGRA: c[0]=B, c[1]=G, c[2]=R, c[3]=A
+                                # We need RGB: (R, G, B)
+                                # Conversion: rgb = (c[2], c[1], c[0]) = (R, G, B) ✓
+                                # This conversion is platform-independent (MSS always returns BGRA)
+                                
+                                # Debug: Log first few colors after BGRA->RGB conversion (only once per segment)
+                                debug_colors = []
                                 for i, c in enumerate(colors):
-                                    rgb = (int(c[2]), int(c[1]), int(c[0]))  # BGRA -> RGB
+                                    # BGRA -> RGB conversion
+                                    # c[0] = Blue, c[1] = Green, c[2] = Red, c[3] = Alpha
+                                    rgb = (int(c[2]), int(c[1]), int(c[0]))  # BGRA -> RGB: (R, G, B)
+                                    
+                                    # Collect first 3 colors for debug
+                                    if i < 3 and not hasattr(self, '_color_debug_logged'):
+                                        debug_colors.append({
+                                            'index': i,
+                                            'bgra': (int(c[0]), int(c[1]), int(c[2]), int(c[3])),
+                                            'rgb': rgb
+                                        })
                                     
                                     # BASELINE COLOR ENHANCEMENT (ALWAYS ACTIVE)
                                     # This ensures vibrant colors even without ultra_saturation
@@ -314,15 +346,22 @@ class CaptureThread(threading.Thread):
                                     
                                     # ULTRA SATURATION (OPTIONAL AGGRESSIVE BOOST)
                                     # Apply ultra saturation if enabled (prevents washed-out colors)
+                                    # Platform-independent: uses colorsys (standard Python library)
                                     if hasattr(self.app_state, 'screen_mode') and \
                                        getattr(self.app_state.screen_mode, 'ultra_saturation', False):
                                         r, g, b = rgb
+                                        
+                                        # Debug: Log ultra saturation application (only once per session)
+                                        if i == 0 and not hasattr(self, '_ultra_sat_debug_logged'):
+                                            print(f"DEBUG: Ultra Saturation enabled - Boost: {getattr(self.app_state.screen_mode, 'ultra_saturation_amount', 2.5)}x")
+                                            self._ultra_sat_debug_logged = True
                                         
                                         # Step 1: HSV saturation boost
                                         r_norm, g_norm, b_norm = r / 255.0, g / 255.0, b / 255.0
                                         hue, sat, val = colorsys.rgb_to_hsv(r_norm, g_norm, b_norm)
                                         
                                         boost = getattr(self.app_state.screen_mode, 'ultra_saturation_amount', 2.5)
+                                        sat_before = sat
                                         sat = min(sat * boost, 1.0)
                                         
                                         r_new, g_new, b_new = colorsys.hsv_to_rgb(hue, sat, val)
@@ -369,6 +408,13 @@ class CaptureThread(threading.Thread):
                                         # This supports multiple devices with overlapping indices (e.g. both start at 0)
                                         dev_id = getattr(seg, 'device_id', None)
                                         captured_leds[(dev_id, led_idx)] = rgb
+                                
+                                # Debug: Log first colors after processing (only once per session)
+                                if debug_colors and not hasattr(self, '_color_debug_logged'):
+                                    print("DEBUG: First colors after BGRA->RGB conversion:")
+                                    for dc in debug_colors:
+                                        print(f"  LED {dc['index']}: BGRA{dc['bgra']} -> RGB{dc['rgb']}")
+                                    self._color_debug_logged = True
                                     
                             except Exception as e:
                                 # Catch any per-segment processing errors

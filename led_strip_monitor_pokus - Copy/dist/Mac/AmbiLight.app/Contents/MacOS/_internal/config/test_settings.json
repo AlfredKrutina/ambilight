@@ -1,0 +1,126 @@
+{
+    "global_settings": {
+        "serial_port": "COM5",
+        "baud_rate": 115200,
+        "led_count": 123,
+        "start_mode": "light",
+        "start_minimized": false,
+        "autostart": false,
+        "theme": "dark",
+        "capture_method": "mss",
+        "hotkeys_enabled": true,
+        "hotkey_toggle": "ctrl+shift+l",
+        "hotkey_mode_light": "",
+        "hotkey_mode_screen": "",
+        "hotkey_mode_music": "",
+        "custom_hotkeys": []
+    },
+    "light_mode": {
+        "color": [
+            255,
+            200,
+            100
+        ],
+        "brightness": 123,
+        "effect": "static",
+        "speed": 50,
+        "extra": 50,
+        "custom_zones": []
+    },
+    "screen_mode": {
+        "brightness": 150,
+        "capture_full_screen": true,
+        "num_segments": 20,
+        "scan_mode": "edges",
+        "scan_depth_percent": 15,
+        "padding_top": 200,
+        "padding_bottom": 0,
+        "padding_left": 0,
+        "padding_right": 0,
+        "padding_percent": 0,
+        "saturation_boost": 1.0,
+        "min_brightness": 5,
+        "gamma": 1.0,
+        "led_count_left": 12,
+        "led_count_top": 21,
+        "led_count_right": 12,
+        "led_count_bottom": 21,
+        "monitor_index": 1,
+        "color_sampling": "average",
+        "interpolation_ms": 50,
+        "refresh_rate": 30,
+        "exclude_taskbar": true,
+        "active_preset": "Custom",
+        "calibration_points": null
+    },
+    "music_mode": {
+        "audio_device_index": null,
+        "sample_rate": 48000,
+        "bass_min": 0,
+        "bass_max": 250,
+        "bass_sensitivity": 60,
+        "mid_min": 250,
+        "mid_max": 4000,
+        "mid_sensitivity": 70,
+        "high_min": 4000,
+        "high_max": 20000,
+        "high_sensitivity": 50,
+        "bass_color": [
+            255,
+            0,
+            0
+        ],
+        "mid_color": [
+            0,
+            255,
+            0
+        ],
+        "high_color": [
+            0,
+            0,
+            255
+        ],
+        "beat_detection_enabled": true,
+        "beat_threshold": 1.5,
+        "color_source": "spectrum",
+        "fixed_color": [
+            255,
+            0,
+            0
+        ],
+        "brightness": 200,
+        "visualization_type": "spectrum",
+        "effect": "spectrum",
+        "auto_gain": false,
+        "auto_mid": false,
+        "auto_high": false,
+        "smoothing_ms": 70,
+        "active_preset": "Custom"
+    },
+    "auto_profile": {
+        "enabled": true,
+        "detection_interval": 2.0,
+        "switch_delay": 3.0
+    },
+    "game_profiles": {
+        "enabled": false,
+        "game_rules": {}
+    },
+    "spotify": {
+        "enabled": false,
+        "access_token": null,
+        "refresh_token": null,
+        "use_album_colors": true,
+        "client_id": null,
+        "client_secret": null
+    },
+    "pc_health": {
+        "enabled": false,
+        "display_mode": "cpu_gpu_ram",
+        "update_interval": 0.5,
+        "cpu_threshold_high": 80,
+        "gpu_threshold_high": 80
+    },
+    "user_screen_presets": {},
+    "user_music_presets": {}
+}

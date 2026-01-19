@@ -33,8 +33,9 @@ class PCHealthMode(str, Enum):
     NETWORK = "network"
 
 # Default fallback values (if config is missing or corrupt)
+# Note: serial_port is empty string to allow auto-detection
 DEFAULTS = {
-    "serial_port": "COM5",
+    "serial_port": "",
     "baud_rate": 115200,
     "theme": "dark",
     "led_count": 66,

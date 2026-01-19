@@ -3,11 +3,13 @@ import time
 import numpy as np
 try:
     import pyaudiowpatch as pyaudio
+    PYAUDIOWPATCH_AVAILABLE = True
 except ImportError:
     import pyaudio
+    PYAUDIOWPATCH_AVAILABLE = False
 
 from typing import List, Dict, Optional
-
+from utils import is_mac
 
 from audio_analyzer import AudioAnalyzer
 
@@ -44,37 +46,38 @@ class AudioProcessor(threading.Thread):
         self.paused = paused
 
     def get_devices(self) -> List[Dict]:
-        """Vrátí seznam vstupních zařízení včetně WASAPI Loopback"""
+        """Vrátí seznam vstupních zařízení včetně WASAPI Loopback (Windows) nebo CoreAudio (Mac)"""
         devices = []
         
-        # 1. Try WASAPI loopback devices first
-        try:
-            wasapi_info = self.p.get_host_api_info_by_type(pyaudio.paWASAPI)
-            wasapi_index = wasapi_info.get('index')
-            
-            for i in range(wasapi_info.get('deviceCount')):
-                try:
-                    dev = self.p.get_device_info_by_host_api_device_index(wasapi_index, i)
-                    # Loopback devices are inputs, but technically "output loopback"
-                    # pyaudiowpatch marks them as isLoopbackDevice
-                    is_loopback = dev.get("isLoopbackDevice", False)
-                    
-                    if dev.get('maxInputChannels') > 0 or is_loopback:
-                        name = dev.get('name')
-                        if is_loopback:
-                            name = f"[Loopback] {name}"
-                        else:
-                            name = f"[Mic/Input] {name}"
-                            
-                        devices.append({
-                            "index": dev.get('index'),
-                            "name": name,
-                            "is_loopback": is_loopback
-                        })
-                except Exception:
-                    continue
-        except Exception:
-            pass
+        # 1. Try WASAPI loopback devices first (Windows only)
+        if not is_mac() and PYAUDIOWPATCH_AVAILABLE:
+            try:
+                wasapi_info = self.p.get_host_api_info_by_type(pyaudio.paWASAPI)
+                wasapi_index = wasapi_info.get('index')
+                
+                for i in range(wasapi_info.get('deviceCount')):
+                    try:
+                        dev = self.p.get_device_info_by_host_api_device_index(wasapi_index, i)
+                        # Loopback devices are inputs, but technically "output loopback"
+                        # pyaudiowpatch marks them as isLoopbackDevice
+                        is_loopback = dev.get("isLoopbackDevice", False)
+                        
+                        if dev.get('maxInputChannels') > 0 or is_loopback:
+                            name = dev.get('name')
+                            if is_loopback:
+                                name = f"[Loopback] {name}"
+                            else:
+                                name = f"[Mic/Input] {name}"
+                                
+                            devices.append({
+                                "index": dev.get('index'),
+                                "name": name,
+                                "is_loopback": is_loopback
+                            })
+                    except Exception:
+                        continue
+            except Exception:
+                pass
             
         # 2. Add standard MME/DirectSound devices if mismatched
         current_indices = [d['index'] for d in devices]
@@ -131,20 +134,36 @@ class AudioProcessor(threading.Thread):
             return self.latest_melody
 
     def _find_default_loopback(self):
-        """Find best loopback device if none selected"""
-        try:
-            wasapi_info = self.p.get_host_api_info_by_type(pyaudio.paWASAPI)
-            default_speakers = self.p.get_device_info_by_index(wasapi_info["defaultOutputDevice"])
-            
-            if not default_speakers["isLoopbackDevice"]:
-                for loopback in self.p.get_loopback_device_info_generator():
-                    if default_speakers["name"] in loopback["name"]:
-                        print(f"🔍 Auto-found Loopback: {loopback['name']}")
-                        return loopback
-            else:
-                 return default_speakers
-        except Exception:
-            pass
+        """Find best loopback device if none selected (Windows) or default input (Mac)"""
+        if is_mac():
+            # On Mac, use default input device (CoreAudio)
+            try:
+                default_info = self.p.get_default_input_device_info()
+                print(f"🔍 Using default Mac input device: {default_info['name']}")
+                return default_info
+            except Exception as e:
+                print(f"⚠️  Could not get default Mac input device: {e}")
+                return None
+        else:
+            # Windows: Try WASAPI loopback
+            try:
+                if PYAUDIOWPATCH_AVAILABLE:
+                    wasapi_info = self.p.get_host_api_info_by_type(pyaudio.paWASAPI)
+                    default_speakers = self.p.get_device_info_by_index(wasapi_info["defaultOutputDevice"])
+                    
+                    if not default_speakers.get("isLoopbackDevice", False):
+                        for loopback in self.p.get_loopback_device_info_generator():
+                            if default_speakers["name"] in loopback["name"]:
+                                print(f"🔍 Auto-found Loopback: {loopback['name']}")
+                                return loopback
+                    else:
+                        return default_speakers
+                else:
+                    # Fallback to default input
+                    default_info = self.p.get_default_input_device_info()
+                    return default_info
+            except Exception:
+                pass
         return None
 
     def run(self):

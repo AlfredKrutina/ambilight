@@ -142,9 +142,10 @@ def build_mac():
     if not icon_path.exists():
         icon_path = resources_dir / "icon_app.png"
     
+    # Použijeme --onedir bez --windowed, pak vytvoříme .app bundle ručně
     args = [
         str(src_dir / "main.py"),
-        "--windowed",                         # Vytvoří .app bundle
+        "--onedir",                           # Vytvoří složku s executable
         "--name", "AmbiLight",
         "--icon", str(icon_path),
         "--add-data", f"{resources_dir}{os.pathsep}resources",
@@ -155,13 +156,85 @@ def build_mac():
         "--clean",
         "--distpath", str(dist_dir),
         "--workpath", str(project_root / "build"),
+        "--noconsole",                        # Bez konzole (ekvivalent --windowed)
     ]
     
     print("📦 Running PyInstaller...")
     import PyInstaller.__main__
-    PyInstaller.__main__.run(args)
+    try:
+        PyInstaller.__main__.run(args)
+    except Exception as e:
+        # PyInstaller může selhat kvůli symlinkům v Qt frameworkech,
+        # ale build může být stále použitelný
+        print(f"⚠️  PyInstaller warning: {e}")
+        print("   Continuing with .app bundle creation...")
     
+    # PyInstaller vytvoří složku AmbiLight, z ní vytvoříme .app bundle
+    onedir_path = dist_dir / "AmbiLight"
     app_path = dist_dir / "AmbiLight.app"
+    
+    if onedir_path.exists():
+        print("📦 Creating .app bundle from onedir build...")
+        
+        # Vytvoř strukturu .app bundle
+        app_contents = app_path / "Contents"
+        app_macos = app_contents / "MacOS"
+        app_resources = app_contents / "Resources"
+        
+        app_contents.mkdir(parents=True, exist_ok=True)
+        app_macos.mkdir(parents=True, exist_ok=True)
+        app_resources.mkdir(parents=True, exist_ok=True)
+        
+        # Zkopíruj obsah z onedir do .app bundle
+        executable_name = "AmbiLight"
+        executable_src = onedir_path / executable_name
+        executable_dst = app_macos / executable_name
+        
+        if executable_src.exists():
+            shutil.copy2(executable_src, executable_dst)
+            os.chmod(executable_dst, 0o755)
+        
+        # Zkopíruj _internal složku (s podporou symlinků)
+        internal_src = onedir_path / "_internal"
+        internal_dst = app_macos / "_internal"
+        if internal_src.exists():
+            if internal_dst.exists():
+                shutil.rmtree(internal_dst)
+            # Použij copytree s symlinks=True pro zachování symlinků v Qt frameworkech
+            shutil.copytree(internal_src, internal_dst, symlinks=True)
+        
+        # Zkopíruj resources a config (pokud nejsou už v _internal)
+        if (app_macos / "resources").exists():
+            shutil.rmtree(app_macos / "resources")
+        if (app_macos / "config").exists():
+            shutil.rmtree(app_macos / "config")
+        
+        # Vytvoř Info.plist
+        info_plist = {
+            "CFBundleExecutable": executable_name,
+            "CFBundleIdentifier": "com.ambilight.app",
+            "CFBundleName": "AmbiLight",
+            "CFBundleDisplayName": "AmbiLight",
+            "CFBundleVersion": "1.0.0",
+            "CFBundleShortVersionString": "1.0.0",
+            "CFBundlePackageType": "APPL",
+            "CFBundleIconFile": "icon_app.icns" if (resources_dir / "icon_app.icns").exists() else "icon_app.png",
+            "LSMinimumSystemVersion": "10.13",
+            "NSHighResolutionCapable": True,
+        }
+        
+        import plistlib
+        with open(app_contents / "Info.plist", "wb") as f:
+            plistlib.dump(info_plist, f)
+        
+        # Zkopíruj ikonu do Resources
+        if icon_path.exists():
+            shutil.copy2(icon_path, app_resources / icon_path.name)
+        
+        # Odstraň původní onedir složku
+        shutil.rmtree(onedir_path)
+        
+        print("✅ .app bundle created successfully!")
     
     if app_path.exists():
         # Zkopíruj resources a config do app bundle
@@ -198,8 +271,16 @@ def build_mac():
             for root, dirs, files in os.walk(app_path):
                 for file in files:
                     file_path = Path(root) / file
-                    arcname = file_path.relative_to(dist_dir)
-                    zipf.write(file_path, arcname)
+                    # Přeskoč symlinky (mohou způsobit problémy)
+                    if file_path.is_symlink():
+                        continue
+                    try:
+                        arcname = file_path.relative_to(dist_dir)
+                        zipf.write(file_path, arcname)
+                    except (FileNotFoundError, OSError) as e:
+                        # Přeskoč soubory, které nelze přečíst (např. broken symlinks)
+                        print(f"   ⚠️  Skipping {file_path.name}: {e}")
+                        continue
         
         zip_size_mb = zip_path.stat().st_size / 1024 / 1024
         print(f"\n✅ Mac build complete!")

@@ -1,6 +1,7 @@
 
 import sys
 import os
+import platform
 from pathlib import Path
 
 def get_base_path() -> Path:
@@ -24,3 +25,32 @@ def get_resource_path(relative_path: str) -> Path:
     """
     base = get_base_path()
     return base / relative_path
+
+
+# Platform Detection Helpers
+def is_windows() -> bool:
+    """Check if running on Windows"""
+    return platform.system() == "Windows"
+
+
+def is_mac() -> bool:
+    """Check if running on macOS"""
+    return platform.system() == "Darwin"
+
+
+def is_linux() -> bool:
+    """Check if running on Linux"""
+    return platform.system() == "Linux"
+
+
+def get_platform() -> str:
+    """Get current platform name (windows, mac, linux)"""
+    system = platform.system()
+    if system == "Windows":
+        return "windows"
+    elif system == "Darwin":
+        return "mac"
+    elif system == "Linux":
+        return "linux"
+    else:
+        return "unknown"

@@ -4,6 +4,7 @@ from dataclasses import dataclass, field, asdict, fields
 from typing import List, Optional, Dict, Tuple
 import uuid
 from constants import DEFAULTS, AppMode, LightEffect, MusicEffect, ScanMode # Import constants if needed
+from utils import is_mac
 
 # --- PRESETS DEFINITIONS ---
 
@@ -47,7 +48,7 @@ class DeviceSettings:
     type: str = "serial" # serial, wifi
     
     # Connection Details
-    port: str = "COM5" # Serial Port
+    port: str = "" # Serial Port (empty = auto-detect)
     ip_address: str = "" # Wi-Fi IP
     udp_port: int = 4210 # Wi-Fi Port
     
@@ -71,7 +72,7 @@ class GlobalSettings:
     LED count, and startup behavior.
     """
     # Legacy Single-Port fields (Deprecated but kept for now)
-    serial_port: str = "COM5"
+    serial_port: str = "" # Empty = auto-detect
     baud_rate: int = 115200
     led_count: int = 66
     
@@ -394,12 +395,18 @@ class AppConfig:
                     dev_objs = [DeviceSettings(
                         id="primary",
                         name="Primary Controller",
-                        port=g_data.get("serial_port", "COM5"),
+                        port=g_data.get("serial_port", ""),  # Empty = auto-detect
                         led_count=g_data.get("led_count", 66)
                     )]
                 
                 g_keys = {f.name for f in fields(GlobalSettings)}
                 g_clean = {k: v for k, v in g_data.items() if k in g_keys}
+                
+                # Platform validation: DXCAM is Windows-only
+                if is_mac() and g_clean.get("capture_method") == "dxcam":
+                    print("⚠️  DXCAM is not available on macOS, switching to MSS")
+                    g_clean["capture_method"] = "mss"
+                
                 cfg.global_settings = GlobalSettings(**g_clean)
                 cfg.global_settings.devices = dev_objs # Assign manual list
 
