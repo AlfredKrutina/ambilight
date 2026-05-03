@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../application/ambilight_app_controller.dart';
 import '../../../core/models/config_models.dart';
 import '../../layout_breakpoints.dart';
+import '../../widgets/config_device_list_tile.dart';
 
 class DevicesTab extends StatelessWidget {
   const DevicesTab({
@@ -18,6 +19,15 @@ class DevicesTab extends StatelessWidget {
   final ValueChanged<List<DeviceSettings>> onDevicesChanged;
 
   static String _newDeviceId() => 'd${DateTime.now().millisecondsSinceEpoch}';
+
+  static String _connectionTileSubtitle(DeviceSettings d) {
+    if (d.type == 'wifi') {
+      if (d.ipAddress.trim().isEmpty) return 'Doplň IP adresu kontroléru';
+      return 'Síťové údaje uloženy (uprav v rozbalení)';
+    }
+    if (d.port.trim().isEmpty) return 'Zadej COM port nebo vyber z detekovaných';
+    return 'Port ${d.port}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +44,18 @@ class DevicesTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Text(
+                'Zařízení',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Název a počet LED jsou důležité pro ovládání. IP a port jsou v sekci Připojení.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 16),
               FilledButton.tonalIcon(
                 onPressed: () {
                   final next = List<DeviceSettings>.from(devices)
@@ -65,11 +87,14 @@ class DevicesTab extends StatelessWidget {
                         Row(
                           children: [
                             Expanded(
-                              child: Text('Zařízení ${i + 1}', style: Theme.of(context).textTheme.titleSmall),
+                              child: Text(
+                                d.name.isEmpty ? 'Zařízení ${i + 1}' : d.name,
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                              ),
                             ),
                             if (devices.length > 1)
                               IconButton(
-                                tooltip: 'Odebrat',
+                                tooltip: 'Odebrat zařízení',
                                 onPressed: () {
                                   final next = List<DeviceSettings>.from(devices)..removeAt(i);
                                   onDevicesChanged(next);
@@ -78,9 +103,20 @@ class DevicesTab extends StatelessWidget {
                               ),
                           ],
                         ),
+                        const SizedBox(height: 4),
+                        Text(
+                          deviceFriendlySubtitle(d),
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                        const SizedBox(height: 12),
                         TextFormField(
                           initialValue: d.name,
-                          decoration: const InputDecoration(labelText: 'Název', border: OutlineInputBorder()),
+                          decoration: const InputDecoration(
+                            labelText: 'Zobrazovaný název',
+                            border: OutlineInputBorder(),
+                          ),
                           onChanged: (v) {
                             final next = List<DeviceSettings>.from(devices);
                             next[i] = d.copyWith(name: v);
@@ -88,24 +124,11 @@ class DevicesTab extends StatelessWidget {
                           },
                         ),
                         const SizedBox(height: 8),
-                        TextFormField(
-                          initialValue: d.id,
-                          decoration: const InputDecoration(
-                            labelText: 'ID (skupina v configu)',
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: (v) {
-                            final next = List<DeviceSettings>.from(devices);
-                            next[i] = d.copyWith(id: v.trim().isEmpty ? d.id : v.trim());
-                            onDevicesChanged(next);
-                          },
-                        ),
-                        const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
-                          decoration: const InputDecoration(labelText: 'Typ', border: OutlineInputBorder()),
+                          decoration: const InputDecoration(labelText: 'Typ připojení', border: OutlineInputBorder()),
                           value: d.type == 'wifi' ? 'wifi' : 'serial',
                           items: const [
-                            DropdownMenuItem(value: 'serial', child: Text('Serial (USB)')),
+                            DropdownMenuItem(value: 'serial', child: Text('USB (sériový port)')),
                             DropdownMenuItem(value: 'wifi', child: Text('Wi‑Fi (UDP)')),
                           ],
                           onChanged: (v) {
@@ -115,71 +138,6 @@ class DevicesTab extends StatelessWidget {
                             onDevicesChanged(next);
                           },
                         ),
-                        if (d.type == 'serial') ...[
-                          const SizedBox(height: 8),
-                          DropdownButtonFormField<String>(
-                            decoration: const InputDecoration(
-                              labelText: 'Port (nebo zadej ručně níže)',
-                              border: OutlineInputBorder(),
-                            ),
-                            value: ports.contains(d.port) ? d.port : null,
-                            hint: Text(d.port),
-                            items: [
-                              ...ports.map((p) => DropdownMenuItem(value: p, child: Text(p))),
-                            ],
-                            onChanged: (v) {
-                              if (v == null) return;
-                              final next = List<DeviceSettings>.from(devices);
-                              next[i] = d.copyWith(port: v);
-                              onDevicesChanged(next);
-                            },
-                          ),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            initialValue: d.port,
-                            decoration: const InputDecoration(
-                              labelText: 'Port (text)',
-                              border: OutlineInputBorder(),
-                            ),
-                            onChanged: (v) {
-                              final next = List<DeviceSettings>.from(devices);
-                              next[i] = d.copyWith(port: v);
-                              onDevicesChanged(next);
-                            },
-                          ),
-                        ],
-                        if (d.type == 'wifi') ...[
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            initialValue: d.ipAddress,
-                            decoration: const InputDecoration(
-                              labelText: 'IP adresa',
-                              border: OutlineInputBorder(),
-                            ),
-                            keyboardType: TextInputType.url,
-                            onChanged: (v) {
-                              final next = List<DeviceSettings>.from(devices);
-                              next[i] = d.copyWith(ipAddress: v.trim());
-                              onDevicesChanged(next);
-                            },
-                          ),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            initialValue: '${d.udpPort}',
-                            decoration: const InputDecoration(
-                              labelText: 'UDP port',
-                              border: OutlineInputBorder(),
-                            ),
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            onChanged: (v) {
-                              final p = int.tryParse(v) ?? d.udpPort;
-                              final next = List<DeviceSettings>.from(devices);
-                              next[i] = d.copyWith(udpPort: p.clamp(1, 65535));
-                              onDevicesChanged(next);
-                            },
-                          ),
-                        ],
                         const SizedBox(height: 8),
                         TextFormField(
                           initialValue: '${d.ledCount}',
@@ -196,14 +154,111 @@ class DevicesTab extends StatelessWidget {
                             onDevicesChanged(next);
                           },
                         ),
+                        const SizedBox(height: 4),
                         SwitchListTile(
-                          title: const Text('Ovládání přes Home Assistant (neposílat z PC)'),
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Ovládat přes Home Assistant'),
+                          subtitle: const Text('PC nebude na toto zařízení posílat barvy.'),
                           value: d.controlViaHa,
                           onChanged: (v) {
                             final next = List<DeviceSettings>.from(devices);
                             next[i] = d.copyWith(controlViaHa: v);
                             onDevicesChanged(next);
                           },
+                        ),
+                        ExpansionTile(
+                          initiallyExpanded: d.type == 'serial' ||
+                              (d.type == 'wifi' && d.ipAddress.trim().isEmpty),
+                          title: const Text('Připojení a interní údaje'),
+                          subtitle: Text(_connectionTileSubtitle(d)),
+                          children: [
+                            if (d.type == 'serial') ...[
+                              TextFormField(
+                                key: ValueKey<String>('port-$i-${d.port}'),
+                                initialValue: d.port,
+                                decoration: InputDecoration(
+                                  labelText: 'COM port',
+                                  hintText: ports.isNotEmpty ? 'např. ${ports.first}' : 'COM3',
+                                  border: const OutlineInputBorder(),
+                                  helperText: ports.isEmpty
+                                      ? null
+                                      : 'Detekované: ${ports.join(", ")} — klepnutím níže rychle vyplníš',
+                                ),
+                                onChanged: (v) {
+                                  final next = List<DeviceSettings>.from(devices);
+                                  next[i] = d.copyWith(port: v);
+                                  onDevicesChanged(next);
+                                },
+                              ),
+                              if (ports.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: ports
+                                      .map(
+                                        (p) => ActionChip(
+                                          label: Text(p),
+                                          onPressed: () {
+                                            final next = List<DeviceSettings>.from(devices);
+                                            next[i] = d.copyWith(port: p);
+                                            onDevicesChanged(next);
+                                          },
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                              ],
+                            ],
+                            if (d.type == 'wifi') ...[
+                              TextFormField(
+                                key: ValueKey<String>('ip-$i-${d.ipAddress}'),
+                                initialValue: d.ipAddress,
+                                decoration: const InputDecoration(
+                                  labelText: 'IP adresa kontroléru',
+                                  border: OutlineInputBorder(),
+                                ),
+                                keyboardType: TextInputType.url,
+                                onChanged: (v) {
+                                  final next = List<DeviceSettings>.from(devices);
+                                  next[i] = d.copyWith(ipAddress: v.trim());
+                                  onDevicesChanged(next);
+                                },
+                              ),
+                              const SizedBox(height: 8),
+                              TextFormField(
+                                key: ValueKey<String>('udp-$i-${d.udpPort}'),
+                                initialValue: '${d.udpPort}',
+                                decoration: const InputDecoration(
+                                  labelText: 'UDP port',
+                                  border: OutlineInputBorder(),
+                                ),
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                onChanged: (v) {
+                                  final p = int.tryParse(v) ?? d.udpPort;
+                                  final next = List<DeviceSettings>.from(devices);
+                                  next[i] = d.copyWith(udpPort: p.clamp(1, 65535));
+                                  onDevicesChanged(next);
+                                },
+                              ),
+                            ],
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              key: ValueKey<String>('id-$i-${d.id}'),
+                              initialValue: d.id,
+                              decoration: const InputDecoration(
+                                labelText: 'Interní ID (odkazy v konfiguraci)',
+                                helperText: 'Měň jen pokud víš, že segmenty v JSON na to odkazují.',
+                                border: OutlineInputBorder(),
+                              ),
+                              onChanged: (v) {
+                                final next = List<DeviceSettings>.from(devices);
+                                next[i] = d.copyWith(id: v.trim().isEmpty ? d.id : v.trim());
+                                onDevicesChanged(next);
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),

@@ -72,7 +72,8 @@ class SerialDeviceTransport extends DeviceTransport {
       _port = port;
       _connected = true;
       _log.info('Serial connected $portName');
-      _drainTimer ??= Timer.periodic(const Duration(milliseconds: 4), (_) => _drain());
+      final qMs = writeQueuePeriodMs.clamp(2, 32);
+      _drainTimer ??= Timer.periodic(Duration(milliseconds: qMs), (_) => _drain());
     } on SerialPortError catch (e) {
       _log.warning('SerialPortError: $e');
     } finally {

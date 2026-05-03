@@ -43,5 +43,24 @@ void main() {
       expect(out['primary'], isNotNull);
       expect(out['primary']!.every((c) => c == (0, 0, 0)), isTrue);
     });
+
+    test('prázdné segments → implicitní obvod, ne všechno černá', () {
+      final cfg = AppConfig.defaults().copyWith(
+        globalSettings: AppConfig.defaults().globalSettings.copyWith(startMode: 'screen'),
+        screenMode: const ScreenModeSettings(monitorIndex: 1, segments: []),
+      );
+      final rt = ScreenPipelineRuntime();
+      final out = AmbilightEngine.computeFrame(
+        cfg,
+        0,
+        startupBlackout: false,
+        enabled: true,
+        screenFrame: MockScreenFrame.gradient(monitorIndex: 1),
+        screenPipeline: rt,
+      );
+      expect(out['primary'], isNotNull);
+      final nonBlack = out['primary']!.where((c) => c != (0, 0, 0)).length;
+      expect(nonBlack, greaterThan(0));
+    });
   });
 }

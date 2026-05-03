@@ -67,6 +67,78 @@ class AmbiGlassPanel extends StatelessWidget {
   }
 }
 
+/// Jednotný nadpis stránky (Přehled, Zařízení, O aplikaci).
+class AmbiPageHeader extends StatelessWidget {
+  const AmbiPageHeader({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.bottomSpacing = 16,
+  });
+
+  final String title;
+  final String? subtitle;
+  final double bottomSpacing;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        if (subtitle != null && subtitle!.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            subtitle!,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ],
+        SizedBox(height: bottomSpacing),
+      ],
+    );
+  }
+}
+
+/// Nadpis sekce uvnitř stránky (Režim, Spotify, …).
+class AmbiSectionHeader extends StatelessWidget {
+  const AmbiSectionHeader({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.bottomSpacing = 8,
+  });
+
+  final String title;
+  final String? subtitle;
+  final double bottomSpacing;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        if (subtitle != null && subtitle!.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle!,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.35),
+          ),
+        ],
+        SizedBox(height: bottomSpacing),
+      ],
+    );
+  }
+}
+
 /// Karta ve stylu „Shortcuts“ — silná výplň, ikona, titulek.
 class AmbiGradientTile extends StatelessWidget {
   const AmbiGradientTile({
@@ -90,7 +162,16 @@ class AmbiGradientTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    final semanticsLabel = StringBuffer(title);
+    if (subtitle != null && subtitle!.isNotEmpty) {
+      semanticsLabel.write(', ${subtitle!}');
+    }
+    if (selected) semanticsLabel.write(', vybráno');
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: semanticsLabel.toString(),
+      child: Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(DashboardUi.radiusLg),
       clipBehavior: Clip.antiAlias,
@@ -150,6 +231,8 @@ class AmbiGradientTile extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    ),
       ),
     );
   }

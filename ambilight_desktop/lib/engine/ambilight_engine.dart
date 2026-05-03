@@ -67,7 +67,8 @@ class AmbilightEngine {
     required ScreenPipelineRuntime screenPipeline,
     MusicAnalysisSnapshot? musicSnapshot,
     PcHealthSnapshot pcHealthSnapshot = PcHealthSnapshot.empty,
-    (int, int, int)? spotifyDominantRgb,
+    /// Sloučená dominantní barva z alba (Spotify API a/nebo OS média) — jen pokud to controller povolí.
+    (int, int, int)? musicAlbumDominantRgb,
   }) {
     if (!enabled || startupBlackout) {
       return _blackPerDevice(config);
@@ -101,10 +102,9 @@ class AmbilightEngine {
         );
       case 'music':
         final nMusic = combinedDeviceLedLength(config);
-        if (config.spotify.enabled &&
-            config.spotify.useAlbumColors &&
-            spotifyDominantRgb != null) {
-          final flat = List<(int, int, int)>.filled(nMusic, spotifyDominantRgb, growable: false);
+        if (musicAlbumDominantRgb != null) {
+          final flat =
+              List<(int, int, int)>.filled(nMusic, musicAlbumDominantRgb, growable: false);
           return _mapFlatToDevices(flat, config.globalSettings.devices);
         }
         final snap = musicSnapshot ?? MusicAnalysisSnapshot.silent();

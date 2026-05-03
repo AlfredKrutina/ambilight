@@ -76,6 +76,10 @@
         "enabled": false,
         "use_album_colors": true
     },
+    "system_media_album": {
+        "enabled": false,
+        "use_album_colors": true
+    },
     "pc_health": {
         "enabled": false,
         "update_rate": 500,

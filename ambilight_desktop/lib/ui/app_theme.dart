@@ -62,12 +62,12 @@ abstract final class AmbiLightTheme {
       brightness: colors.brightness,
       scaffoldBackgroundColor: colors.surface,
       visualDensity: VisualDensity.standard,
-      splashFactory: InkSparkle.splashFactory,
+      splashFactory: InkRipple.splashFactory,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
-          TargetPlatform.macOS: FadeUpwardsPageTransitionsBuilder(),
-          TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.macOS: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
         },
       ),
       appBarTheme: AppBarTheme(
@@ -116,6 +116,27 @@ abstract final class AmbiLightTheme {
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: colors.primary, width: 2),
         ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        backgroundColor: colors.inverseSurface,
+        contentTextStyle: TextStyle(color: colors.onInverseSurface, fontSize: 14),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: colors.surfaceContainerHigh,
+        surfaceTintColor: colors.surfaceTint,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      tooltipTheme: TooltipThemeData(
+        waitDuration: const Duration(milliseconds: 450),
+        showDuration: const Duration(seconds: 4),
+        decoration: BoxDecoration(
+          color: colors.inverseSurface.withValues(alpha: 0.94),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        textStyle: TextStyle(color: colors.onInverseSurface, fontSize: 12.5),
       ),
     );
   }

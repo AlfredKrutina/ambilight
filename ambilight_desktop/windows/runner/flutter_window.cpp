@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "now_playing_channel.h"
 #include "screen_capture_channel.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
@@ -27,6 +28,7 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   RegisterAmbilightScreenCapture(GetHandle(), flutter_controller_->engine());
+  RegisterAmbilightNowPlaying(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -42,6 +44,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  UnregisterAmbilightNowPlaying();
   UnregisterAmbilightScreenCapture();
   if (flutter_controller_) {
     flutter_controller_ = nullptr;

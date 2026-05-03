@@ -1123,6 +1123,41 @@ class SpotifySettings {
   }
 }
 
+/// Dominantní barva z náhledu obalu u **aktuálně přehrávaného média v OS** (Windows GSMTC).
+///
+/// Funguje pro Apple Music (aplikace), často pro YouTube Music v prohlížeči / Edge — záleží,
+/// zda přehrávač hlásí miniaturu do systému. Není náhrada oficiálního API YouTube Music.
+class SystemMediaAlbumSettings {
+  const SystemMediaAlbumSettings({
+    this.enabled = false,
+    this.useAlbumColors = true,
+  });
+
+  final bool enabled;
+  final bool useAlbumColors;
+
+  Map<String, dynamic> toJson() => {
+        'enabled': enabled,
+        'use_album_colors': useAlbumColors,
+      };
+
+  factory SystemMediaAlbumSettings.fromJson(Map<String, dynamic> j) {
+    return SystemMediaAlbumSettings(
+      enabled: asBool(j['enabled'], false),
+      useAlbumColors: asBool(j['use_album_colors'], true),
+    );
+  }
+
+  SystemMediaAlbumSettings copyWith({
+    bool? enabled,
+    bool? useAlbumColors,
+  }) =>
+      SystemMediaAlbumSettings(
+        enabled: enabled ?? this.enabled,
+        useAlbumColors: useAlbumColors ?? this.useAlbumColors,
+      );
+}
+
 /// --- PC Health ---
 
 class PcHealthSettings {
@@ -1184,6 +1219,7 @@ class AppConfig {
     required this.screenMode,
     required this.musicMode,
     required this.spotify,
+    required this.systemMediaAlbum,
     required this.pcHealth,
     this.userScreenPresets = const {},
     this.userMusicPresets = const {},
@@ -1194,6 +1230,7 @@ class AppConfig {
   final ScreenModeSettings screenMode;
   final MusicModeSettings musicMode;
   final SpotifySettings spotify;
+  final SystemMediaAlbumSettings systemMediaAlbum;
   final PcHealthSettings pcHealth;
   final Map<String, Map<String, dynamic>> userScreenPresets;
   final Map<String, Map<String, dynamic>> userMusicPresets;
@@ -1204,6 +1241,7 @@ class AppConfig {
     ScreenModeSettings? screenMode,
     MusicModeSettings? musicMode,
     SpotifySettings? spotify,
+    SystemMediaAlbumSettings? systemMediaAlbum,
     PcHealthSettings? pcHealth,
     Map<String, Map<String, dynamic>>? userScreenPresets,
     Map<String, Map<String, dynamic>>? userMusicPresets,
@@ -1214,6 +1252,7 @@ class AppConfig {
       screenMode: screenMode ?? this.screenMode,
       musicMode: musicMode ?? this.musicMode,
       spotify: spotify ?? this.spotify,
+      systemMediaAlbum: systemMediaAlbum ?? this.systemMediaAlbum,
       pcHealth: pcHealth ?? this.pcHealth,
       userScreenPresets: userScreenPresets ?? this.userScreenPresets,
       userMusicPresets: userMusicPresets ?? this.userMusicPresets,
@@ -1236,6 +1275,7 @@ class AppConfig {
         screenMode: const ScreenModeSettings(),
         musicMode: const MusicModeSettings(),
         spotify: const SpotifySettings(),
+        systemMediaAlbum: const SystemMediaAlbumSettings(),
         pcHealth: const PcHealthSettings(),
       );
 
@@ -1245,6 +1285,7 @@ class AppConfig {
         'screen_mode': screenMode.toJson(),
         'music_mode': musicMode.toJson(),
         'spotify': spotify.toJson(),
+        'system_media_album': systemMediaAlbum.toJson(),
         'pc_health': pcHealth.toJson(),
         'user_screen_presets': Map<String, dynamic>.from(userScreenPresets),
         'user_music_presets': Map<String, dynamic>.from(userMusicPresets),
@@ -1296,6 +1337,9 @@ class AppConfig {
       spotify: data['spotify'] != null
           ? SpotifySettings.fromJson(asMap(data['spotify']))
           : const SpotifySettings(),
+      systemMediaAlbum: data['system_media_album'] != null
+          ? SystemMediaAlbumSettings.fromJson(asMap(data['system_media_album']))
+          : const SystemMediaAlbumSettings(),
       pcHealth: data['pc_health'] != null
           ? PcHealthSettings.fromJson(asMap(data['pc_health']))
           : const PcHealthSettings(),

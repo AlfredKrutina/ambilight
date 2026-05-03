@@ -15,6 +15,7 @@ import 'wizards/led_strip_wizard_dialog.dart';
 import 'dashboard_ui.dart';
 import 'responsive_body.dart';
 import 'wizards/zone_editor_wizard_dialog.dart';
+import 'widgets/config_device_list_tile.dart';
 
 bool _isValidIp(String raw) {
   final s = raw.replaceAll(',', '.').trim();
@@ -202,8 +203,8 @@ class _DevicesPageState extends State<DevicesPage> {
       builder: (ctx) => AlertDialog(
         title: const Text('Reset Wi‑Fi?'),
         content: Text(
-          'Zařízení „${dev.name}“ (${dev.ipAddress}) smaže uložené Wi‑Fi přihlašovací údaje '
-          'a restartuje se. Budete ho muset znovu nakonfigurovat.',
+          'Zařízení „${dev.name}“ smaže uložené Wi‑Fi přihlašovací údaje na kontroléru '
+          'a restartuje se. Budete ho muset znovu připojit k síti.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Zrušit')),
@@ -257,16 +258,12 @@ class _DevicesPageState extends State<DevicesPage> {
           child: ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       children: [
-        Text(
-          'Zařízení',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+        AmbiPageHeader(
+          title: 'Zařízení',
+          subtitle:
+              'Vyhledání v síti, úprava segmentů a kalibrace. Klepnutím na řádek zařízení otevřeš mapování LED.',
+          bottomSpacing: 20,
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Discovery, průvodce pásku, kalibrace a ruční úpravy.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 20),
         AmbiGlassPanel(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -284,11 +281,6 @@ class _DevicesPageState extends State<DevicesPage> {
           builder: (context, bc) {
             final narrow = bc.maxWidth < 520;
             final children = [
-              OutlinedButton.icon(
-                onPressed: () => LedStripWizardDialog.show(context),
-                icon: const Icon(Icons.view_week_outlined),
-                label: const Text('LED průvodce'),
-              ),
               OutlinedButton.icon(
                 onPressed: () => ZoneEditorWizardDialog.show(context),
                 icon: const Icon(Icons.border_outer),
@@ -343,73 +335,40 @@ class _DevicesPageState extends State<DevicesPage> {
           final i = e.key;
           final d = e.value;
           final isWifi = d.type == 'wifi';
-          return Card(
-            clipBehavior: Clip.antiAlias,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(d.name),
-                    subtitle: Text(
-                      isWifi
-                          ? '${d.ipAddress}:${d.udpPort} · LED ${d.ledCount}'
-                          : '${d.type} ${d.port} · LED ${d.ledCount}',
-                    ),
-                  ),
-                  if (d.firmwareVersion.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 16, bottom: 4),
-                      child: Text('Firmware: ${d.firmwareVersion}', style: Theme.of(context).textTheme.bodySmall),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8, bottom: 4),
-                    child: OutlinedButton.icon(
-                      onPressed: () => LedStripWizardDialog.show(context, deviceId: d.id),
-                      icon: const Icon(Icons.view_week_outlined, size: 18),
-                      label: const Text('LED průvodce'),
-                    ),
-                  ),
-                  if (isWifi && d.ipAddress.isNotEmpty)
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        TextButton.icon(
-                          onPressed: () => UdpDeviceCommands.sendIdentify(d.ipAddress, d.udpPort),
-                          icon: const Icon(Icons.highlight, size: 18),
-                          label: const Text('Identify'),
-                        ),
-                        TextButton.icon(
-                          onPressed: () => _confirmResetWifi(context, d),
-                          icon: const Icon(Icons.wifi_off, size: 18),
-                          label: const Text('Reset Wi‑Fi'),
-                        ),
-                        TextButton(
-                          onPressed: () => _refreshFirmware(context, c, i),
-                          child: const Text('FW z PONG'),
-                        ),
-                      ],
-                    ),
-                  if (isWifi && d.controlViaHa)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 12, bottom: 8),
-                      child: Text(
-                        'Ovládání přes HA: PC neposílá barvy.',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Theme.of(context).colorScheme.tertiary,
-                            ),
-                      ),
-                    ),
-                ],
-              ),
+          final ok = c.connectionSnapshot[d.id] ?? false;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: ConfigDeviceListTile(
+              device: d,
+              connected: ok,
+              onEditStrip: () => LedStripWizardDialog.show(context, deviceId: d.id),
+              onIdentify: isWifi && d.ipAddress.isNotEmpty
+                  ? () => UdpDeviceCommands.sendIdentify(d.ipAddress, d.udpPort)
+                  : null,
+              onResetWifi: isWifi && d.ipAddress.isNotEmpty ? () => _confirmResetWifi(context, d) : null,
+              onRefreshFirmware: isWifi && d.ipAddress.isNotEmpty ? () => _refreshFirmware(context, c, i) : null,
             ),
           );
         }),
-        const SizedBox(height: 8),
-        Text('Dostupné COM porty: ${AmbilightAppController.serialPorts().join(", ")}',
-            style: Theme.of(context).textTheme.bodySmall),
+        Theme(
+          data: Theme.of(context),
+          child: ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: 8),
+            title: Text(
+              'Diagnostika (COM porty)',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+            children: [
+              SelectableText(
+                AmbilightAppController.serialPorts().join(', ').isEmpty
+                    ? 'Žádné porty nejsou detekované.'
+                    : AmbilightAppController.serialPorts().join(', '),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
       ],
           ),
         );

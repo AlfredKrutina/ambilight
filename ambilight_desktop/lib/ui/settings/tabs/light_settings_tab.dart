@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../application/ambilight_app_controller.dart';
 import '../../../core/models/config_models.dart';
+import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
 
 Color _colorFromRgb(List<int> rgb) {
@@ -31,7 +32,7 @@ Future<void> _pickLightPrimaryColor(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Náhled na pásku (jako PyQt color picker).',
+                    'Náhled na pásku při posuvnících.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
@@ -110,6 +111,15 @@ class LightSettingsTab extends StatelessWidget {
 
   static const _effects = ['static', 'breathing', 'rainbow', 'chase', 'custom_zones'];
 
+  static String _effectLabel(String e) => switch (e) {
+        'static' => 'Statická',
+        'breathing' => 'Dýchání',
+        'rainbow' => 'Duha',
+        'chase' => 'Honění',
+        'custom_zones' => 'Vlastní zóny',
+        _ => e,
+      };
+
   @override
   Widget build(BuildContext context) {
     final lm = draft.lightMode;
@@ -125,6 +135,11 @@ class LightSettingsTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              AmbiSectionHeader(
+                title: 'Světlo',
+                subtitle: 'Statické barvy a efekty na pásku bez snímání obrazovky. Výběr barvy může krátce rozsvítit náhled na pásku.',
+                bottomSpacing: 12,
+              ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Základní barva'),
@@ -153,7 +168,7 @@ class LightSettingsTab extends StatelessWidget {
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(labelText: 'Efekt', border: OutlineInputBorder()),
                 value: _effects.contains(lm.effect) ? lm.effect : 'static',
-                items: _effects.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                items: _effects.map((e) => DropdownMenuItem(value: e, child: Text(_effectLabel(e)))).toList(),
                 onChanged: (v) {
                   if (v == null) return;
                   onChanged(lm.copyWith(effect: v));

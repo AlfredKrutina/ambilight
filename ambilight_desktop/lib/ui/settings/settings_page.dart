@@ -133,7 +133,11 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
               return SpotifySettingsTab(
                 draft: c.config,
                 maxWidth: contentW,
-                onChanged: _patchSpotify,
+                onSpotifyChanged: _patchSpotify,
+                onSystemMediaAlbumChanged: (sm) {
+                  final ctrl = context.read<AmbilightAppController>();
+                  _queue(ctrl.config.copyWith(systemMediaAlbum: sm));
+                },
               );
             default:
               return const SizedBox.shrink();
@@ -168,7 +172,7 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Změny se ukládají automaticky (cca 0,2 s po poslední úpravě). Presety zůstávají beze změny.',
+                    'Úpravy se uloží samy krátce po změně. Uložené presety obrazovky a hudby se tím nemění.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ),
@@ -197,7 +201,7 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                         children: [
                           Text('Nastavení', style: Theme.of(context).textTheme.headlineSmall),
                           Text(
-                            'Oddělené záložky vlevo — žádné ruční „Použít“.',
+                            'Vyber téma vlevo — tlačítko Použít nepotřebuješ.',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   color: scheme.onSurfaceVariant,
                                 ),

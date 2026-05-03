@@ -2,9 +2,38 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../application/ambilight_app_controller.dart';
-import '../core/models/config_models.dart';
 import 'dashboard_ui.dart';
 import 'responsive_body.dart';
+
+typedef _HomeDev = ({String id, String name, String type, int ledCount, bool ok});
+
+typedef _HomePick = ({
+  bool enabled,
+  String startMode,
+  bool spotifyConnected,
+  String? spotifyLastError,
+  bool spotifyAlbumIntegration,
+  String? spotifyClientId,
+  List<_HomeDev> devices,
+});
+
+_HomePick _homePick(AmbilightAppController c) => (
+      enabled: c.enabled,
+      startMode: c.config.globalSettings.startMode,
+      spotifyConnected: c.spotify.isConnected,
+      spotifyLastError: c.spotify.lastError,
+      spotifyAlbumIntegration: c.config.spotify.enabled,
+      spotifyClientId: c.config.spotify.clientId,
+      devices: [
+        for (final d in c.config.globalSettings.devices)
+          (id: d.id, name: d.name, type: d.type, ledCount: d.ledCount, ok: c.connectionSnapshot[d.id] ?? false),
+      ],
+    );
+
+String _deviceStripSubtitle(String type, int ledCount) {
+  final kind = type == 'wifi' ? 'Wi‑Fi' : 'USB';
+  return '$kind · $ledCount LED';
+}
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -64,169 +93,190 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<AmbilightAppController>();
     final scheme = Theme.of(context).colorScheme;
-    final current = c.config.globalSettings.startMode;
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final cw = constraints.maxWidth;
         final wide = cw >= 760;
         final gridCols = cw >= 520 ? 2 : 1;
 
-        return ResponsiveBody(
-          maxWidth: cw,
-          child: CustomScrollView(
-      slivers: [
+        return Selector<AmbilightAppController, _HomePick>(
+          selector: (_, c) => _homePick(c),
+          builder: (context, v, _) {
+            final ctrl = context.read<AmbilightAppController>();
+            final current = v.startMode;
+            return ResponsiveBody(
+              maxWidth: cw,
+              child: CustomScrollView(
+                slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
           sliver: SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Přehled',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Nejpoužívanější ovládání nahoře; detaily v Zařízení a Nastavení.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-                ),
-              ],
+            child: AmbiPageHeader(
+              title: 'Přehled',
+              subtitle:
+                  'Zapni výstup, vyber režim a zkontroluj připojení. Podrobná konfigurace je v záložkách Zařízení a Nastavení.',
+              bottomSpacing: 8,
             ),
           ),
         ),
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          sliver: SliverToBoxAdapter(
-            child: wide ? _heroRowWide(context, c, scheme) : _heroColumn(context, c, scheme),
-          ),
-        ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-          sliver: SliverToBoxAdapter(
-            child: Text(
-              'Režim',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
-        ),
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          sliver: SliverGrid(
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: gridCols,
-              mainAxisSpacing: 14,
-              crossAxisSpacing: 14,
-              childAspectRatio: gridCols == 2 ? 1.35 : 1.5,
-            ),
-            delegate: SliverChildBuilderDelegate(
-              (context, i) {
-                final m = _modes[i];
-                return AmbiGradientTile(
-                  gradient: m.gradient,
-                  icon: m.icon,
-                  title: m.title,
-                  subtitle: m.subtitle,
-                  selected: current == m.id,
-                  onTap: () => c.setStartMode(m.id),
-                  minHeight: 108,
-                );
-              },
-              childCount: _modes.length,
-            ),
-          ),
-        ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-          sliver: SliverToBoxAdapter(
-            child: Text(
-              'Spotify',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
-        ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-          sliver: SliverToBoxAdapter(child: _SpotifyCard(c: c, scheme: scheme)),
-        ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-          sliver: SliverToBoxAdapter(
-            child: Text(
-              'Zařízení — zkratka (plná správa vlevo v menu)',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: SizedBox(
-            height: 132,
-            child: c.config.globalSettings.devices.isEmpty
-                ? Padding(
+                  SliverPadding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: AmbiGlassPanel(
-                      padding: const EdgeInsets.all(20),
-                      child: Center(
+                    sliver: SliverToBoxAdapter(
+                      child: wide ? _heroRowWide(context, ctrl, scheme, v) : _heroColumn(context, ctrl, scheme, v),
+                    ),
+                  ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+          sliver: SliverToBoxAdapter(
+            child: AmbiSectionHeader(
+              title: 'Režim',
+              subtitle: 'Co se právě promítá na pásky. Jednotlivé předvolby upravíš v Nastavení podle režimu.',
+            ),
+          ),
+        ),
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: SliverGrid(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: gridCols,
+                        mainAxisSpacing: 14,
+                        crossAxisSpacing: 14,
+                        childAspectRatio: gridCols == 2 ? 1.35 : 1.5,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, i) {
+                          final m = _modes[i];
+                          return AmbiGradientTile(
+                            gradient: m.gradient,
+                            icon: m.icon,
+                            title: m.title,
+                            subtitle: m.subtitle,
+                            selected: current == m.id,
+                            onTap: () => ctrl.setStartMode(m.id),
+                            minHeight: 108,
+                          );
+                        },
+                        childCount: _modes.length,
+                      ),
+                    ),
+                  ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+          sliver: SliverToBoxAdapter(
+            child: AmbiSectionHeader(
+              title: 'Spotify',
+              subtitle:
+                  'Barvy z alba: Spotify (OAuth) nebo na Windows z aktuálního OS přehrávače (Apple Music, často YouTube v prohlížeči). Tokeny a Client ID: Nastavení → Spotify.',
+            ),
+          ),
+        ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    sliver: SliverToBoxAdapter(
+                      child: _SpotifyCard(
+                        c: ctrl,
+                        scheme: scheme,
+                        connected: v.spotifyConnected,
+                        lastError: v.spotifyLastError,
+                        albumColorsEnabled: v.spotifyAlbumIntegration,
+                        clientId: v.spotifyClientId,
+                      ),
+                    ),
+                  ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+          sliver: SliverToBoxAdapter(
+            child: AmbiSectionHeader(
+              title: 'Zařízení',
+              subtitle:
+                  'Rychlý náhled stavu. Úpravy pásku, discovery a sítě jsou v hlavní sekci „Zařízení“ v navigaci.',
+            ),
+          ),
+        ),
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 132,
+                      child: v.devices.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: AmbiGlassPanel(
+                                padding: const EdgeInsets.all(20),
+                                child: Center(
                         child: Text(
-                          'Žádné zařízení — otevři sekci Zařízení a přidej strip nebo discovery.',
+                          'Zatím nemáš žádné zařízení.\n\nV navigaci otevři „Zařízení“ a použij Discovery nebo průvodce přidáním pásku.',
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                         ),
-                      ),
+                                ),
+                              ),
+                            )
+                          : ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              itemCount: v.devices.length,
+                              separatorBuilder: (_, __) => const SizedBox(width: 12),
+                              itemBuilder: (context, i) {
+                                final d = v.devices[i];
+                                return _DeviceStripCard(
+                                  name: d.name,
+                                  type: d.type,
+                                  ledCount: d.ledCount,
+                                  connected: d.ok,
+                                );
+                              },
+                            ),
                     ),
-                  )
-                : ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: c.config.globalSettings.devices.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (context, i) {
-                      final d = c.config.globalSettings.devices[i];
-                      final ok = c.connectionSnapshot[d.id] ?? false;
-                      return _DeviceStripCard(device: d, connected: ok);
-                    },
                   ),
-          ),
-        ),
-        const SliverToBoxAdapter(child: SizedBox(height: 28)),
-      ],
-      ),
-    );
+                  const SliverToBoxAdapter(child: SizedBox(height: 28)),
+                ],
+              ),
+            );
+          },
+        );
       },
     );
   }
 
-  Widget _heroRowWide(BuildContext context, AmbilightAppController c, ColorScheme scheme) {
+  Widget _heroRowWide(
+    BuildContext context,
+    AmbilightAppController c,
+    ColorScheme scheme,
+    _HomePick v,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           flex: 3,
-          child: _PowerHeroCard(c: c, scheme: scheme),
+          child: _PowerHeroCard(c: c, scheme: scheme, enabled: v.enabled),
         ),
         const SizedBox(width: 16),
         Expanded(
           flex: 2,
           child: AmbiGlassPanel(
             padding: const EdgeInsets.all(18),
-            child: _EngineStatus(c: c, scheme: scheme),
+            child: _EngineStatus(scheme: scheme),
           ),
         ),
       ],
     );
   }
 
-  Widget _heroColumn(BuildContext context, AmbilightAppController c, ColorScheme scheme) {
+  Widget _heroColumn(
+    BuildContext context,
+    AmbilightAppController c,
+    ColorScheme scheme,
+    _HomePick v,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _PowerHeroCard(c: c, scheme: scheme),
+        _PowerHeroCard(c: c, scheme: scheme, enabled: v.enabled),
         const SizedBox(height: 14),
         AmbiGlassPanel(
           padding: const EdgeInsets.all(18),
-          child: _EngineStatus(c: c, scheme: scheme),
+          child: _EngineStatus(scheme: scheme),
         ),
       ],
     );
@@ -234,14 +284,15 @@ class HomePage extends StatelessWidget {
 }
 
 class _PowerHeroCard extends StatelessWidget {
-  const _PowerHeroCard({required this.c, required this.scheme});
+  const _PowerHeroCard({required this.c, required this.scheme, required this.enabled});
 
   final AmbilightAppController c;
   final ColorScheme scheme;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    final on = c.enabled;
+    final on = enabled;
     return Material(
       borderRadius: BorderRadius.circular(DashboardUi.radiusLg),
       clipBehavior: Clip.antiAlias,
@@ -299,9 +350,8 @@ class _PowerHeroCard extends StatelessWidget {
 }
 
 class _EngineStatus extends StatelessWidget {
-  const _EngineStatus({required this.c, required this.scheme});
+  const _EngineStatus({required this.scheme});
 
-  final AmbilightAppController c;
   final ColorScheme scheme;
 
   @override
@@ -309,7 +359,7 @@ class _EngineStatus extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Engine', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+        Text('Služba', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
         Row(
           children: [
@@ -327,9 +377,11 @@ class _EngineStatus extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Tick ${c.animationTick}', style: Theme.of(context).textTheme.titleMedium),
+                  Text('Běží na pozadí', style: Theme.of(context).textTheme.titleMedium),
                   Text(
-                    'Směna snímků běží na pozadí.',
+                    'Aplikace průběžně připravuje barvy pro pásky. '
+                    'Stav se mění při přepnutí režimu nebo zařízení. '
+                    '(Snímků: ${context.watch<AmbilightAppController>().animationTick})',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ],
@@ -343,10 +395,21 @@ class _EngineStatus extends StatelessWidget {
 }
 
 class _SpotifyCard extends StatelessWidget {
-  const _SpotifyCard({required this.c, required this.scheme});
+  const _SpotifyCard({
+    required this.c,
+    required this.scheme,
+    required this.connected,
+    required this.lastError,
+    required this.albumColorsEnabled,
+    required this.clientId,
+  });
 
   final AmbilightAppController c;
   final ColorScheme scheme;
+  final bool connected;
+  final String? lastError;
+  final bool albumColorsEnabled;
+  final String? clientId;
 
   @override
   Widget build(BuildContext context) {
@@ -358,29 +421,29 @@ class _SpotifyCard extends StatelessWidget {
           Row(
             children: [
               Icon(
-                c.spotify.isConnected ? Icons.check_circle_rounded : Icons.cloud_off_rounded,
-                color: c.spotify.isConnected ? scheme.secondary : scheme.onSurfaceVariant,
+                connected ? Icons.check_circle_rounded : Icons.cloud_off_rounded,
+                color: connected ? scheme.secondary : scheme.onSurfaceVariant,
               ),
               const SizedBox(width: 10),
               Text(
-                c.spotify.isConnected ? 'Připojeno' : 'Nepřipojeno',
+                connected ? 'Připojeno' : 'Nepřipojeno',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            c.spotify.lastError ??
-                ((c.config.spotify.clientId == null || c.config.spotify.clientId!.isEmpty)
-                    ? 'Client ID doplníš v Nastavení → Spotify.'
-                    : 'OAuth redirect: http://127.0.0.1:8767/callback'),
+            lastError ??
+                ((clientId == null || clientId!.isEmpty)
+                    ? 'Pro přihlášení k účtu Spotify doplníš Client ID v Nastavení → Spotify.'
+                    : 'Po „Přihlásit“ potvrdíš přístup v prohlížeči; návrat proběhne automaticky na tento počítač.'),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: 12),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Barvy alba v music módu'),
-            value: c.config.spotify.enabled,
+            value: albumColorsEnabled,
             onChanged: c.setSpotifyIntegrationEnabled,
           ),
           Wrap(
@@ -398,15 +461,21 @@ class _SpotifyCard extends StatelessWidget {
 }
 
 class _DeviceStripCard extends StatelessWidget {
-  const _DeviceStripCard({required this.device, required this.connected});
+  const _DeviceStripCard({
+    required this.name,
+    required this.type,
+    required this.ledCount,
+    required this.connected,
+  });
 
-  final DeviceSettings device;
+  final String name;
+  final String type;
+  final int ledCount;
   final bool connected;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final d = device;
     return SizedBox(
       width: 200,
       child: AmbiGlassPanel(
@@ -424,21 +493,21 @@ class _DeviceStripCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  d.type == 'wifi' ? 'Wi‑Fi' : 'USB',
+                  type == 'wifi' ? 'Wi‑Fi' : 'USB',
                   style: Theme.of(context).textTheme.labelSmall,
                 ),
               ],
             ),
             const Spacer(),
             Text(
-              d.name,
+              name,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
             Text(
-              d.type == 'wifi' ? d.ipAddress : d.port,
-              maxLines: 1,
+              '${_deviceStripSubtitle(type, ledCount)} · ${connected ? "připojeno" : "nepřipojeno"}',
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
             ),

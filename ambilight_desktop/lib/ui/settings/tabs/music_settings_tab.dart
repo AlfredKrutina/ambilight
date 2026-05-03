@@ -7,6 +7,7 @@ import '../../../core/models/config_models.dart';
 import '../../../services/music/music_audio_service.dart';
 import '../../../services/music/music_types.dart';
 import '../settings_common.dart';
+import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
 
 /// D6 — napojení na `MusicModeSettings` + enumerace vstupů (`MusicAudioService`, agent A4).
@@ -40,6 +41,19 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
     'pulse',
     'reactive_bass',
   ];
+
+  static String _musicEffectLabel(String e) => switch (e) {
+        'energy' => 'Energie',
+        'spectrum' => 'Spektrum',
+        'spectrum_rotate' => 'Rotující spektrum',
+        'spectrum_punchy' => 'Spektrum (výrazné)',
+        'strobe' => 'Stroboskop',
+        'vumeter' => 'VU měřič',
+        'vumeter_spectrum' => 'VU + spektrum',
+        'pulse' => 'Pulz',
+        'reactive_bass' => 'Reaktivní basy',
+        _ => e,
+      };
 
   @override
   void initState() {
@@ -84,7 +98,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
             Expanded(
               child: DropdownButtonFormField<int?>(
                 decoration: const InputDecoration(
-                  labelText: 'Vstupní zařízení (audio_device_index)',
+                  labelText: 'Vstupní zvukové zařízení',
                   border: OutlineInputBorder(),
                 ),
                 value: effectiveIndex,
@@ -120,8 +134,12 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
     );
 
     final fields = <Widget>[
-      Text('Hudba (music_mode)', style: Theme.of(context).textTheme.titleMedium),
-      const SizedBox(height: 8),
+      AmbiSectionHeader(
+        title: 'Hudba',
+        subtitle:
+            'Zdroj zvuku, efekty a náhled barev. Režim Hudba na přehledu musí být aktivní, aby se výstup promítl na pásky.',
+        bottomSpacing: 12,
+      ),
       devicePicker,
       Consumer<AmbilightAppController>(
         builder: (context, ctrl, _) {
@@ -140,18 +158,18 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         },
       ),
       SwitchListTile(
-        title: const Text('Preferovat mikrofon (mic_enabled)'),
-        subtitle: const Text('Pokud není vybráno zařízení, hledá ne-loopback vstup.'),
+        title: const Text('Preferovat mikrofon'),
+        subtitle: const Text('Pokud není vybráno zařízení, hledá se vhodný vstup mimo smyčku reproduktorů.'),
         value: m.micEnabled,
         onChanged: (v) => widget.onChanged(m.copyWith(micEnabled: v)),
       ),
       DropdownButtonFormField<String>(
-        decoration: const InputDecoration(labelText: 'color_source', border: OutlineInputBorder()),
+        decoration: const InputDecoration(labelText: 'Zdroj barev', border: OutlineInputBorder()),
         value: ['fixed', 'spectrum', 'monitor'].contains(m.colorSource) ? m.colorSource : 'fixed',
         items: const [
-          DropdownMenuItem(value: 'fixed', child: Text('fixed')),
-          DropdownMenuItem(value: 'spectrum', child: Text('spectrum')),
-          DropdownMenuItem(value: 'monitor', child: Text('monitor (vyžaduje A4 + capture)')),
+          DropdownMenuItem(value: 'fixed', child: Text('Pevná barva')),
+          DropdownMenuItem(value: 'spectrum', child: Text('Spektrum zvuku')),
+          DropdownMenuItem(value: 'monitor', child: Text('Barvy z monitoru (Ambilight)')),
         ],
         onChanged: (v) {
           if (v == null) return;
@@ -160,10 +178,10 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
       ),
       if (m.colorSource == 'fixed') ...[
         const SizedBox(height: 8),
-        Text('Barva při color_source=fixed', style: Theme.of(context).textTheme.titleSmall),
+        Text('Barva při pevné barvě', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 4),
         Text(
-          'Náhled na pásku při úpravě (jako PyQt).',
+          'Posuvníky krátce rozsvítí náhled na pásku.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 8),
@@ -173,9 +191,9 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         ),
       ],
       DropdownButtonFormField<String>(
-        decoration: const InputDecoration(labelText: 'Efekt (effect)', border: OutlineInputBorder()),
+        decoration: const InputDecoration(labelText: 'Vizuální efekt', border: OutlineInputBorder()),
         value: _effects.contains(m.effect) ? m.effect : 'energy',
-        items: _effects.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+        items: _effects.map((e) => DropdownMenuItem(value: e, child: Text(_musicEffectLabel(e)))).toList(),
         onChanged: (v) {
           if (v == null) return;
           widget.onChanged(m.copyWith(effect: v));
@@ -194,7 +212,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         value: m.beatDetectionEnabled,
         onChanged: (v) => widget.onChanged(m.copyWith(beatDetectionEnabled: v)),
       ),
-      Text('beat_threshold: ${m.beatThreshold.toStringAsFixed(2)}', style: Theme.of(context).textTheme.labelLarge),
+      Text('Prah detekce beatu: ${m.beatThreshold.toStringAsFixed(2)}', style: Theme.of(context).textTheme.labelLarge),
       Slider(
         value: m.beatThreshold.clamp(1.05, 3.0),
         min: 1.05,
@@ -211,7 +229,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         label: '${m.sensitivity}',
         onChanged: (v) => widget.onChanged(m.copyWith(sensitivity: v.round())),
       ),
-      Text('Bass / mid / high / global', style: Theme.of(context).textTheme.labelSmall),
+      Text('Citlivost pásem (bas / středy / výšky / celkově)', style: Theme.of(context).textTheme.labelSmall),
       Text('Bass: ${m.bassSensitivity}', style: Theme.of(context).textTheme.labelLarge),
       Slider(
         value: m.bassSensitivity.toDouble().clamp(0, 100),
@@ -241,21 +259,22 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         onChanged: (v) => widget.onChanged(m.copyWith(globalSensitivity: v.round())),
       ),
       SwitchListTile(
-        title: const Text('auto_gain'),
+        title: const Text('Automatické zesílení'),
+        subtitle: const Text('Vyrovná hlasitost vstupu podle dynamiky skladby.'),
         value: m.autoGain,
         onChanged: (v) => widget.onChanged(m.copyWith(autoGain: v)),
       ),
       SwitchListTile(
-        title: const Text('auto_mid'),
+        title: const Text('Auto středy'),
         value: m.autoMid,
         onChanged: (v) => widget.onChanged(m.copyWith(autoMid: v)),
       ),
       SwitchListTile(
-        title: const Text('auto_high'),
+        title: const Text('Auto výšky'),
         value: m.autoHigh,
         onChanged: (v) => widget.onChanged(m.copyWith(autoHigh: v)),
       ),
-      Text('smoothing_ms: ${m.smoothingMs}', style: Theme.of(context).textTheme.labelLarge),
+      Text('Vyhlazení v čase: ${m.smoothingMs} ms', style: Theme.of(context).textTheme.labelLarge),
       Slider(
         value: m.smoothingMs.toDouble().clamp(0, 500),
         max: 500,

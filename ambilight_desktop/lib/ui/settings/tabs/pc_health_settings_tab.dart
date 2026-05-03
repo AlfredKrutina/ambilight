@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/models/config_models.dart';
+import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
 
 /// D7 — `PcHealthSettings` (metriky JSON; plný editor A5).
@@ -32,8 +33,12 @@ class PcHealthSettingsTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('PC Health (pc_health)', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
+              AmbiSectionHeader(
+                title: 'PC Health',
+                subtitle:
+                    'Vizualizace teplot a zátěže na pásku. Zapni režim PC Health na přehledu, aby se výstup promítl.',
+                bottomSpacing: 12,
+              ),
               SwitchListTile(
                 title: const Text('Zapnuto'),
                 value: p.enabled,

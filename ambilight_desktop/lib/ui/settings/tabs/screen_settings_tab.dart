@@ -9,6 +9,7 @@ import '../../../application/ambilight_app_controller.dart';
 import '../../../core/models/config_models.dart';
 import '../../../features/screen_overlay/screen_scan_settings_tab.dart';
 import '../settings_common.dart';
+import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
 
 /// D5 — základní pole `ScreenModeSettings` (plný segment editor = A7 / A3).
@@ -30,11 +31,11 @@ class ScreenSettingsTab extends StatelessWidget {
     final innerMax = AppBreakpoints.maxContentWidth(maxWidth).clamp(280.0, maxWidth);
 
     final fields = <Widget>[
-      Text('Obrazovka (screen_mode)', style: Theme.of(context).textTheme.titleMedium),
-      const SizedBox(height: 4),
-      Text(
-        'Kalibrace wizard (D12) a plný segment editor (A7) navazují zde; scan overlay viz sekce níže.',
-        style: Theme.of(context).textTheme.bodySmall,
+      AmbiSectionHeader(
+        title: 'Obrazovka',
+        subtitle:
+            'Barvy z okrajů monitoru. Kalibraci a segmenty nastavíš také v sekci Zařízení. Níže je přehled snímání a oblast skenování.',
+        bottomSpacing: 12,
       ),
       if (!kIsWeb)
         Consumer<AmbilightAppController>(
@@ -53,7 +54,7 @@ class ScreenSettingsTab extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Snímání obrazovky (nativní)', style: Theme.of(context).textTheme.titleSmall),
+                    Text('Snímání obrazovky', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 6),
                     SelectableText(buf.toString(), style: Theme.of(context).textTheme.bodySmall),
                     const SizedBox(height: 8),

@@ -6,6 +6,7 @@ import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
 
 import 'application/ambilight_app_controller.dart';
+import 'application/app_error_safety.dart';
 import 'application/desktop_chrome_stub.dart'
     if (dart.library.io) 'application/desktop_chrome_io.dart' as desktop_chrome;
 import 'features/screen_overlay/scan_overlay_controller.dart';
@@ -17,20 +18,43 @@ import 'ui/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await hotKeyManager.unregisterAll();
+  installAppErrorHandling();
+
+  final bootLog = Logger('AppBoot');
   Logger.root.level = Level.INFO;
   Logger.root.onRecord.listen((r) {
     debugPrint('[${r.level.name}] ${r.loggerName}: ${r.message}');
   });
 
+  try {
+    await hotKeyManager.unregisterAll();
+  } catch (e, st) {
+    bootLog.warning('hotKeyManager.unregisterAll: $e', e, st);
+  }
+
   final controller = AmbilightAppController();
   final hotkeys = AmbilightHotkeyService(controller);
   controller.onAfterConfigApplied = () async {
-    await AutostartService.syncFromConfig(controller.config.globalSettings.autostart);
-    await hotkeys.syncFromController();
+    try {
+      await AutostartService.syncFromConfig(controller.config.globalSettings.autostart);
+      await hotkeys.syncFromController();
+    } catch (e, st) {
+      bootLog.warning('onAfterConfigApplied: $e', e, st);
+    }
   };
-  await controller.load();
-  await desktop_chrome.initDesktopShell(controller);
+
+  try {
+    await controller.load();
+  } catch (e, st) {
+    bootLog.warning('controller.load: $e', e, st);
+  }
+
+  try {
+    await desktop_chrome.initDesktopShell(controller);
+  } catch (e, st) {
+    bootLog.warning('initDesktopShell: $e', e, st);
+  }
+
   controller.startLoop();
 
   runApp(
@@ -39,23 +63,23 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: controller),
         ChangeNotifierProvider(create: (_) => ScanOverlayController()),
       ],
-      child: AmbiLightRoot(controller: controller),
+      child: const AmbiLightRoot(),
     ),
   );
 }
 
 class AmbiLightRoot extends StatelessWidget {
-  const AmbiLightRoot({super.key, required this.controller});
-
-  final AmbilightAppController controller;
+  const AmbiLightRoot({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        final themeStr = controller.config.globalSettings.theme.toLowerCase();
-        final themeMode = themeStr == 'light' ? ThemeMode.light : ThemeMode.dark;
+    return Selector<AmbilightAppController, ({String themeLow, bool uiAnimations})>(
+      selector: (_, c) => (
+        themeLow: c.config.globalSettings.theme.toLowerCase(),
+        uiAnimations: c.config.globalSettings.uiAnimationsEnabled,
+      ),
+      builder: (context, shell, _) {
+        final themeMode = shell.themeLow == 'light' ? ThemeMode.light : ThemeMode.dark;
         return Consumer<ScanOverlayController>(
           builder: (context, scan, _) {
             return MaterialApp(
@@ -65,7 +89,7 @@ class AmbiLightRoot extends StatelessWidget {
               darkTheme: AmbiLightTheme.dark(),
               builder: (context, child) {
                 final mq = MediaQuery.of(context);
-                final userAnimOff = !controller.config.globalSettings.uiAnimationsEnabled;
+                final userAnimOff = !shell.uiAnimations;
                 final mqMerged = mq.copyWith(disableAnimations: mq.disableAnimations || userAnimOff);
 
                 Widget inner = child ?? const SizedBox.shrink();

@@ -25,6 +25,8 @@ class SpotifyService extends ChangeNotifier {
   String? _lastError;
   Timer? _pollTimer;
   DateTime? _apiBackoffUntil;
+  /// Aktuální config pro [_pollTick] (controller ji průběžně aktualizuje v hlavní smyčce).
+  AppConfig _pollConfig = AppConfig.defaults();
 
   (int, int, int)? get dominantRgb => _dominantRgb;
   bool get isConnected => _connected;
@@ -40,12 +42,22 @@ class SpotifyService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void attachPollConfig(AppConfig config) {
+    _pollConfig = config;
+  }
+
   void startPollingIfNeeded(AppConfig config) {
+    attachPollConfig(config);
     _pollTimer?.cancel();
+    _pollTimer = null;
     if (!config.spotify.enabled) return;
     final cid = config.spotify.clientId;
     if (cid == null || cid.isEmpty) return;
-    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _pollTick(config));
+    final intervalSec = config.globalSettings.performanceMode ? 12 : 5;
+    _pollTimer = Timer.periodic(Duration(seconds: intervalSec), (_) {
+      unawaited(_pollTick());
+    });
+    unawaited(_pollTick());
   }
 
   void stopPolling() {
@@ -53,7 +65,8 @@ class SpotifyService extends ChangeNotifier {
     _pollTimer = null;
   }
 
-  Future<void> _pollTick(AppConfig config) async {
+  Future<void> _pollTick() async {
+    final config = _pollConfig;
     if (!config.spotify.enabled) return;
     final cid = config.spotify.clientId;
     if (cid == null || cid.isEmpty) return;

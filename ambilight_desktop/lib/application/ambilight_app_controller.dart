@@ -20,6 +20,7 @@ import '../features/pc_health/pc_health_collector.dart';
 import '../features/pc_health/pc_health_smoother.dart';
 import '../features/pc_health/pc_health_snapshot.dart';
 import '../features/spotify/spotify_service.dart';
+import '../features/system_media/system_media_now_playing_service.dart';
 import '../services/music/music_audio_service.dart';
 import '../core/ambilight_presets.dart';
 
@@ -33,7 +34,7 @@ Map<String, List<(int, int, int)>> _cloneDeviceRgbMap(Map<String, List<(int, int
   return out;
 }
 
-/// Globální stav: konfigurace, transporty, hlavní smyčka ~30 Hz.
+/// Globální stav: konfigurace, transporty, hlavní smyčka (~33 Hz / ~25 Hz v performance módu).
 class AmbilightAppController extends ChangeNotifier {
   AppConfig _config = AppConfig.defaults();
   /// Po každém úspěšném [applyConfigAndPersist] — pro remount záložek s `TextFormField.initialValue`.
@@ -44,6 +45,8 @@ class AmbilightAppController extends ChangeNotifier {
   bool _transportsRebuilding = false;
   final Map<String, DeviceTransport> _transports = {};
   Timer? _timer;
+  /// Perioda hlavní smyčky (ms); null = timer ještě neběžel.
+  int? _loopPeriodMs;
   int _animationTick = 0;
   bool _startupActive = true;
   int _startupFrame = 0;
@@ -57,6 +60,7 @@ class AmbilightAppController extends ChangeNotifier {
   int? _pendingShellIndex;
   int _reconnectCounter = 0;
   final SpotifyService spotify = SpotifyService();
+  final SystemMediaNowPlayingService systemMediaNowPlaying = SystemMediaNowPlayingService();
   final PcHealthCollector _pcHealthCollector = createPcHealthCollector();
   final PcHealthSmoother _pcHealthSmoother = PcHealthSmoother();
   PcHealthSnapshot _pcHealthSnapshot = PcHealthSnapshot.empty;
@@ -81,6 +85,28 @@ class AmbilightAppController extends ChangeNotifier {
 
   AmbilightAppController() {
     spotify.addListener(notifyListeners);
+    systemMediaNowPlaying.addListener(notifyListeners);
+  }
+
+  @override
+  void notifyListeners() {
+    try {
+      super.notifyListeners();
+    } catch (e, st) {
+      _log.warning('notifyListeners: $e', e, st);
+    }
+  }
+
+  (int, int, int)? _musicAlbumArtDominantRgb() {
+    final sp = _config.spotify;
+    if (sp.enabled && sp.useAlbumColors && spotify.dominantRgb != null) {
+      return spotify.dominantRgb;
+    }
+    final sm = _config.systemMediaAlbum;
+    if (sm.enabled && sm.useAlbumColors && systemMediaNowPlaying.dominantRgb != null) {
+      return systemMediaNowPlaying.dominantRgb;
+    }
+    return null;
   }
 
   /// Po [applyConfigAndPersist] / [load] — např. hotkeys + autostart.
@@ -160,17 +186,26 @@ class AmbilightAppController extends ChangeNotifier {
   }
 
   Future<void> load() async {
-    _config = await ConfigRepository.load();
-    await spotify.hydrateFromStorage(_config);
-    spotify.startPollingIfNeeded(_config);
-    await _rebuildTransports();
-    await _musicAudio.syncWithConfig(_config);
-    _restartPcHealthTimer();
-    _configPersistGeneration++;
-    notifyListeners();
-    unawaited(refreshCaptureSessionInfo());
-    _clearTransientLedOutputs();
-    await onAfterConfigApplied?.call();
+    try {
+      _config = await ConfigRepository.load();
+      await spotify.hydrateFromStorage(_config);
+      spotify.startPollingIfNeeded(_config);
+      systemMediaNowPlaying.startPollingIfNeeded(_config);
+      await _rebuildTransports();
+      await _musicAudio.syncWithConfig(_config);
+      _restartPcHealthTimer();
+      _configPersistGeneration++;
+      notifyListeners();
+      unawaited(refreshCaptureSessionInfo());
+      _clearTransientLedOutputs();
+      if (_timer != null) {
+        _ensureMainLoopTimer();
+      }
+      await onAfterConfigApplied?.call();
+    } catch (e, st) {
+      _log.warning('load: $e', e, st);
+      notifyListeners();
+    }
   }
 
   /// Načte `sessionInfo` z nativního kanálu (diagnostika Linux/macOS/Windows).
@@ -205,7 +240,13 @@ class AmbilightAppController extends ChangeNotifier {
     }
   }
 
-  Future<void> save() => ConfigRepository.save(_config);
+  Future<void> save() async {
+    try {
+      await ConfigRepository.save(_config);
+    } catch (e, st) {
+      _log.warning('save: $e', e, st);
+    }
+  }
 
   void setEnabled(bool v) {
     _enabled = v;
@@ -491,6 +532,7 @@ class AmbilightAppController extends ChangeNotifier {
     unawaited(_musicAudio.syncWithConfig(_config));
     _restartPcHealthTimer();
     spotify.startPollingIfNeeded(_config);
+    systemMediaNowPlaying.startPollingIfNeeded(_config);
     notifyListeners();
     await save();
   }
@@ -502,6 +544,7 @@ class AmbilightAppController extends ChangeNotifier {
     unawaited(_musicAudio.syncWithConfig(_config));
     _restartPcHealthTimer();
     spotify.startPollingIfNeeded(_config);
+    systemMediaNowPlaying.startPollingIfNeeded(_config);
     _configPersistGeneration++;
     notifyListeners();
   }
@@ -524,20 +567,27 @@ class AmbilightAppController extends ChangeNotifier {
     required bool clearTransient,
     required bool runAfterConfigHook,
   }) async {
-    if (clearTransient) _clearTransientLedOutputs();
-    _config = next;
-    _clearMusicPaletteLockOutsideMusicMode(_config.globalSettings.startMode);
-    await _musicAudio.syncWithConfig(_config);
-    if (rebuildTransports) {
-      await _rebuildTransports();
-    }
-    await save();
-    _restartPcHealthTimer();
-    spotify.startPollingIfNeeded(_config);
-    _configPersistGeneration++;
-    notifyListeners();
-    if (runAfterConfigHook) {
-      await onAfterConfigApplied?.call();
+    try {
+      if (clearTransient) _clearTransientLedOutputs();
+      _config = next;
+      _clearMusicPaletteLockOutsideMusicMode(_config.globalSettings.startMode);
+      await _musicAudio.syncWithConfig(_config);
+      if (rebuildTransports) {
+        await _rebuildTransports();
+      }
+      await save();
+      _restartPcHealthTimer();
+      spotify.startPollingIfNeeded(_config);
+      systemMediaNowPlaying.startPollingIfNeeded(_config);
+      _configPersistGeneration++;
+      notifyListeners();
+      _ensureMainLoopTimer();
+      if (runAfterConfigHook) {
+        await onAfterConfigApplied?.call();
+      }
+    } catch (e, st) {
+      _log.warning('applyConfigCore: $e', e, st);
+      notifyListeners();
     }
   }
 
@@ -548,7 +598,8 @@ class AmbilightAppController extends ChangeNotifier {
   void queueConfigApply(AppConfig next) {
     _applyDebouncePending = next;
     _applyDebounceTimer?.cancel();
-    _applyDebounceTimer = Timer(const Duration(milliseconds: 220), () async {
+    final debounceMs = next.globalSettings.performanceMode ? 280 : 220;
+    _applyDebounceTimer = Timer(Duration(milliseconds: debounceMs), () async {
       final p = _applyDebouncePending;
       _applyDebouncePending = null;
       _applyDebounceTimer = null;
@@ -578,7 +629,10 @@ class AmbilightAppController extends ChangeNotifier {
     _pcHealthTimer?.cancel();
     _pcHealthTimer = null;
     if (!_enabled || _config.globalSettings.startMode != 'pchealth') return;
-    final ms = _config.pcHealth.updateRate.clamp(200, 10000);
+    var ms = _config.pcHealth.updateRate.clamp(200, 10000);
+    if (_config.globalSettings.performanceMode && ms < 800) {
+      ms = 800;
+    }
     Future<void> tick() async {
       try {
         final raw = await _pcHealthCollector.collect();
@@ -593,74 +647,120 @@ class AmbilightAppController extends ChangeNotifier {
   }
 
   Future<void> spotifyConnect() async {
-    await spotify.connectPkce(_config);
-    if (spotify.isConnected) {
-      _config = _config.copyWith(spotify: _config.spotify.copyWith(enabled: true));
-      await save();
-      spotify.startPollingIfNeeded(_config);
+    try {
+      await spotify.connectPkce(_config);
+      if (spotify.isConnected) {
+        _config = _config.copyWith(spotify: _config.spotify.copyWith(enabled: true));
+        await save();
+        spotify.startPollingIfNeeded(_config);
+        systemMediaNowPlaying.startPollingIfNeeded(_config);
+      }
+      notifyListeners();
+    } catch (e, st) {
+      _log.warning('spotifyConnect: $e', e, st);
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   Future<void> spotifyDisconnect() async {
-    await spotify.disconnect();
-    _config = _config.copyWith(spotify: _config.spotify.copyWith(enabled: false));
-    await save();
-    spotify.stopPolling();
-    notifyListeners();
+    try {
+      await spotify.disconnect();
+      _config = _config.copyWith(spotify: _config.spotify.copyWith(enabled: false));
+      await save();
+      spotify.stopPolling();
+      notifyListeners();
+    } catch (e, st) {
+      _log.warning('spotifyDisconnect: $e', e, st);
+      notifyListeners();
+    }
   }
 
   Future<void> setSpotifyIntegrationEnabled(bool v) async {
-    _config = _config.copyWith(spotify: _config.spotify.copyWith(enabled: v));
-    await save();
-    if (v) {
-      spotify.startPollingIfNeeded(_config);
-    } else {
-      spotify.stopPolling();
+    try {
+      _config = _config.copyWith(spotify: _config.spotify.copyWith(enabled: v));
+      await save();
+      if (v) {
+        spotify.startPollingIfNeeded(_config);
+      } else {
+        spotify.stopPolling();
+      }
+      systemMediaNowPlaying.startPollingIfNeeded(_config);
+      notifyListeners();
+    } catch (e, st) {
+      _log.warning('setSpotifyIntegrationEnabled: $e', e, st);
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   Future<void> _rebuildTransports() async {
     _transportsRebuilding = true;
     try {
       for (final t in _transports.values) {
-        t.dispose();
+        try {
+          t.dispose();
+        } catch (e, st) {
+          _log.fine('transport dispose: $e', e, st);
+        }
       }
       _transports.clear();
       await Future<void>.delayed(const Duration(milliseconds: 120));
       for (final d in _config.globalSettings.devices) {
         if (d.controlViaHa) continue;
-        if (d.type == 'serial' && d.port.isNotEmpty && d.port != 'COMx') {
-          _transports[d.id] = SerialDeviceTransport(
-            d,
-            baudRate: _config.globalSettings.baudRate,
-          );
-        } else if (d.type == 'wifi' && d.ipAddress.isNotEmpty) {
-          _transports[d.id] = UdpDeviceTransport(d);
+        try {
+          if (d.type == 'serial' && d.port.isNotEmpty && d.port != 'COMx') {
+            _transports[d.id] = SerialDeviceTransport(
+              d,
+              baudRate: _config.globalSettings.baudRate,
+              writeQueuePeriodMs: _config.globalSettings.performanceMode ? 8 : 4,
+            );
+          } else if (d.type == 'wifi' && d.ipAddress.isNotEmpty) {
+            _transports[d.id] = UdpDeviceTransport(d);
+          }
+        } catch (e, st) {
+          _log.warning('transport create ${d.id}: $e', e, st);
         }
       }
       for (final t in _transports.values) {
-        await t.connect();
+        try {
+          await t.connect();
+        } catch (e, st) {
+          _log.warning('transport connect: $e', e, st);
+        }
       }
+    } catch (e, st) {
+      _log.warning('_rebuildTransports: $e', e, st);
     } finally {
       _transportsRebuilding = false;
     }
   }
 
+  void _ensureMainLoopTimer() {
+    final want = _config.globalSettings.performanceMode ? 40 : 30;
+    if (_timer != null && _loopPeriodMs == want) return;
+    _timer?.cancel();
+    _loopPeriodMs = want;
+    _timer = Timer.periodic(Duration(milliseconds: want), (_) => _tick());
+  }
+
   void startLoop() {
     unawaited(_musicAudio.syncWithConfig(_config));
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(milliseconds: 33), (_) => _tick());
+    _loopPeriodMs = null;
+    _ensureMainLoopTimer();
   }
 
   void stopLoop() {
     _timer?.cancel();
     _timer = null;
+    _loopPeriodMs = null;
   }
 
   void _ensureScreenCapture() {
-    _screenCapture ??= ScreenCaptureSource.platform();
+    if (_screenCapture != null) return;
+    try {
+      _screenCapture = ScreenCaptureSource.platform();
+    } catch (e, st) {
+      _log.warning('ScreenCaptureSource.platform: $e', e, st);
+    }
   }
 
   /// Jedna požadavka na snímek; při chybě nebo null zůstane poslední platný snímek (žádný pád pipeline).
@@ -672,6 +772,7 @@ class AmbilightAppController extends ChangeNotifier {
     _screenCaptureInFlight = true;
     try {
       _ensureScreenCapture();
+      if (_screenCapture == null) return;
       final idx = _config.screenMode.monitorIndex;
       final f = await _screenCapture!.captureFrame(idx);
       final mode2 = _config.globalSettings.startMode;
@@ -689,12 +790,34 @@ class AmbilightAppController extends ChangeNotifier {
 
   void _tick() {
     if (_transportsRebuilding) return;
+    try {
+      _tickBody();
+    } catch (e, st) {
+      _log.severe('tick (neobvyklá chyba): $e', e, st);
+      _tickErrorStripUntilAnimationTick = _animationTick + 120;
+      try {
+        final bri = brightnessForMode(_config);
+        _distribute(_dimRedErrorStripMap(), bri, applyWizardOverlay: false);
+      } catch (_) {}
+      try {
+        _advanceTickPhase();
+      } catch (e2, st2) {
+        _log.warning('_advanceTickPhase: $e2', e2, st2);
+      }
+    }
+  }
+
+  void _tickBody() {
+    spotify.attachPollConfig(_config);
     _animationTick++;
     final startupBlackout = _startupActive && _startupFrame < 61;
     final needScreenCapture = _config.globalSettings.startMode == 'screen' ||
         (_config.globalSettings.startMode == 'music' && _config.musicMode.colorSource == 'monitor');
     if (needScreenCapture) {
-      unawaited(_captureScreenFrameAsync());
+      final skipCap = _config.globalSettings.performanceMode && (_animationTick % 3) != 0;
+      if (!skipCap) {
+        unawaited(_captureScreenFrameAsync());
+      }
     } else {
       _screenFrameLatest = null;
     }
@@ -768,7 +891,7 @@ class AmbilightAppController extends ChangeNotifier {
         musicSnapshot:
             _config.globalSettings.startMode == 'music' ? _musicAudio.currentSnapshot : null,
         pcHealthSnapshot: _pcHealthSnapshot,
-        spotifyDominantRgb: spotify.dominantRgb,
+        musicAlbumDominantRgb: _musicAlbumArtDominantRgb(),
       );
       var perDevice = liveDeviceColors;
       final inMusic = _config.globalSettings.startMode == 'music';
@@ -790,7 +913,11 @@ class AmbilightAppController extends ChangeNotifier {
       _log.warning('tick: $e', e, st);
       _tickErrorStripUntilAnimationTick = _animationTick + 90;
       if (!skipAllSends) {
-        _distribute(_dimRedErrorStripMap(), bri, applyWizardOverlay: false);
+        try {
+          _distribute(_dimRedErrorStripMap(), bri, applyWizardOverlay: false);
+        } catch (e2, st2) {
+          _log.fine('tick error strip distribute: $e2', e2, st2);
+        }
       }
     }
     _advanceTickPhase();
@@ -805,11 +932,13 @@ class AmbilightAppController extends ChangeNotifier {
         }
       }
     }
-    if (_animationTick % 30 == 0) {
+    final notifyEvery = _config.globalSettings.performanceMode ? 72 : 36;
+    if (_animationTick % notifyEvery == 0) {
       notifyListeners();
     }
     _reconnectCounter++;
-    if (_reconnectCounter >= 150) {
+    final reconnectEvery = _config.globalSettings.performanceMode ? 125 : 150;
+    if (_reconnectCounter >= reconnectEvery) {
       _reconnectCounter = 0;
       for (final t in _transports.values) {
         if (!t.isConnected) {
@@ -878,58 +1007,76 @@ class AmbilightAppController extends ChangeNotifier {
       if (dev.controlViaHa) continue;
       final t = _transports[dev.id];
       if (t == null) continue;
-      if (pv != null && dev.id == pv.$1) {
-        final idx = pv.$2;
-        final r = pv.$3;
-        final g = pv.$4;
-        final b = pv.$5;
-        if (dev.type == 'wifi') {
-          // Jako Python: krátký „off“ rámec + jeden pixel (UDP 0x03).
-          t.sendColors([(0, 0, 0)], 0);
-          t.sendPixel(idx, r, g, b);
+      try {
+        if (pv != null && dev.id == pv.$1) {
+          final idx = pv.$2;
+          final r = pv.$3;
+          final g = pv.$4;
+          final b = pv.$5;
+          if (dev.type == 'wifi') {
+            // Jako Python: krátký „off“ rámec + jeden pixel (UDP 0x03).
+            t.sendColors([(0, 0, 0)], 0);
+            t.sendPixel(idx, r, g, b);
+            continue;
+          }
+          // Serial: jeden rámec podle `SerialAmbilightProtocol.targetLeds`.
+          final cap = SerialAmbilightProtocol.targetLeds;
+          final clamped = idx.clamp(0, cap - 1);
+          final buf = List<(int, int, int)>.filled(cap, (0, 0, 0), growable: false);
+          buf[clamped] = (r, g, b);
+          t.sendColors(buf, brightnessScalar);
           continue;
         }
-        // Serial: jeden rámec podle `SerialAmbilightProtocol.targetLeds`.
-        final cap = SerialAmbilightProtocol.targetLeds;
-        final clamped = idx.clamp(0, cap - 1);
-        final buf = List<(int, int, int)>.filled(cap, (0, 0, 0), growable: false);
-        buf[clamped] = (r, g, b);
-        t.sendColors(buf, brightnessScalar);
-        continue;
-      }
-      final chunk = perDevice[dev.id] ??
-          List<(int, int, int)>.filled(dev.ledCount, (0, 0, 0), growable: false);
-      if (chunk.length != dev.ledCount) {
-        final padded = List<(int, int, int)>.generate(
-          dev.ledCount,
-          (i) => i < chunk.length ? chunk[i] : (0, 0, 0),
-          growable: false,
-        );
-        t.sendColors(padded, brightnessScalar);
-      } else {
-        t.sendColors(chunk, brightnessScalar);
+        final chunk = perDevice[dev.id] ??
+            List<(int, int, int)>.filled(dev.ledCount, (0, 0, 0), growable: false);
+        if (chunk.length != dev.ledCount) {
+          final padded = List<(int, int, int)>.generate(
+            dev.ledCount,
+            (i) => i < chunk.length ? chunk[i] : (0, 0, 0),
+            growable: false,
+          );
+          t.sendColors(padded, brightnessScalar);
+        } else {
+          t.sendColors(chunk, brightnessScalar);
+        }
+      } catch (e, st) {
+        _log.fine('distribute ${dev.id}: $e', e, st);
       }
     }
   }
 
   @override
   void dispose() {
-    _applyDebounceTimer?.cancel();
-    _applyDebounceTimer = null;
-    _applyDebouncePending = null;
-    _clearTransientLedOutputs();
-    spotify.removeListener(notifyListeners);
-    spotify.stopPolling();
-    _pcHealthTimer?.cancel();
-    stopLoop();
-    _screenCapture?.dispose();
-    _screenCapture = null;
-    _screenFrameLatest = null;
-    unawaited(_musicAudio.dispose());
-    for (final t in _transports.values) {
-      t.dispose();
+    try {
+      _applyDebounceTimer?.cancel();
+      _applyDebounceTimer = null;
+      _applyDebouncePending = null;
+      _clearTransientLedOutputs();
+      spotify.removeListener(notifyListeners);
+      spotify.stopPolling();
+      systemMediaNowPlaying.removeListener(notifyListeners);
+      systemMediaNowPlaying.stopPolling();
+      _pcHealthTimer?.cancel();
+      stopLoop();
+      try {
+        _screenCapture?.dispose();
+      } catch (e, st) {
+        _log.fine('screenCapture.dispose: $e', e, st);
+      }
+      _screenCapture = null;
+      _screenFrameLatest = null;
+      unawaited(_musicAudio.dispose());
+      for (final t in _transports.values) {
+        try {
+          t.dispose();
+        } catch (e, st) {
+          _log.fine('transport.dispose: $e', e, st);
+        }
+      }
+      _transports.clear();
+    } catch (e, st) {
+      _log.warning('dispose: $e', e, st);
     }
-    _transports.clear();
     super.dispose();
   }
 }

@@ -4,6 +4,7 @@ import '../../../core/models/config_models.dart';
 import '../config_backup_section.dart';
 import '../hotkey_validation.dart';
 import '../settings_common.dart';
+import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
 
 List<Widget> globalSettingsFields(
@@ -19,10 +20,10 @@ List<Widget> globalSettingsFields(
       ),
       value: g.startMode,
       items: const [
-        DropdownMenuItem(value: 'light', child: Text('light')),
-        DropdownMenuItem(value: 'screen', child: Text('screen')),
-        DropdownMenuItem(value: 'music', child: Text('music')),
-        DropdownMenuItem(value: 'pchealth', child: Text('pchealth')),
+        DropdownMenuItem(value: 'light', child: Text('Světlo')),
+        DropdownMenuItem(value: 'screen', child: Text('Obrazovka (Ambilight)')),
+        DropdownMenuItem(value: 'music', child: Text('Hudba')),
+        DropdownMenuItem(value: 'pchealth', child: Text('PC Health')),
       ],
       onChanged: (v) {
         if (v == null) return;
@@ -54,7 +55,16 @@ List<Widget> globalSettingsFields(
       onChanged: (v) => onChanged(g.copyWith(uiAnimationsEnabled: v)),
     ),
     SwitchListTile(
-      title: const Text('Autostart'),
+      title: const Text('Režim výkonu'),
+      subtitle: const Text(
+        'Smyčka ~25 Hz, snímání obrazovky každý 3. tick, delší intervaly Spotify / PC Health a šetrnější fronta na sériový port. Přepínač „Animace rozhraní“ ovládá jen Material přechody.',
+      ),
+      value: g.performanceMode,
+      onChanged: (v) => onChanged(g.copyWith(performanceMode: v)),
+    ),
+    SwitchListTile(
+      title: const Text('Spustit s Windows'),
+      subtitle: const Text('Autostart aplikace po přihlášení k účtu.'),
       value: g.autostart,
       onChanged: (v) => onChanged(g.copyWith(autostart: v)),
     ),
@@ -66,9 +76,10 @@ List<Widget> globalSettingsFields(
     TextFormField(
       initialValue: g.captureMethod,
       decoration: const InputDecoration(
-        labelText: 'Metoda snímání obrazovky (capture_method)',
-        hintText: 'mss, dxcam, …',
+        labelText: 'Metoda snímání obrazovky (pokročilé)',
+        hintText: 'např. mss, dxcam',
         border: OutlineInputBorder(),
+        helperText: 'Ponech výchozí, pokud snímání obrazovky funguje.',
       ),
       onChanged: (v) => onChanged(g.copyWith(captureMethod: v)),
     ),
@@ -147,6 +158,12 @@ class GlobalSettingsTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              AmbiSectionHeader(
+                title: 'Globální',
+                subtitle:
+                    'Chování po startu, vzhled, výkon a klávesové zkratky. Import a export konfigurace najdeš níže.',
+                bottomSpacing: 12,
+              ),
               if (AppBreakpoints.formColumnsForWidth(innerMax) >= 2)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,

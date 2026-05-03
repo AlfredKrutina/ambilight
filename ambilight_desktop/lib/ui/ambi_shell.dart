@@ -9,11 +9,11 @@ import 'layout_breakpoints.dart';
 import 'responsive_body.dart';
 import 'settings_page.dart';
 
-const _navSpecs = <({IconData icon, String label})>[
-  (icon: Icons.grid_view_rounded, label: 'Přehled'),
-  (icon: Icons.hub_outlined, label: 'Zařízení'),
-  (icon: Icons.tune_rounded, label: 'Nastavení'),
-  (icon: Icons.info_outline_rounded, label: 'O aplikaci'),
+const _navSpecs = <({IconData icon, String label, String tooltip})>[
+  (icon: Icons.grid_view_rounded, label: 'Přehled', tooltip: 'Domů — režimy, zkratky a náhled zařízení'),
+  (icon: Icons.hub_outlined, label: 'Zařízení', tooltip: 'Discovery, pásky a kalibrace'),
+  (icon: Icons.tune_rounded, label: 'Nastavení', tooltip: 'Režimy, integrace a záloha konfigurace'),
+  (icon: Icons.info_outline_rounded, label: 'O aplikaci', tooltip: 'Verze a základní informace'),
 ];
 
 class AmbiShell extends StatefulWidget {
@@ -46,24 +46,36 @@ class _AmbiShellState extends State<AmbiShell> {
 
         final content = DecoratedBox(
           decoration: DashboardUi.pageBackdrop(scheme),
-          child: AnimatedSwitcher(
-            duration: instant ? Duration.zero : const Duration(milliseconds: 120),
-            switchInCurve: instant ? Curves.linear : Curves.easeOutCubic,
-            switchOutCurve: instant ? Curves.linear : Curves.easeInCubic,
-            transitionBuilder: (child, anim) {
-              if (instant) return child;
-              final slide = Tween<Offset>(
-                begin: const Offset(0.008, 0),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic));
-              return FadeTransition(
-                opacity: anim,
-                child: SlideTransition(position: slide, child: child),
-              );
-            },
-            child: KeyedSubtree(
-              key: ValueKey<int>(_index),
-              child: _pages[_index],
+          child: RepaintBoundary(
+            child: AnimatedSwitcher(
+              duration: instant ? Duration.zero : const Duration(milliseconds: 280),
+              switchInCurve: instant ? Curves.linear : Curves.easeOutQuart,
+              switchOutCurve: instant ? Curves.linear : Curves.easeInQuart,
+              layoutBuilder: (currentChild, previousChildren) {
+                return Stack(
+                  alignment: Alignment.center,
+                  fit: StackFit.expand,
+                  children: <Widget>[
+                    ...previousChildren,
+                    if (currentChild != null) currentChild,
+                  ],
+                );
+              },
+              transitionBuilder: (child, anim) {
+                if (instant) return child;
+                final slide = Tween<Offset>(
+                  begin: const Offset(0.014, 0),
+                  end: Offset.zero,
+                ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic));
+                return FadeTransition(
+                  opacity: CurvedAnimation(parent: anim, curve: Curves.easeOutQuad),
+                  child: SlideTransition(position: slide, child: child),
+                );
+              },
+              child: KeyedSubtree(
+                key: ValueKey<int>(_index),
+                child: _pages[_index],
+              ),
             ),
           ),
         );
@@ -126,6 +138,7 @@ class _AmbiShellState extends State<AmbiShell> {
                 NavigationDestination(
                   icon: Icon(s.icon),
                   label: s.label,
+                  tooltip: s.tooltip,
                 ),
             ],
           ),
@@ -172,18 +185,22 @@ class _TopChrome extends StatelessWidget {
                   ),
             ),
             const Spacer(),
-            Consumer<AmbilightAppController>(
-              builder: (context, c, _) {
-                final on = c.enabled;
-                return FilledButton.tonalIcon(
-                  onPressed: () => c.setEnabled(!on),
-                  icon: Icon(on ? Icons.bolt : Icons.bolt_outlined, size: 20),
-                  label: Text(on ? 'Výstup zapnutý' : 'Výstup vypnutý'),
-                  style: FilledButton.styleFrom(
-                    foregroundColor: on ? scheme.onTertiaryContainer : scheme.onSurfaceVariant,
-                    backgroundColor: on
-                        ? scheme.tertiaryContainer.withValues(alpha: 0.85)
-                        : scheme.surface.withValues(alpha: 0.55),
+            Selector<AmbilightAppController, bool>(
+              selector: (_, c) => c.enabled,
+              builder: (context, on, _) {
+                final ctrl = context.read<AmbilightAppController>();
+                return Tooltip(
+                  message: on ? 'Vypnout posílání barev na pásky' : 'Zapnout posílání barev na pásky',
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => ctrl.setEnabled(!on),
+                    icon: Icon(on ? Icons.bolt : Icons.bolt_outlined, size: 20),
+                    label: Text(on ? 'Výstup zapnutý' : 'Výstup vypnutý'),
+                    style: FilledButton.styleFrom(
+                      foregroundColor: on ? scheme.onTertiaryContainer : scheme.onSurfaceVariant,
+                      backgroundColor: on
+                          ? scheme.tertiaryContainer.withValues(alpha: 0.85)
+                          : scheme.surface.withValues(alpha: 0.55),
+                    ),
                   ),
                 );
               },
@@ -223,7 +240,7 @@ class _MainSidebar extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 16, 8),
               child: Text(
-                'Menu',
+                'Navigace',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       letterSpacing: 1.5,
                       color: scheme.onSurfaceVariant,
@@ -266,7 +283,6 @@ class _AboutPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<AmbilightAppController>();
     return LayoutBuilder(
       builder: (context, constraints) {
         return ResponsiveBody(
@@ -274,11 +290,11 @@ class _AboutPage extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
             children: [
-              Text(
-                'O aplikaci',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+              AmbiPageHeader(
+                title: 'O aplikaci',
+                subtitle: 'AmbiLight Desktop — ovládání LED pásků z Windows (USB i Wi‑Fi).',
+                bottomSpacing: 12,
               ),
-              const SizedBox(height: 16),
               AmbiGlassPanel(
                 padding: const EdgeInsets.all(22),
                 child: Column(
@@ -287,12 +303,27 @@ class _AboutPage extends StatelessWidget {
                     Text('AmbiLight Desktop', style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 10),
                     Text(
-                      'Klient ve Flutteru, kompatibilní s firmware ambilight.c na ESP32. '
-                      'Kompletní plán: context/AmbiLight-MASTER-PLAN.md',
+                      'Desktopový klient ve Flutteru, sladěný s firmware pro ESP32. '
+                      'Průvodce v aplikaci tě provedou páskem, segmenty obrazovky a kalibrací.',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
-                    const SizedBox(height: 16),
-                    SelectableText('Engine tick: ${c.animationTick}'),
+                    const SizedBox(height: 12),
+                    ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      title: Text(
+                        'Ladění',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      children: [
+                        Selector<AmbilightAppController, int>(
+                          selector: (_, c) => c.animationTick,
+                          builder: (context, tick, _) => SelectableText(
+                            'Čítač snímků engine: $tick',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),

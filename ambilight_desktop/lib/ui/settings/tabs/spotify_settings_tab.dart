@@ -1,27 +1,34 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/models/config_models.dart';
 import '../../layout_breakpoints.dart';
 
-/// D8 — `SpotifySettings` (OAuth a tokeny doplní A5; zde jen bezpečné pole bez zobrazení tajemství).
+/// D8 — Spotify + volitelné barvy z OS přehrávače (Windows GSMTC: Apple Music, prohlížeč s YT Music, …).
 class SpotifySettingsTab extends StatelessWidget {
   const SpotifySettingsTab({
     super.key,
     required this.draft,
     required this.maxWidth,
-    required this.onChanged,
+    required this.onSpotifyChanged,
+    required this.onSystemMediaAlbumChanged,
   });
 
   final AppConfig draft;
   final double maxWidth;
-  final ValueChanged<SpotifySettings> onChanged;
+  final ValueChanged<SpotifySettings> onSpotifyChanged;
+  final ValueChanged<SystemMediaAlbumSettings> onSystemMediaAlbumChanged;
 
   @override
   Widget build(BuildContext context) {
     final s = draft.spotify;
+    final os = draft.systemMediaAlbum;
     final innerMax = AppBreakpoints.maxContentWidth(maxWidth).clamp(280.0, maxWidth);
     final hasAccess = s.accessToken != null && s.accessToken!.isNotEmpty;
     final hasRefresh = s.refreshToken != null && s.refreshToken!.isNotEmpty;
+    final winGsmtc = !kIsWeb && Platform.isWindows;
 
     return Align(
       alignment: Alignment.topCenter,
@@ -43,12 +50,12 @@ class SpotifySettingsTab extends StatelessWidget {
               SwitchListTile(
                 title: const Text('Spotify integrace zapnutá'),
                 value: s.enabled,
-                onChanged: (v) => onChanged(s.copyWith(enabled: v)),
+                onChanged: (v) => onSpotifyChanged(s.copyWith(enabled: v)),
               ),
               SwitchListTile(
-                title: const Text('Barvy z alba'),
+                title: const Text('Barvy z alba (Spotify API)'),
                 value: s.useAlbumColors,
-                onChanged: (v) => onChanged(s.copyWith(useAlbumColors: v)),
+                onChanged: (v) => onSpotifyChanged(s.copyWith(useAlbumColors: v)),
               ),
               TextFormField(
                 initialValue: s.clientId ?? '',
@@ -56,7 +63,7 @@ class SpotifySettingsTab extends StatelessWidget {
                   labelText: 'Client ID',
                   border: OutlineInputBorder(),
                 ),
-                onChanged: (v) => onChanged(s.copyWith(clientId: v.trim().isEmpty ? null : v.trim())),
+                onChanged: (v) => onSpotifyChanged(s.copyWith(clientId: v.trim().isEmpty ? null : v.trim())),
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -71,14 +78,14 @@ class SpotifySettingsTab extends StatelessWidget {
                 ),
                 onChanged: (v) {
                   if (v.isEmpty) return;
-                  onChanged(s.copyWith(clientSecret: v));
+                  onSpotifyChanged(s.copyWith(clientSecret: v));
                 },
               ),
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton(
                   onPressed: (s.clientSecret != null && s.clientSecret!.isNotEmpty)
-                      ? () => onChanged(s.copyWith(clearClientSecret: true))
+                      ? () => onSpotifyChanged(s.copyWith(clearClientSecret: true))
                       : null,
                   child: const Text('Smazat client secret z draftu'),
                 ),
@@ -101,6 +108,29 @@ class SpotifySettingsTab extends StatelessWidget {
                 ),
                 title: const Text('Refresh token'),
                 subtitle: Text(hasRefresh ? 'Nastaven (skryto)' : 'Chybí'),
+              ),
+              const SizedBox(height: 28),
+              Text('Apple Music / YouTube Music (OS)', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Text(
+                winGsmtc
+                    ? 'Na Windows čteme náhled obalu z aktuálního systémového přehrávače (GSMTC). '
+                        'Funguje typicky pro aplikaci Apple Music a často pro YouTube Music v Edge nebo Chrome — '
+                        'záleží, zda prohlížeč nebo hráč miniaturu do systému pošle. Oficiální API YouTube Music zde není.'
+                    : 'Na tomto OS zatím jen Spotify (OAuth). GSMTC / systémový náhled je implementovaný pro Windows.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              SwitchListTile(
+                title: Text(winGsmtc ? 'Barva z obalu přes OS média (GSMTC)' : 'Barva z obalu přes OS média (nedostupné)'),
+                subtitle: const Text('Použije se v music módu, pokud Spotify neposkytne barvu nebo je vypnuté.'),
+                value: os.enabled && winGsmtc,
+                onChanged: winGsmtc ? (v) => onSystemMediaAlbumChanged(os.copyWith(enabled: v)) : null,
+              ),
+              SwitchListTile(
+                title: const Text('Použít dominantní barvu z miniatury OS'),
+                value: os.useAlbumColors,
+                onChanged: (v) => onSystemMediaAlbumChanged(os.copyWith(useAlbumColors: v)),
               ),
             ],
           ),
