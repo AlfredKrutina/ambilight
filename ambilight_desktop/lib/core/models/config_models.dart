@@ -5,6 +5,10 @@ import 'custom_hotkey_models.dart';
 import 'pc_health_defaults.dart';
 import 'smart_lights_models.dart';
 
+/// Výchozí URL `manifest.json` na GitHub Pages (repozitář AlfredKrutina/ambilight).
+const String kAmbilightFirmwareManifestUrl =
+    'https://alfredkrutina.github.io/ambilight/firmware/latest/';
+
 /// --- Device ---
 
 class DeviceSettings {
@@ -116,7 +120,7 @@ class GlobalSettings {
     this.customHotkeys = const [],
     this.uiAnimationsEnabled = true,
     this.performanceMode = false,
-    this.firmwareManifestUrl = '',
+    this.firmwareManifestUrl = kAmbilightFirmwareManifestUrl,
   });
 
   final String serialPort;
@@ -138,7 +142,7 @@ class GlobalSettings {
   final bool uiAnimationsEnabled;
   /// Nižší frekvence smyčky, řidší snímání obrazovky a pozadí — bez vypínání UI animací.
   final bool performanceMode;
-  /// Volitelná URL `manifest.json` (GitHub Pages). Prázdné = záložka Firmware nabídne výchozí vzor v nápovědě.
+  /// URL `manifest.json` (GitHub Pages). Výchozí: `kAmbilightFirmwareManifestUrl`. Prázdný řetězec = vypnuto (ručně vymazat pole).
   final String firmwareManifestUrl;
 
   GlobalSettings copyWith({
@@ -240,7 +244,10 @@ class GlobalSettings {
       customHotkeys: asMapList(j['custom_hotkeys']).map((e) => CustomHotkeyEntry.fromJson(Map<String, dynamic>.from(e))).toList(),
       uiAnimationsEnabled: asBool(j['ui_animations_enabled'], true),
       performanceMode: asBool(j['performance_mode'], false),
-      firmwareManifestUrl: asString(j['firmware_manifest_url'], ''),
+      firmwareManifestUrl: asString(
+        j['firmware_manifest_url'],
+        kAmbilightFirmwareManifestUrl,
+      ),
     );
   }
 }

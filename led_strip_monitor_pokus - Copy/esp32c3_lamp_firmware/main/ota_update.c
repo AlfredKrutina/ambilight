@@ -51,7 +51,8 @@ void ambilight_start_ota(const char *url_in) {
     return;
   }
   size_t n = strlen(url_in);
-  if (n < 12 || n > 900) {
+  /* Shoda s ambilight_desktop UdpDeviceCommands.sendOtaHttpUrl (max 1300). */
+  if (n < 12 || n > 1300) {
     ESP_LOGW(TAG_OTA, "Neplatná délka URL");
     return;
   }

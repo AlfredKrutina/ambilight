@@ -235,9 +235,9 @@ class _FirmwareSettingsTabState extends State<FirmwareSettingsTab> {
                 controller: _manifestUrlCtrl,
                 decoration: const InputDecoration(
                   labelText: 'URL manifestu (GitHub Pages)',
-                  hintText: 'https://<owner>.github.io/<repo>/firmware/latest/',
+                  hintText: 'https://alfredkrutina.github.io/ambilight/firmware/latest/',
                   border: OutlineInputBorder(),
-                  helperText: 'Bez názvu souboru doplníme /manifest.json',
+                  helperText: 'Výchozí z globálního nastavení; bez souboru doplníme /manifest.json',
                 ),
                 onChanged: (_) => unawaited(_saveManifestUrl()),
               ),

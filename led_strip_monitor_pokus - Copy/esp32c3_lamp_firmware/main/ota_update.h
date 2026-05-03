@@ -3,7 +3,7 @@
 #include <stdbool.h>
 
 /// Spustí HTTPS OTA z URL na pozadí (FreeRTOS task). Při úspěchu zařízení restartuje.
-/// [url] musí být https:// nebo http://, délka rozumná pro UDP / MQTT payload.
+/// [url] musí být https:// nebo http://, délka až ~1300 znaků (shoda s desktopovým klientem).
 ///
 /// Spouštění z aplikace:
 /// - UDP text na port 4210: `OTA_HTTP https://…/ambilight_esp32c6.bin`

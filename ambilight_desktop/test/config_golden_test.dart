@@ -24,6 +24,7 @@ void main() {
     expect(cfg.musicMode.effect, 'energy');
     expect(cfg.smartLights.enabled, isFalse);
     expect(cfg.smartLights.fixtures, isEmpty);
+    expect(cfg.globalSettings.firmwareManifestUrl, kAmbilightFirmwareManifestUrl);
 
     final round = AppConfig.parse(cfg.toJsonString());
     expect(round.toJsonString(), cfg.toJsonString());
