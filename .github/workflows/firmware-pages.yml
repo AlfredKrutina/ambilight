@@ -6,11 +6,7 @@ name: firmware_pages
 on:
   push:
     branches: [main, master]
-    paths:
-      - "led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/**"
-      - ".github/workflows/firmware-pages.yml"
-      - "tools/gen_firmware_manifest.py"
-      - "tools/firmware_index.html"
+    # Bez paths: — jinak se workflow po většině commitů vůbec nespustí a Pages „nezlobí“.
   workflow_dispatch:
 
 permissions:
@@ -44,22 +40,26 @@ jobs:
       - name: Assemble site (root = Pages)
         run: |
           set -eux
+          ROOT="${{ github.workspace }}"
           FW='led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware'
-          BUILD="${FW}/build"
-          SITE="${{ github.workspace }}/_site/firmware/latest"
+          BUILD="${ROOT}/${FW}/build"
+          SITE="${ROOT}/_site/firmware/latest"
           mkdir -p "${SITE}"
+          test -f "${BUILD}/bootloader/bootloader.bin"
+          test -f "${BUILD}/partition_table/partition-table.bin"
+          test -f "${BUILD}/ambilight_esp32c6.bin"
           cp "${BUILD}/bootloader/bootloader.bin" "${SITE}/"
           cp "${BUILD}/partition_table/partition-table.bin" "${SITE}/"
           cp "${BUILD}/ambilight_esp32c6.bin" "${SITE}/"
           VER=$(echo "${{ github.sha }}" | cut -c1-12)
           BASE="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/firmware/latest"
-          python3 tools/gen_firmware_manifest.py \
+          python3 "${ROOT}/tools/gen_firmware_manifest.py" \
             --build-dir "${BUILD}" \
             --out "${SITE}/manifest.json" \
             --base-url "${BASE}" \
             --version "${VER}" \
-            --chip esp32c6
-          cp tools/firmware_index.html "${{ github.workspace }}/_site/index.html"
+            --chip esp32c3
+          cp "${ROOT}/tools/firmware_index.html" "${ROOT}/_site/index.html"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
