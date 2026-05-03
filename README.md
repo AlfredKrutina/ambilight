@@ -89,7 +89,9 @@ Triggers are limited to changes under `ambilight_desktop/`, the workflow file, a
 
 ### Firmware (ESP-IDF) and GitHub Pages
 
-Workflow **[`.github/workflows/firmware-pages.yml`](.github/workflows/firmware-pages.yml)** builds the ESP-IDF project under **`led_strip_monitor_pokus - Copy/esp32c3_firmware/`** (target **ESP32-C6** per `sdkconfig`) inside the `espressif/idf` Docker image, then publishes **`firmware/latest/manifest.json`** plus bootloader, partition table, and application binaries to the **`gh-pages`** branch. Enable **GitHub Pages** for this repository (source: branch **`gh-pages`**, folder **`/`** or **`/root`**) so the site is served at `https://<owner>.github.io/<repo>/`.
+Workflow **[`.github/workflows/firmware-pages.yml`](.github/workflows/firmware-pages.yml)** builds the ESP-IDF project under **`led_strip_monitor_pokus - Copy/esp32c3_firmware/`** (target **ESP32-C6** per `sdkconfig`) in the **`espressif/idf`** Docker image, then deploys a static site with **`firmware/latest/manifest.json`** plus bootloader, partition table, and application binaries via **GitHub Actions → GitHub Pages** (artifact upload + `deploy-pages` — **no `gh-pages` branch**).
+
+**One-time setup in this repository:** **Settings → Pages → Build and deployment → Source:** choose **GitHub Actions** (not “Deploy from a branch”). After the first successful workflow run, the site is available at **`https://<owner>.github.io/<repo>/`** (manifest at **`…/firmware/latest/manifest.json`**). If your org uses deployment protection rules, approve the **`github-pages`** environment the first time it runs.
 
 The Flutter app (**Settings → Firmware**) can fetch that manifest, download artifacts to a local cache, flash over **USB** using **`esptool`** (must be on `PATH`, e.g. `pip install esptool`), or trigger **Wi‑Fi OTA** by sending the **`OTA_HTTP <url>`** UDP command to the device (HTTPS URL to the application `.bin` as published in the manifest). The first upgrade from an older single-partition layout to the **two-slot OTA partition table** still requires a **full USB flash** once.
 

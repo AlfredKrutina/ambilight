@@ -43,6 +43,9 @@ ehthumbs.db
 Desktop.ini
 *.stackdump
 
+# VS Code (lokální workspace v referenčním stromu)
+led_strip_monitor_pokus - Copy/.vscode/
+
 # IntelliJ / Android Studio (kořen i podsložky)
 .idea/
 *.iml
