@@ -1,4 +1,5 @@
-# Sestaví ESP-IDF firmware a nasadí statický web na GitHub Pages (zdroj: GitHub Actions).
+# Sestaví ESP-IDF firmware (projekt LAMPA) a nasadí statický web na GitHub Pages.
+# Zdroj kódu: led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/ (ne legacy monitor).
 # V repozitáři: Settings → Pages → Build and deployment → Source: „GitHub Actions“ (ne větev gh-pages).
 name: firmware_pages
 
@@ -6,7 +7,7 @@ on:
   push:
     branches: [main, master]
     paths:
-      - "led_strip_monitor_pokus - Copy/esp32c3_firmware/**"
+      - "led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/**"
       - ".github/workflows/firmware-pages.yml"
       - "tools/gen_firmware_manifest.py"
       - "tools/firmware_index.html"
@@ -31,17 +32,19 @@ jobs:
       - name: Build firmware (ESP-IDF Docker)
         run: |
           set -eux
-          FW='led_strip_monitor_pokus - Copy/esp32c3_firmware'
+          FW='led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware'
+          # Nepoužívat idf.py fullclean: u trackovaných managed_components spouští kontrolu hashe a často spadne v CI.
+          # Čistý build: smazat build + managed_components, komponenty se stáhnou znovu podle idf_component.yml.
           docker run --rm \
             -v "${{ github.workspace }}:/project" \
             -w "/project/${FW}" \
-            espressif/idf:v5.3.2 \
-            bash -lc 'idf.py fullclean && idf.py build'
+            espressif/idf:v5.5.1 \
+            bash -lc 'rm -rf build managed_components && idf.py build'
 
       - name: Assemble site (root = Pages)
         run: |
           set -eux
-          FW='led_strip_monitor_pokus - Copy/esp32c3_firmware'
+          FW='led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware'
           BUILD="${FW}/build"
           SITE="${{ github.workspace }}/_site/firmware/latest"
           mkdir -p "${SITE}"

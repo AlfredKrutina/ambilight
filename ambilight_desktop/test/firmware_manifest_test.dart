@@ -1,4 +1,4 @@
-import 'package:ambilight_desktop/features/firmware/firmware_manifest.dart';
+import 'package:ambilight_desktop/features/firmware_legacy_old_code/firmware_manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

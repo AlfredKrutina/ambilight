@@ -4,9 +4,9 @@ Flutter desktop klient pro AmbiLight (kompatibilní s existujícím JSON / firmw
 
 ## Komunikace s ESP (USB sériové / Wi‑Fi UDP)
 
-- **Protokol** odpovídá `esp32c3_firmware/main/ambilight.c`: sériově `0xAA`/`0xBB` handshake, rámec `0xFF` + 200×(index, R, G, B) + `0xFE` (vyhlazení jasu `brightness/100` jako v Pythonu); UDP `0x02` + byte jasu + RGB trojice.
+- **Protokol** — zdroj pravdy: `led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/main/ambilight.c` (**lampa**, až ~2000 LED): sériově `0xAA`/`0xBB`, délka pásku `0xA5 0x5A` + uint16 LE, rámec `0xFF` + legacy tuple (idx8, R, G, B) + `0xFE`, nebo `0xFC` + wide tuple (idx 16b, R, G, B) + `0xFE`; UDP `0x02` + jas + RGB trojice. Starší monitor build (200 LED, jen 8bit index) byl vyřazen z repa — viz kořenové `README.md`.
 - **Baud rate** bere aplikace z `global_settings.baud_rate` v JSON (výchozí 115200) — musí sedět s firmwarem.
-- **Firmware:** záložka **Nastavení → Firmware** — stažení `manifest.json` z GitHub Pages, cache binárek, flash přes **esptool** (PATH) nebo **OTA přes Wi‑Fi** (UDP `OTA_HTTP` + HTTPS URL na `.bin`).
+- **Firmware:** záložka **Nastavení → Firmware** — `manifest.json` z Pages, cache, flash **esptool** (PATH), nebo **OTA** přes UDP `OTA_HTTP <https://…/ambilight_esp32c6.bin>`; na zařízení lze totéž přes MQTT topic `…/ota` (viz firmware `ota_update.h`).
 - **Po startu**: `load()` založí transporty a zkusí `connect()`. Pokud ESP ještě není připravený, spojení se **automaticky zkusí znovu cca každých 5 s**, dokud handshake / UDP bind nepůjde.
 - **Zařízení**: v `config` musí být platný `port` (serial) nebo `ip_address` + `udp_port` (wifi). Prázdný port = žádný výstup na dané zařízení.
 

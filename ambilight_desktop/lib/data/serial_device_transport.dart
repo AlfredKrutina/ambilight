@@ -238,12 +238,13 @@ class SerialDeviceTransport extends DeviceTransport {
       port.config = cfg;
     } catch (e, st) {
       _log.fine('applySerialConfig: $e', e, st);
-      rethrow;
-    } finally {
       try {
         cfg.dispose();
       } catch (_) {}
+      rethrow;
     }
+    // Úspěšné [port.config = cfg]: nevolat [cfg.dispose] — port ho uvolní v [dispose] (dvojí
+    // sp_free_config shodí Windows Debug heap, issue flutter_libserialport #148).
   }
 
   /// Jako Python `SerialHandler._connect` po neúspěšném handshake.

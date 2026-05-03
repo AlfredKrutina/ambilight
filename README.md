@@ -14,7 +14,7 @@ The primary application you build and run is under **`ambilight_desktop/`**.
 | **Run & platform notes** | [`ambilight_desktop/README_RUN.md`](ambilight_desktop/README_RUN.md) | Commands, SDK versions, Spotify token storage on Windows, tray/window behavior, Linux X11 vs Wayland, macOS permissions. |
 | **ESP / protocol details** | [`ambilight_desktop/README.md`](ambilight_desktop/README.md) | Serial handshake, frame layout, UDP packet shape, baud rate, monitor index conventions, Windows capture implementation notes. |
 | **Planning & audits** | [`context/`](context/) | Master plan, gap analysis vs PyQt, UI layout notes, agent prompts, permission overview ([`context/README_PERMISSIONS.md`](context/README_PERMISSIONS.md)). |
-| **Reference firmware & Python** | `led_strip_monitor_pokus - Copy/` | ESP-IDF projects (e.g. `esp32c3_firmware/main/ambilight.c`), older PyQt distribution, and vendored SDK trees. **Source of truth for wire protocol** used by the Flutter client is documented in `ambilight_desktop/README.md` and implemented in that firmware file. |
+| **Reference firmware & Python** | `led_strip_monitor_pokus - Copy/` | **Active ESP-IDF lamp:** `esp32c3_lamp_firmware/main/ambilight.c`. Legacy monitor tree (`esp32c3_firmware/`) is **not tracked** (`.gitignore`); rename your local copy to `esp32c3_monitor_firmware_ARCHIVE/` for clarity when no editor holds the path. Older PyQt + vendored SDK trees live alongside. Wire protocol: `ambilight_desktop/README.md`. |
 
 > **Note:** The `led_strip_monitor_pokus - Copy/` directory is bulky and includes many upstream `LICENSE` files from ESP-IDF and other vendors. For day-to-day work on the desktop app, stay in **`ambilight_desktop/`** and **`context/`**.
 
@@ -89,11 +89,11 @@ Triggers are limited to changes under `ambilight_desktop/`, the workflow file, a
 
 ### Firmware (ESP-IDF) and GitHub Pages
 
-Workflow **[`.github/workflows/firmware-pages.yml`](.github/workflows/firmware-pages.yml)** builds the ESP-IDF project under **`led_strip_monitor_pokus - Copy/esp32c3_firmware/`** (target **ESP32-C6** per `sdkconfig`) in the **`espressif/idf`** Docker image, then deploys a static site with **`firmware/latest/manifest.json`** plus bootloader, partition table, and application binaries via **GitHub Actions → GitHub Pages** (artifact upload + `deploy-pages` — **no `gh-pages` branch**).
+Workflow **[`.github/workflows/firmware-pages.yml`](.github/workflows/firmware-pages.yml)** builds **`led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/`** (ESP-IDF **v5.5.x** per `sdkconfig`, image **`espressif/idf:v5.5.1`**) and deploys **`firmware/latest/manifest.json`** plus bootloader, partition table, and **`ambilight_esp32c6.bin`** via **GitHub Actions → GitHub Pages** (`upload-pages-artifact` + `deploy-pages`).
 
 **One-time setup in this repository:** **Settings → Pages → Build and deployment → Source:** choose **GitHub Actions** (not “Deploy from a branch”). After the first successful workflow run, the site is available at **`https://<owner>.github.io/<repo>/`** (manifest at **`…/firmware/latest/manifest.json`**). If your org uses deployment protection rules, approve the **`github-pages`** environment the first time it runs.
 
-The Flutter app (**Settings → Firmware**) can fetch that manifest, download artifacts to a local cache, flash over **USB** using **`esptool`** (must be on `PATH`, e.g. `pip install esptool`), or trigger **Wi‑Fi OTA** by sending the **`OTA_HTTP <url>`** UDP command to the device (HTTPS URL to the application `.bin` as published in the manifest). The first upgrade from an older single-partition layout to the **two-slot OTA partition table** still requires a **full USB flash** once.
+The Flutter app (**Settings → Firmware**) can fetch that manifest, cache binaries, flash over **USB** (`esptool` on `PATH`), or trigger **HTTPS OTA** with UDP **`OTA_HTTP <url>`** to the device (same URL as in the manifest). The lamp firmware also accepts MQTT **`alfred/devices/<deviceId>/ota`** with the URL as payload. The first move from an older **factory-only** partition table to **two-slot OTA** still needs a **full USB flash** (partition table + erase) once.
 
 This partition layout targets **4 MB SPI flash** (`sdkconfig` + `partitions.csv` are aligned). Boards with only 2 MB need a smaller custom partition table and matching `CONFIG_ESPTOOLPY_FLASHSIZE_*` before the image will link or boot reliably.
 
@@ -111,7 +111,7 @@ This partition layout targets **4 MB SPI flash** (`sdkconfig` + `partitions.csv`
 | Settings UI (multiple tabs) | `ui/settings/` |
 | Wizards | `ui/wizards/` |
 | Device / serial / UDP | `data/` and related services |
-| Firmware updates (manifest, esptool, OTA) | `features/firmware/` + **Settings → Firmware** |
+| Firmware updates (manifest, esptool, OTA) — **legacy Flutter UI** | `features/firmware_legacy_old_code/` + **Settings → Firmware** |
 
 Tests live in **`ambilight_desktop/test/`**.
 

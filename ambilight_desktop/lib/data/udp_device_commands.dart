@@ -54,7 +54,7 @@ abstract final class UdpDeviceCommands {
   static Future<bool> sendResetWifi(String ip, int port, {String? logContext}) =>
       sendUtf8Text(ip, port, resetWifiPayload, logContext: logContext ?? 'RESET_WIFI');
 
-  /// Příkaz `OTA_HTTP <url>` — firmware musí mít HTTPS OTA (viz `ambilight.c` + `ota_update.c`).
+  /// Příkaz `OTA_HTTP <url>` — lamp firmware (`esp32c3_lamp_firmware/main/ota_update.c`).
   /// [url] typicky přímý odkaz na `.bin` z manifestu (`ota_http_url`).
   static Future<bool> sendOtaHttpUrl(
     String ip,

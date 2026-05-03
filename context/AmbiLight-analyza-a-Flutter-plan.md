@@ -12,7 +12,7 @@ Tento soubor konsoliduje analýzu a migrační plán (místo rozptýlených `.md
 | Oblast | Cesta (referenční kopie) | Poznámka |
 |--------|--------------------------|----------|
 | Desktopová aplikace | `led_strip_monitor_pokus - Copy/src/` | Python 3, PyQt6 |
-| Firmware ESP32-C3 | `led_strip_monitor_pokus - Copy/esp32c3_firmware/main/ambilight.c` | USB-serial JTAG + Wi‑Fi/UDP + MQTT/HomeKit logika |
+| Firmware ESP32 (lampa) | `led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/main/ambilight.c` | USB-serial JTAG + Wi‑Fi/UDP + MQTT + OTA |
 
 Stará aplikace není „tenký klient“: obsahuje zachytávání obrazovky, audio pipeline, Spotify, systémové metriky, více zařízení, průvodce kalibrací atd.
 

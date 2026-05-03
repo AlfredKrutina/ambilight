@@ -1,12 +1,12 @@
 # AmbiLight Flutter — podčásti zbytku a prompty pro agenty
 
-Tento dokument **doplňuje** [AmbiLight-MASTER-PLAN.md](./AmbiLight-MASTER-PLAN.md). Obsahuje: rozbití zbytku na **podčásti**, **pořadí závislostí** a **samostatné prompty** (copy-paste do nového agenta). Agent má stejný přístup k repu jako vývojář — pracuj výhradně v `ambilight_desktop/` a v `context/` (dokumentace), referenční Python v `led_strip_monitor_pokus - Copy/src/`, FW v `led_strip_monitor_pokus - Copy/esp32c3_firmware/main/ambilight.c`.
+Tento dokument **doplňuje** [AmbiLight-MASTER-PLAN.md](./AmbiLight-MASTER-PLAN.md). Obsahuje: rozbití zbytku na **podčásti**, **pořadí závislostí** a **samostatné prompty** (copy-paste do nového agenta). Agent má stejný přístup k repu jako vývojář — pracuj výhradně v `ambilight_desktop/` a v `context/` (dokumentace), referenční Python v `led_strip_monitor_pokus - Copy/src/`, **FW (lampa):** `led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/main/ambilight.c` (legacy monitor strom v repu není — jen lokální archiv, viz kořenové `README.md`).
 
 **Paralelní běh (9 agentů):** aktuální sprint a vlastnictví souborů jsou v [AGENT_PARALLEL_9.md](./AGENT_PARALLEL_9.md); feedback agenty zapisují do [agent_feedback/](./agent_feedback/). Tento soubor (P0–P14) zůstává referencí závislostí a detailních úkolů.
 
 **Tvrdá pravidla pro všechny agenty**
 
-- **Firmware neměň** — binární a textové protokoly musí zůstat kompatibilní s existujícím `ambilight.c`.
+- **Firmware neměň bez pokynu** — protokoly drž kompatibilní s lampou `esp32c3_lamp_firmware/main/ambilight.c`.
 - **Nemaž soubory** bez explicitního pokynu uživatele; přidávej a upravuj.
 - Po práci: `flutter analyze`, případně `flutter test`; oprav linter varování v dotčených souborech.
 - Konfigurace JSON musí zůstat **zpětně kompatibilní** s `AppConfig` / `default.json` (viz `lib/core/models/config_models.dart`).
@@ -106,7 +106,7 @@ KONTEXT
 4) Propoj menu s existujícím `Provider`/`ChangeNotifier` — žádné globální singletony kromě řízeného loggeru.
 
 OMEZENÍ
-- Nezasahuj do `esp32c3_firmware`.
+- Nezasahuj do archivního monitor ESP stromu (není v repu; viz `.gitignore` / `README.md`).
 - Zachovej spuštitelnost na Windows jako primární cíl.
 
 VÝSTUP
@@ -156,7 +156,7 @@ CÍL
 - D9: vylepši `DevicesPage` — dialog se seznamem z `LedDiscoveryService`, tlačítko Identify u řádku, potvrzení před RESET_WIFI.
 
 KONTEXT
-- FW: `led_strip_monitor_pokus - Copy/esp32c3_firmware/main/ambilight.c` — přesné textové příkazy a binární hlavičky.
+- FW: `led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/main/ambilight.c` — textové příkazy a binární hlavičky.
 - UDP transport: `lib/data/udp_device_transport.dart`.
 - Discovery: `lib/services/led_discovery_service.dart`.
 

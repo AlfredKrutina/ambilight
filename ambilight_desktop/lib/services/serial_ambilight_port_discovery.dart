@@ -54,9 +54,16 @@ class SerialAmbilightPortDiscovery {
             _log.fine('skip $name: openReadWrite failed ${SerialPort.lastError}');
             return;
           }
-          final cfg = SerialPortConfig()..baudRate = baudRate;
+          // Po [port.config = cfg] NESMÍ následovat [cfg.dispose] — nativní config převezme port a
+          // [SerialPort.dispose] ho uvolní jednou (jinak sp_free_config 2× → CRT heap assert, viz
+          // https://github.com/jpnurmi/flutter_libserialport/issues/148 ).
+          final cfg = SerialPortConfig()
+            ..baudRate = baudRate
+            ..bits = 8
+            ..parity = SerialPortParity.none
+            ..stopBits = 1
+            ..setFlowControl(SerialPortFlowControl.none);
           port.config = cfg;
-          cfg.dispose();
           port.flush();
           await Future<void>.delayed(const Duration(milliseconds: 50));
           if (await _handshake(port)) {

@@ -17,8 +17,12 @@ ambilight_desktop/build/
 # ESP-IDF výstupy v referenčním stromu (obnoví je idf.py build)
 # Pozor: nepoužívat slepě **/build/ — nezasahovat do context/ ani jiných zdrojů.
 # -----------------------------------------------------------------------------
-**/esp32c3_firmware/build/
 **/esp32c3_lamp_firmware/build/
+
+# Legacy monitor ESP-IDF strom (dříve esp32c3_firmware) — archiv, netrackovat.
+# Po přejmenování na *_ARCHIVE ignorovat i nový název (viz README v kořeni repa).
+led_strip_monitor_pokus - Copy/esp32c3_firmware/
+led_strip_monitor_pokus - Copy/esp32c3_monitor_firmware_ARCHIVE/
 
 # -----------------------------------------------------------------------------
 # Python (legacy PyQt / skripty)

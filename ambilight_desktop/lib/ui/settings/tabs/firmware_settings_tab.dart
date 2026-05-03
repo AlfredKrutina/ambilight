@@ -8,9 +8,9 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../core/models/config_models.dart';
 import '../../../data/udp_device_commands.dart';
-import '../../../features/firmware/esptool_flash_runner.dart';
-import '../../../features/firmware/firmware_manifest.dart';
-import '../../../features/firmware/firmware_update_service.dart';
+import '../../../features/firmware_legacy_old_code/esptool_flash_runner.dart';
+import '../../../features/firmware_legacy_old_code/firmware_manifest.dart';
+import '../../../features/firmware_legacy_old_code/firmware_update_service.dart';
 import '../../layout_breakpoints.dart';
 
 /// Stažení buildů z webu (manifest) a flash přes USB (esptool) nebo OTA přes Wi‑Fi (UDP).

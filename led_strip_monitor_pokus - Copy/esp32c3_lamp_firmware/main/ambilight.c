@@ -19,6 +19,7 @@
 #include "mqtt_client.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "ota_update.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1368,6 +1369,17 @@ void task_udp(void *arg) {
           continue;
         }
 
+        if (strncmp(rx_buffer, "OTA_HTTP ", 9) == 0) {
+          const char *u = rx_buffer + 9;
+          while (*u == ' ' || *u == '\t') {
+            u++;
+          }
+          ESP_LOGI(TAG, "OTA_HTTP (UDP) z %s",
+                   inet_ntoa(source_addr.sin_addr.s_addr));
+          ambilight_start_ota(u);
+          continue;
+        }
+
         if (len >= 6 && (uint8_t)rx_buffer[0] ==
                             0x03) { // Single Pixel [0x03, IdxH, IdxL, R, G, B]
           // SOURCE LOCK CHECK
@@ -1655,7 +1667,8 @@ void app_main(void) {
   }
 
   ESP_LOGW(TAG, "Reset Reason: %d", esp_reset_reason()); // Log why we rebooted
-  ESP_LOGE(TAG, "=== FIRMWARE v1.11: SERIAL WIDE 0xFC + LED COUNT 0xA5/5A ===");
+  ESP_LOGE(TAG,
+           "=== LAMP FW: OTA (UDP OTA_HTTP / MQTT …/ota) + serial v1.11+ ===");
 
   disable_onboard_leds(); // Turn off onboard LEDs
 
@@ -1810,6 +1823,18 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
       return;
     memcpy(payload, event->data, event->data_len);
     payload[event->data_len] = 0;
+
+    // OTA z aplikace (MQTT): alfred/devices/<ID>/ota — payload = celá http(s):// URL
+    if (strstr(topic, "/ota") && !strstr(topic, "/state")) {
+      char *p = payload;
+      while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') {
+        p++;
+      }
+      ESP_LOGI(TAG, "MQTT OTA příkaz (topic=%s)", topic);
+      ambilight_start_ota(p);
+      free(payload);
+      return;
+    }
 
     // 1. POWER COMMAND (alfred/devices/<ID>/power)
     if (strstr(topic, "/power") && !strstr(topic, "/state")) {
