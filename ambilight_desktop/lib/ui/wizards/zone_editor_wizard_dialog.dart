@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../application/ambilight_app_controller.dart';
 import '../../core/models/config_models.dart';
+import '../widgets/config_drag_slider.dart';
 import 'wizard_dialog_shell.dart';
 
 /// D11 — editor [LedSegment] (pole odpovídající PyQt tabulce segmentů v nastavení).
@@ -23,6 +24,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
   static const _edges = ['top', 'bottom', 'left', 'right'];
   static const _musicEffects = [
     'default',
+    'smart_music',
     'energy',
     'spectrum',
     'spectrum_rotate',
@@ -44,12 +46,20 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
     return ds.map((d) => d.ledCount).reduce(math.max).clamp(1, 4096);
   }
 
-  int _pixelCap() {
-    final fr = context.read<AmbilightAppController>().latestScreenFrame;
-    if (fr != null && fr.isValid) {
-      return math.max(fr.width, fr.height).clamp(800, 8192);
+  /// [DropdownButtonFormField] vyžaduje, aby [value] byl v seznamu položek — po odebrání zařízení jinak pád.
+  static String? _deviceIdForDropdown(LedSegment s, List<DeviceSettings> devices) {
+    final id = s.deviceId;
+    if (id == null) return null;
+    if (devices.any((d) => d.id == id)) return id;
+    return null;
+  }
+
+  static int _devicesSignature(List<DeviceSettings> ds) {
+    var h = 0;
+    for (final d in ds) {
+      h = Object.hash(h, d.id, d.name, d.type, d.port, d.ipAddress, d.udpPort, d.ledCount);
     }
-    return 4096;
+    return h;
   }
 
   @override
@@ -105,12 +115,19 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<AmbilightAppController>();
-    final maxL = _maxLed(c.config);
-    final pxCap = _pixelCap();
-    final devices = c.config.globalSettings.devices;
+    return Selector<AmbilightAppController, (int, int)>(
+      selector: (_, c) {
+        final fr = c.latestScreenFrame;
+        final px = (fr != null && fr.isValid) ? math.max(fr.width, fr.height).clamp(800, 8192) : -1;
+        return (px, _devicesSignature(c.config.globalSettings.devices));
+      },
+      builder: (context, sig, _) {
+        final c = context.read<AmbilightAppController>();
+        final pxCap = sig.$1 < 0 ? 4096 : sig.$1;
+        final maxL = _maxLed(c.config);
+        final devices = c.config.globalSettings.devices;
 
-    return WizardDialogShell(
+        return WizardDialogShell(
       title: 'Editor zón / segmentů (D11)',
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Zrušit')),
@@ -185,7 +202,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Text('LED start: ${s.ledStart}', style: Theme.of(context).textTheme.labelLarge),
-                            Slider(
+                            ConfigDragSlider(
                               value: s.ledStart.clamp(0, maxL - 1).toDouble(),
                               min: 0,
                               max: (maxL - 1).toDouble(),
@@ -201,7 +218,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                               },
                             ),
                             Text('LED end: ${s.ledEnd}', style: Theme.of(context).textTheme.labelLarge),
-                            Slider(
+                            ConfigDragSlider(
                               value: s.ledEnd.clamp(0, maxL - 1).toDouble(),
                               min: 0,
                               max: (maxL - 1).toDouble(),
@@ -217,7 +234,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                               },
                             ),
                             Text('monitor_idx: ${s.monitorIdx}', style: Theme.of(context).textTheme.labelLarge),
-                            Slider(
+                            ConfigDragSlider(
                               value: s.monitorIdx.clamp(0, 32).toDouble(),
                               min: 0,
                               max: 32,
@@ -242,7 +259,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                               },
                             ),
                             Text('depth (scan): ${s.depth}', style: Theme.of(context).textTheme.labelLarge),
-                            Slider(
+                            ConfigDragSlider(
                               value: s.depth.clamp(1, 50).toDouble(),
                               min: 1,
                               max: 50,
@@ -259,7 +276,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                               onChanged: (v) => setState(() => _segments[i] = s.copyWith(reverse: v)),
                             ),
                             DropdownButtonFormField<String?>(
-                              value: s.deviceId,
+                              value: _deviceIdForDropdown(s, devices),
                               decoration: const InputDecoration(
                                 labelText: 'device_id',
                                 border: OutlineInputBorder(),
@@ -280,7 +297,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                               }),
                             ),
                             Text('pixel_start: ${s.pixelStart}', style: Theme.of(context).textTheme.labelLarge),
-                            Slider(
+                            ConfigDragSlider(
                               value: s.pixelStart.clamp(0, pxCap).toDouble(),
                               min: 0,
                               max: pxCap.toDouble(),
@@ -291,7 +308,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                               }),
                             ),
                             Text('pixel_end: ${s.pixelEnd}', style: Theme.of(context).textTheme.labelLarge),
-                            Slider(
+                            ConfigDragSlider(
                               value: s.pixelEnd.clamp(0, pxCap).toDouble(),
                               min: 0,
                               max: pxCap.toDouble(),
@@ -302,7 +319,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                               }),
                             ),
                             Text('ref_width: ${s.refWidth}', style: Theme.of(context).textTheme.labelLarge),
-                            Slider(
+                            ConfigDragSlider(
                               value: s.refWidth.clamp(0, pxCap).toDouble(),
                               min: 0,
                               max: pxCap.toDouble(),
@@ -313,7 +330,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                               }),
                             ),
                             Text('ref_height: ${s.refHeight}', style: Theme.of(context).textTheme.labelLarge),
-                            Slider(
+                            ConfigDragSlider(
                               value: s.refHeight.clamp(0, pxCap).toDouble(),
                               min: 0,
                               max: pxCap.toDouble(),
@@ -366,6 +383,8 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
             ),
         ],
       ),
+        );
+      },
     );
   }
 }

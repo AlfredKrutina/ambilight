@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../application/ambilight_app_controller.dart';
+import '../../application/app_error_safety.dart';
+import '../../core/device_bindings_debug.dart';
 import '../../core/models/config_models.dart';
+import '../../core/models/smart_lights_models.dart';
 import '../dashboard_ui.dart';
 import '../layout_breakpoints.dart';
 import '../responsive_body.dart';
@@ -12,6 +17,7 @@ import 'tabs/light_settings_tab.dart';
 import 'tabs/music_settings_tab.dart';
 import 'tabs/pc_health_settings_tab.dart';
 import 'tabs/screen_settings_tab.dart';
+import 'tabs/smart_integration_tab.dart';
 import 'tabs/spotify_settings_tab.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -23,12 +29,19 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  static const _tabCount = 7;
+  static const _tabCount = 8;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabCount, vsync: this);
+    final boot = context.read<AmbilightAppController>().takePendingSettingsTabIndex();
+    final initialTab =
+        (boot != null && boot >= 0 && boot < _tabCount) ? boot : 0;
+    _tabController = TabController(
+      length: _tabCount,
+      initialIndex: initialTab,
+      vsync: this,
+    );
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) return;
       setState(() {});
@@ -55,9 +68,31 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
     _queue(c.config.copyWith(lightMode: l));
   }
 
+  /// Při změně COM/IP/typu zařízení okamžitý rebuild transportů; u názvu a počtu LED jen debounce
+  /// ([queueConfigApply]) — opakované zavírání COM při psaní čísla na Windows ničí heap v driveru.
   void _patchDevices(List<DeviceSettings> devices) {
     final c = context.read<AmbilightAppController>();
-    _queue(c.config.copyWith(globalSettings: c.config.globalSettings.copyWith(devices: devices)));
+    final prev = c.config.globalSettings.devices;
+    final next = c.config.copyWith(globalSettings: c.config.globalSettings.copyWith(devices: devices));
+    traceDeviceBindings(
+      'SettingsPage._patchDevices: nový seznam (${devices.length}) → ${formatDeviceBindingsList(devices)}',
+    );
+    traceConfigBindings('SettingsPage._patchDevices: snapshot před apply', c.config);
+    final hot = AmbilightAppController.devicesChangeRequiresTransportRebuild(prev, devices);
+    traceDeviceBindings('SettingsPage._patchDevices: transportRebuild=$hot');
+    if (hot) {
+      unawaited(() async {
+        try {
+          await c.applyConfigAndPersist(next);
+          traceDeviceBindings('SettingsPage._patchDevices: applyConfigAndPersist OK');
+        } catch (e, st) {
+          traceDeviceBindingsSevere('SettingsPage._patchDevices: applyConfigAndPersist výjimka', e, st);
+          reportAppFault('Uložení seznamu zařízení selhalo: ${e.toString().split('\n').first}');
+        }
+      }());
+    } else {
+      c.queueConfigApply(next);
+    }
   }
 
   void _patchScreen(ScreenModeSettings s) {
@@ -80,10 +115,14 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
     _queue(c.config.copyWith(spotify: s));
   }
 
+  void _patchSmartLights(SmartLightsSettings s) {
+    final c = context.read<AmbilightAppController>();
+    _queue(c.config.copyWith(smartLights: s));
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.watch<AmbilightAppController>();
-    final gen = c.configPersistGeneration;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -125,7 +164,7 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
               );
             case 5:
               return PcHealthSettingsTab(
-                draft: c.config,
+                controller: c,
                 maxWidth: contentW,
                 onChanged: _patchPcHealth,
               );
@@ -139,6 +178,12 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                   _queue(ctrl.config.copyWith(systemMediaAlbum: sm));
                 },
               );
+            case 7:
+              return SmartIntegrationTab(
+                draft: c.config,
+                maxWidth: contentW,
+                onSmartLightsChanged: _patchSmartLights,
+              );
             default:
               return const SizedBox.shrink();
           }
@@ -150,8 +195,10 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
           children: [
             for (var i = 0; i < _tabCount; i++)
               KeyedSubtree(
-                key: ValueKey<String>('settings-tab-$i-g$gen'),
-                child: tabChild(i),
+                // Stabilní klíč jen podle indexu záložky — [configPersistGeneration] by při
+                // každém uložení konfigurace zničil strom a srazil scroll nahoru.
+                key: ValueKey<int>(i),
+                child: RepaintBoundary(child: tabChild(i)),
               ),
           ],
         );
@@ -172,7 +219,7 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Úpravy se uloží samy krátce po změně. Uložené presety obrazovky a hudby se tím nemění.',
+                    'Engine a posuvníky reagují hned; na disk se zapíše krátce po poslední změně. Presety obrazovky a hudby se tím nemění.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ),
@@ -242,6 +289,7 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                 Tab(text: 'Hudba'),
                 Tab(text: 'PC Health'),
                 Tab(text: 'Spotify'),
+                Tab(text: 'Smart Home'),
               ],
             ),
             Expanded(
@@ -322,6 +370,12 @@ class _SettingsSidebar extends StatelessWidget {
               label: 'Spotify',
               selected: selectedIndex == 6,
               onTap: () => onSelect(6),
+            ),
+            AmbiSidebarTile(
+              icon: Icons.home_work_outlined,
+              label: 'Smart Home',
+              selected: selectedIndex == 7,
+              onTap: () => onSelect(7),
             ),
           ],
         ),

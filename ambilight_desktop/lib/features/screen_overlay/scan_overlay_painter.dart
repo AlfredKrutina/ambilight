@@ -1,36 +1,40 @@
-import 'dart:ui' show Canvas, Color, Offset, Paint, PaintingStyle, Radius, Rect, RRect, Size;
+import 'dart:ui' show Canvas, Color, Offset, Paint, PaintingStyle, Path, Rect, Size;
 
 import 'package:flutter/rendering.dart';
 
-/// Kreslí tmavý příkrov a zvýrazněné okraje (modrá výplň, cyan okraj) jako PyQt `ScanningAreaOverlay.paintEvent`.
+/// Jen pruhy oblasti skenu (žádná „clona“ přes celé okno) — střed zůstává zcela průhledný.
 class ScanOverlayPainter extends CustomPainter {
   ScanOverlayPainter({required this.regions});
 
   final List<Rect> regions;
 
-  static const _dim = Color.fromARGB(120, 0, 0, 0);
-  static const _fill = Color.fromARGB(180, 10, 132, 255);
-  static const _stroke = Color.fromARGB(255, 10, 255, 255);
+  static const _fill = Color(0x5528B4FF);
+  static const _stroke = Color(0xFF5EC8FF);
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = _dim);
-    final fill = Paint()..color = _fill;
-    final border = Paint()
-      ..color = _stroke
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4;
+    final union = Path();
+    var any = false;
     for (final r in regions) {
       if (r.width <= 0 || r.height <= 0) continue;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(r, const Radius.circular(1)),
-        fill,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(r, const Radius.circular(1)),
-        border,
-      );
+      union.addRect(r);
+      any = true;
     }
+    if (!any) return;
+
+    canvas.drawPath(
+      union,
+      Paint()
+        ..color = _fill
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(
+      union,
+      Paint()
+        ..color = _stroke
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
   }
 
   @override

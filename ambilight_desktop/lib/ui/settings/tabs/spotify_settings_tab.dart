@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/models/config_models.dart';
+import '../../guides/music_spotify_integration_guide.dart';
 import '../../layout_breakpoints.dart';
 
 /// D8 — Spotify + volitelné barvy z OS přehrávače (Windows GSMTC: Apple Music, prohlížeč s YT Music, …).
@@ -45,6 +46,15 @@ class SpotifySettingsTab extends StatelessWidget {
                 'OAuth tokény se do disku ukládají přes ConfigRepository sanitizovaně; '
                 'plný tok a tlačítka „Přihlásit“ přidá agent A5.',
                 style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.tonalIcon(
+                  onPressed: () => MusicSpotifyIntegrationGuide.show(context),
+                  icon: const Icon(Icons.menu_book_outlined),
+                  label: const Text('Nápověda: hudba a obaly'),
+                ),
               ),
               const SizedBox(height: 16),
               SwitchListTile(

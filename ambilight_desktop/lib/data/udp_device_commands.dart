@@ -23,6 +23,7 @@ abstract final class UdpDeviceCommands {
     String text, {
     String? logContext,
   }) async {
+    final safePort = port.clamp(1, 65535);
     final addr = _parseIp(ip);
     if (addr == null) {
       _log.warning('sendUtf8Text: invalid IP "$ip" ${logContext ?? ''}');
@@ -35,9 +36,9 @@ abstract final class UdpDeviceCommands {
       socket = await RawDatagramSocket.bind(bindAddr, 0);
       socket.broadcastEnabled = true;
       final bytes = Uint8List.fromList(utf8.encode(text));
-      final n = socket.send(bytes, addr, port);
+      final n = socket.send(bytes, addr, safePort);
       final ok = n == bytes.length;
-      _log.info('UDP → ${addr.address}:$port "$text" (${bytes.length} B) ok=$ok ${logContext ?? ''}');
+      _log.info('UDP → ${addr.address}:$safePort "$text" (${bytes.length} B) ok=$ok ${logContext ?? ''}');
       return ok;
     } catch (e) {
       _log.warning('sendUtf8Text failed $e ${logContext ?? ''}');

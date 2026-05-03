@@ -167,9 +167,14 @@ abstract final class ScreenColorPipeline {
     int ledCount,
     Uint8List outRgb,
   ) {
-    assert(outRgb.length == ledCount * 3);
+    final need = ledCount * 3;
+    if (outRgb.length < need) {
+      throw ArgumentError(
+        'outRgb.length (${outRgb.length}) < ledCount*3 ($need)',
+      );
+    }
     if (!frame.isValid || roi.isEmpty || ledCount <= 0) {
-      outRgb.fillRange(0, outRgb.length, 0);
+      outRgb.fillRange(0, need, 0);
       return;
     }
 
@@ -183,7 +188,7 @@ abstract final class ScreenColorPipeline {
     final rw = math.max(0, x1 - x0);
     final rh = math.max(0, y1 - y0);
     if (rw <= 0 || rh <= 0) {
-      outRgb.fillRange(0, outRgb.length, 0);
+      outRgb.fillRange(0, need, 0);
       return;
     }
 

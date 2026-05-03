@@ -99,8 +99,6 @@ class SystemMediaNowPlayingService extends ChangeNotifier {
   static (int, int, int)? _averageColorFromImageBytes(Uint8List bytes) {
     var image = img.decodeImage(bytes);
     image ??= img.decodeBmp(bytes);
-    image ??= img.decodeJpg(bytes);
-    image ??= img.decodePng(bytes);
     if (image == null) return null;
     final small = img.copyResize(image, width: 32, height: 32);
     var r = 0, g = 0, b = 0, n = 0;

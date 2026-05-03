@@ -2,12 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../application/ambilight_app_controller.dart';
+import '../core/models/config_models.dart';
 import 'dashboard_ui.dart';
 import 'devices_page.dart';
 import 'home_page.dart';
 import 'layout_breakpoints.dart';
 import 'responsive_body.dart';
 import 'settings_page.dart';
+
+/// Stručný popis nakonfigurovaných výstupů (odpovídá `devices`, ignoruje HA-only).
+String _configuredOutputKindsFooter(AppConfig c) {
+  final ds = c.globalSettings.devices.where((d) => !d.controlViaHa).toList();
+  if (ds.isEmpty) return 'Žádné výstupní zařízení (volitelné)';
+  var usb = 0;
+  var wifi = 0;
+  for (final d in ds) {
+    if (d.type == 'wifi') {
+      wifi++;
+    } else {
+      usb++;
+    }
+  }
+  final parts = <String>[];
+  if (usb > 0) parts.add(usb == 1 ? 'USB' : '$usb× USB');
+  if (wifi > 0) parts.add(wifi == 1 ? 'Wi‑Fi' : '$wifi× Wi‑Fi');
+  return parts.join(' · ');
+}
 
 const _navSpecs = <({IconData icon, String label, String tooltip})>[
   (icon: Icons.grid_view_rounded, label: 'Přehled', tooltip: 'Domů — režimy, zkratky a náhled zařízení'),
@@ -25,6 +45,7 @@ class AmbiShell extends StatefulWidget {
 
 class _AmbiShellState extends State<AmbiShell> {
   int _index = 0;
+  AmbilightAppController? _controller;
 
   static const _pages = <Widget>[
     HomePage(),
@@ -32,6 +53,30 @@ class _AmbiShellState extends State<AmbiShell> {
     SettingsPage(),
     _AboutPage(),
   ];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = context.read<AmbilightAppController>();
+    if (!identical(_controller, next)) {
+      _controller?.removeListener(_onControllerNavigation);
+      _controller = next..addListener(_onControllerNavigation);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_onControllerNavigation);
+    super.dispose();
+  }
+
+  void _onControllerNavigation() {
+    if (!mounted) return;
+    final idx = _controller?.takePendingShellIndex();
+    if (idx != null) {
+      setState(() => _index = idx);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -264,11 +309,16 @@ class _MainSidebar extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-              child: Text(
-                'Desktop · LED / Wi‑Fi',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: scheme.onSurfaceVariant.withValues(alpha: 0.75),
-                    ),
+              child: Selector<AmbilightAppController, String>(
+                selector: (_, c) => _configuredOutputKindsFooter(c.config),
+                builder: (context, footer, _) => Text(
+                  footer,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.75),
+                      ),
+                ),
               ),
             ),
           ],

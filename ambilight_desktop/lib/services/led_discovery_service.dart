@@ -79,28 +79,32 @@ class LedDiscoveryService {
       final sock = socket;
       late StreamSubscription sub;
       sub = sock.listen((event) {
-        if (event != RawSocketEvent.read) return;
-        final dg = sock.receive();
-        if (dg == null) return;
-        String text;
         try {
-          text = utf8.decode(dg.data);
-        } catch (_) {
-          return;
+          if (event != RawSocketEvent.read) return;
+          final dg = sock.receive();
+          if (dg == null) return;
+          String text;
+          try {
+            text = utf8.decode(dg.data);
+          } catch (_) {
+            return;
+          }
+          if (!text.startsWith('ESP32_PONG')) return;
+          final parts = text.split('|');
+          if (parts.length < 5) return;
+          final ip = dg.address.address;
+          final parsed = DiscoveredLedController(
+            ip: ip,
+            macSuffix: parts[1],
+            name: parts[2],
+            ledCount: int.tryParse(parts[3]) ?? 0,
+            version: parts[4].trim(),
+          );
+          out[ip] = parsed;
+          _log.fine('PONG $parsed');
+        } catch (e, st) {
+          _log.fine('discovery listen: $e', e, st);
         }
-        if (!text.startsWith('ESP32_PONG')) return;
-        final parts = text.split('|');
-        if (parts.length < 5) return;
-        final ip = dg.address.address;
-        final parsed = DiscoveredLedController(
-          ip: ip,
-          macSuffix: parts[1],
-          name: parts[2],
-          ledCount: int.tryParse(parts[3]) ?? 0,
-          version: parts[4].trim(),
-        );
-        out[ip] = parsed;
-        _log.fine('PONG $parsed');
       });
       final payload = Uint8List.fromList(utf8.encode(UdpAmbilightProtocol.discoverPayload));
       await _sendDiscoveryBroadcasts(sock, udpPort, payload);
@@ -134,27 +138,31 @@ class LedDiscoveryService {
       final completer = Completer<void>();
       late StreamSubscription<RawSocketEvent> sub;
       sub = socket.listen((event) {
-        if (event != RawSocketEvent.read) return;
-        final dg = socket!.receive();
-        if (dg == null) return;
-        if (dg.address.address != addr.address) return;
-        String text;
         try {
-          text = utf8.decode(dg.data);
-        } catch (_) {
-          return;
+          if (event != RawSocketEvent.read) return;
+          final dg = socket!.receive();
+          if (dg == null) return;
+          if (dg.address.address != addr.address) return;
+          String text;
+          try {
+            text = utf8.decode(dg.data);
+          } catch (_) {
+            return;
+          }
+          if (!text.startsWith('ESP32_PONG')) return;
+          final parts = text.split('|');
+          if (parts.length < 5) return;
+          found = DiscoveredLedController(
+            ip: dg.address.address,
+            macSuffix: parts[1],
+            name: parts[2],
+            ledCount: int.tryParse(parts[3]) ?? 0,
+            version: parts[4].trim(),
+          );
+          if (!completer.isCompleted) completer.complete();
+        } catch (e, st) {
+          _log.fine('queryPong listen: $e', e, st);
         }
-        if (!text.startsWith('ESP32_PONG')) return;
-        final parts = text.split('|');
-        if (parts.length < 5) return;
-        found = DiscoveredLedController(
-          ip: dg.address.address,
-          macSuffix: parts[1],
-          name: parts[2],
-          ledCount: int.tryParse(parts[3]) ?? 0,
-          version: parts[4].trim(),
-        );
-        if (!completer.isCompleted) completer.complete();
       });
       final payload = Uint8List.fromList(utf8.encode(UdpAmbilightProtocol.discoverPayload));
       socket.send(payload, addr, udpPort);

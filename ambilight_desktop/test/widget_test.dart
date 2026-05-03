@@ -24,7 +24,7 @@ void main() {
   testWidgets('úzké okno: spodní NavigationBar (D15)', (WidgetTester tester) async {
     final controller = AmbilightAppController();
     addTearDown(controller.dispose);
-    await tester.binding.setSurfaceSize(const Size(400, 700));
+    await tester.binding.setSurfaceSize(const Size(480, 700));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
@@ -34,7 +34,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(AppBreakpoints.useShellSideRail(400), isFalse);
+    expect(AppBreakpoints.useShellSideRail(480), isFalse);
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.byKey(const Key('ambi-main-sidebar')), findsNothing);
   });

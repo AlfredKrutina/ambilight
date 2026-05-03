@@ -11,6 +11,38 @@ String deviceFriendlySubtitle(DeviceSettings d) {
   return '$kind · $n LED';
 }
 
+/// Potvrzení odebrání zařízení z konfigurace ([isLast] = poslední v seznamu).
+Future<bool> showConfirmRemoveDeviceDialog(
+  BuildContext context, {
+  required String deviceName,
+  required bool isLast,
+}) async {
+  final scheme = Theme.of(context).colorScheme;
+  final go = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Odebrat zařízení?'),
+      content: Text(
+        isLast
+            ? 'Seznam zařízení může zůstat prázdný — není to chyba. Bez zařízení jen nejde posílat barvy na pásek; můžeš dál nastavovat režimy a presety. Až hardware připojíš, přidej ho znovu tady nebo přes Discovery.'
+            : 'Zařízení „$deviceName“ se odebere z konfigurace.',
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Zrušit')),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: scheme.error,
+            foregroundColor: scheme.onError,
+          ),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Odebrat'),
+        ),
+      ],
+    ),
+  );
+  return go == true;
+}
+
 /// Řádek zařízení: přehledné zobrazení + menu pro akce (technické údaje jen v dialogu).
 class ConfigDeviceListTile extends StatelessWidget {
   const ConfigDeviceListTile({
@@ -21,6 +53,7 @@ class ConfigDeviceListTile extends StatelessWidget {
     this.onIdentify,
     this.onResetWifi,
     this.onRefreshFirmware,
+    this.onRemove,
   });
 
   final DeviceSettings device;
@@ -29,6 +62,7 @@ class ConfigDeviceListTile extends StatelessWidget {
   final VoidCallback? onIdentify;
   final VoidCallback? onResetWifi;
   final VoidCallback? onRefreshFirmware;
+  final VoidCallback? onRemove;
 
   static void _showDetails(BuildContext context, DeviceSettings d) {
     final buf = StringBuffer()
@@ -138,22 +172,34 @@ class ConfigDeviceListTile extends StatelessWidget {
                       onRefreshFirmware?.call();
                     case 'reset_wifi':
                       onResetWifi?.call();
+                    case 'remove':
+                      onRemove?.call();
                   }
                 },
-                itemBuilder: (ctx) => [
-                  const PopupMenuItem(value: 'edit', child: Text('Upravit mapování LED')),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(value: 'details', child: Text('Technické údaje…')),
-                  if (isWifi && d.ipAddress.isNotEmpty && onIdentify != null)
-                    const PopupMenuItem(value: 'identify', child: Text('Krátce identifikovat (bliknutí)')),
-                  if (onRefreshFirmware != null)
-                    const PopupMenuItem(value: 'fw', child: Text('Obnovit údaj o firmwaru')),
-                  if (isWifi && d.ipAddress.isNotEmpty && onResetWifi != null)
-                    const PopupMenuItem(
-                      value: 'reset_wifi',
-                      child: Text('Reset uložené Wi‑Fi na kontroléru'),
-                    ),
-                ],
+                itemBuilder: (ctx) {
+                  final err = Theme.of(ctx).colorScheme.error;
+                  return [
+                    const PopupMenuItem(value: 'edit', child: Text('Upravit mapování LED')),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(value: 'details', child: Text('Technické údaje…')),
+                    if (isWifi && d.ipAddress.isNotEmpty && onIdentify != null)
+                      const PopupMenuItem(value: 'identify', child: Text('Krátce identifikovat (bliknutí)')),
+                    if (onRefreshFirmware != null)
+                      const PopupMenuItem(value: 'fw', child: Text('Obnovit údaj o firmwaru')),
+                    if (isWifi && d.ipAddress.isNotEmpty && onResetWifi != null)
+                      const PopupMenuItem(
+                        value: 'reset_wifi',
+                        child: Text('Reset uložené Wi‑Fi na kontroléru'),
+                      ),
+                    if (onRemove != null) ...[
+                      const PopupMenuDivider(),
+                      PopupMenuItem(
+                        value: 'remove',
+                        child: Text('Odebrat zařízení…', style: TextStyle(color: err, fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  ];
+                },
               ),
             ],
           ),

@@ -36,5 +36,7 @@
 	<string>AmbiLight používá globální klávesové zkratky k zapnutí výstupu a přepínání režimů.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>AmbiLight vyhledává ESP ovladače v lokální síti (UDP discovery DISCOVER_ESP32) a posílá barvy přes Wi‑Fi.</string>
+	<key>NSHomeKitUsageDescription</key>
+	<string>AmbiLight může ovládat světla v Apple Home jako doplněk k ambientním barvám z obrazovky.</string>
 </dict>
 </plist>

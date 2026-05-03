@@ -16,15 +16,41 @@ import 'services/autostart_service.dart';
 import 'ui/ambi_shell.dart';
 import 'ui/app_theme.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  installAppErrorHandling();
+/// Zóna z okamžiku [WidgetsFlutterBinding.ensureInitialized]. Po `await` v bootstrapu může být
+/// [Zone.current] jiná (window_manager / hotkey apod.) — [runApp] musí běžet v této zóně,
+/// jinak Flutter v debug režimu hlásí [BindingBase.debugCheckZone].
+Zone? _ambiBindingZone;
 
+void main() {
+  runZonedGuarded(() {
+    WidgetsFlutterBinding.ensureInitialized();
+    _ambiBindingZone = Zone.current;
+    installAppErrorHandling();
+    unawaited(
+      _bootstrapApp().catchError((Object e, StackTrace st) {
+        final bootLog = Logger('AppBoot');
+        bootLog.severe('Bootstrap fatální chyba: $e', e, st);
+        reportAppFault('Aplikace se nespustila: ${e.toString().split('\n').first}');
+      }),
+    );
+  }, (Object error, StackTrace stack) {
+    logZoneError(error, stack);
+    reportAppFault(error.toString().split('\n').first);
+  });
+}
+
+Future<void> _bootstrapApp() async {
   final bootLog = Logger('AppBoot');
   Logger.root.level = Level.INFO;
   Logger.root.onRecord.listen((r) {
     debugPrint('[${r.level.name}] ${r.loggerName}: ${r.message}');
   });
+
+  try {
+    await desktop_chrome.initWindowManagerEarly();
+  } catch (e, st) {
+    bootLog.warning('initWindowManagerEarly: $e', e, st);
+  }
 
   try {
     await hotKeyManager.unregisterAll();
@@ -47,6 +73,7 @@ Future<void> main() async {
     await controller.load();
   } catch (e, st) {
     bootLog.warning('controller.load: $e', e, st);
+    reportAppFault('Načtení konfigurace selhalo, používám výchozí: ${e.toString().split('\n').first}');
   }
 
   try {
@@ -57,15 +84,19 @@ Future<void> main() async {
 
   controller.startLoop();
 
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: controller),
-        ChangeNotifierProvider(create: (_) => ScanOverlayController()),
-      ],
-      child: const AmbiLightRoot(),
-    ),
+  final app = MultiProvider(
+    providers: [
+      ChangeNotifierProvider.value(value: controller),
+      ChangeNotifierProvider(create: (_) => ScanOverlayController()),
+    ],
+    child: const AmbiLightRoot(),
   );
+  final z = _ambiBindingZone;
+  if (z != null) {
+    z.run(() => runApp(app));
+  } else {
+    runApp(app);
+  }
 }
 
 class AmbiLightRoot extends StatelessWidget {
@@ -94,69 +125,88 @@ class AmbiLightRoot extends StatelessWidget {
 
                 Widget inner = child ?? const SizedBox.shrink();
                 if (!scan.visualizeEnabled) {
-                  return MediaQuery(data: mqMerged, child: inner);
+                  return wrapWithAppFaultBanner(MediaQuery(data: mqMerged, child: inner));
                 }
+                // Hit-test: Stack testuje od posledního childa — chip musí zůstat poslední,
+                // aby šel zavřít; před ním jen IgnorePointer přes celou plochu.
                 inner = Stack(
                   fit: StackFit.expand,
+                  clipBehavior: Clip.none,
                   children: [
                     inner,
                     Positioned.fill(
-                      child: LayoutBuilder(
-                        builder: (context, c) {
-                          final sz = Size(c.maxWidth, c.maxHeight);
-                          final regions = scan.regionsForLayoutSize(sz);
-                          return Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              IgnorePointer(
-                                child: CustomPaint(
-                                  painter: ScanOverlayPainter(regions: regions),
-                                  child: const SizedBox.expand(),
-                                ),
-                              ),
-                              SafeArea(
-                                child: Align(
-                                  alignment: Alignment.topCenter,
-                                  child: Material(
-                                    elevation: 6,
-                                    color: const Color(0xE600162A),
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const SizedBox(width: 8),
-                                          Icon(Icons.monitor_heart_outlined, color: Colors.cyanAccent.shade100, size: 22),
-                                          const SizedBox(width: 10),
-                                          Text(
-                                            'Náhled v měřítku monitoru · zavři až po doladění',
-                                            style: TextStyle(
-                                              color: Colors.blue.shade50,
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                          IconButton(
-                                            tooltip: 'Zavřít náhled',
-                                            color: Colors.white,
-                                            onPressed: () => unawaited(scan.hide()),
-                                            icon: const Icon(Icons.close),
-                                          ),
-                                        ],
+                      child: IgnorePointer(
+                        ignoring: true,
+                        ignoringSemantics: true,
+                        child: LayoutBuilder(
+                          builder: (context, c) {
+                            try {
+                              final sz = Size(c.maxWidth, c.maxHeight);
+                              final regions = scan.regionsForLayoutSize(sz);
+                              return CustomPaint(
+                                painter: ScanOverlayPainter(regions: regions),
+                                child: const SizedBox.expand(),
+                              );
+                            } catch (e, st) {
+                              Logger('UI').warning('scan overlay: $e', e, st);
+                              return const SizedBox.shrink();
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: SafeArea(
+                        minimum: const EdgeInsets.all(6),
+                        child: Semantics(
+                          label: 'Zavřít náhled oblasti snímání',
+                          button: true,
+                          child: Material(
+                            elevation: 10,
+                            color: const Color(0xE6161820),
+                            shadowColor: Colors.black54,
+                            borderRadius: BorderRadius.circular(999),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(999),
+                              onTap: () => unawaited(scan.hide()),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.grid_on_rounded,
+                                      size: 18,
+                                      color: Colors.lightBlueAccent.shade100,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      'Náhled zón',
+                                      style: TextStyle(
+                                        color: Colors.blueGrey.shade50,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
                                       ),
                                     ),
-                                  ),
+                                    const SizedBox(width: 10),
+                                    Icon(
+                                      Icons.close_rounded,
+                                      color: Colors.white.withOpacity(0.9),
+                                      size: 20,
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
-                          );
-                        },
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 );
-                return MediaQuery(data: mqMerged, child: inner);
+                return wrapWithAppFaultBanner(MediaQuery(data: mqMerged, child: inner));
               },
               home: const AmbiShell(),
             );

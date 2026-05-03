@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -7,13 +8,16 @@ import 'package:provider/provider.dart';
 
 import '../../../application/ambilight_app_controller.dart';
 import '../../../core/models/config_models.dart';
+import '../../../features/screen_capture/screen_capture_source.dart';
+import '../../../features/screen_overlay/scan_overlay_controller.dart';
 import '../../../features/screen_overlay/screen_scan_settings_tab.dart';
 import '../settings_common.dart';
 import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
+import '../../widgets/config_drag_slider.dart';
 
-/// D5 — základní pole `ScreenModeSettings` (plný segment editor = A7 / A3).
-class ScreenSettingsTab extends StatelessWidget {
+/// D5 — [ScreenModeSettings]: jednoduchý / rozšířený režim, plná funkčnost zachována.
+class ScreenSettingsTab extends StatefulWidget {
   const ScreenSettingsTab({
     super.key,
     required this.draft,
@@ -26,26 +30,188 @@ class ScreenSettingsTab extends StatelessWidget {
   final ValueChanged<ScreenModeSettings> onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    final s = draft.screenMode;
-    final innerMax = AppBreakpoints.maxContentWidth(maxWidth).clamp(280.0, maxWidth);
+  State<ScreenSettingsTab> createState() => _ScreenSettingsTabState();
+}
 
-    final fields = <Widget>[
+class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
+  List<MonitorInfo> _monitors = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadMonitors());
+  }
+
+  Future<void> _loadMonitors() async {
+    if (kIsWeb) return;
+    try {
+      final list = await ScreenCaptureSource.platform().listMonitors();
+      if (mounted) setState(() => _monitors = list);
+    } catch (_) {}
+  }
+
+  bool get _advanced => widget.draft.screenMode.scanMode == 'advanced';
+
+  void _patch(ScreenModeSettings next) => widget.onChanged(next);
+
+  void _onLiveScanWhileDragging(ScreenModeSettings next) {
+    unawaited(
+      context.read<ScanOverlayController>().ensureShownForLivePreview(
+            next,
+            next.monitorIndex,
+          ),
+    );
+  }
+
+  void _onLiveScanAfterRelease() {
+    context.read<ScanOverlayController>().scheduleAutoHideAfterSliderRelease();
+  }
+
+  int _validMonitorDropdownValue(int wanted) {
+    if (_monitors.isEmpty) return wanted;
+    final ids = _monitors.map((e) => e.mssStyleIndex).toSet();
+    if (ids.contains(wanted)) return wanted;
+    return _monitors.first.mssStyleIndex;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.draft.screenMode;
+    final innerMax = AppBreakpoints.maxContentWidth(widget.maxWidth).clamp(280.0, widget.maxWidth);
+
+    Widget modeBar() {
+      return Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Režim nastavení', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'simple', label: Text('Jednoduchý'), icon: Icon(Icons.tune)),
+                  ButtonSegment(
+                    value: 'advanced',
+                    label: Text('Rozšířený'),
+                    icon: Icon(Icons.tune_outlined),
+                  ),
+                ],
+                selected: {_advanced ? 'advanced' : 'simple'},
+                onSelectionChanged: (set) {
+                  final v = set.first;
+                  _patch(s.copyWith(scanMode: v));
+                },
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _advanced
+                    ? 'Zobrazí se všechna pole včetně barevných křivek, technického indexu monitoru a per‑hrana v sekci náhledu.'
+                    : 'Stačí monitor, jas, plynulost a jednotná hloubka / odsazení skenu. Detailní zóny v náhledu dole.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget monitorSimple() {
+      if (_monitors.isEmpty) {
+        return TextFormField(
+          key: ValueKey('mon-${s.monitorIndex}'),
+          initialValue: '${s.monitorIndex}',
+          decoration: const InputDecoration(
+            labelText: 'Monitor (index)',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          onChanged: (v) {
+            final n = int.tryParse(v) ?? s.monitorIndex;
+            _patch(s.copyWith(monitorIndex: n.clamp(0, 32)));
+          },
+        );
+      }
+      return DropdownButtonFormField<int>(
+        decoration: const InputDecoration(
+          labelText: 'Monitor (shodně se snímáním)',
+          border: OutlineInputBorder(),
+        ),
+        value: _validMonitorDropdownValue(s.monitorIndex),
+        items: _monitors
+            .map(
+              (m) => DropdownMenuItem(
+                value: m.mssStyleIndex,
+                child: Text(
+                  '${m.mssStyleIndex}: ${m.width}×${m.height} @ (${m.left},${m.top})${m.isPrimary ? ' ★' : ''}',
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: (v) {
+          if (v == null) return;
+          _patch(s.copyWith(monitorIndex: v));
+        },
+      );
+    }
+
+    Widget unifiedScanSliders() {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Hloubka snímání (jednotně): ${s.scanDepthPercent} %',
+              style: Theme.of(context).textTheme.labelLarge),
+          ConfigDragSlider(
+            value: s.scanDepthPercent.toDouble(),
+            min: 0,
+            max: 100,
+            divisions: 100,
+            label: '${s.scanDepthPercent}',
+            onChanged: (v) {
+              final next = s.copyWith(scanDepthPercent: v.round());
+              _patch(next);
+              _onLiveScanWhileDragging(next);
+            },
+            onChangeEnd: _onLiveScanAfterRelease,
+          ),
+          Text('Odsazení (jednotně): ${s.paddingPercent} %', style: Theme.of(context).textTheme.labelLarge),
+          ConfigDragSlider(
+            value: s.paddingPercent.toDouble(),
+            min: 0,
+            max: 50,
+            divisions: 50,
+            label: '${s.paddingPercent}',
+            onChanged: (v) {
+              final next = s.copyWith(paddingPercent: v.round());
+              _patch(next);
+              _onLiveScanWhileDragging(next);
+            },
+            onChangeEnd: _onLiveScanAfterRelease,
+          ),
+        ],
+      );
+    }
+
+    final baseCard = <Widget>[
       AmbiSectionHeader(
         title: 'Obrazovka',
         subtitle:
-            'Barvy z okrajů monitoru. Kalibraci a segmenty nastavíš také v sekci Zařízení. Níže je přehled snímání a oblast skenování.',
+            'Režim screen: barvy z okrajů monitoru. Kalibraci a segmenty upravíš i v Zařízeních. '
+            'Náhled zón při ladění je jen vrstva v okně aplikace (zvýrazněné pruhy skenu, bez přesunu okna).',
         bottomSpacing: 12,
       ),
       if (!kIsWeb)
-        Consumer<AmbilightAppController>(
-          builder: (context, ctrl, _) {
-            final s = ctrl.captureSessionInfo;
+        Selector<AmbilightAppController, ScreenSessionInfo>(
+          selector: (_, ctrl) => ctrl.captureSessionInfo,
+          builder: (context, cap, _) {
+            final ctrl = context.read<AmbilightAppController>();
             final buf = StringBuffer()
-              ..write('${s.platform} · ${s.sessionType}')
-              ..write(s.captureBackend != null ? ' · ${s.captureBackend}' : '');
-            if (s.note != null && s.note!.isNotEmpty) {
-              buf.write('\n${s.note}');
+              ..write('${cap.platform} · ${cap.sessionType}')
+              ..write(cap.captureBackend != null ? ' · ${cap.captureBackend}' : '');
+            if (cap.note != null && cap.note!.isNotEmpty) {
+              buf.write('\n${cap.note}');
             }
             return Card(
               margin: const EdgeInsets.only(top: 12, bottom: 4),
@@ -73,7 +239,13 @@ class ScreenSettingsTab extends StatelessWidget {
                               final ok = await ctrl.requestOsScreenCapturePermission();
                               if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(ok ? 'Oprávnění obrazovky: OK / zkontroluj Soukromí.' : 'Oprávnění zamítnuto nebo nedostupné.')),
+                                SnackBar(
+                                  content: Text(
+                                    ok
+                                        ? 'Oprávnění obrazovky: OK / zkontroluj Soukromí.'
+                                        : 'Oprávnění zamítnuto nebo nedostupné.',
+                                  ),
+                                ),
                               );
                             },
                             icon: const Icon(Icons.security, size: 18),
@@ -87,121 +259,173 @@ class ScreenSettingsTab extends StatelessWidget {
             );
           },
         ),
+      const SizedBox(height: 8),
+      modeBar(),
       const SizedBox(height: 12),
-      TextFormField(
-        initialValue: '${s.monitorIndex}',
-        decoration: const InputDecoration(
-          labelText: 'monitor_index',
-          border: OutlineInputBorder(),
+      Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Obraz a výstup', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 10),
+              if (!_advanced) monitorSimple(),
+              Text('Jas (screen): ${s.brightness}', style: Theme.of(context).textTheme.labelLarge),
+              ConfigDragSlider(
+                value: s.brightness.toDouble(),
+                min: 0,
+                max: 255,
+                divisions: 255,
+                label: '${s.brightness}',
+                onChanged: (v) => _patch(s.copyWith(brightness: v.round())),
+              ),
+              Text('Interpolace (ms): ${s.interpolationMs}', style: Theme.of(context).textTheme.labelLarge),
+              ConfigDragSlider(
+                value: s.interpolationMs.toDouble(),
+                min: 0,
+                max: 500,
+                divisions: 50,
+                label: '${s.interpolationMs}',
+                onChanged: (v) => _patch(s.copyWith(interpolationMs: v.round())),
+              ),
+            ],
+          ),
         ),
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        onChanged: (v) {
-          final n = int.tryParse(v) ?? s.monitorIndex;
-          onChanged(s.copyWith(monitorIndex: n.clamp(0, 32)));
-        },
       ),
-      Text('Jas (screen): ${s.brightness}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: s.brightness.toDouble().clamp(0, 255),
-        max: 255,
-        divisions: 255,
-        label: '${s.brightness}',
-        onChanged: (v) => onChanged(s.copyWith(brightness: v.round())),
-      ),
-      Text('Interpolace (ms): ${s.interpolationMs}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: s.interpolationMs.toDouble().clamp(0, 500),
-        max: 500,
-        divisions: 50,
-        label: '${s.interpolationMs}',
-        onChanged: (v) => onChanged(s.copyWith(interpolationMs: v.round())),
-      ),
-      Text('Gamma: ${s.gamma.toStringAsFixed(2)}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: s.gamma.clamp(0.5, 4.0),
-        min: 0.5,
-        max: 4.0,
-        divisions: 35,
-        label: s.gamma.toStringAsFixed(2),
-        onChanged: (v) => onChanged(s.copyWith(gamma: v)),
-      ),
-      Text('Saturation boost: ${s.saturationBoost.toStringAsFixed(2)}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: s.saturationBoost.clamp(0.5, 3.0),
-        min: 0.5,
-        max: 3.0,
-        divisions: 25,
-        label: s.saturationBoost.toStringAsFixed(2),
-        onChanged: (v) => onChanged(s.copyWith(saturationBoost: v)),
-      ),
-      SwitchListTile(
-        title: const Text('Ultra saturace'),
-        value: s.ultraSaturation,
-        onChanged: (v) => onChanged(s.copyWith(ultraSaturation: v)),
-      ),
-      Text('Ultra amount: ${s.ultraSaturationAmount.toStringAsFixed(2)}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: s.ultraSaturationAmount.clamp(1.0, 5.0),
-        min: 1.0,
-        max: 5.0,
-        divisions: 40,
-        label: s.ultraSaturationAmount.toStringAsFixed(2),
-        onChanged: (v) => onChanged(s.copyWith(ultraSaturationAmount: v)),
-      ),
-      Text('Min. jas (LED): ${s.minBrightness}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: s.minBrightness.toDouble().clamp(0, 255),
-        max: 255,
-        divisions: 25,
-        label: '${s.minBrightness}',
-        onChanged: (v) => onChanged(s.copyWith(minBrightness: v.round())),
-      ),
-      DropdownButtonFormField<String>(
-        decoration: const InputDecoration(labelText: 'scan_mode', border: OutlineInputBorder()),
-        value: ['simple', 'advanced'].contains(s.scanMode) ? s.scanMode : 'simple',
-        items: const [
-          DropdownMenuItem(value: 'simple', child: Text('simple')),
-          DropdownMenuItem(value: 'advanced', child: Text('advanced')),
-        ],
-        onChanged: (v) {
-          if (v == null) return;
-          onChanged(s.copyWith(scanMode: v));
-        },
-      ),
-      Text('Scan depth %: ${s.scanDepthPercent}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: s.scanDepthPercent.toDouble().clamp(0, 100),
-        max: 100,
-        divisions: 100,
-        label: '${s.scanDepthPercent}',
-        onChanged: (v) => onChanged(s.copyWith(scanDepthPercent: v.round())),
-      ),
-      Text('Padding %: ${s.paddingPercent}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: s.paddingPercent.toDouble().clamp(0, 50),
-        max: 50,
-        divisions: 50,
-        label: '${s.paddingPercent}',
-        onChanged: (v) => onChanged(s.copyWith(paddingPercent: v.round())),
-      ),
-      TextFormField(
-        initialValue: s.activePreset,
-        decoration: const InputDecoration(
-          labelText: 'active_preset',
-          border: OutlineInputBorder(),
+    ];
+
+    final simpleExtra = <Widget>[
+      Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Oblast snímání (jednotné)', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              unifiedScanSliders(),
+            ],
+          ),
         ),
-        onChanged: (v) => onChanged(s.copyWith(activePreset: v.trim().isEmpty ? s.activePreset : v.trim())),
       ),
-      TextFormField(
-        initialValue: s.activeCalibrationProfile,
-        decoration: const InputDecoration(
-          labelText: 'active_calibration_profile',
-          border: OutlineInputBorder(),
+    ];
+
+    final advancedExtra = <Widget>[
+      Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Technický monitor a jednotná oblast', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              TextFormField(
+                key: ValueKey('mi-${s.monitorIndex}'),
+                initialValue: '${s.monitorIndex}',
+                decoration: const InputDecoration(
+                  labelText: 'monitor_index (MSS, 0–32)',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (v) {
+                  final n = int.tryParse(v) ?? s.monitorIndex;
+                  _patch(s.copyWith(monitorIndex: n.clamp(0, 32)));
+                },
+              ),
+              if (_monitors.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                monitorSimple(),
+              ],
+              const SizedBox(height: 12),
+              unifiedScanSliders(),
+            ],
+          ),
         ),
-        onChanged: (v) =>
-            onChanged(s.copyWith(activeCalibrationProfile: v.trim().isEmpty ? s.activeCalibrationProfile : v.trim())),
       ),
+      Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Barvy a sken (podrobně)', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              Text('Gamma: ${s.gamma.toStringAsFixed(2)}', style: Theme.of(context).textTheme.labelLarge),
+              ConfigDragSlider(
+                value: s.gamma,
+                min: 0.5,
+                max: 4.0,
+                divisions: 35,
+                label: s.gamma.toStringAsFixed(2),
+                onChanged: (v) => _patch(s.copyWith(gamma: v)),
+              ),
+              Text('Saturation boost: ${s.saturationBoost.toStringAsFixed(2)}',
+                  style: Theme.of(context).textTheme.labelLarge),
+              ConfigDragSlider(
+                value: s.saturationBoost,
+                min: 0.5,
+                max: 3.0,
+                divisions: 25,
+                label: s.saturationBoost.toStringAsFixed(2),
+                onChanged: (v) => _patch(s.copyWith(saturationBoost: v)),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Ultra saturace'),
+                value: s.ultraSaturation,
+                onChanged: (v) => _patch(s.copyWith(ultraSaturation: v)),
+              ),
+              Text('Ultra amount: ${s.ultraSaturationAmount.toStringAsFixed(2)}',
+                  style: Theme.of(context).textTheme.labelLarge),
+              ConfigDragSlider(
+                value: s.ultraSaturationAmount,
+                min: 1.0,
+                max: 5.0,
+                divisions: 40,
+                label: s.ultraSaturationAmount.toStringAsFixed(2),
+                onChanged: (v) => _patch(s.copyWith(ultraSaturationAmount: v)),
+              ),
+              Text('Min. jas (LED): ${s.minBrightness}', style: Theme.of(context).textTheme.labelLarge),
+              ConfigDragSlider(
+                value: s.minBrightness.toDouble(),
+                min: 0,
+                max: 255,
+                divisions: 25,
+                label: '${s.minBrightness}',
+                onChanged: (v) => _patch(s.copyWith(minBrightness: v.round())),
+              ),
+              TextFormField(
+                initialValue: s.activePreset,
+                decoration: const InputDecoration(
+                  labelText: 'active_preset',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (v) => _patch(s.copyWith(activePreset: v.trim().isEmpty ? s.activePreset : v.trim())),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: s.activeCalibrationProfile,
+                decoration: const InputDecoration(
+                  labelText: 'active_calibration_profile',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (v) => _patch(
+                  s.copyWith(activeCalibrationProfile: v.trim().isEmpty ? s.activeCalibrationProfile : v.trim()),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
+
+    final tail = <Widget>[
       Consumer<AmbilightAppController>(
         builder: (context, ctrl, _) {
           return Card(
@@ -214,7 +438,9 @@ class ScreenSettingsTab extends StatelessWidget {
                   Text('Značky na pásku', style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 6),
                   Text(
-                    'Zelené LED v rozích (jako PyQt kalibrace). „Vypnout“ před uložením nebo při přepnutí záložky.',
+                    'Zelené LED v rozích (jako PyQt kalibrace). Při indikaci se použije max. délka pro transport '
+                    '(USB až 2000 LED s wide rámcem 0xFC, Wi‑Fi dle UDP), ne zadaný počet LED v zařízení — aby šly rozsvítit i vysoké indexy. '
+                    '„Vypnout“ před uložením nebo při přepnutí záložky.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 10),
@@ -256,10 +482,17 @@ class ScreenSettingsTab extends StatelessWidget {
         subtitle: Text('Počet: ${s.segments.length} (editor zón A7)'),
       ),
       ScreenScanOverlaySection(
-        draft: draft,
-        maxWidth: maxWidth,
-        onScreenModeChanged: onChanged,
+        draft: widget.draft,
+        maxWidth: widget.maxWidth,
+        onScreenModeChanged: widget.onChanged,
+        advancedScanLayout: _advanced,
       ),
+    ];
+
+    final fields = <Widget>[
+      ...baseCard,
+      if (!_advanced) ...simpleExtra else ...advancedExtra,
+      ...tail,
     ];
 
     return Align(

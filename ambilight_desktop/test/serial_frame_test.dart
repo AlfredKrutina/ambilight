@@ -2,11 +2,34 @@ import 'package:ambilight_desktop/core/protocol/serial_frame.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('serial frame length matches protocol', () {
-    final colors = List<(int, int, int)>.generate(66, (i) => (i, 10, 20));
-    final frame = SerialAmbilightProtocol.buildColorFrame(colors, brightnessScalar: 100);
-    expect(frame.length, 1 + SerialAmbilightProtocol.targetLeds * 4 + 1);
+  test('legacy serial frame length (≤256 LED)', () {
+    const n = 66;
+    final colors = List<(int, int, int)>.generate(n, (i) => (i, 10, 20));
+    final frame = SerialAmbilightProtocol.buildColorFrame(
+      colors,
+      stripLength: n,
+      brightnessScalar: 100,
+    );
+    expect(frame.length, SerialAmbilightProtocol.legacyWireByteLength(n));
     expect(frame.first, 0xFF);
     expect(frame.last, 0xFE);
+  });
+
+  test('wide serial frame uses 0xFC and 5 bytes per LED', () {
+    const n = 300;
+    final colors = List<(int, int, int)>.generate(n, (i) => (i & 255, 1, 2));
+    final frame = SerialAmbilightProtocol.buildColorFrame(
+      colors,
+      stripLength: n,
+      brightnessScalar: 100,
+    );
+    expect(frame.length, SerialAmbilightProtocol.wideWireByteLength(n));
+    expect(frame.first, 0xFC);
+    expect(frame.last, 0xFE);
+  });
+
+  test('LED count announce command is 4 bytes', () {
+    final c = SerialAmbilightProtocol.buildLedCountCommand(424);
+    expect(c, [0xA5, 0x5A, 0xA8, 0x01]);
   });
 }

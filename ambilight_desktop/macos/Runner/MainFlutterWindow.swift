@@ -11,6 +11,7 @@ class MainFlutterWindow: NSWindow {
     RegisterGeneratedPlugins(registry: flutterViewController)
 
     ScreenCaptureChannel.register(binaryMessenger: flutterViewController.engine.binaryMessenger)
+    HomeKitChannel.register(binaryMessenger: flutterViewController.engine.binaryMessenger)
 
     super.awakeFromNib()
   }

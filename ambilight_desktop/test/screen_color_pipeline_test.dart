@@ -49,6 +49,23 @@ void main() {
       expect(out[1], lessThan(40));
       expect(out[2], lessThan(40));
     });
+
+    test('reusable strip longer than ledCount (max segment buffer) is OK', () {
+      const w = 20;
+      const h = 10;
+      final rgba = Uint8List(w * h * 4);
+      for (var i = 0; i < rgba.length; i += 4) {
+        rgba[i] = 200;
+        rgba[i + 1] = 10;
+        rgba[i + 2] = 10;
+        rgba[i + 3] = 255;
+      }
+      final frame = ScreenFrame(monitorIndex: 0, width: w, height: h, rgba: rgba);
+      const roi = SegmentRoiRect(x: 0, y: 0, w: w, h: h);
+      final out = Uint8List(64 * 3);
+      ScreenColorPipeline.sampleRoiColors(frame, roi, 'top', 4, out);
+      expect(out[0], greaterThan(180));
+    });
   });
 
   group('applyTransforms', () {

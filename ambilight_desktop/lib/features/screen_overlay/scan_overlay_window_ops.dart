@@ -12,3 +12,7 @@ Future<void> scanOverlayEnterFullscreenRegion(Rect frame) =>
 
 /// Obnoví stav okna po náhledu overlay.
 Future<void> scanOverlayRestoreWindow() => impl.scanOverlayRestoreWindow();
+
+/// Po přesunu okna na monitor — vždy false, aby Windows neposílaly události mimo Flutter.
+Future<void> scanOverlayEnsureFlutterReceivesPointer() =>
+    impl.scanOverlayEnsureFlutterReceivesPointer();

@@ -46,13 +46,38 @@ class ConfigRepository {
     }
   }
 
+  /// Zapíše JSON přes `.tmp` a přejmenování — při pádu během zápisu zůstane buď starý [file], nebo obnovitelný `.bak`.
   static Future<void> save(AppConfig config, [String profile = defaultProfile]) async {
     final file = await resolveConfigFile(profile);
     final parent = file.parent;
     if (!await parent.exists()) {
       await parent.create(recursive: true);
     }
-    await file.writeAsString(config.sanitizedForPersistence().toJsonString());
+    final json = config.sanitizedForPersistence().toJsonString();
+    final tmp = File('${file.path}.tmp');
+    final bak = File('${file.path}.bak');
+    if (await tmp.exists()) {
+      try {
+        await tmp.delete();
+      } catch (e, st) {
+        _log.fine('remove stale tmp: $e', e, st);
+      }
+    }
+    await tmp.writeAsString(json, flush: true);
+    if (await file.exists()) {
+      if (await bak.exists()) {
+        await bak.delete();
+      }
+      await file.rename(bak.path);
+    }
+    await tmp.rename(file.path);
+    try {
+      if (await bak.exists()) {
+        await bak.delete();
+      }
+    } catch (e, st) {
+      _log.fine('remove config backup: $e', e, st);
+    }
     _log.info('Saved ${file.path}');
   }
 }

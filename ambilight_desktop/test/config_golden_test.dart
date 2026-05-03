@@ -22,6 +22,8 @@ void main() {
     expect(cfg.lightMode.homekitEnabled, isFalse);
     expect(cfg.screenMode.monitorIndex, 1);
     expect(cfg.musicMode.effect, 'energy');
+    expect(cfg.smartLights.enabled, isFalse);
+    expect(cfg.smartLights.fixtures, isEmpty);
 
     final round = AppConfig.parse(cfg.toJsonString());
     expect(round.toJsonString(), cfg.toJsonString());

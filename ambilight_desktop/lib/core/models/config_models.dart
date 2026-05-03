@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import '../json/json_utils.dart';
 import 'custom_hotkey_models.dart';
+import 'pc_health_defaults.dart';
+import 'smart_lights_models.dart';
 
 /// --- Device ---
 
@@ -53,7 +55,7 @@ class DeviceSettings {
       type: type ?? this.type,
       port: port ?? this.port,
       ipAddress: ipAddress ?? this.ipAddress,
-      udpPort: udpPort ?? this.udpPort,
+      udpPort: (udpPort ?? this.udpPort).clamp(1, 65535),
       ledCount: ledCount ?? this.ledCount,
       ledOffset: ledOffset ?? this.ledOffset,
       defaultMonitor: defaultMonitor ?? this.defaultMonitor,
@@ -83,7 +85,7 @@ class DeviceSettings {
       type: asString(j['type'], 'serial'),
       port: asString(j['port'], 'COM5'),
       ipAddress: asString(j['ip_address'], ''),
-      udpPort: asInt(j['udp_port'], 4210),
+      udpPort: asInt(j['udp_port'], 4210).clamp(1, 65535),
       ledCount: asInt(j['led_count'], 66),
       ledOffset: asInt(j['led_offset'], 0),
       defaultMonitor: asInt(j['default_monitor'], 1),
@@ -197,10 +199,11 @@ class GlobalSettings {
       };
 
   factory GlobalSettings.fromJson(Map<String, dynamic> j) {
-    List<DeviceSettings> devs;
-    if (j['devices'] is List && (j['devices'] as List).isNotEmpty) {
+    final List<DeviceSettings> devs;
+    if (j['devices'] is List) {
       devs = (j['devices'] as List).map((e) => DeviceSettings.fromJson(asMap(e))).toList();
-    } else {
+    } else if (!j.containsKey('devices')) {
+      // Staré JSON bez pole `devices` — zachovat chování jako dřív (jeden řádek z serial_port).
       devs = [
         DeviceSettings(
           id: 'primary',
@@ -210,6 +213,8 @@ class GlobalSettings {
           ledCount: asInt(j['led_count'], 66),
         ),
       ];
+    } else {
+      devs = const [];
     }
     return GlobalSettings(
       serialPort: asString(j['serial_port'], 'COM5'),
@@ -576,7 +581,8 @@ class ScreenModeSettings {
       interpolationMs: asInt(j['interpolation_ms'], 100),
       gamma: asDouble(j['gamma'], 2.2),
       activePreset: asString(j['active_preset'], 'Balanced'),
-      calibrationPoints: j['calibration_points'] as List<dynamic>?,
+      calibrationPoints:
+          j['calibration_points'] is List ? List<dynamic>.from(j['calibration_points'] as List) : null,
       brightness: asInt(j['brightness'], 200),
       colorCalibration: j['color_calibration'] != null ? asMap(j['color_calibration']) : null,
       calibrationProfiles: profiles,
@@ -1181,11 +1187,15 @@ class PcHealthSettings {
       };
 
   factory PcHealthSettings.fromJson(Map<String, dynamic> j) {
+    var metrics = asMapList(j['metrics']).map((e) => Map<String, dynamic>.from(e)).toList();
+    if (metrics.isEmpty) {
+      metrics = builtinPcHealthMetrics().map((e) => Map<String, dynamic>.from(e)).toList();
+    }
     return PcHealthSettings(
       enabled: asBool(j['enabled'], false),
       updateRate: asInt(j['update_rate'], 500),
       brightness: asInt(j['brightness'], 200),
-      metrics: asMapList(j['metrics']).map((e) => Map<String, dynamic>.from(e)).toList(),
+      metrics: metrics,
     );
   }
 
@@ -1221,6 +1231,7 @@ class AppConfig {
     required this.spotify,
     required this.systemMediaAlbum,
     required this.pcHealth,
+    this.smartLights = SmartLightsSettings.disabled,
     this.userScreenPresets = const {},
     this.userMusicPresets = const {},
   });
@@ -1232,6 +1243,8 @@ class AppConfig {
   final SpotifySettings spotify;
   final SystemMediaAlbumSettings systemMediaAlbum;
   final PcHealthSettings pcHealth;
+  /// Chytrá světla: Home Assistant (REST), Apple HomeKit (macOS), Google Home přes HA (návod v UI).
+  final SmartLightsSettings smartLights;
   final Map<String, Map<String, dynamic>> userScreenPresets;
   final Map<String, Map<String, dynamic>> userMusicPresets;
 
@@ -1243,6 +1256,7 @@ class AppConfig {
     SpotifySettings? spotify,
     SystemMediaAlbumSettings? systemMediaAlbum,
     PcHealthSettings? pcHealth,
+    SmartLightsSettings? smartLights,
     Map<String, Map<String, dynamic>>? userScreenPresets,
     Map<String, Map<String, dynamic>>? userMusicPresets,
   }) {
@@ -1254,6 +1268,7 @@ class AppConfig {
       spotify: spotify ?? this.spotify,
       systemMediaAlbum: systemMediaAlbum ?? this.systemMediaAlbum,
       pcHealth: pcHealth ?? this.pcHealth,
+      smartLights: smartLights ?? this.smartLights,
       userScreenPresets: userScreenPresets ?? this.userScreenPresets,
       userMusicPresets: userMusicPresets ?? this.userMusicPresets,
     );
@@ -1261,22 +1276,19 @@ class AppConfig {
 
   static AppConfig defaults() => AppConfig(
         globalSettings: GlobalSettings(
-          devices: [
-            DeviceSettings(
-              id: 'primary',
-              name: 'Primary Controller',
-              type: 'serial',
-              port: 'COM5',
-              ledCount: 66,
-            ),
-          ],
+          devices: const [],
         ),
         lightMode: const LightModeSettings(),
         screenMode: const ScreenModeSettings(),
         musicMode: const MusicModeSettings(),
         spotify: const SpotifySettings(),
         systemMediaAlbum: const SystemMediaAlbumSettings(),
-        pcHealth: const PcHealthSettings(),
+        pcHealth: PcHealthSettings(
+          enabled: true,
+          updateRate: 500,
+          brightness: 200,
+          metrics: builtinPcHealthMetrics().map((e) => Map<String, dynamic>.from(e)).toList(),
+        ),
       );
 
   Map<String, dynamic> toJson() => {
@@ -1287,11 +1299,15 @@ class AppConfig {
         'spotify': spotify.toJson(),
         'system_media_album': systemMediaAlbum.toJson(),
         'pc_health': pcHealth.toJson(),
+        'smart_lights': smartLights.toJson(),
         'user_screen_presets': Map<String, dynamic>.from(userScreenPresets),
         'user_music_presets': Map<String, dynamic>.from(userMusicPresets),
       };
 
-  String toJsonString() => const JsonEncoder.withIndent('    ').convert(toJson());
+  String toJsonString() {
+    final raw = jsonSanitizeForEncode(toJson());
+    return const JsonEncoder.withIndent('    ').convert(raw);
+  }
 
   /// Hluboká kopie pro lokální draft (např. nastavení před Apply).
   AppConfig clone() => AppConfig.fromJson(Map<String, dynamic>.from(toJson()));
@@ -1304,6 +1320,7 @@ class AppConfig {
         clearRefreshToken: true,
         clearClientSecret: true,
       ),
+      smartLights: smartLights.copyWith(clearHaToken: true),
     );
   }
 
@@ -1343,6 +1360,9 @@ class AppConfig {
       pcHealth: data['pc_health'] != null
           ? PcHealthSettings.fromJson(asMap(data['pc_health']))
           : const PcHealthSettings(),
+      smartLights: SmartLightsSettings.fromJson(
+        data['smart_lights'] is Map ? asMap(data['smart_lights']) : null,
+      ),
       userScreenPresets: usp,
       userMusicPresets: ump,
     );

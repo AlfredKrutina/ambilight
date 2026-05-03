@@ -5,3 +5,5 @@ Future<Rect?> scanOverlayDisplayRectForMonitor(int mssIndex) async => null;
 Future<void> scanOverlayEnterFullscreenRegion(Rect frame) async {}
 
 Future<void> scanOverlayRestoreWindow() async {}
+
+Future<void> scanOverlayEnsureFlutterReceivesPointer() async {}

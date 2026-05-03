@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform, exit;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:logging/logging.dart';
@@ -24,14 +25,35 @@ String? _lastTrayVisualKey;
 
 bool get _inFlutterTest => Platform.environment['FLUTTER_TEST'] == 'true';
 
+/// Hned po [WidgetsFlutterBinding.ensureInitialized], před těžkou prací / [runApp].
+/// Zajistí registraci HWND ve window_manager dřív než zbytek aplikace — na Windows snižuje
+/// riziko nesouladu souřadnic myši vs. hit-test po scan overlay / DPI.
+Future<void> initWindowManagerEarly() async {
+  if (_inFlutterTest) return;
+  await windowManager.ensureInitialized();
+  try {
+    await windowManager.setIgnoreMouseEvents(false);
+  } catch (e, st) {
+    _log.fine('initWindowManagerEarly reset mouse: $e', e, st);
+  }
+}
+
 Future<void> _showMainWindow() async {
-  await windowManager.show();
-  await windowManager.focus();
+  try {
+    await windowManager.show();
+    await windowManager.focus();
+  } catch (e, st) {
+    _log.fine('showMainWindow: $e', e, st);
+  }
 }
 
 Future<void> _openSettings(AmbilightAppController c) async {
-  await _showMainWindow();
-  c.requestOpenSettingsTab();
+  try {
+    await _showMainWindow();
+    c.requestOpenSettingsTab();
+  } catch (e, st) {
+    _log.fine('openSettings: $e', e, st);
+  }
 }
 
 Future<void> _quitApp() async {
@@ -114,6 +136,27 @@ Menu _buildTrayMenu(AmbilightAppController c) {
       MenuItem(label: 'Music — presety', submenu: musicSub),
       MenuItem.separator(),
       MenuItem(
+        label: c.config.globalSettings.performanceMode ? 'Výkonový režim ✓' : 'Výkonový režim',
+        onClick: (_) => c.queueConfigApply(
+          c.config.copyWith(
+            globalSettings: c.config.globalSettings.copyWith(
+              performanceMode: !c.config.globalSettings.performanceMode,
+            ),
+          ),
+        ),
+      ),
+      MenuItem(
+        label: c.config.globalSettings.autostart ? 'Spustit se systémem ✓' : 'Spustit se systémem',
+        onClick: (_) => c.queueConfigApply(
+          c.config.copyWith(
+            globalSettings: c.config.globalSettings.copyWith(
+              autostart: !c.config.globalSettings.autostart,
+            ),
+          ),
+        ),
+      ),
+      MenuItem.separator(),
+      MenuItem(
         label: c.musicPaletteLocked
             ? 'Odemknout barvy (hudba)'
             : (c.musicPaletteLockCapturePending
@@ -137,6 +180,21 @@ Menu _buildTrayMenu(AmbilightAppController c) {
 class _TrayTapListener with TrayListener {
   _TrayTapListener(this._c);
   final AmbilightAppController _c;
+
+  /// Windows/macOS: kontextové menu se neotevře samo — `tray_manager` vyžaduje explicitní popup.
+  /// Linux (AppIndicator): `popUpContextMenu` často není implementováno — ignorujeme chybu.
+  @override
+  void onTrayIconRightMouseDown() {
+    unawaited(() async {
+      try {
+        await trayManager.popUpContextMenu();
+      } catch (e, st) {
+        if (kDebugMode) {
+          _log.fine('tray popUpContextMenu: $e', e, st);
+        }
+      }
+    }());
+  }
 
   @override
   void onTrayIconMouseDown() {
@@ -169,6 +227,11 @@ Future<void> initDesktopShell(AmbilightAppController controller) async {
 
   _controller = controller;
   await windowManager.ensureInitialized();
+  try {
+    await windowManager.setIgnoreMouseEvents(false);
+  } catch (e, st) {
+    _log.fine('initDesktopShell reset mouse: $e', e, st);
+  }
 
   _windowListener ??= _HideOnCloseListener();
   windowManager.addListener(_windowListener!);
@@ -182,11 +245,20 @@ Future<void> initDesktopShell(AmbilightAppController controller) async {
   );
 
   await windowManager.waitUntilReadyToShow(opts, () async {
-    if (controller.config.globalSettings.startMinimized) {
-      await windowManager.hide();
-    } else {
-      await windowManager.show();
-      await windowManager.focus();
+    try {
+      if (controller.config.globalSettings.startMinimized) {
+        await windowManager.hide();
+      } else {
+        await windowManager.show();
+        await windowManager.focus();
+      }
+      try {
+        await windowManager.setIgnoreMouseEvents(false);
+      } catch (e, st) {
+        _log.fine('post-show reset mouse: $e', e, st);
+      }
+    } catch (e, st) {
+      _log.warning('waitUntilReadyToShow: $e', e, st);
     }
   });
 
@@ -194,10 +266,14 @@ Future<void> initDesktopShell(AmbilightAppController controller) async {
   controller.addListener(_controllerListener!);
 
   SchedulerBinding.instance.addPostFrameCallback((_) async {
-    _trayClickListener ??= _TrayTapListener(controller);
-    trayManager.addListener(_trayClickListener!);
-    _lastTrayVisualKey = null;
-    await _pushTrayMenu();
+    try {
+      _trayClickListener ??= _TrayTapListener(controller);
+      trayManager.addListener(_trayClickListener!);
+      _lastTrayVisualKey = null;
+      await _pushTrayMenu();
+    } catch (e, st) {
+      _log.warning('tray post-frame init: $e', e, st);
+    }
   });
 }
 

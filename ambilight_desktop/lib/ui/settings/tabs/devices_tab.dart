@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../application/ambilight_app_controller.dart';
+import '../../../core/device_bindings_debug.dart';
 import '../../../core/models/config_models.dart';
 import '../../layout_breakpoints.dart';
 import '../../widgets/config_device_list_tile.dart';
@@ -55,6 +56,16 @@ class DevicesTab extends StatelessWidget {
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
               ),
+              if (devices.isEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  'Seznam může zůstat prázdný — vhodné jen pro přípravu profilů. Pro výstup na pásek přidej aspoň jedno zařízení.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                ),
+              ],
               const SizedBox(height: 16),
               FilledButton.tonalIcon(
                 onPressed: () {
@@ -78,6 +89,7 @@ class DevicesTab extends StatelessWidget {
                 final i = e.key;
                 final d = e.value;
                 return Card(
+                  key: ValueKey<String>('dev-tab-${d.id}'),
                   margin: const EdgeInsets.only(bottom: 12),
                   child: Padding(
                     padding: const EdgeInsets.all(12),
@@ -92,15 +104,25 @@ class DevicesTab extends StatelessWidget {
                                 style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                               ),
                             ),
-                            if (devices.length > 1)
-                              IconButton(
-                                tooltip: 'Odebrat zařízení',
-                                onPressed: () {
-                                  final next = List<DeviceSettings>.from(devices)..removeAt(i);
-                                  onDevicesChanged(next);
-                                },
-                                icon: const Icon(Icons.delete_outline),
-                              ),
+                            IconButton(
+                              tooltip: 'Odebrat zařízení',
+                              onPressed: () async {
+                                final name = d.name.trim().isEmpty ? 'Zařízení ${i + 1}' : d.name;
+                                final ok = await showConfirmRemoveDeviceDialog(
+                                  context,
+                                  deviceName: name,
+                                  isLast: devices.length <= 1,
+                                );
+                                if (ok && context.mounted) {
+                                  final removed = devices[i];
+                                  traceDeviceBindings(
+                                    'DevicesTab: odebrat index=$i id=${removed.id} typ=${removed.type}',
+                                  );
+                                  onDevicesChanged(List<DeviceSettings>.from(devices)..removeAt(i));
+                                }
+                              },
+                              icon: const Icon(Icons.delete_outline),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 4),
@@ -126,15 +148,33 @@ class DevicesTab extends StatelessWidget {
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
                           decoration: const InputDecoration(labelText: 'Typ připojení', border: OutlineInputBorder()),
-                          value: d.type == 'wifi' ? 'wifi' : 'serial',
+                          value: (d.type == 'wifi' || d.type == 'serial') ? d.type : 'serial',
                           items: const [
                             DropdownMenuItem(value: 'serial', child: Text('USB (sériový port)')),
                             DropdownMenuItem(value: 'wifi', child: Text('Wi‑Fi (UDP)')),
                           ],
                           onChanged: (v) {
                             if (v == null) return;
+                            traceDeviceBindings(
+                              'DevicesTab: přepnutí typu id=${d.id} z ${d.type} na $v',
+                            );
                             final next = List<DeviceSettings>.from(devices);
-                            next[i] = d.copyWith(type: v);
+                            if (v == 'wifi') {
+                              next[i] = d.copyWith(
+                                type: 'wifi',
+                                port: '',
+                                ipAddress: d.ipAddress.trim(),
+                                udpPort: d.udpPort <= 0 ? 4210 : d.udpPort,
+                              );
+                            } else {
+                              next[i] = d.copyWith(
+                                type: 'serial',
+                                ipAddress: '',
+                                port: d.port.trim().isEmpty
+                                    ? (ports.isNotEmpty ? ports.first : 'COM5')
+                                    : d.port,
+                              );
+                            }
                             onDevicesChanged(next);
                           },
                         ),

@@ -4,6 +4,7 @@ import '../../core/models/config_models.dart';
 import '../../engine/screen/screen_frame.dart';
 import 'music_melody_smart_effect.dart';
 import 'music_monitor_palette.dart';
+import 'music_smart_music_effect.dart';
 import 'music_types.dart';
 
 /// Port `app.py` `_render_segment_effect` (základní efekty + role podle segmentu).
@@ -132,6 +133,30 @@ class MusicSegmentRenderer {
     }
 
     final targets = List<(int, int, int)>.filled(numLeds, (0, 0, 0), growable: false);
+
+    if (effect == 'smart_music') {
+      final vLowMid = getBand('low_mid', sensMid);
+      final vHighMid = getBand('high_mid', sensHigh);
+      final vBril = getBand('brilliance', sensHigh);
+      final vTreble = _trebleSmoothed(analysis) * sensHigh;
+      return MusicSmartMusicEffect.render(
+        numLeds: numLeds,
+        settings: settings,
+        analysis: analysis,
+        timeSec: timeSec,
+        role: role,
+        cBass: cBass,
+        cMid: cMid,
+        cHigh: cHigh,
+        vSub: vSub,
+        vBass: vBass,
+        vLowMid: vLowMid,
+        vMid: vMid,
+        vHighMid: vHighMid,
+        vHigh: vTreble,
+        vBril: vBril,
+      );
+    }
 
     if (effect.contains('melody_smart')) {
       return MusicMelodySmartEffect.render(

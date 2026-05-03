@@ -6,11 +6,22 @@ import 'package:ambilight_desktop/engine/screen/screen_color_pipeline.dart';
 import 'package:ambilight_desktop/engine/screen/screen_frame.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+DeviceSettings _testDevice(String id) => DeviceSettings(
+      id: id,
+      name: 'Test',
+      type: 'serial',
+      port: 'COM5',
+      ledCount: 66,
+    );
+
 void main() {
   group('AmbilightEngine screen mode', () {
     test('invalid rgba length yields black per device, no throw', () {
       final cfg = AppConfig.defaults().copyWith(
-        globalSettings: AppConfig.defaults().globalSettings.copyWith(startMode: 'screen'),
+        globalSettings: AppConfig.defaults().globalSettings.copyWith(
+          startMode: 'screen',
+          devices: [_testDevice('primary')],
+        ),
         screenMode: const ScreenModeSettings(
           monitorIndex: 0,
           segments: [
@@ -46,7 +57,10 @@ void main() {
 
     test('prázdné segments → implicitní obvod, ne všechno černá', () {
       final cfg = AppConfig.defaults().copyWith(
-        globalSettings: AppConfig.defaults().globalSettings.copyWith(startMode: 'screen'),
+        globalSettings: AppConfig.defaults().globalSettings.copyWith(
+          startMode: 'screen',
+          devices: [_testDevice('primary')],
+        ),
         screenMode: const ScreenModeSettings(monitorIndex: 1, segments: []),
       );
       final rt = ScreenPipelineRuntime();

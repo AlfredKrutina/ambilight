@@ -4,6 +4,9 @@ import 'dart:typed_data';
 class UdpAmbilightProtocol {
   UdpAmbilightProtocol._();
 
+  /// ESP `rx_buffer[1500]` → platný rámec `0x02` + `bri` + 3×N musí mít `2 + 3*N <= 1499`.
+  static const int maxRgbPixelsPerUdpDatagram = 499;
+
   /// Bulk RGB frame: 0x02 + brightness + flat r,g,b,...
   static Uint8List buildRgbFrame(
     List<(int r, int g, int b)> pixels, {

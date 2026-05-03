@@ -86,6 +86,27 @@
         "brightness": 200,
         "metrics": []
     },
+    "smart_lights": {
+        "enabled": false,
+        "ha_base_url": "",
+        "ha_long_lived_token": "",
+        "ha_allow_insecure_cert": false,
+        "ha_timeout_seconds": 12,
+        "max_update_hz_per_fixture": 8,
+        "global_brightness_cap_pct": 100,
+        "fixtures": [],
+        "virtual_room": {
+            "tv_x": 0.5,
+            "tv_y": 0.14,
+            "user_x": 0.5,
+            "user_y": 0.72,
+            "user_facing_deg": 0,
+            "wave_enabled": true,
+            "wave_speed": 0.07,
+            "wave_strength": 0.38,
+            "wave_distance_scale": 5.5
+        }
+    },
     "user_screen_presets": {},
     "user_music_presets": {}
 }

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../application/ambilight_app_controller.dart';
+import '../application/app_error_safety.dart';
+import '../core/device_bindings_debug.dart';
 import '../core/models/config_models.dart';
 import '../data/udp_device_commands.dart';
 import '../services/led_discovery_service.dart';
@@ -52,14 +54,15 @@ class _DevicesPageState extends State<DevicesPage> {
     final devs = c.config.globalSettings.devices
         .map((d) => d.type == 'serial' ? d.copyWith(port: port) : d)
         .toList();
-    await c.applyConfigAndPersist(
-      c.config.copyWith(
-        globalSettings: c.config.globalSettings.copyWith(
-          devices: devs,
-          serialPort: port,
-        ),
+    final next = c.config.copyWith(
+      globalSettings: c.config.globalSettings.copyWith(
+        devices: devs,
+        serialPort: port,
       ),
     );
+    traceDeviceBindings('DevicesPage._findAmbilightCom: nastavuji COM $port na všech serial řádcích');
+    traceConfigBindings('DevicesPage._findAmbilightCom před apply', c.config);
+    await c.applyConfigAndPersist(next);
     if (mounted) {
       messenger.showSnackBar(SnackBar(content: Text('Nastaven sériový port: $port')));
     }
@@ -174,6 +177,10 @@ class _DevicesPageState extends State<DevicesPage> {
                       final next = c.config.copyWith(
                         globalSettings: c.config.globalSettings.copyWith(devices: devs),
                       );
+                      traceDeviceBindings(
+                        'DevicesPage: ruční Wi‑Fi přidání ip=$ip udp=$port leds=$leds',
+                      );
+                      traceConfigBindings('DevicesPage: před apply (ruční Wi‑Fi)', c.config);
                       await c.applyConfigAndPersist(next);
                       if (!ctx.mounted) return;
                       Navigator.pop(ctx);
@@ -224,6 +231,42 @@ class _DevicesPageState extends State<DevicesPage> {
     );
   }
 
+  Future<void> _removeDeviceAt(BuildContext context, AmbilightAppController c, int index) async {
+    final list = c.config.globalSettings.devices;
+    if (index < 0 || index >= list.length) return;
+    final dev = list[index];
+    final name = dev.name.trim().isEmpty ? 'Zařízení' : dev.name;
+    final ok = await showConfirmRemoveDeviceDialog(
+      context,
+      deviceName: name,
+      isLast: list.length <= 1,
+    );
+    if (!ok || !context.mounted) return;
+    final next = [...list]..removeAt(index);
+    traceDeviceBindings(
+      'DevicesPage._removeDeviceAt: mažu index=$index id=${dev.id} typ=${dev.type} → zbývá ${next.length}',
+    );
+    traceConfigBindings('DevicesPage._removeDeviceAt PŘED apply', c.config);
+    try {
+      await c.applyConfigAndPersist(
+        c.config.copyWith(globalSettings: c.config.globalSettings.copyWith(devices: next)),
+      );
+    } catch (e, st) {
+      traceDeviceBindingsSevere('DevicesPage._removeDeviceAt: apply selhal', e, st);
+      reportAppFault('Odebrání zařízení selhalo: ${e.toString().split('\n').first}');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Odebrání se nepodařilo: $e')),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Zařízení „$name“ bylo odebráno.')),
+    );
+  }
+
   Future<void> _refreshFirmware(BuildContext context, AmbilightAppController c, int index) async {
     final dev = c.config.globalSettings.devices[index];
     if (dev.type != 'wifi' || dev.ipAddress.isEmpty) return;
@@ -237,6 +280,7 @@ class _DevicesPageState extends State<DevicesPage> {
     }
     final devs = [...c.config.globalSettings.devices];
     devs[index] = dev.copyWith(firmwareVersion: pong.version);
+    traceDeviceBindings('DevicesPage._refreshFirmware: ${dev.id} → fw ${pong.version}');
     await c.applyConfigAndPersist(
       c.config.copyWith(globalSettings: c.config.globalSettings.copyWith(devices: devs)),
     );
@@ -331,6 +375,17 @@ class _DevicesPageState extends State<DevicesPage> {
           style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
+        if (c.config.globalSettings.devices.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: AmbiGlassPanel(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'Zatím žádné — můžeš nejdřív nastavit režimy a presety. Pro ovládání pásku přidej USB nebo Wi‑Fi výše.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ),
+          ),
         ...c.config.globalSettings.devices.asMap().entries.map((e) {
           final i = e.key;
           final d = e.value;
@@ -347,6 +402,7 @@ class _DevicesPageState extends State<DevicesPage> {
                   : null,
               onResetWifi: isWifi && d.ipAddress.isNotEmpty ? () => _confirmResetWifi(context, d) : null,
               onRefreshFirmware: isWifi && d.ipAddress.isNotEmpty ? () => _refreshFirmware(context, c, i) : null,
+              onRemove: () => _removeDeviceAt(context, c, i),
             ),
           );
         }),

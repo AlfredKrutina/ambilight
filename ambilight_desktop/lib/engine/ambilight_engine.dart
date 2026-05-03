@@ -119,6 +119,9 @@ class AmbilightEngine {
         );
         return _mapFlatToDevices(flat, config.globalSettings.devices);
       case 'pchealth':
+        if (!config.pcHealth.enabled) {
+          return _blackPerDevice(config);
+        }
         final n = combinedDeviceLedLength(config);
         final flat = PcHealthFrame.compute(
           config,

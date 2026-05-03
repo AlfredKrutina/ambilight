@@ -6,7 +6,18 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('musicAlbumDominantRgb vyplní celý virtuální pás', () {
     final cfg = AppConfig.defaults().copyWith(
-      globalSettings: AppConfig.defaults().globalSettings.copyWith(startMode: 'music'),
+      globalSettings: AppConfig.defaults().globalSettings.copyWith(
+        startMode: 'music',
+        devices: [
+          DeviceSettings(
+            id: 'primary',
+            name: 'Test',
+            type: 'serial',
+            port: 'COM5',
+            ledCount: 66,
+          ),
+        ],
+      ),
     );
     final out = AmbilightEngine.computeFrame(
       cfg,

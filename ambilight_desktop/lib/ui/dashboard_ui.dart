@@ -140,6 +140,7 @@ class AmbiSectionHeader extends StatelessWidget {
 }
 
 /// Karta ve stylu „Shortcuts“ — silná výplň, ikona, titulek.
+/// Výšku i šířku určí rodič (např. mřížka); [minHeight] je jen spodní hranice při volném layoutu.
 class AmbiGradientTile extends StatelessWidget {
   const AmbiGradientTile({
     super.key,
@@ -148,8 +149,9 @@ class AmbiGradientTile extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.selected = false,
+    this.showSelectionCheckIcon = true,
     required this.onTap,
-    this.minHeight = 112,
+    this.minHeight = 100,
   });
 
   final Gradient gradient;
@@ -157,6 +159,8 @@ class AmbiGradientTile extends StatelessWidget {
   final String title;
   final String? subtitle;
   final bool selected;
+  /// U dlaždice s překryvným tlačítkem v [Stack] vypni, aby fajfka nebyla dvakrát (viz domovský Režim).
+  final bool showSelectionCheckIcon;
   final VoidCallback onTap;
   final double minHeight;
 
@@ -172,67 +176,88 @@ class AmbiGradientTile extends StatelessWidget {
       selected: selected,
       label: semanticsLabel.toString(),
       child: Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(DashboardUi.radiusLg),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(DashboardUi.radiusLg),
-        child: Container(
-          height: minHeight,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(DashboardUi.radiusLg),
-            gradient: gradient,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: selected ? 0.35 : 0.2),
-                blurRadius: selected ? 20 : 12,
-                offset: const Offset(0, 6),
-              ),
-            ],
-            border: Border.all(
-              color: selected ? Colors.white.withValues(alpha: 0.55) : Colors.white.withValues(alpha: 0.12),
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(icon, color: Colors.white.withValues(alpha: 0.95), size: 28),
-                    const Spacer(),
-                    if (selected)
-                      Icon(Icons.check_circle, color: Colors.white.withValues(alpha: 0.95), size: 22),
-                  ],
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(DashboardUi.radiusLg),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(DashboardUi.radiusLg),
+              gradient: gradient,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: selected ? 0.35 : 0.2),
+                  blurRadius: selected ? 20 : 12,
+                  offset: const Offset(0, 6),
                 ),
-                const Spacer(),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.2,
-                      ),
-                ),
-                if (subtitle != null)
-                  Text(
-                    subtitle!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.88),
-                          height: 1.25,
-                        ),
-                  ),
               ],
+              border: Border.all(
+                color: selected ? Colors.white.withValues(alpha: 0.55) : Colors.white.withValues(alpha: 0.12),
+                width: selected ? 2 : 1,
+              ),
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: minHeight),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: LayoutBuilder(
+                  builder: (context, c) {
+                    final iconSz = (24 - (c.maxWidth - 220) * 0.012).clamp(20, 24).toDouble();
+                    const designH = 96.0;
+                    return FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.topLeft,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: c.maxWidth, maxHeight: designH),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(icon, color: Colors.white.withValues(alpha: 0.95), size: iconSz),
+                                const Spacer(),
+                                if (selected && showSelectionCheckIcon)
+                                  Icon(
+                                    Icons.check_circle,
+                                    color: Colors.white.withValues(alpha: 0.95),
+                                    size: iconSz * 0.78,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.2,
+                                  ),
+                            ),
+                            if (subtitle != null)
+                              Text(
+                                subtitle!,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.white.withValues(alpha: 0.88),
+                                      height: 1.25,
+                                    ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
             ),
           ),
         ),
-      ),
-    ),
       ),
     );
   }

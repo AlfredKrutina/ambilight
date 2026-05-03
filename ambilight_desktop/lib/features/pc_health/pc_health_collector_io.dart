@@ -224,28 +224,40 @@ Write-Output ("{0:0.###}|{1:0.###}" -f $c, $r)
 
   Future<PcHealthSnapshot> _collectMac() async {
     final ram = await _macRamPercent();
-    final cpu = await _macCpuPercent();
-    final net = 0.0;
+    final cpu = await _macCpuFromLoadavg();
+    final disk = await _macDiskUsedPercent();
+    final net = await _macNetUsageScaled();
+    final gpu = await _nvidiaSmi();
     return PcHealthSnapshot(
       cpuUsage: cpu,
       ramUsage: ram,
       netUsage: net,
       cpuTemp: 0,
-      gpuUsage: 0,
-      gpuTemp: 0,
-      diskUsage: 0,
+      gpuUsage: gpu.$1,
+      gpuTemp: gpu.$2,
+      diskUsage: disk.clamp(0, 100),
     );
   }
+
+  /// Součet přijatých bajtů ze všech rozhraní kromě `lo*` — robustní vůči pořadí sloupců v `netstat`.
+  static const _kMacNetstatSumScript = r'''
+netstat -ibn 2>/dev/null | awk '
+NR==1 { for (i = 1; i <= NF; i++) if ($i == "Ibytes") ib = i }
+NR > 1 && $1 !~ /^lo/ && ib > 0 && NF >= ib { s += $ib }
+END { print s+0 }
+'
+''';
 
   Future<double> _macRamPercent() async {
     final pageSize = await _run('sysctl', ['-n', 'hw.pagesize'], const Duration(seconds: 2));
     final ps = int.tryParse(pageSize?.trim() ?? '4096') ?? 4096;
-    final vm = await _run('vm_stat', [], const Duration(seconds: 2));
+    final vm = await _run('/usr/bin/vm_stat', [], const Duration(seconds: 2));
     if (vm == null) return 0;
     int pages(String prefix) {
       for (final line in const LineSplitter().convert(vm)) {
-        if (line.trim().startsWith(prefix)) {
-          final m = RegExp(r'(\d+)').firstMatch(line);
+        final t = line.trim();
+        if (t.startsWith(prefix)) {
+          final m = RegExp(r'(\d+)').firstMatch(t);
           return int.tryParse(m?.group(1) ?? '0') ?? 0;
         }
       }
@@ -254,26 +266,61 @@ Write-Output ("{0:0.###}|{1:0.###}" -f $c, $r)
 
     final free = pages('Pages free');
     final inactive = pages('Pages inactive');
-    final active = pages('Pages active');
-    final wired = pages('Pages wired down');
-    final speculative = pages('Pages speculative');
+    final purgeable = pages('Pages purgeable');
     final memSize = await _run('sysctl', ['-n', 'hw.memsize'], const Duration(seconds: 2));
     final totalBytes = int.tryParse(memSize?.trim() ?? '') ?? 0;
     if (totalBytes <= 0) return 0;
-    final usedEstimate = (active + wired + speculative) * ps;
-    return (100 * usedEstimate / totalBytes).clamp(0, 100);
+    final readilyAvail = (free + inactive + purgeable) * ps;
+    return (100 * (1 - readilyAvail / totalBytes)).clamp(0, 100);
   }
 
-  Future<double> _macCpuPercent() async {
-    final ncpuOut = await _run('sysctl', ['-n', 'hw.ncpu'], const Duration(seconds: 2));
-    final ncpu = int.tryParse(ncpuOut?.trim() ?? '1') ?? 1;
-    final ps = await _run('ps', ['-A', '-o', '%cpu'], const Duration(seconds: 3));
-    if (ps == null) return 0;
-    var sum = 0.0;
-    for (final line in const LineSplitter().convert(ps).skip(1)) {
-      sum += double.tryParse(line.trim()) ?? 0;
+  Future<double> _macCpuFromLoadavg() async {
+    final loadStr = await _run('sysctl', ['-n', 'vm.loadavg'], const Duration(seconds: 2));
+    if (loadStr == null) return 0;
+    final inner = RegExp(r'\{\s*([^}]+)\s*\}').firstMatch(loadStr)?.group(1);
+    if (inner == null) return 0;
+    final parts = inner.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty) return 0;
+    final load1 = double.tryParse(parts.first) ?? 0;
+    var ncpu = int.tryParse((await _run('sysctl', ['-n', 'hw.logicalcpu'], const Duration(seconds: 2)))?.trim() ?? '') ?? 0;
+    if (ncpu <= 0) {
+      ncpu = int.tryParse((await _run('sysctl', ['-n', 'hw.ncpu'], const Duration(seconds: 2)))?.trim() ?? '') ?? 1;
     }
-    return (sum / ncpu).clamp(0, 100);
+    if (ncpu <= 0) ncpu = 1;
+    return (load1 / ncpu * 100).clamp(0, 100);
+  }
+
+  Future<double> _macDiskUsedPercent() async {
+    final cap = await _run(
+      '/bin/sh',
+      ['-c', r"df -k / 2>/dev/null | tail -1 | awk '{print $5}' | tr -d '%'"],
+      const Duration(seconds: 4),
+    );
+    final v = double.tryParse(cap?.trim() ?? '');
+    if (v != null && v >= 0 && v <= 100) return v;
+    final out = await _run('/sbin/df', ['-k', '/'], const Duration(seconds: 4));
+    if (out == null) return 0;
+    final lines = const LineSplitter().convert(out).where((l) => l.trim().isNotEmpty).toList();
+    if (lines.isEmpty) return 0;
+    final last = lines.last;
+    final m = RegExp(r'(\d+)%').firstMatch(last);
+    if (m != null) return double.tryParse(m.group(1)!) ?? 0;
+    return 0;
+  }
+
+  Future<double> _macNetUsageScaled() async {
+    final out = await _run('/bin/sh', ['-c', _kMacNetstatSumScript], const Duration(seconds: 4));
+    final bytes = int.tryParse(out?.trim() ?? '') ?? 0;
+    final now = DateTime.now();
+    final prevB = _lastNetBytes;
+    final prevT = _lastNetTime;
+    _lastNetBytes = bytes;
+    _lastNetTime = now;
+    if (prevB == null || prevT == null) return 0;
+    final dt = now.difference(prevT).inMilliseconds / 1000.0;
+    if (dt <= 0) return 0;
+    final mbps = (bytes - prevB) / dt / (1024 * 1024);
+    return (mbps / 10.0 * 100).clamp(0, 100);
   }
 
   Future<String?> _run(String executable, List<String> args, Duration timeout) async {

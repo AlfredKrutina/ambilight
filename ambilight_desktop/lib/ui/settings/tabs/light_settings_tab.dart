@@ -5,6 +5,23 @@ import '../../../application/ambilight_app_controller.dart';
 import '../../../core/models/config_models.dart';
 import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
+import '../../widgets/ambi_color_picker_dialog.dart';
+import '../../widgets/config_drag_slider.dart';
+
+Future<List<int>?> _pickZoneColor(
+  BuildContext context,
+  List<int> initial,
+  AmbilightAppController ctrl,
+) {
+  return showAmbiColorPickerDialog(
+    context,
+    title: 'Barva zóny',
+    initialRgb: initial.length >= 3 ? initial : [255, 0, 0],
+    onLiveRgb: (rgb) {
+      if (rgb.length == 3) ctrl.previewStripColor(rgb[0], rgb[1], rgb[2], durationTicks: 72);
+    },
+  );
+}
 
 Color _colorFromRgb(List<int> rgb) {
   if (rgb.length < 3) return Colors.orange;
@@ -17,76 +34,18 @@ Future<void> _pickLightPrimaryColor(
   ValueChanged<LightModeSettings> onChanged,
 ) async {
   final ctrl = context.read<AmbilightAppController>();
-  var r = lm.color.isNotEmpty ? lm.color[0] : 255;
-  var g = lm.color.length > 1 ? lm.color[1] : 200;
-  var b = lm.color.length > 2 ? lm.color[2] : 100;
+  final r0 = lm.color.isNotEmpty ? lm.color[0] : 255;
+  final g0 = lm.color.length > 1 ? lm.color[1] : 200;
+  final b0 = lm.color.length > 2 ? lm.color[2] : 100;
   try {
-    final res = await showDialog<List<int>>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Barva RGB'),
-          content: StatefulBuilder(
-            builder: (context, setLocal) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Náhled na pásku při posuvnících.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    height: 48,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Color.fromRGBO(r, g, b, 1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Theme.of(context).dividerColor),
-                    ),
-                  ),
-                  Slider(
-                    label: 'R $r',
-                    value: r.toDouble(),
-                    max: 255,
-                    divisions: 255,
-                    onChanged: (v) {
-                      setLocal(() => r = v.round());
-                      ctrl.previewStripColor(r, g, b, durationTicks: 72);
-                    },
-                  ),
-                  Slider(
-                    label: 'G $g',
-                    value: g.toDouble(),
-                    max: 255,
-                    divisions: 255,
-                    onChanged: (v) {
-                      setLocal(() => g = v.round());
-                      ctrl.previewStripColor(r, g, b, durationTicks: 72);
-                    },
-                  ),
-                  Slider(
-                    label: 'B $b',
-                    value: b.toDouble(),
-                    max: 255,
-                    divisions: 255,
-                    onChanged: (v) {
-                      setLocal(() => b = v.round());
-                      ctrl.previewStripColor(r, g, b, durationTicks: 72);
-                    },
-                  ),
-                ],
-              );
-            },
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Zrušit')),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, [r, g, b]),
-              child: const Text('OK'),
-            ),
-          ],
-        );
+    final res = await showAmbiColorPickerDialog(
+      context,
+      title: 'Základní barva',
+      initialRgb: [r0, g0, b0],
+      onLiveRgb: (rgb) {
+        if (rgb.length == 3) {
+          ctrl.previewStripColor(rgb[0], rgb[1], rgb[2], durationTicks: 72);
+        }
       },
     );
     if (res != null && res.length == 3) {
@@ -143,9 +102,9 @@ class LightSettingsTab extends StatelessWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Základní barva'),
-                subtitle: Text('RGB(${lm.color.join(", ")})'),
+                subtitle: Text('RGB(${lm.color.join(", ")}) · klepnutím výběr jako Home / Hue'),
                 trailing: IconButton.filledTonal(
-                  icon: const Icon(Icons.color_lens_outlined),
+                  icon: const Icon(Icons.palette_outlined),
                   onPressed: () => _pickLightPrimaryColor(context, lm, onChanged),
                 ),
               ),
@@ -176,24 +135,27 @@ class LightSettingsTab extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text('Rychlost: ${lm.speed}', style: Theme.of(context).textTheme.labelLarge),
-              Slider(
-                value: lm.speed.toDouble().clamp(0, 255),
+              ConfigDragSlider(
+                value: lm.speed.toDouble(),
+                min: 0,
                 max: 255,
                 divisions: 255,
                 label: '${lm.speed}',
                 onChanged: (v) => onChanged(lm.copyWith(speed: v.round())),
               ),
               Text('Extra: ${lm.extra}', style: Theme.of(context).textTheme.labelLarge),
-              Slider(
-                value: lm.extra.toDouble().clamp(0, 255),
+              ConfigDragSlider(
+                value: lm.extra.toDouble(),
+                min: 0,
                 max: 255,
                 divisions: 255,
                 label: '${lm.extra}',
                 onChanged: (v) => onChanged(lm.copyWith(extra: v.round())),
               ),
               Text('Jas: ${lm.brightness}', style: Theme.of(context).textTheme.labelLarge),
-              Slider(
-                value: lm.brightness.toDouble().clamp(0, 255),
+              ConfigDragSlider(
+                value: lm.brightness.toDouble(),
+                min: 0,
                 max: 255,
                 divisions: 255,
                 label: '${lm.brightness}',
@@ -301,8 +263,9 @@ class LightSettingsTab extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text('Rychlost zóny: ${z.speed}', style: Theme.of(context).textTheme.labelLarge),
-                      Slider(
-                        value: z.speed.toDouble().clamp(0, 255),
+                      ConfigDragSlider(
+                        value: z.speed.toDouble(),
+                        min: 0,
                         max: 255,
                         divisions: 255,
                         label: '${z.speed}',
@@ -319,59 +282,8 @@ class LightSettingsTab extends StatelessWidget {
                           icon: const Icon(Icons.palette_outlined),
                           onPressed: () async {
                             final ctrl = context.read<AmbilightAppController>();
-                            var r = z.color[0];
-                            var g = z.color.length > 1 ? z.color[1] : 0;
-                            var b = z.color.length > 2 ? z.color[2] : 0;
                             try {
-                              final res = await showDialog<List<int>>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('Barva zóny'),
-                                  content: StatefulBuilder(
-                                    builder: (context, setLocal) {
-                                      return Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Slider(
-                                            value: r.toDouble(),
-                                            max: 255,
-                                            label: 'R $r',
-                                            onChanged: (v) {
-                                              setLocal(() => r = v.round());
-                                              ctrl.previewStripColor(r, g, b, durationTicks: 72);
-                                            },
-                                          ),
-                                          Slider(
-                                            value: g.toDouble(),
-                                            max: 255,
-                                            label: 'G $g',
-                                            onChanged: (v) {
-                                              setLocal(() => g = v.round());
-                                              ctrl.previewStripColor(r, g, b, durationTicks: 72);
-                                            },
-                                          ),
-                                          Slider(
-                                            value: b.toDouble(),
-                                            max: 255,
-                                            label: 'B $b',
-                                            onChanged: (v) {
-                                              setLocal(() => b = v.round());
-                                              ctrl.previewStripColor(r, g, b, durationTicks: 72);
-                                            },
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  ),
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Zrušit')),
-                                    FilledButton(
-                                      onPressed: () => Navigator.pop(ctx, [r, g, b]),
-                                      child: const Text('OK'),
-                                    ),
-                                  ],
-                                ),
-                              );
+                              final res = await _pickZoneColor(context, z.color, ctrl);
                               if (res != null && res.length == 3) {
                                 final list = List<CustomZone>.from(zones);
                                 list[zi] = z.copyWith(color: res);

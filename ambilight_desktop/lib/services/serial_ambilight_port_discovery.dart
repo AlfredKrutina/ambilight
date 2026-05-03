@@ -8,6 +8,13 @@ import '../core/protocol/serial_frame.dart';
 
 final _log = Logger('SerialPortDiscovery');
 
+const int _kSerialReadChunkMax = 65536;
+
+int _clampBytesToRead(int n) {
+  if (n <= 0) return 0;
+  return n > _kSerialReadChunkMax ? _kSerialReadChunkMax : n;
+}
+
 /// Projde [SerialPort.availablePorts], na každém zkusí handshake `0xAA` → očekává `0xBB` ([SerialAmbilightProtocol]).
 class SerialAmbilightPortDiscovery {
   SerialAmbilightPortDiscovery._();
@@ -31,14 +38,15 @@ class SerialAmbilightPortDiscovery {
         }
         final cfg = SerialPortConfig()..baudRate = baudRate;
         port.config = cfg;
+        cfg.dispose();
         port.flush();
         await Future<void>.delayed(const Duration(milliseconds: 50));
         if (await _handshake(port)) {
           _log.info('Ambilight handshake OK on $name');
           return name;
         }
-      } on SerialPortError catch (e) {
-        _log.fine('$name: $e');
+      } catch (e, st) {
+        _log.fine('$name: $e', e, st);
       } finally {
         if (port != null) {
           try {
@@ -55,15 +63,30 @@ class SerialAmbilightPortDiscovery {
 
   static Future<bool> _handshake(SerialPort port) async {
     try {
-      port.flush();
+      try {
+        port.flush();
+      } catch (e, st) {
+        _log.fine('discovery flush: $e', e, st);
+      }
       port.write(Uint8List.fromList([SerialAmbilightProtocol.ping]), timeout: 100);
       port.drain();
       final deadline = DateTime.now().add(const Duration(seconds: 2));
       final buf = <int>[];
       while (DateTime.now().isBefore(deadline)) {
-        final n = port.bytesAvailable;
+        int n;
+        try {
+          n = _clampBytesToRead(port.bytesAvailable);
+        } catch (e, st) {
+          _log.fine('discovery bytesAvailable: $e', e, st);
+          return false;
+        }
         if (n > 0) {
-          buf.addAll(port.read(n, timeout: 100));
+          try {
+            buf.addAll(port.read(n, timeout: 100));
+          } catch (e, st) {
+            _log.fine('discovery read: $e', e, st);
+            return false;
+          }
           if (buf.contains(SerialAmbilightProtocol.pong)) {
             return true;
           }
@@ -74,8 +97,8 @@ class SerialAmbilightPortDiscovery {
           await Future<void>.delayed(const Duration(milliseconds: 40));
         }
       }
-    } on SerialPortError catch (e) {
-      _log.fine('handshake: $e');
+    } catch (e, st) {
+      _log.fine('handshake: $e', e, st);
     }
     return false;
   }

@@ -5,6 +5,8 @@
 #include <flutter/standard_method_codec.h>
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <thread>
 #include <vector>
@@ -79,6 +81,14 @@ bool RectToRgba(const RECT& src_rect, std::vector<uint8_t>& out_rgba, int& out_w
   if (w <= 0 || h <= 0) {
     return false;
   }
+  const size_t wz = static_cast<size_t>(w);
+  const size_t hz = static_cast<size_t>(h);
+  if (wz > 16384 || hz > 16384) {
+    return false;
+  }
+  if (wz != 0 && hz > (SIZE_MAX / 4u) / wz) {
+    return false;
+  }
 
   HDC screen_dc = ::GetDC(nullptr);
   if (!screen_dc) {
@@ -118,7 +128,7 @@ bool RectToRgba(const RECT& src_rect, std::vector<uint8_t>& out_rgba, int& out_w
     return false;
   }
 
-  const size_t nbytes = static_cast<size_t>(w) * static_cast<size_t>(h) * 4u;
+  const size_t nbytes = wz * hz * 4u;
   out_rgba.resize(nbytes);
   auto* px = reinterpret_cast<const uint8_t*>(bits);
   for (size_t i = 0; i < nbytes; i += 4) {
@@ -178,9 +188,9 @@ void DispatchCaptureAsync(int monitor_index,
     std::vector<uint8_t> rgba;
     int w = 0;
     int h = 0;
-    const bool ok = hwnd && ResolveCaptureRect(monitor_index, rc, resolved) &&
+    const bool ok = ResolveCaptureRect(monitor_index, rc, resolved) &&
                     RectToRgba(rc, rgba, w, h);
-    auto* payload = new CaptureDonePayload();
+    auto payload = std::make_unique<CaptureDonePayload>();
     payload->result = std::move(r);
     if (ok) {
       payload->rgba = std::move(rgba);
@@ -188,10 +198,24 @@ void DispatchCaptureAsync(int monitor_index,
       payload->height = h;
       payload->monitor_index = resolved;
     }
-    if (hwnd) {
-      ::PostMessageW(hwnd, kAmbilightCaptureDone, kAmbilightCaptureMagic,
-                     reinterpret_cast<LPARAM>(payload));
+    if (!hwnd || !::IsWindow(hwnd)) {
+      if (payload->result) {
+        payload->result->Error("no_window", "Capture window gone before completion",
+                               flutter::EncodableValue());
+      }
+      return;
     }
+    CaptureDonePayload* raw = payload.get();
+    if (!::PostMessageW(hwnd, kAmbilightCaptureDone, kAmbilightCaptureMagic,
+                         reinterpret_cast<LPARAM>(raw))) {
+      if (payload->result) {
+        payload->result->Error(
+            "post_failed", "Could not post capture result to UI thread",
+            flutter::EncodableValue());
+      }
+      return;
+    }
+    (void)payload.release();
   }).detach();
 }
 

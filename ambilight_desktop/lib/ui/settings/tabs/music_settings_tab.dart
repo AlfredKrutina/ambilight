@@ -8,7 +8,10 @@ import '../../../services/music/music_audio_service.dart';
 import '../../../services/music/music_types.dart';
 import '../settings_common.dart';
 import '../../dashboard_ui.dart';
+import '../../guides/music_spotify_integration_guide.dart';
 import '../../layout_breakpoints.dart';
+import '../../widgets/ambi_color_picker_dialog.dart';
+import '../../widgets/config_drag_slider.dart';
 
 /// D6 — napojení na `MusicModeSettings` + enumerace vstupů (`MusicAudioService`, agent A4).
 class MusicSettingsTab extends StatefulWidget {
@@ -31,6 +34,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
   Future<List<MusicCaptureDeviceInfo>>? _devicesFuture;
 
   static const _effects = [
+    'smart_music',
     'energy',
     'spectrum',
     'spectrum_rotate',
@@ -43,6 +47,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
   ];
 
   static String _musicEffectLabel(String e) => switch (e) {
+        'smart_music' => 'Smart Music',
         'energy' => 'Energie',
         'spectrum' => 'Spektrum',
         'spectrum_rotate' => 'Rotující spektrum',
@@ -140,19 +145,30 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
             'Zdroj zvuku, efekty a náhled barev. Režim Hudba na přehledu musí být aktivní, aby se výstup promítl na pásky.',
         bottomSpacing: 12,
       ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: FilledButton.tonalIcon(
+          onPressed: () => MusicSpotifyIntegrationGuide.show(context),
+          icon: const Icon(Icons.menu_book_outlined),
+          label: const Text('Nápověda: hudba a obaly'),
+        ),
+      ),
+      const SizedBox(height: 8),
       devicePicker,
-      Consumer<AmbilightAppController>(
-        builder: (context, ctrl, _) {
+      Selector<AmbilightAppController, ({bool locked, bool pending})>(
+        selector: (_, ctrl) => (locked: ctrl.musicPaletteLocked, pending: ctrl.musicPaletteLockCapturePending),
+        builder: (context, v, _) {
+          final ctrl = context.read<AmbilightAppController>();
           return SwitchListTile(
             title: const Text('Zamknout výstup barev na pásek (hudba)'),
             subtitle: Text(
-              ctrl.musicPaletteLocked
+              v.locked
                   ? 'Posílá se zmrazená paleta (stejné jako položka v tray).'
-                  : ctrl.musicPaletteLockCapturePending
+                  : v.pending
                       ? 'Čeká na další snímek, pak se paleta zmrazí.'
                       : 'Jen v music módu má smysl; přepnutím režimu se zámek zruší.',
             ),
-            value: ctrl.musicPaletteLocked || ctrl.musicPaletteLockCapturePending,
+            value: v.locked || v.pending,
             onChanged: (_) => ctrl.toggleMusicPaletteLock(),
           );
         },
@@ -181,7 +197,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         Text('Barva při pevné barvě', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 4),
         Text(
-          'Posuvníky krátce rozsvítí náhled na pásku.',
+          'Barvu vybírej jako v Home / Hue — náhled na pásku při úpravě.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 8),
@@ -199,9 +215,19 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
           widget.onChanged(m.copyWith(effect: v));
         },
       ),
+      if (m.effect == 'smart_music') ...[
+        const SizedBox(height: 6),
+        Text(
+          'Smart Music: spektrum, beat a melodie se mapují na pásek v reálném čase (lokálně, bez cloudu).',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+      ],
       Text('Jas (music): ${m.brightness}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: m.brightness.toDouble().clamp(0, 255),
+      ConfigDragSlider(
+        value: m.brightness.toDouble(),
+        min: 0,
         max: 255,
         divisions: 255,
         label: '${m.brightness}',
@@ -213,8 +239,8 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         onChanged: (v) => widget.onChanged(m.copyWith(beatDetectionEnabled: v)),
       ),
       Text('Prah detekce beatu: ${m.beatThreshold.toStringAsFixed(2)}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: m.beatThreshold.clamp(1.05, 3.0),
+      ConfigDragSlider(
+        value: m.beatThreshold,
         min: 1.05,
         max: 3.0,
         divisions: 39,
@@ -222,8 +248,9 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         onChanged: (v) => widget.onChanged(m.copyWith(beatThreshold: v)),
       ),
       Text('Celková citlivost: ${m.sensitivity}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: m.sensitivity.toDouble().clamp(0, 100),
+      ConfigDragSlider(
+        value: m.sensitivity.toDouble(),
+        min: 0,
         max: 100,
         divisions: 100,
         label: '${m.sensitivity}',
@@ -231,29 +258,33 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
       ),
       Text('Citlivost pásem (bas / středy / výšky / celkově)', style: Theme.of(context).textTheme.labelSmall),
       Text('Bass: ${m.bassSensitivity}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: m.bassSensitivity.toDouble().clamp(0, 100),
+      ConfigDragSlider(
+        value: m.bassSensitivity.toDouble(),
+        min: 0,
         max: 100,
         divisions: 100,
         onChanged: (v) => widget.onChanged(m.copyWith(bassSensitivity: v.round())),
       ),
       Text('Mid: ${m.midSensitivity}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: m.midSensitivity.toDouble().clamp(0, 100),
+      ConfigDragSlider(
+        value: m.midSensitivity.toDouble(),
+        min: 0,
         max: 100,
         divisions: 100,
         onChanged: (v) => widget.onChanged(m.copyWith(midSensitivity: v.round())),
       ),
       Text('High: ${m.highSensitivity}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: m.highSensitivity.toDouble().clamp(0, 100),
+      ConfigDragSlider(
+        value: m.highSensitivity.toDouble(),
+        min: 0,
         max: 100,
         divisions: 100,
         onChanged: (v) => widget.onChanged(m.copyWith(highSensitivity: v.round())),
       ),
       Text('Global: ${m.globalSensitivity}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: m.globalSensitivity.toDouble().clamp(0, 100),
+      ConfigDragSlider(
+        value: m.globalSensitivity.toDouble(),
+        min: 0,
         max: 100,
         divisions: 100,
         onChanged: (v) => widget.onChanged(m.copyWith(globalSensitivity: v.round())),
@@ -275,24 +306,27 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         onChanged: (v) => widget.onChanged(m.copyWith(autoHigh: v)),
       ),
       Text('Vyhlazení v čase: ${m.smoothingMs} ms', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: m.smoothingMs.toDouble().clamp(0, 500),
+      ConfigDragSlider(
+        value: m.smoothingMs.toDouble(),
+        min: 0,
         max: 500,
         divisions: 50,
         label: '${m.smoothingMs}',
         onChanged: (v) => widget.onChanged(m.copyWith(smoothingMs: v.round())),
       ),
       Text('min_brightness (music): ${m.minBrightness}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: m.minBrightness.toDouble().clamp(0, 255),
+      ConfigDragSlider(
+        value: m.minBrightness.toDouble(),
+        min: 0,
         max: 255,
         divisions: 51,
         label: '${m.minBrightness}',
         onChanged: (v) => widget.onChanged(m.copyWith(minBrightness: v.round())),
       ),
       Text('rotation_speed: ${m.rotationSpeed}', style: Theme.of(context).textTheme.labelLarge),
-      Slider(
-        value: m.rotationSpeed.toDouble().clamp(0, 100),
+      ConfigDragSlider(
+        value: m.rotationSpeed.toDouble(),
+        min: 0,
         max: 100,
         divisions: 100,
         label: '${m.rotationSpeed}',
@@ -341,53 +375,84 @@ class _MusicFixedColorSlidersState extends State<_MusicFixedColorSliders> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Future<void> _openPicker() async {
     final ctrl = context.read<AmbilightAppController>();
     final r = widget.rgb.isNotEmpty ? widget.rgb[0].clamp(0, 255) : 255;
     final g = widget.rgb.length > 1 ? widget.rgb[1].clamp(0, 255) : 0;
     final b = widget.rgb.length > 2 ? widget.rgb[2].clamp(0, 255) : 255;
-
-    void push(int nr, int ng, int nb) {
-      widget.onRgbChanged([nr, ng, nb]);
-      ctrl.previewStripColor(nr, ng, nb, durationTicks: 72);
+    try {
+      final res = await showAmbiColorPickerDialog(
+        context,
+        title: 'Pevná barva (hudba)',
+        initialRgb: [r, g, b],
+        onLiveRgb: (rgb) {
+          if (rgb.length == 3) {
+            ctrl.previewStripColor(rgb[0], rgb[1], rgb[2], durationTicks: 72);
+          }
+        },
+      );
+      if (res != null && res.length == 3) {
+        widget.onRgbChanged(res);
+      }
+    } finally {
+      ctrl.clearStripColorPreview();
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final r = widget.rgb.isNotEmpty ? widget.rgb[0].clamp(0, 255) : 255;
+    final g = widget.rgb.length > 1 ? widget.rgb[1].clamp(0, 255) : 0;
+    final b = widget.rgb.length > 2 ? widget.rgb[2].clamp(0, 255) : 255;
+    final fill = Color.fromARGB(255, r, g, b);
+    final lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    final onFill = lum > 0.55 ? Colors.black87 : Colors.white;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          height: 40,
-          decoration: BoxDecoration(
-            color: Color.fromRGBO(r, g, b, 1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Theme.of(context).dividerColor),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _openPicker,
+            borderRadius: BorderRadius.circular(20),
+            child: Ink(
+              height: 96,
+              decoration: BoxDecoration(
+                color: fill,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: scheme.outline.withValues(alpha: 0.35)),
+                boxShadow: [
+                  BoxShadow(
+                    color: fill.withValues(alpha: 0.35),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.tune_rounded, color: onFill.withValues(alpha: 0.9)),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Upravit barvu',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: onFill,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-        const SizedBox(height: 8),
-        Text('R $r', style: Theme.of(context).textTheme.labelSmall),
-        Slider(
-          value: r.toDouble(),
-          max: 255,
-          divisions: 255,
-          label: '$r',
-          onChanged: (v) => push(v.round(), g, b),
-        ),
-        Text('G $g', style: Theme.of(context).textTheme.labelSmall),
-        Slider(
-          value: g.toDouble(),
-          max: 255,
-          divisions: 255,
-          label: '$g',
-          onChanged: (v) => push(r, v.round(), b),
-        ),
-        Text('B $b', style: Theme.of(context).textTheme.labelSmall),
-        Slider(
-          value: b.toDouble(),
-          max: 255,
-          divisions: 255,
-          label: '$b',
-          onChanged: (v) => push(r, g, v.round()),
+        const SizedBox(height: 10),
+        Text(
+          'RGB $r · $g · $b',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
     );

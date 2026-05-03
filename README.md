@@ -32,6 +32,7 @@ The primary application you build and run is under **`ambilight_desktop/`**.
    For each configured device, a **transport** sends frames:
    - **Serial:** handshake and framed payloads compatible with the ESP firmware (see [`ambilight_desktop/README.md`](ambilight_desktop/README.md)).
    - **UDP:** brightness byte plus RGB triplets as expected by the same firmware family.
+   - **Smart Home (optional):** **Home Assistant** `light.turn_on` with `rgb_color` (URL + long-lived token in **Settings → Smart Home**). The HA token is **not** stored inside `default.json`; it is written to application support as `ha_long_lived_token.txt` (same pattern as Spotify tokens). **Apple HomeKit** on **macOS** uses a native `MethodChannel` (`ambilight/homekit`). **Google Home** has no supported local desktop API—use Home Assistant’s [Google Assistant](https://www.home-assistant.io/integrations/google_assistant/) integration and control the same lights through HA.
 
 4. **Reconnect**  
    If a device is not ready at startup, the client **retries connection on a timer** (on the order of every few seconds) until the link succeeds.

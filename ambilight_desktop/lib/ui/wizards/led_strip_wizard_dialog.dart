@@ -8,6 +8,7 @@ import '../../application/ambilight_app_controller.dart';
 import '../../core/models/config_models.dart';
 import '../../core/protocol/serial_frame.dart';
 import '../../features/screen_capture/screen_capture_source.dart';
+import '../widgets/config_drag_slider.dart';
 import 'wizard_dialog_shell.dart';
 
 /// Interaktivní průvodce mapování LED na okraje monitoru (parita `led_wizard.py`).
@@ -216,9 +217,8 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
   }
 
   int _sliderMaxForDevice(DeviceSettings? d) {
-    if (d == null) return 1024;
-    if (d.type == 'wifi') return 1024;
-    return math.max(0, SerialAmbilightProtocol.targetLeds - 1);
+    if (d == null) return SerialAmbilightProtocol.maxLedsPerDevice - 1;
+    return math.max(0, SerialAmbilightProtocol.maxLedsPerDevice - 1);
   }
 
   void _pushPreview(AmbilightAppController c) {
@@ -532,8 +532,9 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
               ],
             ],
             if (step.kind == _WizardStepKind.point) ...[
-              Slider(
+              ConfigDragSlider(
                 value: _sliderValue.clamp(0, maxIdx),
+                min: 0,
                 max: maxIdx,
                 divisions: maxIdx > 0 ? maxIdx.round() : null,
                 label: 'LED index ${_sliderValue.round()}',
@@ -627,6 +628,10 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
                     );
                     return;
                   }
+                  final id = _resolvedDeviceId(c.config);
+                  if (id != null) {
+                    c.announceStripLengthForDevice(id);
+                  }
                   _buildStepsAfterConfig();
                 },
           child: const Text('Spustit kalibraci'),
@@ -674,8 +679,9 @@ class _WizardStep {
   factory _WizardStep.config() => const _WizardStep._(
         _WizardStepKind.config,
         'Konfigurace',
-        'Vyberte zařízení, které strany pásku používáte, a referenční monitor. '
-            'Pak spusťte kalibraci — u každého bodu posunete zelenou LED na fyzické místo.',
+        'V Nastavení → Zařízení nastav „Počet LED“ alespoň na horní odhad délky pásku '
+            '(max. 2000). Před kalibrací aplikace pošle na ESP USB příkaz s tímto počtem. '
+            'Pak vyber strany a monitor — u každého bodu posuneš zelenou LED na fyzické místo.',
         null,
       );
 

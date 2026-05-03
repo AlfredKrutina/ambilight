@@ -28,16 +28,29 @@ Future<Rect?> scanOverlayDisplayRectForMonitor(int mssIndex) async {
 Future<void> scanOverlayEnterFullscreenRegion(Rect frame) async {
   if (_skipOps) return;
   if (_entered) return;
+  var appliedFrameless = false;
   try {
     _savedBounds = await windowManager.getBounds();
     await windowManager.setAsFrameless();
+    appliedFrameless = true;
     await windowManager.setAlwaysOnTop(true);
     await windowManager.setBackgroundColor(Colors.transparent);
     // Jen přesné bounds monitoru — setFullScreen může na více displejích
     // přesunout okno na primární a rozbít 1:1 náhled oblasti snímání.
     await windowManager.setBounds(frame);
     _entered = true;
+    await scanOverlayEnsureFlutterReceivesPointer();
   } catch (_) {
+    try {
+      await windowManager.setIgnoreMouseEvents(false);
+    } catch (_) {}
+    if (appliedFrameless) {
+      try {
+        await windowManager.setAlwaysOnTop(false);
+        await windowManager.setTitleBarStyle(TitleBarStyle.normal);
+        await windowManager.setBackgroundColor(Colors.white);
+      } catch (_) {}
+    }
     _savedBounds = null;
     _entered = false;
   }
@@ -48,6 +61,9 @@ Future<void> scanOverlayRestoreWindow() async {
   if (!_entered) return;
   _entered = false;
   try {
+    await windowManager.setIgnoreMouseEvents(false);
+  } catch (_) {}
+  try {
     final b = _savedBounds;
     if (b != null) {
       await windowManager.setBounds(b);
@@ -57,4 +73,12 @@ Future<void> scanOverlayRestoreWindow() async {
     await windowManager.setBackgroundColor(Colors.white);
   } catch (_) {}
   _savedBounds = null;
+}
+
+/// Po dřívějších experimentech s WS_EX_TRANSPARENT může zůstat „mrtvý“ stav — vynutíme Flutter hit-test.
+Future<void> scanOverlayEnsureFlutterReceivesPointer() async {
+  if (_skipOps) return;
+  try {
+    await windowManager.setIgnoreMouseEvents(false);
+  } catch (_) {}
 }

@@ -16,13 +16,25 @@ abstract final class AppBreakpoints {
   /// Hlavní obálka aplikace (D15 / G1): `NavigationRail` místo spodního baru od stejného prahu.
   static bool useShellSideRail(double width) => width >= compactMaxWidth;
 
-  /// Horní hranice čitelného bloku (px). Na širším okně zůstane obsah vycentrovaný.
-  static const double contentMaxReading = 1320;
+  /// Horní hranice čitelného bloku (px). Na ultrawide zůstane obsah vycentrovaný, řádky se nepřetahují.
+  static const double contentMaxReading = 1180;
+
+  /// Dlaždice režimu na přehledu — max. šířka buňky (více sloupců místo dvou „nárazníků“).
+  static const double homeModeTileMaxExtent = 276;
+
+  /// Šířka / výška buňky mřížky režimů (šířší = nižší řádek).
+  static const double homeModeTileAspectRatio = 2.35;
+
+  /// Max. šířka horní „power“ karty na širokém layoutu (zbytek řádku zůstane vzdušný).
+  static const double homeHeroPowerMaxWidth = 560;
 
   static double maxContentWidth(double width) {
     if (width <= contentMaxReading) return width;
     return contentMaxReading;
   }
+
+  /// Šířka pro layout logiku na stránkách zabalených v [ResponsiveBody] (stejný strop jako obsah).
+  static double layoutContentWidth(double parentWidth) => maxContentWidth(parentWidth);
 
   static int formColumnsForWidth(double width) => width >= compactMaxWidth ? 2 : 1;
 }

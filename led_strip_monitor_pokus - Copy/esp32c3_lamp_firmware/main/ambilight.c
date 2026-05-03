@@ -26,7 +26,7 @@
 
 // ============ CONFIG ============
 #define LED_STRIP_GPIO_PIN 8
-#define LED_STRIP_NUM_LEDS 200
+#define LED_STRIP_NUM_LEDS 2000
 #define UDP_PORT 4210
 #define AP_SSID "Ambilight_Setup"
 #define SERIAL_TIMEOUT_US (25 * 100000LL) // 2.5 seconds (Faster Auto-Off)
@@ -45,6 +45,8 @@ static bool g_is_provisioned =
     false; // Flag to prevent auto-connect loops when unconfigured
 static bool g_ap_disabled_after_connection = false;
 static rgb_t led_colors[LED_STRIP_NUM_LEDS] = {0};
+/// Logická délka pásku z PC (`0xA5 0x5A` + uint16 LE); ořez zápisu do [led_colors].
+static uint16_t g_serial_strip_max = LED_STRIP_NUM_LEDS;
 static SemaphoreHandle_t led_mutex;
 static volatile int g_scan_status = 0; // 0=IDLE, 1=SCANNING, 2=DONE
 static volatile int64_t g_last_data_interaction = 0;
@@ -1059,47 +1061,30 @@ void task_monitor(void *arg) {
 /**
  * @brief JTAG Serial Task (High Performance LED Control)
  *
- * Handles incoming data from USB-JTAG interface.
- * Priority: 10 (High) - Preempts IDLE and Wi-Fi helper tasks, but yields to
- * critical System tasks.
- *
- * Protocol:
- * - 0xAA: Handshake PING (Responds with 0xBB)
- * - 0xFF: Frame Sync (Start of Frame)
- * - 0xFE: End of Frame (Triggers LED Update)
- * - [Idx, R, G, B]: 4-byte Pixel Tuple (Binary Mode)
- *
- * Stability Features:
- * - Stack Size: 8192 bytes (Prevents Stack Overflow during heavy MQTT/JSON
- * usage)
- * - Watchdog Safety: Calls vTaskDelay(1) every batch to yield to IDLE task
- * (feeds WDT).
- * - Mutex Protection: Uses led_mutex to coordinate with Wi-Fi/UDP tasks.
- * - Auto-Home: Updates `g_last_serial_interaction` to prevent 'Restore Home
- * Mode' flickering.
+ * Protocol (v1.11+):
+ * - 0xAA: Handshake PING → 0xBB
+ * - 0xA5 0x5A + uint16 LE: logický počet LED (clamp + clear tail)
+ * - 0xFF … 0xFE: legacy rámec, tuple (idx8, r, g, b) — max 256 LED v jednom rámci
+ * - 0xFC … 0xFE: wide rámec, tuple (idx_lo, idx_hi, r, g, b) — 16bit index
  */
 void task_serial(void *arg) {
-  usb_serial_jtag_driver_config_t c = {.rx_buffer_size = 2048,
-                                       .tx_buffer_size = 1024};
-  usb_serial_jtag_driver_install(&c);
+  usb_serial_jtag_driver_config_t ser_cfg = {.rx_buffer_size = 2048,
+                                            .tx_buffer_size = 1024};
+  usb_serial_jtag_driver_install(&ser_cfg);
 
-  usb_serial_jtag_driver_install(&c);
-
-  // BUFFER INCREASE: 2048 bytes matches Driver Buffer.
-  // Allows reading full frames (802 bytes) in one loop iteration.
-  // Prevents stutter caused by vTaskDelay(1) splitting frames.
   uint8_t buf[2048];
 
-  // State Machine
-  enum { STATE_IDLE, STATE_DATA } state = STATE_IDLE;
-  uint8_t tuple_buf[4];
+  enum { ST_IDLE = 0, ST_LEGACY = 1, ST_WIDE = 2 } state = ST_IDLE;
+  uint8_t tuple4[4];
+  uint8_t tuple5[5];
   int tuple_pos = 0;
   bool dirty = false;
-
   bool frame_complete = false;
 
+  int a5_stage = 0;
+  uint8_t a5_lo = 0;
+
   while (1) {
-    // Increased timeout (20ms) to bridge gaps caused by Wi-Fi interrupts
     int len = usb_serial_jtag_read_bytes(buf, sizeof(buf), pdMS_TO_TICKS(20));
 
     if (len > 0) {
@@ -1108,35 +1093,68 @@ void task_serial(void *arg) {
       for (int i = 0; i < len; i++) {
         uint8_t b = buf[i];
 
-        // UNIVERSAL SYNC: 0xFF is ALWAYS Start of Frame
         if (b == 0xFF) {
-          if (dirty)
-            frame_complete = true; // Recover previous frame
-          state = STATE_DATA;
+          if (dirty && (state == ST_LEGACY || state == ST_WIDE))
+            frame_complete = true;
+          state = ST_LEGACY;
+          tuple_pos = 0;
+          a5_stage = 0;
+          continue;
+        }
+        if (b == 0xFC) {
+          if (dirty && (state == ST_LEGACY || state == ST_WIDE))
+            frame_complete = true;
+          state = ST_WIDE;
+          tuple_pos = 0;
+          a5_stage = 0;
+          continue;
+        }
+        if (b == 0xFE && (state == ST_LEGACY || state == ST_WIDE)) {
+          frame_complete = true;
+          state = ST_IDLE;
           tuple_pos = 0;
           continue;
         }
-        // END OF FRAME: 0xFE
-        if (b == 0xFE && state == STATE_DATA) {
-          frame_complete = true;
-          state = STATE_IDLE;
-          continue;
-        }
 
-        if (state == STATE_IDLE) {
+        if (state == ST_IDLE) {
+          if (a5_stage == 0 && b == 0xA5) {
+            a5_stage = 1;
+            continue;
+          }
+          if (a5_stage == 1) {
+            if (b == 0x5A) {
+              a5_stage = 2;
+            } else {
+              a5_stage = (b == 0xA5) ? 1 : 0;
+            }
+            continue;
+          }
+          if (a5_stage == 2) {
+            a5_lo = b;
+            a5_stage = 3;
+            continue;
+          }
+          if (a5_stage == 3) {
+            a5_stage = 0;
+            uint16_t cnt = a5_lo | ((uint16_t)b << 8);
+            if (cnt == 0)
+              cnt = LED_STRIP_NUM_LEDS;
+            if (cnt > LED_STRIP_NUM_LEDS)
+              cnt = LED_STRIP_NUM_LEDS;
+            g_serial_strip_max = cnt;
+            clear_tail_leds((int)cnt);
+            dirty = true;
+            frame_complete = true;
+            continue;
+          }
+
           if (b == 0xAA) {
-            // HANDSHAKE PING -> PONG
             uint8_t pong = 0xBB;
             usb_serial_jtag_write_bytes(&pong, 1, pdMS_TO_TICKS(10));
-
-            // VISUAL DEBUG: Set 1st Pixel GREEN to indicate JTAG Connected
             memset(led_colors, 0, sizeof(led_colors));
-            led_colors[0].g = 50; // Green Marker
-
+            led_colors[0].g = 50;
             dirty = true;
-            frame_complete = true; // Force update
-
-            // SYNC HA: JTAG Connected = Power ON
+            frame_complete = true;
             if (g_mqtt_connected) {
               char state_topic[64];
               snprintf(state_topic, sizeof(state_topic),
@@ -1145,45 +1163,55 @@ void task_serial(void *arg) {
                                       0);
             }
           }
-        } else if (state == STATE_DATA) {
-          tuple_buf[tuple_pos++] = b;
+          continue;
+        }
+
+        if (state == ST_LEGACY) {
+          tuple4[tuple_pos++] = b;
           if (tuple_pos == 4) {
-            // [Idx, R, G, B]
-            uint8_t idx = tuple_buf[0];
-            if (idx < LED_STRIP_NUM_LEDS) {
-              led_colors[idx].r = tuple_buf[1];
-              led_colors[idx].g = tuple_buf[2];
-              led_colors[idx].b = tuple_buf[3];
+            uint8_t idx = tuple4[0];
+            if (idx < LED_STRIP_NUM_LEDS && idx < g_serial_strip_max) {
+              led_colors[idx].r = tuple4[1];
+              led_colors[idx].g = tuple4[2];
+              led_colors[idx].b = tuple4[3];
               dirty = true;
             }
             tuple_pos = 0;
           }
+          continue;
+        }
+
+        if (state == ST_WIDE) {
+          tuple5[tuple_pos++] = b;
+          if (tuple_pos == 5) {
+            uint16_t idx = tuple5[0] | ((uint16_t)tuple5[1] << 8);
+            if (idx < LED_STRIP_NUM_LEDS && idx < g_serial_strip_max) {
+              led_colors[idx].r = tuple5[2];
+              led_colors[idx].g = tuple5[3];
+              led_colors[idx].b = tuple5[4];
+              dirty = true;
+            }
+            tuple_pos = 0;
+          }
+          continue;
         }
       }
+
       if (frame_complete) {
         xSemaphoreTake(led_mutex, portMAX_DELAY);
-        // USB SAFETY LIMIT REMOVED: Full Brightness (User Confirmed Protocol
-        // Fix)
         update_leds(255);
         xSemaphoreGive(led_mutex);
         dirty = false;
         frame_complete = false;
-
-        // SMOOTHNESS FIX: Only sleep AFTER a full frame is processed.
-        // This allows reading partial chunks aggressively.
         vTaskDelay(1);
       }
-
-      // REMOVED unconditional sleep here.
-
     } else {
-      // TIMEOUT (Silence) meaning end of batch
-      if (state == STATE_DATA && dirty) {
+      if ((state == ST_LEGACY || state == ST_WIDE) && dirty) {
         xSemaphoreTake(led_mutex, portMAX_DELAY);
         update_leds(255);
         xSemaphoreGive(led_mutex);
         dirty = false;
-        state = STATE_IDLE;
+        state = ST_IDLE;
       }
     }
   }
@@ -1627,7 +1655,7 @@ void app_main(void) {
   }
 
   ESP_LOGW(TAG, "Reset Reason: %d", esp_reset_reason()); // Log why we rebooted
-  ESP_LOGE(TAG, "=== FIRMWARE v1.10: MAX BRIGHTNESS (255) ===");
+  ESP_LOGE(TAG, "=== FIRMWARE v1.11: SERIAL WIDE 0xFC + LED COUNT 0xA5/5A ===");
 
   disable_onboard_leds(); // Turn off onboard LEDs
 

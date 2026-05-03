@@ -7,19 +7,57 @@ import 'package:logging/logging.dart';
 
 final _log = Logger('AppErrorSafety');
 
-/// Globální handlery — neodstraňují logiku chyb ve službách, ale zabraňují pádu procesu kvůli neodchyceným výjimkám.
+/// Krátké chybové hlášení pro uživatele (horní pruh v [AmbiLightRoot]).
+final ValueNotifier<String?> appFaultBannerNotifier = ValueNotifier<String?>(null);
+
+Timer? _dismissFaultTimer;
+
+void dismissAppFault() {
+  _dismissFaultTimer?.cancel();
+  _dismissFaultTimer = null;
+  appFaultBannerNotifier.value = null;
+}
+
+/// Zobrazí horní banner a zapíše do logu. [autoDismiss] vynuluje stejný text po timeoutu.
+void reportAppFault(String message, {Duration autoDismiss = const Duration(seconds: 14)}) {
+  final trimmed = message.trim();
+  if (trimmed.isEmpty) return;
+  final brief = trimmed.length > 420 ? '${trimmed.substring(0, 420)}…' : trimmed;
+  _dismissFaultTimer?.cancel();
+  appFaultBannerNotifier.value = brief;
+  _dismissFaultTimer = Timer(autoDismiss, () {
+    if (appFaultBannerNotifier.value == brief) {
+      dismissAppFault();
+    }
+  });
+  _log.warning('AppFault: $brief');
+}
+
+/// Globální handlery — logují chyby a v release módu dávají uživateli krátkou zpětnou vazbu.
 void installAppErrorHandling() {
   FlutterError.onError = (FlutterErrorDetails details) {
-    FlutterError.presentError(details);
+    if (kDebugMode) {
+      FlutterError.presentError(details);
+    }
     _log.severe(
       'FlutterError: ${details.exceptionAsString()}',
       details.exception,
       details.stack,
     );
+    // V debug už je detail v konzoli / presentError; banner jen v release, ať UI neruší vývoj.
+    if (!kDebugMode) {
+      final line = details.exceptionAsString().split('\n').first.trim();
+      if (line.isNotEmpty) {
+        reportAppFault('Chyba rozhraní: $line');
+      }
+    }
   };
 
   PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
     _log.severe('Neodchycená asynchronní chyba: $error', error, stack);
+    final msg = error.toString();
+    final first = msg.split('\n').first.trim();
+    reportAppFault(first.isEmpty ? 'Neodchycená chyba v asynchronním kódu.' : first);
     return true;
   };
 
@@ -51,5 +89,64 @@ void installAppErrorHandling() {
 }
 
 void logZoneError(Object error, StackTrace stack) {
-  _log.severe('runZonedGuarded: $error', error, stack);
+  _log.severe('runZonedGuarded / zóna: $error', error, stack);
+}
+
+/// Vloží nad [child] plovou lištu s [appFaultBannerNotifier] (volá se z [MaterialApp.builder]).
+Widget wrapWithAppFaultBanner(Widget child) {
+  return ValueListenableBuilder<String?>(
+    valueListenable: appFaultBannerNotifier,
+    builder: (context, fault, inner) {
+      final base = inner ?? const SizedBox.shrink();
+      if (fault == null) return base;
+      return Stack(
+        fit: StackFit.expand,
+        clipBehavior: Clip.none,
+        children: [
+          base,
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Material(
+              elevation: 12,
+              color: const Color(0xFFB91C1C),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2, right: 4),
+                        child: Icon(Icons.error_outline, color: Colors.white, size: 22),
+                      ),
+                      Expanded(
+                        child: SelectableText(
+                          fault,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Zavřít',
+                        color: Colors.white,
+                        onPressed: dismissAppFault,
+                        icon: const Icon(Icons.close, size: 20),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+    child: child,
+  );
 }
