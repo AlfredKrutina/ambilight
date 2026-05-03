@@ -39,6 +39,6 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Users/alfid/ESP_Projects/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/mbedtls/mbedtls/cmake_install.cmake")
+  include("D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/mbedtls/mbedtls/cmake_install.cmake")
 endif()
 

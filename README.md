@@ -14,7 +14,7 @@ The primary application you build and run is under **`ambilight_desktop/`**.
 | **Run & platform notes** | [`ambilight_desktop/README_RUN.md`](ambilight_desktop/README_RUN.md) | Commands, SDK versions, Spotify token storage on Windows, tray/window behavior, Linux X11 vs Wayland, macOS permissions. |
 | **ESP / protocol details** | [`ambilight_desktop/README.md`](ambilight_desktop/README.md) | Serial handshake, frame layout, UDP packet shape, baud rate, monitor index conventions, Windows capture implementation notes. |
 | **Planning & audits** | [`context/`](context/) | Master plan, gap analysis vs PyQt, UI layout notes, agent prompts, permission overview ([`context/README_PERMISSIONS.md`](context/README_PERMISSIONS.md)). |
-| **Reference firmware & Python** | `led_strip_monitor_pokus - Copy/` | **Active ESP-IDF lamp:** `esp32c3_lamp_firmware/main/ambilight.c`. Legacy monitor tree (`esp32c3_firmware/`) is **not tracked** (`.gitignore`); rename your local copy to `esp32c3_monitor_firmware_ARCHIVE/` for clarity when no editor holds the path. Older PyQt + vendored SDK trees live alongside. Wire protocol: `ambilight_desktop/README.md`. |
+| **Reference firmware & Python** | `led_strip_monitor_pokus - Copy/` | **Aktivní FW:** `esp32c3_lamp_firmware/main/ambilight.c`. Starý monitor strom je v **`esp32c3_monitor_firmware_ARCHIVE/`** (jen lokálně, v `.gitignore`). PyQt + další reference vedle. Protokol: `ambilight_desktop/README.md`. |
 
 > **Note:** The `led_strip_monitor_pokus - Copy/` directory is bulky and includes many upstream `LICENSE` files from ESP-IDF and other vendors. For day-to-day work on the desktop app, stay in **`ambilight_desktop/`** and **`context/`**.
 

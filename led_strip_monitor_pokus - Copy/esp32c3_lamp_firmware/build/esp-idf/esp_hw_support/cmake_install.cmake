@@ -39,11 +39,11 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Users/alfid/ESP_Projects/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/esp_hw_support/port/esp32c3/cmake_install.cmake")
+  include("D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/esp_hw_support/port/esp32c3/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Users/alfid/ESP_Projects/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/esp_hw_support/lowpower/cmake_install.cmake")
+  include("D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/esp_hw_support/lowpower/cmake_install.cmake")
 endif()
 

@@ -22,4 +22,4 @@ set confirm off
 set confirm on
 
 # Load application symbols
-file C:/Users/alfid/ESP_Projects/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/bootloader/bootloader.elf
+file D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/bootloader/bootloader.elf

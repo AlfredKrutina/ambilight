@@ -1,4 +1,4 @@
-/* * Data converted from C:/Users/alfid/ESP_Projects/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/mbedtls/x509_crt_bundle
+/* * Data converted from D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/mbedtls/x509_crt_bundle
  */
 .data
 #if !defined (__APPLE__) && !defined (__linux__)
