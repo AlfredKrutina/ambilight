@@ -1,0 +1,87 @@
+{
+    "global_settings": {
+        "serial_port": "COM5",
+        "baud_rate": 115200,
+        "led_count": 66,
+        "devices": [
+            {
+                "id": "primary",
+                "name": "Primary Controller",
+                "type": "serial",
+                "port": "COM5",
+                "ip_address": "",
+                "udp_port": 4210,
+                "led_count": 66,
+                "led_offset": 0,
+                "default_monitor": 1,
+                "control_via_ha": false
+            }
+        ],
+        "start_mode": "light",
+        "start_minimized": false,
+        "autostart": false,
+        "theme": "dark",
+        "capture_method": "mss",
+        "hotkeys_enabled": true,
+        "hotkey_toggle": "ctrl+shift+l",
+        "hotkey_mode_light": "",
+        "hotkey_mode_screen": "",
+        "hotkey_mode_music": "",
+        "custom_hotkeys": []
+    },
+    "light_mode": {
+        "color": [255, 200, 100],
+        "brightness": 200,
+        "effect": "static",
+        "speed": 50,
+        "extra": 50,
+        "custom_zones": [],
+        "homekit_enabled": false
+    },
+    "screen_mode": {
+        "monitor_index": 1,
+        "scan_depth_percent": 10,
+        "padding_percent": 5,
+        "saturation_boost": 1.2,
+        "ultra_saturation": false,
+        "ultra_saturation_amount": 2.5,
+        "min_brightness": 10,
+        "interpolation_ms": 100,
+        "gamma": 2.2,
+        "active_preset": "Balanced",
+        "brightness": 200,
+        "scan_mode": "simple",
+        "padding_top": 0,
+        "padding_bottom": 0,
+        "padding_left": 0,
+        "padding_right": 0,
+        "scan_depth_top": 10,
+        "scan_depth_bottom": 10,
+        "scan_depth_left": 10,
+        "scan_depth_right": 10,
+        "segments": []
+    },
+    "music_mode": {
+        "mic_enabled": false,
+        "color_source": "fixed",
+        "fixed_color": [255, 0, 255],
+        "brightness": 200,
+        "beat_detection_enabled": true,
+        "beat_threshold": 1.5,
+        "effect": "energy",
+        "sensitivity": 50,
+        "active_preset": "Custom"
+    },
+    "spotify": {
+        "enabled": false,
+        "use_album_colors": true
+    },
+    "pc_health": {
+        "enabled": false,
+        "update_rate": 500,
+        "brightness": 200,
+        "metrics": []
+    },
+    "user_screen_presets": {},
+    "user_music_presets": {}
+}
