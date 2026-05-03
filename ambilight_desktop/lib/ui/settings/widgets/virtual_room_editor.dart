@@ -98,7 +98,6 @@ class VirtualRoomEditor extends StatelessWidget {
           value: vr.userFacingDeg.clamp(-90.0, 90.0),
           min: -90,
           max: 90,
-          divisions: 36,
           onChanged: (v) => onChanged(sl.copyWith(virtualRoom: vr.copyWith(userFacingDeg: v))),
         ),
       ],
@@ -166,21 +165,29 @@ class VirtualRoomEditor extends StatelessWidget {
 
   Widget _userMarker(VirtualRoomLayout vr, Size size, ColorScheme scheme) {
     const r = 22.0;
+    final hitBox = 2 * r;
     return Positioned(
       left: vr.userX * size.width - r,
       top: vr.userY * size.height - r,
       child: GestureDetector(
-        onPanUpdate: (d) {
-          final nx = (vr.userX + d.delta.dx / size.width).clamp(0.06, 0.94);
-          final ny = (vr.userY + d.delta.dy / size.height).clamp(0.06, 0.94);
+        behavior: HitTestBehavior.opaque,
+        onPanUpdate: (details) {
+          final nx = (vr.userX + details.delta.dx / size.width).clamp(0.06, 0.94);
+          final ny = (vr.userY + details.delta.dy / size.height).clamp(0.06, 0.94);
           onChanged(sl.copyWith(virtualRoom: vr.copyWith(userX: nx, userY: ny)));
         },
         child: Tooltip(
           message: 'Ty (táhni)',
-          child: CircleAvatar(
-            radius: r,
-            backgroundColor: scheme.primaryContainer,
-            child: Icon(Icons.person_rounded, color: scheme.onPrimaryContainer, size: 26),
+          child: SizedBox(
+            width: hitBox,
+            height: hitBox,
+            child: Center(
+              child: CircleAvatar(
+                radius: r,
+                backgroundColor: scheme.primaryContainer,
+                child: Icon(Icons.person_rounded, color: scheme.onPrimaryContainer, size: 26),
+              ),
+            ),
           ),
         ),
       ),
@@ -221,10 +228,16 @@ class _SightPainter extends CustomPainter {
   final Color fillColor;
   final Color strokeColor;
 
+  /// Vrchol kužele u „hlavy“ postavy — stejný model jako [VirtualRoomEditor._userMarker] (poloměr 22).
+  static const double _userAvatarRadiusPx = 22;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final ux = vr.userX * size.width;
-    final uy = vr.userY * size.height;
+    final userCx = vr.userX * size.width;
+    final userCy = vr.userY * size.height;
+    // Kužel má vycházet z horní části siluety, ne z geometrického středu kruhu (jinak působí „mimo“ ikonu).
+    final ux = userCx;
+    final uy = userCy - _userAvatarRadiusPx * 0.72;
     final tx = vr.tvX * size.width;
     final ty = vr.tvY * size.height;
     final base = math.atan2(ty - uy, tx - ux);

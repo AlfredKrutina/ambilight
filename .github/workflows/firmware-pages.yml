@@ -1,0 +1,67 @@
+# Sestaví ESP-IDF firmware (ESP32-C6) a nasadí na větev gh-pages: /firmware/latest/ + manifest.json
+# GitHub Pages: Settings → Pages → zdroj Branch gh-pages / (root).
+name: firmware_pages
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "led_strip_monitor_pokus - Copy/esp32c3_firmware/main/**"
+      - "led_strip_monitor_pokus - Copy/esp32c3_firmware/partitions.csv"
+      - "led_strip_monitor_pokus - Copy/esp32c3_firmware/CMakeLists.txt"
+      - "led_strip_monitor_pokus - Copy/esp32c3_firmware/sdkconfig"
+      - "led_strip_monitor_pokus - Copy/esp32c3_firmware/sdkconfig.defaults"
+      - ".github/workflows/firmware-pages.yml"
+      - "tools/gen_firmware_manifest.py"
+      - "tools/firmware_index.html"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: firmware-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build (ESP-IDF Docker)
+        run: |
+          set -e
+          FW="led_strip_monitor_pokus - Copy/esp32c3_firmware"
+          docker run --rm \
+            -v "${{ github.workspace }}:/project" \
+            -w "/project/${FW}" \
+            espressif/idf:v5.3.2 \
+            idf.py build
+
+      - name: Assemble site + manifest
+        run: |
+          set -e
+          FW="led_strip_monitor_pokus - Copy/esp32c3_firmware"
+          BUILD="${FW}/build"
+          SITE="${{ github.workspace }}/_firmware_site/firmware/latest"
+          mkdir -p "${SITE}"
+          cp "${BUILD}/bootloader/bootloader.bin" "${SITE}/"
+          cp "${BUILD}/partition_table/partition-table.bin" "${SITE}/"
+          cp "${BUILD}/ambilight_esp32c6.bin" "${SITE}/"
+          VER=$(echo "${{ github.sha }}" | cut -c1-12)
+          BASE="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/firmware/latest"
+          python3 tools/gen_firmware_manifest.py \
+            --build-dir "${BUILD}" \
+            --out "${SITE}/manifest.json" \
+            --base-url "${BASE}" \
+            --version "${VER}" \
+            --chip esp32c6
+          cp tools/firmware_index.html "${{ github.workspace }}/_firmware_site/index.html"
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: _firmware_site
+          force_orphan: true

@@ -81,6 +81,9 @@ class AmbilightAppController extends ChangeNotifier {
 
   /// Během dispose/connect transportů neposílat snímky (ochrana před závodem s COM/UDP).
   bool _transportsRebuilding = false;
+  /// Během [queueConfigApply] / [_applyConfigCore] / live replace — zastaví [_tick], aby se nemíchal
+  /// výstup s částečně nahozenou konfigurací (i když `rebuildTransports=false`).
+  bool _mainLoopTickHold = false;
   final Map<String, DeviceTransport> _transports = {};
   Timer? _timer;
   /// Perioda hlavní smyčky (ms); null = timer ještě neběžel.
@@ -782,17 +785,22 @@ class AmbilightAppController extends ChangeNotifier {
   }
 
   void replaceConfig(AppConfig next) {
-    _clearTransientLedOutputs();
-    _config = stripOrphanScreenSegmentDeviceIds(next);
-    _lastPersistedConfigJson = null;
-    _lastPersistedHaToken = _config.smartLights.haLongLivedToken.trim();
-    _clearMusicPaletteLockOutsideMusicMode(_config.globalSettings.startMode);
-    unawaited(_musicAudio.syncWithConfig(_config));
-    _restartPcHealthTimer();
-    spotify.startPollingIfNeeded(_config);
-    systemMediaNowPlaying.startPollingIfNeeded(_config);
-    _configPersistGeneration++;
-    notifyListeners();
+    _mainLoopTickHold = true;
+    try {
+      _clearTransientLedOutputs();
+      _config = stripOrphanScreenSegmentDeviceIds(next);
+      _lastPersistedConfigJson = null;
+      _lastPersistedHaToken = _config.smartLights.haLongLivedToken.trim();
+      _clearMusicPaletteLockOutsideMusicMode(_config.globalSettings.startMode);
+      unawaited(_musicAudio.syncWithConfig(_config));
+      _restartPcHealthTimer();
+      spotify.startPollingIfNeeded(_config);
+      systemMediaNowPlaying.startPollingIfNeeded(_config);
+      _configPersistGeneration++;
+      notifyListeners();
+    } finally {
+      _mainLoopTickHold = false;
+    }
   }
 
   Future<void> applyConfigAndPersist(AppConfig next) {
@@ -827,6 +835,7 @@ class AmbilightAppController extends ChangeNotifier {
     required bool clearTransient,
     required bool runAfterConfigHook,
   }) async {
+    _mainLoopTickHold = true;
     final prev = _config;
     // Před změnou [_config] zastav výstupní tick — jinak mezi `await _musicAudio…` a dispose COM
     // může [_tick] posílat na starý transport s už prázdným seznamem zařízení → pád na Windows.
@@ -883,6 +892,7 @@ class AmbilightAppController extends ChangeNotifier {
         _transportsRebuilding = false;
         traceDeviceBindings('_applyConfigCore: transportBarrier OFF');
       }
+      _mainLoopTickHold = false;
     }
   }
 
@@ -896,6 +906,7 @@ class AmbilightAppController extends ChangeNotifier {
   }
 
   void _applyConfigLiveOnly(AppConfig next) {
+    _mainLoopTickHold = true;
     final prev = _config;
     try {
       _config = stripOrphanScreenSegmentDeviceIds(next);
@@ -913,6 +924,8 @@ class AmbilightAppController extends ChangeNotifier {
       _ensureMainLoopTimer();
     } catch (e, st) {
       _log.fine('applyConfigLiveOnly: $e', e, st);
+    } finally {
+      _mainLoopTickHold = false;
     }
   }
 
@@ -1177,7 +1190,7 @@ class AmbilightAppController extends ChangeNotifier {
   }
 
   void _tick() {
-    if (_transportsRebuilding) return;
+    if (_transportsRebuilding || _mainLoopTickHold) return;
     try {
     spotify.attachPollConfig(_config);
     systemMediaNowPlaying.attachPollConfig(_config);

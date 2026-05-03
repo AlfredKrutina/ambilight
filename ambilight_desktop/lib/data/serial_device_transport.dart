@@ -3,14 +3,55 @@ import 'dart:collection';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_libserialport/flutter_libserialport.dart';
 import 'package:logging/logging.dart';
 
 import '../core/models/config_models.dart';
 import '../core/protocol/serial_frame.dart';
 import 'device_transport.dart';
+import 'serial_native_gate.dart';
 
 final _log = Logger('SerialTransport');
+
+/// [SerialPort.dispose] → `sp_free_port`; druhé volání na stejný objekt = Debug CRT assert
+/// na Windows. Objekt po [dispose] nesmí zůstat v [Set] — při dalším [add]/rehash CRT hlásí
+/// `_CrtIsValidHeapPointer` / `is_block_type_valid`.
+final Set<SerialPort> _releasedSerialPortsOnce = <SerialPort>{};
+
+/// Uvolnění bez vlastní fronty — volat jen v rámci již drženého [SerialNativeGate.synchronized]
+/// (např. krátký blok [openReadWrite]), jinak použij [releaseSerialPortOnce].
+Future<void> disposeSerialPortNativeOnce(SerialPort port) async {
+  if (!_releasedSerialPortsOnce.add(port)) {
+    if (kDebugMode) {
+      _log.fine('SerialPort: přeskakuji druhé uvolnění (stejná instance)');
+    }
+    return;
+  }
+  try {
+    try {
+      if (port.isOpen) {
+        port.close();
+      }
+    } catch (e, st) {
+      _log.fine('serial close: $e', e, st);
+    }
+    try {
+      port.dispose();
+    } catch (e, st) {
+      _log.fine('serial dispose: $e', e, st);
+    }
+  } catch (e, st) {
+    _log.fine('disposeSerialPortNativeOnce: $e', e, st);
+  } finally {
+    _releasedSerialPortsOnce.removeWhere((e) => identical(e, port));
+  }
+}
+
+/// Frontované uvolnění — bezpečné z libovolného async kontextu (disconnect, chyby po [open]).
+Future<void> releaseSerialPortOnce(SerialPort port) {
+  return SerialNativeGate.synchronized(() => disposeSerialPortNativeOnce(port));
+}
 
 /// Omezí čtení z portu — špatný driver může hlásit extrémní [SerialPort.bytesAvailable].
 const int _kSerialReadChunkMax = 65536;
@@ -35,6 +76,9 @@ class SerialDeviceTransport extends DeviceTransport {
 
   SerialPort? _port;
   bool _connected = false;
+  /// [true] hned na začátku [disconnect] — [_drain] a [announceLogicalStripLength] nepíšou na port
+  /// souběžně s uvolněním (Windows).
+  bool _closingPort = false;
   final Queue<_Frame> _queue = Queue();
   Timer? _drainTimer;
   bool _connecting = false;
@@ -47,25 +91,6 @@ class SerialDeviceTransport extends DeviceTransport {
 
   /// Uvolnění COM běží v microtasku — controller na tom čeká, aby se nekrývalo s dalšími nativními voláními.
   final List<Completer<void>> _pendingPortReleases = [];
-
-  static void _releaseSerialPort(SerialPort port) {
-    try {
-      try {
-        if (port.isOpen) {
-          port.close();
-        }
-      } catch (e, st) {
-        _log.fine('serial close: $e', e, st);
-      }
-      try {
-        port.dispose();
-      } catch (e, st) {
-        _log.fine('serial dispose: $e', e, st);
-      }
-    } catch (e, st) {
-      _log.fine('releaseSerialPort: $e', e, st);
-    }
-  }
 
   void _armReconnectBackoff() {
     _reconnectNotBefore = DateTime.now().add(const Duration(seconds: 2));
@@ -98,58 +123,67 @@ class SerialDeviceTransport extends DeviceTransport {
       if (_isPlaceholderPort(portName)) {
         return;
       }
-      final port = SerialPort(portName);
-      provisional = port;
-      if (!port.openReadWrite()) {
-        _log.fine('openReadWrite failed $portName: ${SerialPort.lastError}');
-        _releaseSerialPort(port);
-        provisional = null;
+      SerialPort? opened;
+      await SerialNativeGate.synchronized(() async {
+        final p = SerialPort(portName);
+        provisional = p;
+        if (!p.openReadWrite()) {
+          _log.fine('openReadWrite failed $portName: ${SerialPort.lastError}');
+          await disposeSerialPortNativeOnce(p);
+          provisional = null;
+          return;
+        }
+        // Stejné signály jako Python `SerialHandler._connect`: RTS on, DTR off,
+        // plná 8N1 + bez flow control (Win/macOS driver parity).
+        _applySerialConfig(p);
+        try {
+          p.flush(SerialPortBuffer.both);
+        } catch (e, st) {
+          _log.fine('flush after open: $e', e, st);
+        }
+        opened = p;
+      });
+      if (opened == null) {
         _armReconnectBackoff();
         return;
       }
-      // Stejné signály jako Python `SerialHandler._connect`: RTS on, DTR off,
-      // plná 8N1 + bez flow control (Win/macOS driver parity).
-      _applySerialConfig(port);
-      try {
-        port.flush(SerialPortBuffer.both);
-      } catch (e, st) {
-        _log.fine('flush after open: $e', e, st);
-      }
+      final port = opened!;
+      _closingPort = false;
       await Future<void>.delayed(const Duration(milliseconds: 100));
       if (gen != _lifecycleGen) {
-        _releaseSerialPort(port);
+        await releaseSerialPortOnce(port);
         provisional = null;
         return;
       }
       var okHs = await _handshakeAsync(port);
       if (gen != _lifecycleGen) {
-        _releaseSerialPort(port);
+        await releaseSerialPortOnce(port);
         provisional = null;
         return;
       }
       if (!okHs) {
         await _hardResetEspSerial(port);
         if (gen != _lifecycleGen) {
-          _releaseSerialPort(port);
+          await releaseSerialPortOnce(port);
           provisional = null;
           return;
         }
         okHs = await _handshakeAsync(port);
         if (gen != _lifecycleGen) {
-          _releaseSerialPort(port);
+          await releaseSerialPortOnce(port);
           provisional = null;
           return;
         }
         if (!okHs) {
           _log.fine('Handshake failed on $portName (after hard reset)');
-          _releaseSerialPort(port);
+          await releaseSerialPortOnce(port);
           provisional = null;
           _armReconnectBackoff();
           return;
         }
       }
       if (gen != _lifecycleGen) {
-        _releaseSerialPort(port);
+        await releaseSerialPortOnce(port);
         provisional = null;
         return;
       }
@@ -178,7 +212,7 @@ class SerialDeviceTransport extends DeviceTransport {
       _armReconnectBackoff();
     } finally {
       if (provisional != null) {
-        _releaseSerialPort(provisional!);
+        await releaseSerialPortOnce(provisional!);
       }
       _connecting = false;
     }
@@ -284,6 +318,7 @@ class SerialDeviceTransport extends DeviceTransport {
 
   @override
   void disconnect() {
+    _closingPort = true;
     _lifecycleGen++;
     _drainTimer?.cancel();
     _drainTimer = null;
@@ -297,9 +332,9 @@ class SerialDeviceTransport extends DeviceTransport {
       // dokončení aktuálního Dart callstacku včetně rozjetého [_drain].
       final done = Completer<void>();
       _pendingPortReleases.add(done);
-      scheduleMicrotask(() {
+      scheduleMicrotask(() async {
         try {
-          _releaseSerialPort(p);
+          await releaseSerialPortOnce(p);
         } finally {
           if (!done.isCompleted) done.complete();
         }
@@ -318,6 +353,7 @@ class SerialDeviceTransport extends DeviceTransport {
   }
 
   void _drain() {
+    if (_closingPort) return;
     final genAtEnter = _lifecycleGen;
     final port = _port;
     if (!_connected || port == null || _queue.isEmpty) return;
@@ -350,6 +386,7 @@ class SerialDeviceTransport extends DeviceTransport {
 
   @override
   void announceLogicalStripLength(int ledCount) {
+    if (_closingPort) return;
     final port = _port;
     if (!_connected || port == null || !port.isOpen) return;
     final n = ledCount.clamp(1, SerialAmbilightProtocol.maxLedsPerDevice);

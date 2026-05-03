@@ -27,7 +27,10 @@
         "hotkey_mode_light": "",
         "hotkey_mode_screen": "",
         "hotkey_mode_music": "",
-        "custom_hotkeys": []
+        "custom_hotkeys": [],
+        "ui_animations_enabled": true,
+        "performance_mode": false,
+        "firmware_manifest_url": ""
     },
     "light_mode": {
         "color": [255, 200, 100],

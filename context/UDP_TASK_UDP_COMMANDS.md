@@ -8,6 +8,7 @@ Port: **4210** (`UDP_PORT`), UTF-8 textové příkazy bez terminatoru; odpovědi
 | PONG | ESP → PC | UTF-8 `ESP32_PONG\|MAC\|Name\|ledCount\|ver` | např. `…\|2.0` — FW v posledním poli |
 | Identify | PC → ESP | UTF-8 `IDENTIFY` (8 B) | modrá 1 s, pak obnovení stavu |
 | Reset Wi‑Fi | PC → ESP | UTF-8 `RESET_WIFI` (10 B) | červené bliknutí, erase credentials, reboot |
+| OTA z URL | PC → ESP | UTF-8 `OTA_HTTP ` + URL (https/http, max ~900 B) | HTTPS OTA do druhého OTA oddílu (`ota_update.c`), pak reboot; vyžaduje partition tabulku se dvěma `ota_*` sloty |
 | RGB rámec | PC → ESP | `[0x02, bri_u8, r,g,b,…]` | `bri` + trojice na LED; rate limit ~66 Hz na FW |
 | Pixel | PC → ESP | `[0x03, idx_hi, idx_lo, r, g, b]` (6 B) | kalibrace / wizard |
 

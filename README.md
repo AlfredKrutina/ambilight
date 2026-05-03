@@ -87,6 +87,14 @@ GitHub Actions workflow **[`.github/workflows/ambilight_desktop.yml`](.github/wo
 
 Triggers are limited to changes under `ambilight_desktop/`, the workflow file, and this root `README.md`.
 
+### Firmware (ESP-IDF) and GitHub Pages
+
+Workflow **[`.github/workflows/firmware-pages.yml`](.github/workflows/firmware-pages.yml)** builds the ESP-IDF project under **`led_strip_monitor_pokus - Copy/esp32c3_firmware/`** (target **ESP32-C6** per `sdkconfig`) inside the `espressif/idf` Docker image, then publishes **`firmware/latest/manifest.json`** plus bootloader, partition table, and application binaries to the **`gh-pages`** branch. Enable **GitHub Pages** for this repository (source: branch **`gh-pages`**, folder **`/`** or **`/root`**) so the site is served at `https://<owner>.github.io/<repo>/`.
+
+The Flutter app (**Settings → Firmware**) can fetch that manifest, download artifacts to a local cache, flash over **USB** using **`esptool`** (must be on `PATH`, e.g. `pip install esptool`), or trigger **Wi‑Fi OTA** by sending the **`OTA_HTTP <url>`** UDP command to the device (HTTPS URL to the application `.bin` as published in the manifest). The first upgrade from an older single-partition layout to the **two-slot OTA partition table** still requires a **full USB flash** once.
+
+This partition layout targets **4 MB SPI flash** (`sdkconfig` + `partitions.csv` are aligned). Boards with only 2 MB need a smaller custom partition table and matching `CONFIG_ESPTOOLPY_FLASHSIZE_*` before the image will link or boot reliably.
+
 ---
 
 ## Project layout (`ambilight_desktop/lib/` — conceptual)
@@ -101,6 +109,7 @@ Triggers are limited to changes under `ambilight_desktop/`, the workflow file, a
 | Settings UI (multiple tabs) | `ui/settings/` |
 | Wizards | `ui/wizards/` |
 | Device / serial / UDP | `data/` and related services |
+| Firmware updates (manifest, esptool, OTA) | `features/firmware/` + **Settings → Firmware** |
 
 Tests live in **`ambilight_desktop/test/`**.
 

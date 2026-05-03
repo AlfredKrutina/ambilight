@@ -5,6 +5,8 @@ import 'package:flutter_libserialport/flutter_libserialport.dart';
 import 'package:logging/logging.dart';
 
 import '../core/protocol/serial_frame.dart';
+import '../data/serial_device_transport.dart';
+import '../data/serial_native_gate.dart';
 
 final _log = Logger('SerialPortDiscovery');
 
@@ -20,7 +22,13 @@ class SerialAmbilightPortDiscovery {
   SerialAmbilightPortDiscovery._();
 
   /// Název portu (např. `COM3`, `/dev/ttyUSB0`) nebo `null`, pokud nic neodpovědělo.
-  static Future<String?> findAmbilightPort({int baudRate = 115200}) async {
+  ///
+  /// [skipPortNames] — porty, které už aplikace drží otevřené (jiné serial zařízení). Na Windows
+  /// druhé `openReadWrite` na stejný COM často spadne procesem / CRT assert.
+  static Future<String?> findAmbilightPort({
+    int baudRate = 115200,
+    Set<String>? skipPortNames,
+  }) async {
     List<String> names;
     try {
       names = SerialPort.availablePorts;
@@ -28,35 +36,46 @@ class SerialAmbilightPortDiscovery {
       _log.fine('availablePorts: $e', e, st);
       return null;
     }
+    final skip = skipPortNames == null || skipPortNames.isEmpty
+        ? null
+        : skipPortNames.map((e) => e.trim().toUpperCase()).where((e) => e.isNotEmpty).toSet();
     for (final name in names) {
-      SerialPort? port;
-      try {
-        port = SerialPort(name);
-        if (!port.openReadWrite()) {
-          _log.fine('skip $name: openReadWrite failed ${SerialPort.lastError}');
-          continue;
-        }
-        final cfg = SerialPortConfig()..baudRate = baudRate;
-        port.config = cfg;
-        cfg.dispose();
-        port.flush();
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-        if (await _handshake(port)) {
-          _log.info('Ambilight handshake OK on $name');
-          return name;
-        }
-      } catch (e, st) {
-        _log.fine('$name: $e', e, st);
-      } finally {
-        if (port != null) {
-          try {
-            if (port.isOpen) port.close();
-          } catch (_) {}
-          try {
-            port.dispose();
-          } catch (_) {}
-        }
+      final skipKey = name.trim().toUpperCase();
+      if (skip != null && skip.contains(skipKey)) {
+        _log.fine('skip $name: port je v seznamu obsazených (aktivní serial v konfiguraci)');
+        continue;
       }
+      var handshakeOk = false;
+      await SerialNativeGate.synchronized(() async {
+        SerialPort? port;
+        try {
+          port = SerialPort(name);
+          if (!port.openReadWrite()) {
+            _log.fine('skip $name: openReadWrite failed ${SerialPort.lastError}');
+            return;
+          }
+          final cfg = SerialPortConfig()..baudRate = baudRate;
+          port.config = cfg;
+          cfg.dispose();
+          port.flush();
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+          if (await _handshake(port)) {
+            _log.info('Ambilight handshake OK on $name');
+            handshakeOk = true;
+          }
+        } catch (e, st) {
+          _log.fine('$name: $e', e, st);
+        } finally {
+          if (port != null) {
+            await disposeSerialPortNativeOnce(port);
+          }
+        }
+      });
+      if (handshakeOk) {
+        return name;
+      }
+      // Krátká prodleva mezi porty — driver na Windows po close někdy potřebuje okamžik.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
     }
     return null;
   }

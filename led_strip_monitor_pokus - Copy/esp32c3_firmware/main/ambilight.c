@@ -23,6 +23,7 @@
 #include "esp_timer.h" 
 #include "mqtt_client.h"
 #include "mdns.h"
+#include "ota_update.h"
 
 // ============ CONFIG ============
 #define LED_STRIP_GPIO_PIN    8
@@ -1044,6 +1045,16 @@ void task_udp(void *arg) {
                     
                     ESP_LOGI(TAG, "Rebooting...");
                     esp_restart();
+                    continue;
+                }
+
+                if (strncmp(rx_buffer, "OTA_HTTP ", 9) == 0) {
+                    const char *u = rx_buffer + 9;
+                    while (*u == ' ' || *u == '\t') {
+                        u++;
+                    }
+                    ESP_LOGI(TAG, "OTA_HTTP (UDP) z %s", inet_ntoa(source_addr.sin_addr));
+                    ambilight_start_ota(u);
                     continue;
                 }
                 

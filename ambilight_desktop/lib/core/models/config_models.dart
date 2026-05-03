@@ -116,6 +116,7 @@ class GlobalSettings {
     this.customHotkeys = const [],
     this.uiAnimationsEnabled = true,
     this.performanceMode = false,
+    this.firmwareManifestUrl = '',
   });
 
   final String serialPort;
@@ -137,6 +138,8 @@ class GlobalSettings {
   final bool uiAnimationsEnabled;
   /// Nižší frekvence smyčky, řidší snímání obrazovky a pozadí — bez vypínání UI animací.
   final bool performanceMode;
+  /// Volitelná URL `manifest.json` (GitHub Pages). Prázdné = záložka Firmware nabídne výchozí vzor v nápovědě.
+  final String firmwareManifestUrl;
 
   GlobalSettings copyWith({
     String? serialPort,
@@ -156,6 +159,7 @@ class GlobalSettings {
     List<CustomHotkeyEntry>? customHotkeys,
     bool? uiAnimationsEnabled,
     bool? performanceMode,
+    String? firmwareManifestUrl,
   }) {
     return GlobalSettings(
       serialPort: serialPort ?? this.serialPort,
@@ -175,6 +179,7 @@ class GlobalSettings {
       customHotkeys: customHotkeys ?? this.customHotkeys,
       uiAnimationsEnabled: uiAnimationsEnabled ?? this.uiAnimationsEnabled,
       performanceMode: performanceMode ?? this.performanceMode,
+      firmwareManifestUrl: firmwareManifestUrl ?? this.firmwareManifestUrl,
     );
   }
 
@@ -196,6 +201,7 @@ class GlobalSettings {
         'custom_hotkeys': customHotkeys.map((e) => e.toJson()).toList(),
         'ui_animations_enabled': uiAnimationsEnabled,
         'performance_mode': performanceMode,
+        'firmware_manifest_url': firmwareManifestUrl,
       };
 
   factory GlobalSettings.fromJson(Map<String, dynamic> j) {
@@ -234,6 +240,7 @@ class GlobalSettings {
       customHotkeys: asMapList(j['custom_hotkeys']).map((e) => CustomHotkeyEntry.fromJson(Map<String, dynamic>.from(e))).toList(),
       uiAnimationsEnabled: asBool(j['ui_animations_enabled'], true),
       performanceMode: asBool(j['performance_mode'], false),
+      firmwareManifestUrl: asString(j['firmware_manifest_url'], ''),
     );
   }
 }

@@ -6,6 +6,7 @@ Flutter desktop klient pro AmbiLight (kompatibilní s existujícím JSON / firmw
 
 - **Protokol** odpovídá `esp32c3_firmware/main/ambilight.c`: sériově `0xAA`/`0xBB` handshake, rámec `0xFF` + 200×(index, R, G, B) + `0xFE` (vyhlazení jasu `brightness/100` jako v Pythonu); UDP `0x02` + byte jasu + RGB trojice.
 - **Baud rate** bere aplikace z `global_settings.baud_rate` v JSON (výchozí 115200) — musí sedět s firmwarem.
+- **Firmware:** záložka **Nastavení → Firmware** — stažení `manifest.json` z GitHub Pages, cache binárek, flash přes **esptool** (PATH) nebo **OTA přes Wi‑Fi** (UDP `OTA_HTTP` + HTTPS URL na `.bin`).
 - **Po startu**: `load()` založí transporty a zkusí `connect()`. Pokud ESP ještě není připravený, spojení se **automaticky zkusí znovu cca každých 5 s**, dokud handshake / UDP bind nepůjde.
 - **Zařízení**: v `config` musí být platný `port` (serial) nebo `ip_address` + `udp_port` (wifi). Prázdný port = žádný výstup na dané zařízení.
 

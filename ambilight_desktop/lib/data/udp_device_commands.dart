@@ -53,4 +53,21 @@ abstract final class UdpDeviceCommands {
 
   static Future<bool> sendResetWifi(String ip, int port, {String? logContext}) =>
       sendUtf8Text(ip, port, resetWifiPayload, logContext: logContext ?? 'RESET_WIFI');
+
+  /// Příkaz `OTA_HTTP <url>` — firmware musí mít HTTPS OTA (viz `ambilight.c` + `ota_update.c`).
+  /// [url] typicky přímý odkaz na `.bin` z manifestu (`ota_http_url`).
+  static Future<bool> sendOtaHttpUrl(
+    String ip,
+    int port,
+    String url, {
+    String? logContext,
+  }) {
+    final u = url.trim();
+    if (u.length < 12 || u.length > 1300) {
+      _log.warning('sendOtaHttpUrl: URL příliš krátká nebo dlouhá');
+      return Future.value(false);
+    }
+    final payload = 'OTA_HTTP $u';
+    return sendUtf8Text(ip, port, payload, logContext: logContext ?? 'OTA_HTTP');
+  }
 }

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../application/ambilight_app_controller.dart';
+import '../../../core/ambilight_presets.dart';
 import '../../../core/models/config_models.dart';
 import '../../../features/screen_capture/screen_capture_source.dart';
 import '../../../features/screen_overlay/scan_overlay_controller.dart';
@@ -74,9 +75,46 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
     return _monitors.first.mssStyleIndex;
   }
 
+  static const _builtinScreenPresetLabels = <String>['Balanced', 'Custom'];
+
+  List<String> _activePresetDropdownItems(ScreenModeSettings sm) {
+    final set = <String>{
+      ...AmbilightPresets.screenNames,
+      ..._builtinScreenPresetLabels,
+      ...widget.draft.userScreenPresets.keys,
+      sm.activePreset,
+    };
+    final out = set.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return out;
+  }
+
+  String _activePresetDropdownValue(ScreenModeSettings sm, List<String> items) {
+    if (items.contains(sm.activePreset)) return sm.activePreset;
+    return items.isNotEmpty ? items.first : sm.activePreset;
+  }
+
+  List<String> _calibrationProfileDropdownItems(ScreenModeSettings sm) {
+    final set = <String>{
+      'Default',
+      ...sm.calibrationProfiles.keys,
+      sm.activeCalibrationProfile,
+    };
+    final out = set.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return out;
+  }
+
+  String _calibrationProfileDropdownValue(ScreenModeSettings sm, List<String> items) {
+    if (items.contains(sm.activeCalibrationProfile)) return sm.activeCalibrationProfile;
+    return items.isNotEmpty ? items.first : sm.activeCalibrationProfile;
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = widget.draft.screenMode;
+    final presetDropdownItems = _activePresetDropdownItems(s);
+    final presetDropdownValue = _activePresetDropdownValue(s, presetDropdownItems);
+    final calProfileItems = _calibrationProfileDropdownItems(s);
+    final calProfileValue = _calibrationProfileDropdownValue(s, calProfileItems);
     final innerMax = AppBreakpoints.maxContentWidth(widget.maxWidth).clamp(280.0, widget.maxWidth);
 
     Widget modeBar() {
@@ -400,24 +438,36 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                 label: '${s.minBrightness}',
                 onChanged: (v) => _patch(s.copyWith(minBrightness: v.round())),
               ),
-              TextFormField(
-                initialValue: s.activePreset,
+              DropdownButtonFormField<String>(
                 decoration: const InputDecoration(
-                  labelText: 'active_preset',
+                  labelText: 'Barevný preset obrazovky',
+                  helperText: 'Rychlé presety, výchozí názvy a uložené user_screen_presets',
                   border: OutlineInputBorder(),
                 ),
-                onChanged: (v) => _patch(s.copyWith(activePreset: v.trim().isEmpty ? s.activePreset : v.trim())),
+                value: presetDropdownValue,
+                items: presetDropdownItems
+                    .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v == null) return;
+                  _patch(s.copyWith(activePreset: v));
+                },
               ),
-              const SizedBox(height: 8),
-              TextFormField(
-                initialValue: s.activeCalibrationProfile,
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
                 decoration: const InputDecoration(
-                  labelText: 'active_calibration_profile',
+                  labelText: 'Aktivní kalibrační profil',
+                  helperText: 'Klíče z calibration_profiles v konfiguraci',
                   border: OutlineInputBorder(),
                 ),
-                onChanged: (v) => _patch(
-                  s.copyWith(activeCalibrationProfile: v.trim().isEmpty ? s.activeCalibrationProfile : v.trim()),
-                ),
+                value: calProfileValue,
+                items: calProfileItems
+                    .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v == null) return;
+                  _patch(s.copyWith(activeCalibrationProfile: v));
+                },
               ),
             ],
           ),

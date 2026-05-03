@@ -40,8 +40,17 @@ class _DevicesPageState extends State<DevicesPage> {
     setState(() => _findingCom = true);
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(const SnackBar(content: Text('Hledám COM s handshake 0xAA / 0xBB…')));
+    final snap = c.connectionSnapshot;
+    final skipOpenCom = <String>{
+      for (final d in c.config.globalSettings.devices)
+        if (d.type == 'serial' &&
+            d.port.trim().isNotEmpty &&
+            (snap[d.id] ?? false))
+          d.port.trim(),
+    };
     final port = await SerialAmbilightPortDiscovery.findAmbilightPort(
       baudRate: c.config.globalSettings.baudRate,
+      skipPortNames: skipOpenCom,
     );
     if (!mounted) return;
     setState(() => _findingCom = false);

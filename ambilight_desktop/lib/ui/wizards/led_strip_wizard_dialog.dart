@@ -644,17 +644,24 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
                   final p = step.sideStep!;
                   _captured[p.captureKey] = _sliderValue.round();
                   if (_stepIndex < _steps.length - 1) {
-                    setState(() => _stepIndex++);
-                    final next = _steps[_stepIndex];
-                    if (next.kind == _WizardStepKind.point) {
-                      final key = next.sideStep!.captureKey;
-                      final existing = _captured[key];
-                      if (existing != null) {
-                        _sliderValue = existing.toDouble();
-                      } else {
-                        _syncSliderFromDevice(c);
+                    setState(() {
+                      _stepIndex++;
+                      final next = _steps[_stepIndex];
+                      if (next.kind == _WizardStepKind.point) {
+                        final key = next.sideStep!.captureKey;
+                        final existing = _captured[key];
+                        if (existing != null) {
+                          _sliderValue = existing.toDouble();
+                        } else {
+                          // Zachovat posuvník z předchozího kroku (ne reset na ledCount~/2).
+                          final d = _findDevice(c.config);
+                          final maxIdx = _sliderMaxForDevice(d).toDouble();
+                          _sliderValue = _sliderValue.clamp(0, maxIdx);
+                        }
                       }
-                    } else {
+                    });
+                    final after = _steps[_stepIndex];
+                    if (after.kind != _WizardStepKind.point) {
                       c.setWizardLedPreview(null, -1, 0, 0, 0);
                     }
                     _pushPreview(c);

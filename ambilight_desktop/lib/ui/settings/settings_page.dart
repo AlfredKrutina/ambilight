@@ -17,6 +17,7 @@ import 'tabs/light_settings_tab.dart';
 import 'tabs/music_settings_tab.dart';
 import 'tabs/pc_health_settings_tab.dart';
 import 'tabs/screen_settings_tab.dart';
+import 'tabs/firmware_settings_tab.dart';
 import 'tabs/smart_integration_tab.dart';
 import 'tabs/spotify_settings_tab.dart';
 
@@ -29,7 +30,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  static const _tabCount = 8;
+  static const _tabCount = 9;
 
   @override
   void initState() {
@@ -184,6 +185,12 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                 maxWidth: contentW,
                 onSmartLightsChanged: _patchSmartLights,
               );
+            case 8:
+              return FirmwareSettingsTab(
+                draft: c.config,
+                maxWidth: contentW,
+                onGlobalChanged: _patchGlobal,
+              );
             default:
               return const SizedBox.shrink();
           }
@@ -290,6 +297,7 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                 Tab(text: 'PC Health'),
                 Tab(text: 'Spotify'),
                 Tab(text: 'Smart Home'),
+                Tab(text: 'Firmware'),
               ],
             ),
             Expanded(
@@ -376,6 +384,12 @@ class _SettingsSidebar extends StatelessWidget {
               label: 'Smart Home',
               selected: selectedIndex == 7,
               onTap: () => onSelect(7),
+            ),
+            AmbiSidebarTile(
+              icon: Icons.system_update_alt_rounded,
+              label: 'Firmware',
+              selected: selectedIndex == 8,
+              onTap: () => onSelect(8),
             ),
           ],
         ),
