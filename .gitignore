@@ -1,0 +1,63 @@
+# =============================================================================
+# Kořen monorepa AmbiLight — ignorovat jen generované / lokální nástroje.
+# Složka context/ se zde NEVYNECHÁvá — plánovací a auditní soubory patří do gitu.
+# =============================================================================
+
+# Lokální klon Flutter SDK (nepatří do repozitáře)
+/flutter/
+
+# -----------------------------------------------------------------------------
+# Flutter (ambilight_desktop) — duplicitně z kořene, když se pracuje z monorepa
+# (většinu už řeší ambilight_desktop/.gitignore)
+# -----------------------------------------------------------------------------
+ambilight_desktop/.dart_tool/
+ambilight_desktop/build/
+
+# -----------------------------------------------------------------------------
+# ESP-IDF výstupy v referenčním stromu (obnoví je idf.py build)
+# Pozor: nepoužívat slepě **/build/ — nezasahovat do context/ ani jiných zdrojů.
+# -----------------------------------------------------------------------------
+**/esp32c3_firmware/build/
+**/esp32c3_lamp_firmware/build/
+
+# -----------------------------------------------------------------------------
+# Python (legacy PyQt / skripty)
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+*.egg-info/
+.eggs/
+dist/
+*.spec.bak
+
+# -----------------------------------------------------------------------------
+# OS a IDE
+# -----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+*.stackdump
+
+# IntelliJ / Android Studio (kořen i podsložky)
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Visual Studio / MSVC
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+
+# -----------------------------------------------------------------------------
+# Lokální tajemství / prostředí (nikdy do commitu)
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
