@@ -1349,9 +1349,30 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         // Topic: alfred/discovery
         // Payload: {"id": "AF1101", "name": "Lampa AF1101"}
         char discovery_payload[128];
-        snprintf(discovery_payload, sizeof(discovery_payload), "{\"id\": \"%s\", \"name\": \"Lampa %s\"}", g_device_id, g_device_id);
+        snprintf(discovery_payload, sizeof(discovery_payload), "{\"id\": \"%s\", \"name\": \"Ambilight %s\"}", g_device_id, g_device_id);
         esp_mqtt_client_publish(mqtt_client, "alfred/discovery", discovery_payload, 0, 1, 0);
         ESP_LOGI(TAG, "Sent Discovery: %s", discovery_payload);
+
+        // 2.5 Home Assistant — MQTT discovery (stejné topic schéma jako lamp firmware)
+        char ha_topic[64];
+        snprintf(ha_topic, sizeof(ha_topic), "homeassistant/light/%s/config", g_device_id);
+        char ha_payload[1024];
+        snprintf(ha_payload, sizeof(ha_payload),
+                 "{\"name\":\"Ambilight %s\",\"unique_id\":\"%s_light\","
+                 "\"cmd_t\":\"alfred/devices/%s/power\",\"stat_t\":\"alfred/"
+                 "devices/%s/power/state\","
+                 "\"pl_on\":\"true\",\"pl_off\":\"false\","
+                 "\"bri_cmd_t\":\"alfred/devices/%s/"
+                 "brightness\",\"bri_stat_t\":\"alfred/devices/%s/brightness/"
+                 "state\",\"bri_scl\":100,"
+                 "\"rgb_cmd_t\":\"alfred/devices/%s/"
+                 "color\",\"rgb_stat_t\":\"alfred/devices/%s/color/state\","
+                 "\"dev\":{\"ids\":[\"%s\"],\"name\":\"Ambilight LED\","
+                 "\"mf\":\"Alfred\",\"mdl\":\"ESP32-C6\"}}",
+                 g_device_id, g_device_id, g_device_id, g_device_id, g_device_id,
+                 g_device_id, g_device_id, g_device_id, g_device_id);
+        esp_mqtt_client_publish(mqtt_client, ha_topic, ha_payload, 0, 1, 1);
+        ESP_LOGI(TAG, "Sent HA discovery -> %s", ha_topic);
 
         // 3. Subscribe to UNIQUE Topics (Command path)
         // alfred/devices/<ID>/#

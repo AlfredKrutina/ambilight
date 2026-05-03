@@ -36,7 +36,7 @@ jobs:
             -v "${{ github.workspace }}:/project" \
             -w "/project/${FW}" \
             espressif/idf:v5.3.2 \
-            idf.py build
+            bash -lc 'idf.py fullclean && idf.py build'
 
       - name: Assemble site (root = Pages)
         run: |
