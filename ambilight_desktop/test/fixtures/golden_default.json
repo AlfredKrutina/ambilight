@@ -20,17 +20,13 @@
         "start_mode": "light",
         "start_minimized": false,
         "autostart": false,
-        "theme": "dark",
+        "theme": "dark_blue",
         "capture_method": "mss",
-        "hotkeys_enabled": true,
-        "hotkey_toggle": "ctrl+shift+l",
-        "hotkey_mode_light": "",
-        "hotkey_mode_screen": "",
-        "hotkey_mode_music": "",
-        "custom_hotkeys": [],
         "ui_animations_enabled": true,
         "performance_mode": false,
-        "firmware_manifest_url": "https://alfredkrutina.github.io/ambilight/firmware/latest/"
+        "firmware_manifest_url": "https://alfredkrutina.github.io/ambilight/firmware/latest/",
+        "onboarding_completed": true,
+        "ui_language": "system"
     },
     "light_mode": {
         "color": [255, 200, 100],

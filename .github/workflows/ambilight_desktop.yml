@@ -49,20 +49,36 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      # Musí zůstat čisté (viz ambilight_desktop/analysis_options.yaml — skutečné bugy zůstávají).
       - name: Flutter analyze
         run: flutter analyze
 
       - name: Flutter test
         run: flutter test
 
+      # Debug = rychlá kontrola; release = tree-shaking / optimalizace (Linux + Windows — hlavní cíle).
       - name: Flutter build linux
         if: runner.os == 'Linux'
-        run: flutter build linux --debug
+        run: |
+          flutter build linux --debug
+          flutter build linux --release
 
       - name: Flutter build windows
         if: runner.os == 'Windows'
-        run: flutter build windows --debug
+        run: |
+          flutter build windows --debug
+          flutter build windows --release --dart-define=GIT_SHA=${{ github.sha }} --dart-define=AMBI_CHANNEL=ci
+
+      - name: Upload Windows release artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ambilight-desktop-windows-release-x64
+          path: ambilight_desktop/build/windows/x64/runner/Release/
+          if-no-files-found: warn
 
       - name: Flutter build macos
         if: runner.os == 'macOS'
-        run: flutter build macos --debug
+        run: |
+          flutter build macos --debug
+          flutter build macos --release

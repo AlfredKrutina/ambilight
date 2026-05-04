@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models/config_models.dart';
+import '../../l10n/context_ext.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// Krátký popis typu a počtu LED — bez IP ani technických identifikátorů.
-String deviceKindUserLabel(DeviceSettings d) => d.type == 'wifi' ? 'Wi‑Fi' : 'USB';
-
-String deviceFriendlySubtitle(DeviceSettings d) {
-  final kind = deviceKindUserLabel(d);
-  final n = d.ledCount;
-  return '$kind · $n LED';
-}
+String deviceFriendlySubtitle(DeviceSettings d, AppLocalizations l10n) =>
+    d.type == 'wifi' ? l10n.deviceSubtitleWifiLed(d.ledCount) : l10n.deviceSubtitleUsbLed(d.ledCount);
 
 /// Potvrzení odebrání zařízení z konfigurace ([isLast] = poslední v seznamu).
 Future<bool> showConfirmRemoveDeviceDialog(
@@ -17,25 +14,24 @@ Future<bool> showConfirmRemoveDeviceDialog(
   required String deviceName,
   required bool isLast,
 }) async {
+  final l10n = context.l10n;
   final scheme = Theme.of(context).colorScheme;
   final go = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('Odebrat zařízení?'),
+      title: Text(l10n.removeDeviceDialogTitle),
       content: Text(
-        isLast
-            ? 'Seznam zařízení může zůstat prázdný — není to chyba. Bez zařízení jen nejde posílat barvy na pásek; můžeš dál nastavovat režimy a presety. Až hardware připojíš, přidej ho znovu tady nebo přes Discovery.'
-            : 'Zařízení „$deviceName“ se odebere z konfigurace.',
+        isLast ? l10n.removeDeviceDialogLastBody : l10n.removeDeviceDialogNamedBody(deviceName),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Zrušit')),
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
         FilledButton(
           style: FilledButton.styleFrom(
             backgroundColor: scheme.error,
             foregroundColor: scheme.onError,
           ),
           onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('Odebrat'),
+          child: Text(l10n.delete),
         ),
       ],
     ),
@@ -65,31 +61,33 @@ class ConfigDeviceListTile extends StatelessWidget {
   final VoidCallback? onRemove;
 
   static void _showDetails(BuildContext context, DeviceSettings d) {
+    final l10n = context.l10n;
     final buf = StringBuffer()
-      ..writeln('Interní ID: ${d.id}')
-      ..writeln('Typ: ${d.type}')
-      ..writeln('Počet LED: ${d.ledCount}');
+      ..writeln(l10n.detailLineInternalId(d.id))
+      ..writeln(l10n.detailLineType(d.type))
+      ..writeln(l10n.detailLineLedCount(d.ledCount));
     if (d.type == 'wifi') {
-      buf.writeln('IP: ${d.ipAddress.isEmpty ? "—" : d.ipAddress}');
-      buf.writeln('UDP port: ${d.udpPort}');
+      buf.writeln(l10n.detailLineIp(d.ipAddress.isEmpty ? '—' : d.ipAddress));
+      buf.writeln(l10n.detailLineUdpPort(d.udpPort));
     } else {
-      buf.writeln('Port: ${d.port}');
+      buf.writeln(l10n.detailLineSerialPort(d.port));
     }
     if (d.firmwareVersion.isNotEmpty) {
-      buf.writeln('Firmware: ${d.firmwareVersion}');
+      buf.writeln(l10n.detailLineFirmware(d.firmwareVersion));
     }
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Technické údaje'),
+        title: Text(l10n.deviceDetailsTitle),
         content: SelectableText(buf.toString().trimRight()),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Zavřít'))],
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.close))],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final d = device;
     final isWifi = d.type == 'wifi';
     final scheme = Theme.of(context).colorScheme;
@@ -129,7 +127,7 @@ class ConfigDeviceListTile extends StatelessWidget {
                       runSpacing: 4,
                       children: [
                         Text(
-                          deviceFriendlySubtitle(d),
+                          deviceFriendlySubtitle(d, l10n),
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: scheme.onSurfaceVariant,
                               ),
@@ -140,7 +138,7 @@ class ConfigDeviceListTile extends StatelessWidget {
                           color: connected ? scheme.primary : scheme.error,
                         ),
                         Text(
-                          connected ? 'Spojení OK' : 'Nepřipojeno',
+                          connected ? l10n.deviceConnectionOkLabel : l10n.deviceConnectionOfflineLabel,
                           style: Theme.of(context).textTheme.labelMedium?.copyWith(
                                 color: connected ? scheme.primary : scheme.error,
                               ),
@@ -151,7 +149,7 @@ class ConfigDeviceListTile extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(
-                          'Ovládání přes Home Assistant — barvy z PC se na toto zařízení neposílají.',
+                          l10n.deviceHaControlledNote,
                           style: Theme.of(context).textTheme.labelSmall?.copyWith(color: scheme.tertiary),
                         ),
                       ),
@@ -159,7 +157,7 @@ class ConfigDeviceListTile extends StatelessWidget {
                 ),
               ),
               PopupMenuButton<String>(
-                tooltip: 'Další akce',
+                tooltip: l10n.menuMoreActions,
                 onSelected: (value) {
                   switch (value) {
                     case 'details':
@@ -177,25 +175,27 @@ class ConfigDeviceListTile extends StatelessWidget {
                   }
                 },
                 itemBuilder: (ctx) {
+                  final loc = AppLocalizations.of(ctx);
                   final err = Theme.of(ctx).colorScheme.error;
                   return [
-                    const PopupMenuItem(value: 'edit', child: Text('Upravit mapování LED')),
+                    PopupMenuItem(value: 'edit', child: Text(loc.menuEditLedMapping)),
                     const PopupMenuDivider(),
-                    const PopupMenuItem(value: 'details', child: Text('Technické údaje…')),
+                    PopupMenuItem(value: 'details', child: Text(loc.menuTechnicalDetailsEllipsis)),
                     if (isWifi && d.ipAddress.isNotEmpty && onIdentify != null)
-                      const PopupMenuItem(value: 'identify', child: Text('Krátce identifikovat (bliknutí)')),
+                      PopupMenuItem(value: 'identify', child: Text(loc.menuIdentifyBlink)),
                     if (onRefreshFirmware != null)
-                      const PopupMenuItem(value: 'fw', child: Text('Obnovit údaj o firmwaru')),
+                      PopupMenuItem(value: 'fw', child: Text(loc.menuRefreshFirmwareInfo)),
                     if (isWifi && d.ipAddress.isNotEmpty && onResetWifi != null)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'reset_wifi',
-                        child: Text('Reset uložené Wi‑Fi na kontroléru'),
+                        child: Text(loc.menuResetSavedWifi),
                       ),
                     if (onRemove != null) ...[
                       const PopupMenuDivider(),
                       PopupMenuItem(
                         value: 'remove',
-                        child: Text('Odebrat zařízení…', style: TextStyle(color: err, fontWeight: FontWeight.w600)),
+                        child:
+                            Text(loc.menuRemoveDeviceEllipsis, style: TextStyle(color: err, fontWeight: FontWeight.w600)),
                       ),
                     ],
                   ];

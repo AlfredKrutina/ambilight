@@ -8,6 +8,8 @@ import '../../application/ambilight_app_controller.dart';
 import '../../core/models/config_models.dart';
 import '../../core/protocol/serial_frame.dart';
 import '../../features/screen_capture/screen_capture_source.dart';
+import '../../l10n/context_ext.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../widgets/config_drag_slider.dart';
 import 'wizard_dialog_shell.dart';
 
@@ -52,7 +54,7 @@ class LedStripWizardDialog extends StatefulWidget {
 }
 
 class _SideStep {
-  const _SideStep({required this.captureKey, required this.title, required this.description});
+  _SideStep({required this.captureKey, required this.title, required this.description});
   final String captureKey;
   final String title;
   final String description;
@@ -60,64 +62,57 @@ class _SideStep {
 
 class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
   static const _order = ['left', 'top', 'right', 'bottom'];
-  static final Map<String, List<_SideStep>> _sideSteps = {
-    'left': const [
-      _SideStep(
-        captureKey: 'left_start',
-        title: 'Levá strana — začátek',
-        description:
-            'Posuňte posuvník tak, aby **zelená LED** byla na **začátku** levé strany (obvykle dole).',
-      ),
-      _SideStep(
-        captureKey: 'left_end',
-        title: 'Levá strana — konec',
-        description:
-            'Posuňte posuvník tak, aby **zelená LED** byla na **konci** levé strany (obvykle nahoře).',
-      ),
-    ],
-    'top': const [
-      _SideStep(
-        captureKey: 'top_start',
-        title: 'Horní strana — začátek',
-        description:
-            'Posuňte posuvník tak, aby **zelená LED** byla na **začátku** horní hrany (vlevo).',
-      ),
-      _SideStep(
-        captureKey: 'top_end',
-        title: 'Horní strana — konec',
-        description:
-            'Posuňte posuvník tak, aby **zelená LED** byla na **konci** horní hrany (vpravo).',
-      ),
-    ],
-    'right': const [
-      _SideStep(
-        captureKey: 'right_start',
-        title: 'Pravá strana — začátek',
-        description:
-            'Posuňte posuvník tak, aby **zelená LED** byla na **začátku** pravé strany (nahoře).',
-      ),
-      _SideStep(
-        captureKey: 'right_end',
-        title: 'Pravá strana — konec',
-        description:
-            'Posuňte posuvník tak, aby **zelená LED** byla na **konci** pravé strany (dole).',
-      ),
-    ],
-    'bottom': const [
-      _SideStep(
-        captureKey: 'bottom_start',
-        title: 'Spodní strana — začátek',
-        description:
-            'Posuňte posuvník tak, aby **zelená LED** byla na **začátku** spodní hrany (vpravo).',
-      ),
-      _SideStep(
-        captureKey: 'bottom_end',
-        title: 'Spodní strana — konec',
-        description:
-            'Posuňte posuvník tak, aby **zelená LED** byla na **konci** spodní hrany (vlevo).',
-      ),
-    ],
-  };
+
+  Map<String, List<_SideStep>> _sideSteps(AppLocalizations l10n) => {
+        'left': [
+          _SideStep(
+            captureKey: 'left_start',
+            title: l10n.ledWizLeftStartTitle,
+            description: l10n.ledWizLeftStartBody,
+          ),
+          _SideStep(
+            captureKey: 'left_end',
+            title: l10n.ledWizLeftEndTitle,
+            description: l10n.ledWizLeftEndBody,
+          ),
+        ],
+        'top': [
+          _SideStep(
+            captureKey: 'top_start',
+            title: l10n.ledWizTopStartTitle,
+            description: l10n.ledWizTopStartBody,
+          ),
+          _SideStep(
+            captureKey: 'top_end',
+            title: l10n.ledWizTopEndTitle,
+            description: l10n.ledWizTopEndBody,
+          ),
+        ],
+        'right': [
+          _SideStep(
+            captureKey: 'right_start',
+            title: l10n.ledWizRightStartTitle,
+            description: l10n.ledWizRightStartBody,
+          ),
+          _SideStep(
+            captureKey: 'right_end',
+            title: l10n.ledWizRightEndTitle,
+            description: l10n.ledWizRightEndBody,
+          ),
+        ],
+        'bottom': [
+          _SideStep(
+            captureKey: 'bottom_start',
+            title: l10n.ledWizBottomStartTitle,
+            description: l10n.ledWizBottomStartBody,
+          ),
+          _SideStep(
+            captureKey: 'bottom_end',
+            title: l10n.ledWizBottomEndTitle,
+            description: l10n.ledWizBottomEndBody,
+          ),
+        ],
+      };
 
   AmbilightAppController? _controller;
 
@@ -150,6 +145,7 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
     _monitorFieldCtrl = TextEditingController(text: '1');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
       final c = context.read<AmbilightAppController>();
       final devs = c.config.globalSettings.devices;
       final devId = widget.initialDeviceId ??
@@ -160,7 +156,7 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
         _deviceId = devId;
         _monitorMss = mon;
         _append = widget.appendMode;
-        _steps = [_WizardStep.config()];
+        _steps = [_WizardStep.config(l10n)];
       });
       _monitorFieldCtrl.text = '$_monitorMss';
       _syncSliderFromDevice(c);
@@ -232,20 +228,21 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
     c.setWizardLedPreview(id, _sliderValue.round(), 0, 255, 0);
   }
 
-  void _buildStepsAfterConfig() {
+  void _buildStepsAfterConfig(AppLocalizations l10n) {
     final sides = <String>[];
     if (_chkLeft) sides.add('left');
     if (_chkTop) sides.add('top');
     if (_chkRight) sides.add('right');
     if (_chkBottom) sides.add('bottom');
+    final sideMap = _sideSteps(l10n);
     final next = <_WizardStep>[_steps.first];
     for (final side in _order) {
       if (!sides.contains(side)) continue;
-      for (final p in _sideSteps[side]!) {
+      for (final p in sideMap[side]!) {
         next.add(_WizardStep.point(p));
       }
     }
-    next.add(_WizardStep.finish());
+    next.add(_WizardStep.finish(l10n));
     setState(() {
       _steps = next;
       _stepIndex = 1;
@@ -344,12 +341,13 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
 
     if (mounted) {
       Navigator.pop(context);
+      final snack = AppLocalizations.of(context).ledWizSavedSnack(
+        newSegs.length,
+        newLedCount,
+        _monitorMss,
+      );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Uloženo ${newSegs.length} segmentů, LED $newLedCount, monitor $_monitorMss.',
-          ),
-        ),
+        SnackBar(content: Text(snack)),
       );
     }
   }
@@ -363,29 +361,33 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<AmbilightAppController>();
+    final c = context.read<AmbilightAppController>();
     final scheme = Theme.of(context).colorScheme;
-    final dev = _findDevice(c.config);
-    final monLocked = widget.overrideMonitorIndex != null;
+    return AnimatedBuilder(
+      animation: Listenable.merge([c, c.previewFrameNotifier]),
+      builder: (context, _) {
+        final l10n = context.l10n;
+        final dev = _findDevice(c.config);
+        final monLocked = widget.overrideMonitorIndex != null;
 
-    final step = _steps.isEmpty || _stepIndex >= _steps.length
-        ? _WizardStep.config()
-        : _steps[_stepIndex];
+        final step = _steps.isEmpty || _stepIndex >= _steps.length
+            ? _WizardStep.config(l10n)
+            : _steps[_stepIndex];
 
-    final maxIdx = _sliderMaxForDevice(dev).toDouble();
-    if (_sliderValue > maxIdx) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _sliderValue = maxIdx);
-      });
-    }
+        final maxIdx = _sliderMaxForDevice(dev).toDouble();
+        if (_sliderValue > maxIdx) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _sliderValue = maxIdx);
+          });
+        }
 
-    return PopScope(
+        return PopScope(
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) c.setWizardLedPreview(null, -1, 0, 0, 0);
       },
       child: WizardDialogShell(
-        title: dev != null ? 'Průvodce LED — ${dev.name}' : 'Průvodce LED',
-        actions: _actions(context, c, step, dev),
+        title: dev != null ? l10n.ledWizTitleWithDevice(dev.name) : l10n.ledWizTitle,
+        actions: _actions(context, l10n, c, step, dev),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -397,12 +399,12 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
                   children: [
                     if (widget.overrideMonitorIndex != null)
                       Text(
-                        'Monitor: $_monitorMss (zámek)',
+                        l10n.ledWizMonitorLocked(_monitorMss),
                         style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w600),
                       ),
                     if (widget.appendMode)
                       Text(
-                        'Režim: přidat segmenty',
+                        l10n.ledWizAppendBadge,
                         style: TextStyle(color: scheme.tertiary, fontWeight: FontWeight.w600),
                       ),
                   ],
@@ -413,7 +415,7 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Krok ${_stepIndex + 1} / ${_steps.isEmpty ? 1 : _steps.length}',
+              l10n.ledWizStepProgress(_stepIndex + 1, _steps.isEmpty ? 1 : _steps.length),
               style: Theme.of(context).textTheme.labelLarge?.copyWith(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 8),
@@ -424,15 +426,15 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
             if (step.kind == _WizardStepKind.config) ...[
               if (c.config.globalSettings.devices.isEmpty)
                 Text(
-                  'Nejdřív přidejte zařízení (Discovery nebo ručně).',
+                  l10n.ledWizAddDeviceFirst,
                   style: TextStyle(color: scheme.error),
                 )
               else
                 DropdownButtonFormField<String>(
                   value: _resolvedDeviceId(c.config)!,
-                  decoration: const InputDecoration(
-                    labelText: 'Zařízení',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.ledWizDeviceLabel,
+                    border: const OutlineInputBorder(),
                   ),
                   items: [
                     for (final d in c.config.globalSettings.devices)
@@ -444,32 +446,32 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
                   }),
                 ),
               const SizedBox(height: 12),
-              Text('Strany pásku', style: Theme.of(context).textTheme.titleSmall),
+              Text(l10n.ledWizStripSides, style: Theme.of(context).textTheme.titleSmall),
               CheckboxListTile(
                 value: _chkLeft,
                 onChanged: (v) => setState(() => _chkLeft = v ?? false),
-                title: const Text('Levá'),
+                title: Text(l10n.scanEdgeLeft),
                 controlAffinity: ListTileControlAffinity.leading,
                 contentPadding: EdgeInsets.zero,
               ),
               CheckboxListTile(
                 value: _chkTop,
                 onChanged: (v) => setState(() => _chkTop = v ?? false),
-                title: const Text('Horní'),
+                title: Text(l10n.scanEdgeTop),
                 controlAffinity: ListTileControlAffinity.leading,
                 contentPadding: EdgeInsets.zero,
               ),
               CheckboxListTile(
                 value: _chkRight,
                 onChanged: (v) => setState(() => _chkRight = v ?? false),
-                title: const Text('Pravá'),
+                title: Text(l10n.scanEdgeRight),
                 controlAffinity: ListTileControlAffinity.leading,
                 contentPadding: EdgeInsets.zero,
               ),
               CheckboxListTile(
                 value: _chkBottom,
                 onChanged: (v) => setState(() => _chkBottom = v ?? false),
-                title: const Text('Spodní'),
+                title: Text(l10n.scanEdgeBottom),
                 controlAffinity: ListTileControlAffinity.leading,
                 contentPadding: EdgeInsets.zero,
               ),
@@ -483,17 +485,21 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
                 else if (_monitors.isNotEmpty)
                   DropdownButtonFormField<int>(
                     value: _monitorDropdownValue(),
-                    decoration: const InputDecoration(
-                      labelText: 'Referenční monitor (nativní seznam)',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: l10n.ledWizRefMonitorLabel,
+                      border: const OutlineInputBorder(),
                     ),
                     items: [
                       for (final m in _monitors)
                         DropdownMenuItem(
                           value: m.mssStyleIndex,
                           child: Text(
-                            'Monitor ${m.mssStyleIndex} — ${m.width}×${m.height}'
-                            '${m.isPrimary ? ' · primární' : ''}',
+                            l10n.ledWizMonitorLine(
+                              m.mssStyleIndex,
+                              m.width,
+                              m.height,
+                              m.isPrimary ? l10n.ledWizPrimarySuffix : '',
+                            ),
                           ),
                         ),
                     ],
@@ -507,9 +513,9 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
                   )
                 else
                   TextField(
-                    decoration: const InputDecoration(
-                      labelText: 'Index monitoru (MSS, ručně — seznam nedostupný)',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: l10n.ledWizMonitorManualLabel,
+                      border: const OutlineInputBorder(),
                     ),
                     keyboardType: TextInputType.number,
                     controller: _monitorFieldCtrl,
@@ -524,8 +530,8 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
                 CheckboxListTile(
                   value: _append,
                   onChanged: (v) => setState(() => _append = v ?? false),
-                  title: const Text('Přidat k existujícím segmentům (multi-monitor)'),
-                  subtitle: const Text('Jinak se smažou segmenty jen tohoto zařízení.'),
+                  title: Text(l10n.ledWizAppendSegmentsTitle),
+                  subtitle: Text(l10n.ledWizAppendSegmentsSubtitle),
                   controlAffinity: ListTileControlAffinity.leading,
                   contentPadding: EdgeInsets.zero,
                 ),
@@ -537,7 +543,7 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
                 min: 0,
                 max: maxIdx,
                 divisions: maxIdx > 0 ? maxIdx.round() : null,
-                label: 'LED index ${_sliderValue.round()}',
+                label: l10n.ledWizLedIndexSlider(_sliderValue.round()),
                 onChanged: (v) {
                   setState(() => _sliderValue = v);
                   _pushPreview(c);
@@ -556,7 +562,7 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
                     },
                     icon: const Icon(Icons.remove),
                   ),
-                  Text('Index LED: ${_sliderValue.round()}'),
+                  Text(l10n.ledWizLedIndexRow(_sliderValue.round())),
                   IconButton(
                     tooltip: '+1',
                     onPressed: () {
@@ -570,21 +576,17 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
                 ],
               ),
             ],
-            if (step.kind == _WizardStepKind.finish) ...[
-              Text(
-                'Konfigurace je hotová. Uložením se nastaví režim Obrazovka, '
-                'aktualizují se segmenty a případně počet LED u zařízení.',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
           ],
         ),
       ),
+    );
+      },
     );
   }
 
   List<Widget> _actions(
     BuildContext context,
+    AppLocalizations l10n,
     AmbilightAppController c,
     _WizardStep step,
     DeviceSettings? dev,
@@ -595,7 +597,7 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
           c.setWizardLedPreview(null, -1, 0, 0, 0);
           Navigator.pop(context);
         },
-        child: const Text('Zrušit'),
+        child: Text(l10n.cancel),
       ),
       if (_stepIndex > 0)
         TextButton(
@@ -603,7 +605,7 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
             setState(() {
               _stepIndex--;
               if (_steps[_stepIndex].kind == _WizardStepKind.config) {
-                _steps = [_WizardStep.config()];
+                _steps = [_WizardStep.config(l10n)];
                 _stepIndex = 0;
               } else if (_steps[_stepIndex].kind == _WizardStepKind.point) {
                 final key = _steps[_stepIndex].sideStep!.captureKey;
@@ -615,7 +617,7 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
             });
             _pushPreview(c);
           },
-          child: const Text('Zpět'),
+          child: Text(l10n.back),
         ),
       if (step.kind == _WizardStepKind.config)
         FilledButton(
@@ -624,7 +626,7 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
               : () {
                   if (!_chkLeft && !_chkTop && !_chkRight && !_chkBottom) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Vyberte alespoň jednu stranu.')),
+                      SnackBar(content: Text(l10n.ledWizPickOneSideSnack)),
                     );
                     return;
                   }
@@ -632,9 +634,9 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
                   if (id != null) {
                     c.announceStripLengthForDevice(id);
                   }
-                  _buildStepsAfterConfig();
+                  _buildStepsAfterConfig(l10n);
                 },
-          child: const Text('Spustit kalibraci'),
+          child: Text(l10n.ledWizStartCalibration),
         )
       else if (step.kind == _WizardStepKind.point)
         FilledButton(
@@ -667,12 +669,12 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
                     _pushPreview(c);
                   }
                 },
-          child: Text(_stepIndex == _steps.length - 2 ? 'Shrnutí' : 'Další'),
+          child: Text(_stepIndex == _steps.length - 2 ? l10n.ledWizSummary : l10n.ledWizNext),
         )
       else
         FilledButton(
           onPressed: dev == null ? null : () => unawaited(_finish(c)),
-          child: const Text('Uložit a zavřít'),
+          child: Text(l10n.ledWizSaveClose),
         ),
     ];
   }
@@ -681,28 +683,26 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
 enum _WizardStepKind { config, point, finish }
 
 class _WizardStep {
-  const _WizardStep._(this.kind, this.title, this.description, this.sideStep);
+  _WizardStep(this.kind, this.title, this.description, this.sideStep);
 
-  factory _WizardStep.config() => const _WizardStep._(
+  factory _WizardStep.config(AppLocalizations l10n) => _WizardStep(
         _WizardStepKind.config,
-        'Konfigurace',
-        'V Nastavení → Zařízení nastav „Počet LED“ alespoň na horní odhad délky pásku '
-            '(max. 2000). Před kalibrací aplikace pošle na ESP USB příkaz s tímto počtem. '
-            'Pak vyber strany a monitor — u každého bodu posuneš zelenou LED na fyzické místo.',
+        l10n.ledWizConfigTitle,
+        l10n.ledWizConfigBody,
         null,
       );
 
-  factory _WizardStep.point(_SideStep s) => _WizardStep._(
+  factory _WizardStep.point(_SideStep s) => _WizardStep(
         _WizardStepKind.point,
         s.title,
         s.description,
         s,
       );
 
-  factory _WizardStep.finish() => const _WizardStep._(
+  factory _WizardStep.finish(AppLocalizations l10n) => _WizardStep(
         _WizardStepKind.finish,
-        'Hotovo',
-        'Segmenty se dopočítají z uložených indexů.',
+        l10n.ledWizFinishTitle,
+        l10n.ledWizFinishBody,
         null,
       );
 

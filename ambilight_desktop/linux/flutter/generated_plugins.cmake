@@ -4,7 +4,6 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   flutter_libserialport
-  hotkey_manager_linux
   record_linux
   screen_retriever_linux
   tray_manager

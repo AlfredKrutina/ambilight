@@ -3,12 +3,15 @@ import '../features/pc_health/pc_health_frame.dart';
 import '../features/pc_health/pc_health_snapshot.dart';
 import '../services/music/music_granular_engine.dart';
 import '../services/music/music_types.dart';
-import 'fallback_modes.dart';
 import 'light_mode_logic.dart';
 import 'screen/screen_color_pipeline.dart';
 import 'screen/screen_frame.dart';
 
 /// Jeden tick výpočtu barev (bez I/O). Výstup vždy [Map] `deviceId → RGB` jako optimalizovaná cesta u Python screen módu.
+///
+/// Snímání obrazovky probíhá v paralelním [Future]. Těžký výpočet **screen**, **hudby z náhledu monitoru**
+/// a režimů **light** / **pc_health** může běžet na worker isolate (`ScreenPipelineIsolateBridge`,
+/// `MusicFlatStripIsolateBridge`, `LightPcEngineIsolateBridge`); hudba z FFT a zbývající cesty na hlavním isolate.
 class AmbilightEngine {
   AmbilightEngine._();
 
@@ -57,6 +60,22 @@ class AmbilightEngine {
     return out;
   }
 
+  /// Hudba bez dominantní barvy alba — sdílená cesta pro hlavní izolát i worker.
+  static Map<String, List<(int, int, int)>> computeMusicDeviceColorsFromAnalysis(
+    AppConfig config,
+    MusicAnalysisSnapshot snap,
+    ScreenFrame? monitorSample,
+    double timeSec,
+  ) {
+    final flat = MusicGranularEngine.computeFlatStrip(
+      config,
+      snap,
+      timeSec,
+      monitorSample: monitorSample,
+    );
+    return _mapFlatToDevices(flat, config.globalSettings.devices);
+  }
+
   /// [screenFrame] jen pro `startMode == screen`; jinak ignorováno.
   static Map<String, List<(int, int, int)>> computeFrame(
     AppConfig config,
@@ -76,7 +95,9 @@ class AmbilightEngine {
     final mode = config.globalSettings.startMode;
     switch (mode) {
       case 'light':
-        if (config.lightMode.homekitEnabled) {
+        // HomeKit hold má smysl jen když nějaké zařízení opravdu řídí HA — jinak by byl pásek pořád černý.
+        if (config.lightMode.homekitEnabled &&
+            config.globalSettings.devices.any((d) => d.controlViaHa)) {
           return _blackPerDevice(config);
         }
         final n = combinedDeviceLedLength(config);
@@ -111,14 +132,14 @@ class AmbilightEngine {
         final t = DateTime.now().millisecondsSinceEpoch / 1000.0;
         final musicMonitor =
             config.musicMode.colorSource == 'monitor' ? screenFrame : null;
-        final flat = MusicGranularEngine.computeFlatStrip(
+        return computeMusicDeviceColorsFromAnalysis(
           config,
           snap,
+          musicMonitor,
           t,
-          monitorSample: musicMonitor,
         );
-        return _mapFlatToDevices(flat, config.globalSettings.devices);
       case 'pchealth':
+      case 'pc_health':
         if (!config.pcHealth.enabled) {
           return _blackPerDevice(config);
         }

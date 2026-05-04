@@ -5,7 +5,20 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 
+import '../l10n/app_locale_bridge.dart';
+import '../l10n/generated/app_localizations.dart';
+import 'app_crash_log.dart';
+
 final _log = Logger('AppErrorSafety');
+
+bool _appErrorHandlingInstalled = false;
+
+/// `true` po prvním úspěšném [installAppErrorHandling] — druhé volání v debug jen assert hlášku.
+bool get isAppErrorHandlingInstalled => _appErrorHandlingInstalled;
+
+void _persistFault(String headline, {Object? error, StackTrace? stack}) {
+  unawaited(AppCrashLog.append(headline, error: error, stack: stack));
+}
 
 /// Krátké chybové hlášení pro uživatele (horní pruh v [AmbiLightRoot]).
 final ValueNotifier<String?> appFaultBannerNotifier = ValueNotifier<String?>(null);
@@ -31,10 +44,20 @@ void reportAppFault(String message, {Duration autoDismiss = const Duration(secon
     }
   });
   _log.warning('AppFault: $brief');
+  _persistFault('AppFault: $brief');
 }
 
 /// Globální handlery — logují chyby a v release módu dávají uživateli krátkou zpětnou vazbu.
 void installAppErrorHandling() {
+  if (_appErrorHandlingInstalled) {
+    assert(() {
+      debugPrint('installAppErrorHandling: ignorováno — již nainstalováno');
+      return true;
+    }());
+    return;
+  }
+  _appErrorHandlingInstalled = true;
+
   FlutterError.onError = (FlutterErrorDetails details) {
     if (kDebugMode) {
       FlutterError.presentError(details);
@@ -44,20 +67,26 @@ void installAppErrorHandling() {
       details.exception,
       details.stack,
     );
+    _persistFault(
+      'FlutterError: ${details.exceptionAsString()}',
+      error: details.exception,
+      stack: details.stack,
+    );
     // V debug už je detail v konzoli / presentError; banner jen v release, ať UI neruší vývoj.
     if (!kDebugMode) {
       final line = details.exceptionAsString().split('\n').first.trim();
       if (line.isNotEmpty) {
-        reportAppFault('Chyba rozhraní: $line');
+        reportAppFault(AppLocaleBridge.strings.faultUiError(line));
       }
     }
   };
 
   PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
     _log.severe('Neodchycená asynchronní chyba: $error', error, stack);
+    _persistFault('PlatformDispatcher.onError: $error', error: error, stack: stack);
     final msg = error.toString();
     final first = msg.split('\n').first.trim();
-    reportAppFault(first.isEmpty ? 'Neodchycená chyba v asynchronním kódu.' : first);
+    reportAppFault(first.isEmpty ? AppLocaleBridge.strings.faultUncaughtAsync : first);
     return true;
   };
 
@@ -65,6 +94,7 @@ void installAppErrorHandling() {
     if (kDebugMode) {
       return ErrorWidget(details.exception);
     }
+    final head = AppLocaleBridge.strings.errorWidgetTitle;
     return Material(
       color: const Color(0xFF0F172A),
       child: Center(
@@ -74,9 +104,9 @@ void installAppErrorHandling() {
             TextSpan(
               style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 14, height: 1.35),
               children: [
-                const TextSpan(
-                  text: 'Chyba při vykreslení widgetu. Aplikace dál běží.\n\n',
-                  style: TextStyle(fontWeight: FontWeight.w700),
+                TextSpan(
+                  text: head,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 TextSpan(text: details.exceptionAsString()),
               ],
@@ -90,6 +120,7 @@ void installAppErrorHandling() {
 
 void logZoneError(Object error, StackTrace stack) {
   _log.severe('runZonedGuarded / zóna: $error', error, stack);
+  _persistFault('runZonedGuarded: $error', error: error, stack: stack);
 }
 
 /// Vloží nad [child] plovou lištu s [appFaultBannerNotifier] (volá se z [MaterialApp.builder]).
@@ -133,7 +164,7 @@ Widget wrapWithAppFaultBanner(Widget child) {
                         ),
                       ),
                       IconButton(
-                        tooltip: 'Zavřít',
+                        tooltip: AppLocalizations.of(context).closeBannerTooltip,
                         color: Colors.white,
                         onPressed: dismissAppFault,
                         icon: const Icon(Icons.close, size: 20),

@@ -1251,7 +1251,7 @@
             "type": "LIBRARY",
             "lib": "__idf_main",
             "reqs": [],
-            "priv_reqs": [ "esp_driver_rmt", "espressif__led_strip", "driver", "esp_timer", "nvs_flash", "esp_wifi", "esp_netif", "esp_event", "lwip", "esp_http_server", "mqtt", "espressif__mdns", "app_update", "esp_https_ota", "esp_http_client", "mbedtls" ],
+            "priv_reqs": [ "esp_driver_rmt", "espressif__led_strip", "driver", "esp_timer", "nvs_flash", "esp_wifi", "esp_netif", "esp_event", "lwip", "esp_http_server", "mqtt", "espressif__mdns", "app_update", "esp_https_ota", "esp_http_client", "mbedtls", "heap" ],
             "managed_reqs": [],
             "managed_priv_reqs": [ "espressif__led_strip", "espressif__mdns" ],
             "file": "D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/main/libmain.a",
@@ -2923,7 +2923,7 @@
             "dir": "D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/main",
             "lib": "__idf_main",
             "reqs": [],
-            "priv_reqs": [ "esp_driver_rmt", "espressif__led_strip", "driver", "esp_timer", "nvs_flash", "esp_wifi", "esp_netif", "esp_event", "lwip", "esp_http_server", "mqtt", "espressif__mdns", "app_update", "esp_https_ota", "esp_http_client", "mbedtls" ],
+            "priv_reqs": [ "esp_driver_rmt", "espressif__led_strip", "driver", "esp_timer", "nvs_flash", "esp_wifi", "esp_netif", "esp_event", "lwip", "esp_http_server", "mqtt", "espressif__mdns", "app_update", "esp_https_ota", "esp_http_client", "mbedtls", "heap" ],
             "managed_reqs": [],
             "managed_priv_reqs": [ "espressif__led_strip", "espressif__mdns" ],
             "include_dirs": [ "." ]

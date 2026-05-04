@@ -96,6 +96,12 @@ Chcete-li ověřit, že balíček neobsahuje source kód:
 - Pokud chcete aktualizovat release, musíte znovu spustit `build.py` a pak `create_release.py`
 - Každá platforma vyžaduje build na příslušném OS (Windows exe na Windows, Mac app na macOS, atd.)
 
+## Flutter desktop a UDP (lampa `ambilight.c`)
+
+- Ve `task_udp` firmware **zahazuje** bulk rámce `0x02`, pokud přijdou rychleji než cca **15 ms** od posledního přijatého `0x02`.
+- Repový Flutter klient (`ambilight_desktop`) **slučuje** odesílání na ~16 ms a bere poslední barvy — viz kořen `context/ESP_UDP_TRANSPORT_NOTES.md`.
+- Po sériové komunikaci na stejném ESP FW **dočasně ignoruje UDP** (source lock); pro stream z PC typicky **jedna cesta** (Wi‑Fi nebo USB).
+
 ## 🚀 Rychlý start
 
 ```bash

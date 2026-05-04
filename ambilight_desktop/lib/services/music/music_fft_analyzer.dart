@@ -156,8 +156,7 @@ class MusicFftAnalyzer {
     }
 
     final fftOut = _fft.realFft(windowed);
-    final magsRaw = fftOut.discardConjugates().magnitudes();
-    final mags = magsRaw is Float64List ? magsRaw : Float64List.fromList(magsRaw);
+    final mags = fftOut.discardConjugates().magnitudes();
     final nBins = mags.length;
     final df = _sr / _frameSize;
 

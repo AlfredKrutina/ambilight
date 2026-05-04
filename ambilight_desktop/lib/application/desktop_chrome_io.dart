@@ -22,8 +22,52 @@ TrayListener? _trayClickListener;
 WindowListener? _windowListener;
 void Function()? _controllerListener;
 String? _lastTrayVisualKey;
+Timer? _shellOcclusionDebounce;
+Timer? _shellOcclusionPollTimer;
+
+/// Pravý klik tray → Flutter [showMenu] z [TrayMenuHost], jinak fallback na nativní menu.
+void Function()? _trayThemedPopupRegister;
 
 bool get _inFlutterTest => Platform.environment['FLUTTER_TEST'] == 'true';
+
+void registerTrayThemedPopup(void Function()? fn) {
+  _trayThemedPopupRegister = fn;
+}
+
+Future<void> trayQuitFromMenu() => _quitApp();
+
+Future<void> trayOpenSettingsFromMenu(AmbilightAppController c) =>
+    _openSettings(c);
+
+Future<void> trayPopNativeContextMenu() async {
+  try {
+    await trayManager.popUpContextMenu();
+  } catch (e, st) {
+    if (kDebugMode) {
+      _log.fine('tray popUpContextMenu: $e', e, st);
+    }
+  }
+}
+
+Future<void> _syncShellOcclusionNow() async {
+  final c = _controller;
+  if (c == null || _inFlutterTest) return;
+  try {
+    final vis = await windowManager.isVisible();
+    final min = await windowManager.isMinimized();
+    final occluded = !vis || min;
+    c.syncAmbilightOcclusionFromShell(occluded: occluded);
+  } catch (e, st) {
+    _log.fine('shell occlusion sync: $e', e, st);
+  }
+}
+
+void _scheduleShellOcclusionSync() {
+  _shellOcclusionDebounce?.cancel();
+  _shellOcclusionDebounce = Timer(const Duration(milliseconds: 120), () {
+    unawaited(_syncShellOcclusionNow());
+  });
+}
 
 /// Hned po [WidgetsFlutterBinding.ensureInitialized], před těžkou prací / [runApp].
 /// Zajistí registraci HWND ve window_manager dřív než zbytek aplikace — na Windows snižuje
@@ -58,11 +102,28 @@ Future<void> _openSettings(AmbilightAppController c) async {
 
 Future<void> _quitApp() async {
   try {
+    await disposeDesktopShell();
+  } catch (e, st) {
+    _log.warning('_quitApp disposeDesktopShell: $e', e, st);
+  }
+  try {
     await trayManager.destroy();
   } catch (e, st) {
     _log.fine('tray destroy: $e', e, st);
   }
   exit(0);
+}
+
+String _trayOutputsSummary(AmbilightAppController c) {
+  final snap = c.connectionSnapshot;
+  final devs =
+      c.config.globalSettings.devices.where((d) => !d.controlViaHa).toList();
+  if (devs.isEmpty) return '';
+  var on = 0;
+  for (final d in devs) {
+    if (snap[d.id] == true) on++;
+  }
+  return ' · výstupy $on/${devs.length}';
 }
 
 Future<void> _pushTrayMenu() async {
@@ -78,7 +139,8 @@ Future<void> _pushTrayMenu() async {
       );
     }
     await trayManager.setToolTip(
-      'AmbiLight — ${c.enabled ? "zapnuto" : "vypnuto"} · ${c.config.globalSettings.startMode}',
+      'AmbiLight — ${c.enabled ? "zapnuto" : "vypnuto"} · ${c.config.globalSettings.startMode}'
+      '${_trayOutputsSummary(c)}',
     );
     await trayManager.setContextMenu(_buildTrayMenu(c));
   } catch (e, st) {
@@ -136,7 +198,9 @@ Menu _buildTrayMenu(AmbilightAppController c) {
       MenuItem(label: 'Music — presety', submenu: musicSub),
       MenuItem.separator(),
       MenuItem(
-        label: c.config.globalSettings.performanceMode ? 'Výkonový režim ✓' : 'Výkonový režim',
+        label: c.config.globalSettings.performanceMode
+            ? 'Výkonový režim ✓'
+            : 'Výkonový režim',
         onClick: (_) => c.queueConfigApply(
           c.config.copyWith(
             globalSettings: c.config.globalSettings.copyWith(
@@ -146,7 +210,9 @@ Menu _buildTrayMenu(AmbilightAppController c) {
         ),
       ),
       MenuItem(
-        label: c.config.globalSettings.autostart ? 'Spustit se systémem ✓' : 'Spustit se systémem',
+        label: c.config.globalSettings.autostart
+            ? 'Spustit se systémem ✓'
+            : 'Spustit se systémem',
         onClick: (_) => c.queueConfigApply(
           c.config.copyWith(
             globalSettings: c.config.globalSettings.copyWith(
@@ -185,15 +251,12 @@ class _TrayTapListener with TrayListener {
   /// Linux (AppIndicator): `popUpContextMenu` často není implementováno — ignorujeme chybu.
   @override
   void onTrayIconRightMouseDown() {
-    unawaited(() async {
-      try {
-        await trayManager.popUpContextMenu();
-      } catch (e, st) {
-        if (kDebugMode) {
-          _log.fine('tray popUpContextMenu: $e', e, st);
-        }
-      }
-    }());
+    final themed = _trayThemedPopupRegister;
+    if (themed != null) {
+      themed();
+      return;
+    }
+    unawaited(trayPopNativeContextMenu());
   }
 
   @override
@@ -214,10 +277,29 @@ class _TrayTapListener with TrayListener {
   }
 }
 
-class _HideOnCloseListener with WindowListener {
+class _DesktopShellWindowListener with WindowListener {
   @override
   void onWindowClose() {
     unawaited(windowManager.hide());
+  }
+
+  @override
+  void onWindowMinimize() => _scheduleShellOcclusionSync();
+
+  @override
+  void onWindowRestore() => _scheduleShellOcclusionSync();
+
+  @override
+  void onWindowFocus() => _scheduleShellOcclusionSync();
+
+  @override
+  void onWindowBlur() => _scheduleShellOcclusionSync();
+
+  @override
+  void onWindowEvent(String eventName) {
+    if (eventName == 'show' || eventName == 'hide') {
+      _scheduleShellOcclusionSync();
+    }
   }
 }
 
@@ -233,7 +315,7 @@ Future<void> initDesktopShell(AmbilightAppController controller) async {
     _log.fine('initDesktopShell reset mouse: $e', e, st);
   }
 
-  _windowListener ??= _HideOnCloseListener();
+  _windowListener ??= _DesktopShellWindowListener();
   windowManager.addListener(_windowListener!);
   await windowManager.setPreventClose(true);
 
@@ -262,6 +344,14 @@ Future<void> initDesktopShell(AmbilightAppController controller) async {
     }
   });
 
+  _scheduleShellOcclusionSync();
+  _shellOcclusionPollTimer?.cancel();
+  _shellOcclusionPollTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    unawaited(_syncShellOcclusionNow());
+  });
+  unawaited(Future<void>.delayed(
+      const Duration(milliseconds: 500), _syncShellOcclusionNow));
+
   _controllerListener = _scheduleTrayMenu;
   controller.addListener(_controllerListener!);
 
@@ -277,7 +367,24 @@ Future<void> initDesktopShell(AmbilightAppController controller) async {
   });
 }
 
+/// Po [AppLifecycleState.resumed] — obnovení tray tooltipu a reset mouse hit-test po sleep/DPI změnách.
+Future<void> onDesktopAppResumed() async {
+  if (_inFlutterTest) return;
+  try {
+    await windowManager.setIgnoreMouseEvents(false);
+  } catch (e, st) {
+    _log.fine('onDesktopAppResumed mouse: $e', e, st);
+  }
+  _scheduleTrayMenu();
+  unawaited(_syncShellOcclusionNow());
+}
+
 Future<void> disposeDesktopShell() async {
+  registerTrayThemedPopup(null);
+  _shellOcclusionDebounce?.cancel();
+  _shellOcclusionDebounce = null;
+  _shellOcclusionPollTimer?.cancel();
+  _shellOcclusionPollTimer = null;
   _trayMenuDebounce?.cancel();
   _trayClickTimer?.cancel();
   final c = _controller;

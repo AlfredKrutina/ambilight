@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../application/ambilight_app_controller.dart';
 import '../../core/models/config_models.dart';
 import '../../data/udp_device_commands.dart';
+import '../../l10n/context_ext.dart';
 import '../../services/led_discovery_service.dart';
 import 'wizard_dialog_shell.dart';
 
@@ -40,7 +41,7 @@ class _DiscoveryWizardDialogState extends State<DiscoveryWizardDialog> {
     });
     if (list.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Žádné zařízení neodpovědělo (UDP 4210).')),
+        SnackBar(content: Text(context.l10n.discNoDevicesSnack)),
       );
     }
   }
@@ -69,25 +70,25 @@ class _DiscoveryWizardDialogState extends State<DiscoveryWizardDialog> {
       c.config.copyWith(globalSettings: c.config.globalSettings.copyWith(devices: devs)),
     );
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Přidáno: ${d.name}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.discAddedSnack(d.name))),
+      );
     }
   }
 
   Future<void> _confirmResetWifi(BuildContext context, DiscoveredLedController d) async {
+    final l10n = context.l10n;
     final go = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Reset Wi‑Fi?'),
-        content: Text(
-          'Zařízení „${d.name}“ (${d.ip}) smaže uložené Wi‑Fi přihlašovací údaje '
-          'a restartuje se. Budete ho muset znovu nakonfigurovat.',
-        ),
+        title: Text(l10n.discResetWifiTitle),
+        content: Text(l10n.discResetWifiBody(d.name, d.ip)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Zrušit')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Odeslat RESET_WIFI'),
+            child: Text(l10n.discSendResetWifi),
           ),
         ],
       ),
@@ -96,26 +97,29 @@ class _DiscoveryWizardDialogState extends State<DiscoveryWizardDialog> {
     final ok = await UdpDeviceCommands.sendResetWifi(d.ip, 4210, logContext: d.name);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? 'RESET_WIFI odeslán.' : 'Odeslání se nezdařilo.')),
+      SnackBar(
+        content: Text(ok ? context.l10n.discResetWifiSnackOk : context.l10n.discResetWifiSnackFail),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return WizardDialogShell(
-      title: 'Discovery (D9)',
+      title: l10n.discWizardTitle,
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hotovo')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.discDone)),
         FilledButton.tonal(
           onPressed: _scanning ? null : _scan,
-          child: Text(_scanning ? 'Skenuji…' : 'Znovu skenovat'),
+          child: Text(_scanning ? l10n.discScanning : l10n.discScanAgain),
         ),
       ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Broadcast DISCOVER_ESP32 na port 4210. Identify pošle krátké zvýraznění na strip.',
+            l10n.discIntro,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -145,18 +149,18 @@ class _DiscoveryWizardDialogState extends State<DiscoveryWizardDialog> {
                     spacing: 4,
                     children: [
                       IconButton(
-                        tooltip: 'Reset Wi‑Fi (smaže uložené přihlašovací údaje)',
+                        tooltip: l10n.discResetWifiTooltip,
                         icon: const Icon(Icons.wifi_off_outlined),
                         onPressed: () => _confirmResetWifi(context, d),
                       ),
                       IconButton(
-                        tooltip: 'Identify',
+                        tooltip: l10n.discIdentifyTooltip,
                         icon: const Icon(Icons.highlight),
                         onPressed: () => UdpDeviceCommands.sendIdentify(d.ip, 4210),
                       ),
                       FilledButton(
                         onPressed: () => _savePreset(context, d),
-                        child: const Text('Přidat'),
+                        child: Text(l10n.discAddButton),
                       ),
                     ],
                   ),

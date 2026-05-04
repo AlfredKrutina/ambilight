@@ -7,6 +7,8 @@ import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
 import '../../widgets/ambi_color_picker_dialog.dart';
 import '../../widgets/config_drag_slider.dart';
+import '../../../l10n/context_ext.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 Future<List<int>?> _pickZoneColor(
   BuildContext context,
@@ -15,7 +17,7 @@ Future<List<int>?> _pickZoneColor(
 ) {
   return showAmbiColorPickerDialog(
     context,
-    title: 'Barva zóny',
+    title: AppLocalizations.of(context).lightZoneColorTitle,
     initialRgb: initial.length >= 3 ? initial : [255, 0, 0],
     onLiveRgb: (rgb) {
       if (rgb.length == 3) ctrl.previewStripColor(rgb[0], rgb[1], rgb[2], durationTicks: 72);
@@ -40,7 +42,7 @@ Future<void> _pickLightPrimaryColor(
   try {
     final res = await showAmbiColorPickerDialog(
       context,
-      title: 'Základní barva',
+      title: AppLocalizations.of(context).lightPrimaryColorTitle,
       initialRgb: [r0, g0, b0],
       onLiveRgb: (rgb) {
         if (rgb.length == 3) {
@@ -70,17 +72,18 @@ class LightSettingsTab extends StatelessWidget {
 
   static const _effects = ['static', 'breathing', 'rainbow', 'chase', 'custom_zones'];
 
-  static String _effectLabel(String e) => switch (e) {
-        'static' => 'Statická',
-        'breathing' => 'Dýchání',
-        'rainbow' => 'Duha',
-        'chase' => 'Honění',
-        'custom_zones' => 'Vlastní zóny',
+  static String _effectLabel(AppLocalizations l10n, String e) => switch (e) {
+        'static' => l10n.lightEffectStatic,
+        'breathing' => l10n.lightEffectBreathing,
+        'rainbow' => l10n.lightEffectRainbow,
+        'chase' => l10n.lightEffectChase,
+        'custom_zones' => l10n.lightEffectCustomZones,
         _ => e,
       };
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final lm = draft.lightMode;
     final innerMax = AppBreakpoints.maxContentWidth(maxWidth).clamp(280.0, maxWidth);
     final zones = lm.customZones;
@@ -95,14 +98,14 @@ class LightSettingsTab extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               AmbiSectionHeader(
-                title: 'Světlo',
-                subtitle: 'Statické barvy a efekty na pásku bez snímání obrazovky. Výběr barvy může krátce rozsvítit náhled na pásku.',
+                title: l10n.lightSettingsHeader,
+                subtitle: l10n.lightSettingsSubtitle,
                 bottomSpacing: 12,
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Základní barva'),
-                subtitle: Text('RGB(${lm.color.join(", ")}) · klepnutím výběr jako Home / Hue'),
+                title: Text(l10n.lightPrimaryColorTile),
+                subtitle: Text(l10n.lightPrimaryColorRgbHint(lm.color.join(', '))),
                 trailing: IconButton.filledTonal(
                   icon: const Icon(Icons.palette_outlined),
                   onPressed: () => _pickLightPrimaryColor(context, lm, onChanged),
@@ -125,16 +128,16 @@ class LightSettingsTab extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                decoration: const InputDecoration(labelText: 'Efekt', border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: l10n.fieldEffect, border: const OutlineInputBorder()),
                 value: _effects.contains(lm.effect) ? lm.effect : 'static',
-                items: _effects.map((e) => DropdownMenuItem(value: e, child: Text(_effectLabel(e)))).toList(),
+                items: _effects.map((e) => DropdownMenuItem(value: e, child: Text(_effectLabel(l10n, e)))).toList(),
                 onChanged: (v) {
                   if (v == null) return;
                   onChanged(lm.copyWith(effect: v));
                 },
               ),
               const SizedBox(height: 12),
-              Text('Rychlost: ${lm.speed}', style: Theme.of(context).textTheme.labelLarge),
+              Text(l10n.lightSpeedValue(lm.speed), style: Theme.of(context).textTheme.labelLarge),
               ConfigDragSlider(
                 value: lm.speed.toDouble(),
                 min: 0,
@@ -143,7 +146,7 @@ class LightSettingsTab extends StatelessWidget {
                 label: '${lm.speed}',
                 onChanged: (v) => onChanged(lm.copyWith(speed: v.round())),
               ),
-              Text('Extra: ${lm.extra}', style: Theme.of(context).textTheme.labelLarge),
+              Text(l10n.lightExtraValue(lm.extra), style: Theme.of(context).textTheme.labelLarge),
               ConfigDragSlider(
                 value: lm.extra.toDouble(),
                 min: 0,
@@ -152,7 +155,7 @@ class LightSettingsTab extends StatelessWidget {
                 label: '${lm.extra}',
                 onChanged: (v) => onChanged(lm.copyWith(extra: v.round())),
               ),
-              Text('Jas: ${lm.brightness}', style: Theme.of(context).textTheme.labelLarge),
+              Text(l10n.lightBrightnessValue(lm.brightness), style: Theme.of(context).textTheme.labelLarge),
               ConfigDragSlider(
                 value: lm.brightness.toDouble(),
                 min: 0,
@@ -162,20 +165,20 @@ class LightSettingsTab extends StatelessWidget {
                 onChanged: (v) => onChanged(lm.copyWith(brightness: v.round())),
               ),
               SwitchListTile(
-                title: const Text('HomeKit (FW / MQTT — neposílat barvy z PC)'),
-                subtitle: const Text('homekit_enabled'),
+                title: Text(l10n.lightHomekitTile),
+                subtitle: Text(l10n.lightHomekitSubtitle),
                 value: lm.homekitEnabled,
                 onChanged: (v) => onChanged(lm.copyWith(homekitEnabled: v)),
               ),
               const Divider(height: 32),
-              Text('Vlastní zóny', style: Theme.of(context).textTheme.titleMedium),
+              Text(l10n.lightCustomZonesTitle, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               FilledButton.tonalIcon(
                 onPressed: () {
                   final nextZones = List<CustomZone>.from(zones)
                     ..add(
                       CustomZone(
-                        name: 'Zóna ${zones.length + 1}',
+                        name: l10n.lightZoneDefaultName(zones.length + 1),
                         start: 0,
                         end: 20,
                         color: const [255, 0, 0],
@@ -184,7 +187,7 @@ class LightSettingsTab extends StatelessWidget {
                   onChanged(lm.copyWith(customZones: nextZones));
                 },
                 icon: const Icon(Icons.add),
-                label: const Text('Přidat zónu'),
+                label: Text(l10n.lightAddZone),
               ),
               const SizedBox(height: 12),
               ...zones.asMap().entries.map((e) {
@@ -199,7 +202,7 @@ class LightSettingsTab extends StatelessWidget {
                     children: [
                       TextFormField(
                         initialValue: z.name,
-                        decoration: const InputDecoration(labelText: 'Název', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: l10n.fieldZoneName, border: const OutlineInputBorder()),
                         onChanged: (v) {
                           final list = List<CustomZone>.from(zones);
                           list[zi] = z.copyWith(name: v);
@@ -212,9 +215,9 @@ class LightSettingsTab extends StatelessWidget {
                           Expanded(
                             child: TextFormField(
                               initialValue: '${z.start}',
-                              decoration: const InputDecoration(
-                                labelText: 'Start %',
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: l10n.fieldStartPercent,
+                                border: const OutlineInputBorder(),
                               ),
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               onChanged: (v) {
@@ -228,9 +231,9 @@ class LightSettingsTab extends StatelessWidget {
                           Expanded(
                             child: TextFormField(
                               initialValue: '${z.end}',
-                              decoration: const InputDecoration(
-                                labelText: 'Konec %',
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: l10n.fieldEndPercent,
+                                border: const OutlineInputBorder(),
                               ),
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               onChanged: (v) {
@@ -244,9 +247,9 @@ class LightSettingsTab extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(
-                          labelText: 'Efekt zóny',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l10n.fieldZoneEffect,
+                          border: const OutlineInputBorder(),
                         ),
                         value: ['static', 'pulse', 'blink'].contains(z.effect) ? z.effect : 'static',
                         items: const [
@@ -262,7 +265,7 @@ class LightSettingsTab extends StatelessWidget {
                         },
                       ),
                       const SizedBox(height: 8),
-                      Text('Rychlost zóny: ${z.speed}', style: Theme.of(context).textTheme.labelLarge),
+                      Text(l10n.lightZoneSpeedValue(z.speed), style: Theme.of(context).textTheme.labelLarge),
                       ConfigDragSlider(
                         value: z.speed.toDouble(),
                         min: 0,
@@ -277,7 +280,7 @@ class LightSettingsTab extends StatelessWidget {
                       ),
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('Barva zóny'),
+                        title: Text(l10n.lightZoneColorTitle),
                         trailing: IconButton(
                           icon: const Icon(Icons.palette_outlined),
                           onPressed: () async {
@@ -303,7 +306,7 @@ class LightSettingsTab extends StatelessWidget {
                             onChanged(lm.copyWith(customZones: list));
                           },
                           icon: const Icon(Icons.delete_outline),
-                          label: const Text('Odebrat zónu'),
+                          label: Text(l10n.lightRemoveZone),
                         ),
                       ),
                     ],

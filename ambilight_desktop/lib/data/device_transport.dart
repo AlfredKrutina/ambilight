@@ -19,6 +19,11 @@ abstract class DeviceTransport {
   /// [brightnessPercent] 0–100 for serial scaling; UDP uses 0–255 in packet (caller maps).
   void sendColors(List<(int r, int g, int b)> colors, int brightnessPercent);
 
+  /// Stejný obsah jako [sendColors], ale bez UDP 16ms bulk časovače — průvodce (full blackout před [sendPixel]).
+  Future<void> sendColorsNow(List<(int r, int g, int b)> colors, int brightnessPercent) async {
+    sendColors(colors, brightnessPercent);
+  }
+
   /// Optional: single pixel (Wi‑Fi calibration).
   void sendPixel(int index, int r, int g, int b);
 
@@ -34,6 +39,6 @@ abstract class DeviceTransport {
   void dispose();
 
   /// Po [dispose] může ještě dobíhat nativní uvolnění (např. COM na Windows) — [AmbilightAppController]
-  /// pošle všechny dispose a pak na tomto počká, aby se nekrývalo s ukládáním konfigurace / hotkeys.
+  /// pošle všechny dispose a pak na tomto počká, aby se nekrývalo s ukládáním konfigurace.
   Future<void> flushPendingDispose() async {}
 }

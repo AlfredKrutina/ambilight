@@ -4,12 +4,39 @@ import 'dart:typed_data';
 
 import 'package:logging/logging.dart';
 
+import '../application/debug_trace.dart';
+import 'udp_socket_bind.dart';
+
 final _log = Logger('UdpCommands');
 
 /// Textové UDP příkazy z `ambilight.c` `task_udp` (port dle zařízení, výchozí 4210).
 abstract final class UdpDeviceCommands {
   static const String identifyPayload = 'IDENTIFY';
   static const String resetWifiPayload = 'RESET_WIFI';
+
+  /// Horní mez UTF‑8 payloadu pro jeden datagram — ESP `rx_buffer` / bez fragmentace UDP.
+  static const int maxSafeUtf8PayloadBytes = 1400;
+
+  /// Shoda s lamp FW [`ota_update.c`] `ota_url_chars_valid`: žádné `\0`, řídicí znaky `<0x20`, ani `0x7F`;
+  /// URL nesmí být jen mezery/tabulátory. Zároveň platí UTF‑8 bez vloženého NUL bajtu — FW vyžaduje `strlen(rx)==len` datagramu.
+  static bool isOtaUrlCompatibleWithLampFirmware(String url) {
+    if (url.isEmpty) {
+      return false;
+    }
+    var seenNonSpace = false;
+    for (final r in url.runes) {
+      if (r == 0 || r < 0x20 || r == 0x7f) {
+        return false;
+      }
+      if (r != 0x20 && r != 0x09) {
+        seenNonSpace = true;
+      }
+    }
+    return seenNonSpace;
+  }
+
+  /// Celý řetězec datagramu (např. `OTA_HTTP …`) — stejná pravidla jako [isOtaUrlCompatibleWithLampFirmware].
+  static bool isUtf8DatagramCompatibleWithLampTaskUdp(String text) => isOtaUrlCompatibleWithLampFirmware(text);
 
   static InternetAddress? _parseIp(String raw) {
     final ip = raw.replaceAll(',', '.').trim();
@@ -31,12 +58,30 @@ abstract final class UdpDeviceCommands {
     }
     RawDatagramSocket? socket;
     try {
-      final bindAddr =
-          addr.type == InternetAddressType.IPv6 ? InternetAddress.anyIPv6 : InternetAddress.anyIPv4;
+      final bindAddr = addr.type == InternetAddressType.IPv6
+          ? InternetAddress.anyIPv6
+          : await udpBindAddressForOutgoingTo(addr, probeDestinationPort: safePort);
       socket = await RawDatagramSocket.bind(bindAddr, 0);
-      socket.broadcastEnabled = true;
+      socket.broadcastEnabled = false;
+      ambilightDebugTrace(
+        'UdpCommands sendUtf8 bind=${bindAddr.address} → ${addr.address}:$safePort'
+        '${logContext != null ? " ($logContext)" : ""}',
+      );
       final bytes = Uint8List.fromList(utf8.encode(text));
-      final n = socket.send(bytes, addr, safePort);
+      if (bytes.contains(0)) {
+        _log.warning('sendUtf8Text: payload obsahuje NUL — lamp FW textové příkazy odmítne ${logContext ?? ''}');
+        return false;
+      }
+      if (bytes.isEmpty || bytes.length > maxSafeUtf8PayloadBytes) {
+        _log.warning(
+          'sendUtf8Text: délka payloadu ${bytes.length} B mimo rozsah 1…$maxSafeUtf8PayloadBytes ${logContext ?? ''}',
+        );
+        return false;
+      }
+      var n = socket.send(bytes, addr, safePort);
+      if (n == 0) {
+        n = socket.send(bytes, addr, safePort);
+      }
       final ok = n == bytes.length;
       _log.info('UDP → ${addr.address}:$safePort "$text" (${bytes.length} B) ok=$ok ${logContext ?? ''}');
       return ok;
@@ -67,7 +112,15 @@ abstract final class UdpDeviceCommands {
       _log.warning('sendOtaHttpUrl: URL příliš krátká nebo dlouhá');
       return Future.value(false);
     }
+    if (!isOtaUrlCompatibleWithLampFirmware(u)) {
+      _log.warning('sendOtaHttpUrl: URL obsahuje znaky které lamp FW odmítne (řídicí / NUL / jen whitespace)');
+      return Future.value(false);
+    }
     final payload = 'OTA_HTTP $u';
+    if (!isUtf8DatagramCompatibleWithLampTaskUdp(payload)) {
+      _log.warning('sendOtaHttpUrl: celý payload neprošel kontrolou kompatibility s FW');
+      return Future.value(false);
+    }
     return sendUtf8Text(ip, port, payload, logContext: logContext ?? 'OTA_HTTP');
   }
 }

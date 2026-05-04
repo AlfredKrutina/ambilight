@@ -12,6 +12,8 @@ import '../../guides/music_spotify_integration_guide.dart';
 import '../../layout_breakpoints.dart';
 import '../../widgets/ambi_color_picker_dialog.dart';
 import '../../widgets/config_drag_slider.dart';
+import '../../../l10n/context_ext.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 /// D6 — napojení na `MusicModeSettings` + enumerace vstupů (`MusicAudioService`, agent A4).
 class MusicSettingsTab extends StatefulWidget {
@@ -46,17 +48,17 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
     'reactive_bass',
   ];
 
-  static String _musicEffectLabel(String e) => switch (e) {
-        'smart_music' => 'Smart Music',
-        'energy' => 'Energie',
-        'spectrum' => 'Spektrum',
-        'spectrum_rotate' => 'Rotující spektrum',
-        'spectrum_punchy' => 'Spektrum (výrazné)',
-        'strobe' => 'Stroboskop',
-        'vumeter' => 'VU měřič',
-        'vumeter_spectrum' => 'VU + spektrum',
-        'pulse' => 'Pulz',
-        'reactive_bass' => 'Reaktivní basy',
+  static String _musicEffectLabel(AppLocalizations l10n, String e) => switch (e) {
+        'smart_music' => l10n.musicEffectSmartMusic,
+        'energy' => l10n.musicEffectEnergy,
+        'spectrum' => l10n.musicEffectSpectrum,
+        'spectrum_rotate' => l10n.musicEffectSpectrumRotate,
+        'spectrum_punchy' => l10n.musicEffectSpectrumPunchy,
+        'strobe' => l10n.musicEffectStrobe,
+        'vumeter' => l10n.musicEffectVuMeter,
+        'vumeter_spectrum' => l10n.musicEffectVuSpectrum,
+        'pulse' => l10n.musicEffectPulse,
+        'reactive_bass' => l10n.musicEffectReactiveBass,
         _ => e,
       };
 
@@ -74,6 +76,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final m = widget.draft.musicMode;
     final innerMax = AppBreakpoints.maxContentWidth(widget.maxWidth).clamp(280.0, widget.maxWidth);
 
@@ -89,7 +92,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         }
         if (snap.hasError) {
           return Text(
-            'Zařízení: ${snap.error}',
+            l10n.musicDeviceError(snap.error!),
             style: TextStyle(color: Theme.of(context).colorScheme.error),
           );
         }
@@ -102,15 +105,15 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
           children: [
             Expanded(
               child: DropdownButtonFormField<int?>(
-                decoration: const InputDecoration(
-                  labelText: 'Vstupní zvukové zařízení',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l10n.musicInputDeviceLabel,
+                  border: const OutlineInputBorder(),
                 ),
                 value: effectiveIndex,
                 items: [
-                  const DropdownMenuItem<int?>(
+                  DropdownMenuItem<int?>(
                     value: null,
-                    child: Text('Výchozí (první vhodné)'),
+                    child: Text(l10n.musicDefaultInputDevice),
                   ),
                   ...devices.map(
                     (d) => DropdownMenuItem<int?>(
@@ -129,7 +132,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
               ),
             ),
             IconButton(
-              tooltip: 'Obnovit seznam',
+              tooltip: l10n.musicRefreshDeviceListTooltip,
               onPressed: _reloadDevices,
               icon: const Icon(Icons.refresh),
             ),
@@ -140,9 +143,8 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
 
     final fields = <Widget>[
       AmbiSectionHeader(
-        title: 'Hudba',
-        subtitle:
-            'Zdroj zvuku, efekty a náhled barev. Režim Hudba na přehledu musí být aktivní, aby se výstup promítl na pásky.',
+        title: l10n.musicSettingsHeader,
+        subtitle: l10n.musicSettingsSubtitle,
         bottomSpacing: 12,
       ),
       Align(
@@ -150,7 +152,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         child: FilledButton.tonalIcon(
           onPressed: () => MusicSpotifyIntegrationGuide.show(context),
           icon: const Icon(Icons.menu_book_outlined),
-          label: const Text('Nápověda: hudba a obaly'),
+          label: Text(l10n.musicGuideMusicArtwork),
         ),
       ),
       const SizedBox(height: 8),
@@ -160,13 +162,13 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         builder: (context, v, _) {
           final ctrl = context.read<AmbilightAppController>();
           return SwitchListTile(
-            title: const Text('Zamknout výstup barev na pásek (hudba)'),
+            title: Text(l10n.musicLockPaletteTitle),
             subtitle: Text(
               v.locked
-                  ? 'Posílá se zmrazená paleta (stejné jako položka v tray).'
+                  ? l10n.musicLockPaletteFrozen
                   : v.pending
-                      ? 'Čeká na další snímek, pak se paleta zmrazí.'
-                      : 'Jen v music módu má smysl; přepnutím režimu se zámek zruší.',
+                      ? l10n.musicLockPalettePending
+                      : l10n.musicLockPaletteIdle,
             ),
             value: v.locked || v.pending,
             onChanged: (_) => ctrl.toggleMusicPaletteLock(),
@@ -174,18 +176,18 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         },
       ),
       SwitchListTile(
-        title: const Text('Preferovat mikrofon'),
-        subtitle: const Text('Pokud není vybráno zařízení, hledá se vhodný vstup mimo smyčku reproduktorů.'),
+        title: Text(l10n.musicPreferMicTitle),
+        subtitle: Text(l10n.musicPreferMicSubtitle),
         value: m.micEnabled,
         onChanged: (v) => widget.onChanged(m.copyWith(micEnabled: v)),
       ),
       DropdownButtonFormField<String>(
-        decoration: const InputDecoration(labelText: 'Zdroj barev', border: OutlineInputBorder()),
+        decoration: InputDecoration(labelText: l10n.musicColorSourceLabel, border: const OutlineInputBorder()),
         value: ['fixed', 'spectrum', 'monitor'].contains(m.colorSource) ? m.colorSource : 'fixed',
-        items: const [
-          DropdownMenuItem(value: 'fixed', child: Text('Pevná barva')),
-          DropdownMenuItem(value: 'spectrum', child: Text('Spektrum zvuku')),
-          DropdownMenuItem(value: 'monitor', child: Text('Barvy z monitoru (Ambilight)')),
+        items: [
+          DropdownMenuItem(value: 'fixed', child: Text(l10n.musicColorSourceFixed)),
+          DropdownMenuItem(value: 'spectrum', child: Text(l10n.musicColorSourceSpectrum)),
+          DropdownMenuItem(value: 'monitor', child: Text(l10n.musicColorSourceMonitor)),
         ],
         onChanged: (v) {
           if (v == null) return;
@@ -194,10 +196,10 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
       ),
       if (m.colorSource == 'fixed') ...[
         const SizedBox(height: 8),
-        Text('Barva při pevné barvě', style: Theme.of(context).textTheme.titleSmall),
+        Text(l10n.musicFixedColorHeader, style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 4),
         Text(
-          'Barvu vybírej jako v Home / Hue — náhled na pásku při úpravě.',
+          l10n.musicFixedColorHint,
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 8),
@@ -207,9 +209,9 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         ),
       ],
       DropdownButtonFormField<String>(
-        decoration: const InputDecoration(labelText: 'Vizuální efekt', border: OutlineInputBorder()),
+        decoration: InputDecoration(labelText: l10n.musicVisualEffectLabel, border: const OutlineInputBorder()),
         value: _effects.contains(m.effect) ? m.effect : 'energy',
-        items: _effects.map((e) => DropdownMenuItem(value: e, child: Text(_musicEffectLabel(e)))).toList(),
+        items: _effects.map((e) => DropdownMenuItem(value: e, child: Text(_musicEffectLabel(l10n, e)))).toList(),
         onChanged: (v) {
           if (v == null) return;
           widget.onChanged(m.copyWith(effect: v));
@@ -218,13 +220,13 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
       if (m.effect == 'smart_music') ...[
         const SizedBox(height: 6),
         Text(
-          'Smart Music: spektrum, beat a melodie se mapují na pásek v reálném čase (lokálně, bez cloudu).',
+          l10n.musicSmartMusicHint,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
         ),
       ],
-      Text('Jas (music): ${m.brightness}', style: Theme.of(context).textTheme.labelLarge),
+      Text(l10n.musicBrightnessValue(m.brightness), style: Theme.of(context).textTheme.labelLarge),
       ConfigDragSlider(
         value: m.brightness.toDouble(),
         min: 0,
@@ -234,11 +236,11 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         onChanged: (v) => widget.onChanged(m.copyWith(brightness: v.round())),
       ),
       SwitchListTile(
-        title: const Text('Detekce beatu'),
+        title: Text(l10n.musicBeatDetection),
         value: m.beatDetectionEnabled,
         onChanged: (v) => widget.onChanged(m.copyWith(beatDetectionEnabled: v)),
       ),
-      Text('Prah detekce beatu: ${m.beatThreshold.toStringAsFixed(2)}', style: Theme.of(context).textTheme.labelLarge),
+      Text(l10n.musicBeatThreshold(m.beatThreshold.toStringAsFixed(2)), style: Theme.of(context).textTheme.labelLarge),
       ConfigDragSlider(
         value: m.beatThreshold,
         min: 1.05,
@@ -247,7 +249,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         label: m.beatThreshold.toStringAsFixed(2),
         onChanged: (v) => widget.onChanged(m.copyWith(beatThreshold: v)),
       ),
-      Text('Celková citlivost: ${m.sensitivity}', style: Theme.of(context).textTheme.labelLarge),
+      Text(l10n.musicOverallSensitivity(m.sensitivity), style: Theme.of(context).textTheme.labelLarge),
       ConfigDragSlider(
         value: m.sensitivity.toDouble(),
         min: 0,
@@ -256,8 +258,8 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         label: '${m.sensitivity}',
         onChanged: (v) => widget.onChanged(m.copyWith(sensitivity: v.round())),
       ),
-      Text('Citlivost pásem (bas / středy / výšky / celkově)', style: Theme.of(context).textTheme.labelSmall),
-      Text('Bass: ${m.bassSensitivity}', style: Theme.of(context).textTheme.labelLarge),
+      Text(l10n.musicBandSensitivityCaption, style: Theme.of(context).textTheme.labelSmall),
+      Text(l10n.musicBassValue(m.bassSensitivity), style: Theme.of(context).textTheme.labelLarge),
       ConfigDragSlider(
         value: m.bassSensitivity.toDouble(),
         min: 0,
@@ -265,7 +267,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         divisions: 100,
         onChanged: (v) => widget.onChanged(m.copyWith(bassSensitivity: v.round())),
       ),
-      Text('Mid: ${m.midSensitivity}', style: Theme.of(context).textTheme.labelLarge),
+      Text(l10n.musicMidValue(m.midSensitivity), style: Theme.of(context).textTheme.labelLarge),
       ConfigDragSlider(
         value: m.midSensitivity.toDouble(),
         min: 0,
@@ -273,7 +275,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         divisions: 100,
         onChanged: (v) => widget.onChanged(m.copyWith(midSensitivity: v.round())),
       ),
-      Text('High: ${m.highSensitivity}', style: Theme.of(context).textTheme.labelLarge),
+      Text(l10n.musicHighValue(m.highSensitivity), style: Theme.of(context).textTheme.labelLarge),
       ConfigDragSlider(
         value: m.highSensitivity.toDouble(),
         min: 0,
@@ -281,7 +283,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         divisions: 100,
         onChanged: (v) => widget.onChanged(m.copyWith(highSensitivity: v.round())),
       ),
-      Text('Global: ${m.globalSensitivity}', style: Theme.of(context).textTheme.labelLarge),
+      Text(l10n.musicGlobalValue(m.globalSensitivity), style: Theme.of(context).textTheme.labelLarge),
       ConfigDragSlider(
         value: m.globalSensitivity.toDouble(),
         min: 0,
@@ -290,22 +292,22 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         onChanged: (v) => widget.onChanged(m.copyWith(globalSensitivity: v.round())),
       ),
       SwitchListTile(
-        title: const Text('Automatické zesílení'),
-        subtitle: const Text('Vyrovná hlasitost vstupu podle dynamiky skladby.'),
+        title: Text(l10n.musicAutoGainTitle),
+        subtitle: Text(l10n.musicAutoGainSubtitle),
         value: m.autoGain,
         onChanged: (v) => widget.onChanged(m.copyWith(autoGain: v)),
       ),
       SwitchListTile(
-        title: const Text('Auto středy'),
+        title: Text(l10n.musicAutoMidTitle),
         value: m.autoMid,
         onChanged: (v) => widget.onChanged(m.copyWith(autoMid: v)),
       ),
       SwitchListTile(
-        title: const Text('Auto výšky'),
+        title: Text(l10n.musicAutoHighTitle),
         value: m.autoHigh,
         onChanged: (v) => widget.onChanged(m.copyWith(autoHigh: v)),
       ),
-      Text('Vyhlazení v čase: ${m.smoothingMs} ms', style: Theme.of(context).textTheme.labelLarge),
+      Text(l10n.musicSmoothingMs(m.smoothingMs), style: Theme.of(context).textTheme.labelLarge),
       ConfigDragSlider(
         value: m.smoothingMs.toDouble(),
         min: 0,
@@ -314,7 +316,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         label: '${m.smoothingMs}',
         onChanged: (v) => widget.onChanged(m.copyWith(smoothingMs: v.round())),
       ),
-      Text('min_brightness (music): ${m.minBrightness}', style: Theme.of(context).textTheme.labelLarge),
+      Text(l10n.musicMinBrightnessValue(m.minBrightness), style: Theme.of(context).textTheme.labelLarge),
       ConfigDragSlider(
         value: m.minBrightness.toDouble(),
         min: 0,
@@ -323,7 +325,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         label: '${m.minBrightness}',
         onChanged: (v) => widget.onChanged(m.copyWith(minBrightness: v.round())),
       ),
-      Text('rotation_speed: ${m.rotationSpeed}', style: Theme.of(context).textTheme.labelLarge),
+      Text(l10n.musicRotationSpeedValue(m.rotationSpeed), style: Theme.of(context).textTheme.labelLarge),
       ConfigDragSlider(
         value: m.rotationSpeed.toDouble(),
         min: 0,
@@ -334,7 +336,7 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
       ),
       TextFormField(
         initialValue: m.activePreset,
-        decoration: const InputDecoration(labelText: 'active_preset', border: OutlineInputBorder()),
+        decoration: InputDecoration(labelText: l10n.musicActivePresetField, border: const OutlineInputBorder()),
         onChanged: (v) => widget.onChanged(m.copyWith(activePreset: v.trim().isEmpty ? m.activePreset : v.trim())),
       ),
     ];
@@ -383,7 +385,7 @@ class _MusicFixedColorSlidersState extends State<_MusicFixedColorSliders> {
     try {
       final res = await showAmbiColorPickerDialog(
         context,
-        title: 'Pevná barva (hudba)',
+        title: AppLocalizations.of(context).musicFixedColorPickerTitle,
         initialRgb: [r, g, b],
         onLiveRgb: (rgb) {
           if (rgb.length == 3) {
@@ -401,6 +403,7 @@ class _MusicFixedColorSlidersState extends State<_MusicFixedColorSliders> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final r = widget.rgb.isNotEmpty ? widget.rgb[0].clamp(0, 255) : 255;
     final g = widget.rgb.length > 1 ? widget.rgb[1].clamp(0, 255) : 0;
@@ -437,7 +440,7 @@ class _MusicFixedColorSlidersState extends State<_MusicFixedColorSliders> {
                   Icon(Icons.tune_rounded, color: onFill.withValues(alpha: 0.9)),
                   const SizedBox(width: 10),
                   Text(
-                    'Upravit barvu',
+                    l10n.musicEditColorButton,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: onFill,
                           fontWeight: FontWeight.w600,
@@ -450,7 +453,7 @@ class _MusicFixedColorSlidersState extends State<_MusicFixedColorSliders> {
         ),
         const SizedBox(height: 10),
         Text(
-          'RGB $r · $g · $b',
+          l10n.musicRgbTriple(r, g, b),
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodySmall,
         ),

@@ -3,18 +3,18 @@ import 'package:ambilight_desktop/ui/ambi_shell.dart';
 import 'package:ambilight_desktop/ui/layout_breakpoints.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
+
+import 'support/ambi_provider_scope.dart';
+import 'support/l10n_test_app.dart';
 
 void main() {
   testWidgets('AmbiShell zobrazí AppBar', (WidgetTester tester) async {
     final controller = AmbilightAppController();
     addTearDown(controller.dispose);
     await tester.pumpWidget(
-      ChangeNotifierProvider<AmbilightAppController>.value(
-        value: controller,
-        child: const MaterialApp(
-          home: AmbiShell(),
-        ),
+      ambiProviderScope(
+        controller,
+        ambilightTestMaterialApp(home: const AmbiShell()),
       ),
     );
     await tester.pump();
@@ -28,9 +28,9 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      ChangeNotifierProvider<AmbilightAppController>.value(
-        value: controller,
-        child: const MaterialApp(home: AmbiShell()),
+      ambiProviderScope(
+        controller,
+        ambilightTestMaterialApp(home: const AmbiShell()),
       ),
     );
     await tester.pump();
@@ -46,9 +46,9 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      ChangeNotifierProvider<AmbilightAppController>.value(
-        value: controller,
-        child: const MaterialApp(home: AmbiShell()),
+      ambiProviderScope(
+        controller,
+        ambilightTestMaterialApp(home: const AmbiShell()),
       ),
     );
     await tester.pump();

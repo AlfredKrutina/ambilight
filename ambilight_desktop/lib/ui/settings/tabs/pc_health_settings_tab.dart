@@ -93,22 +93,25 @@ class _PcHealthSettingsTabState extends State<PcHealthSettingsTab> {
   }
 
   Future<void> _editMetric(BuildContext context, PcHealthSettings p, int? index) async {
+    final Map<String, dynamic> base;
+    if (index == null) {
+      base = {
+        'enabled': true,
+        'name': 'Nová metrika',
+        'type': 'system',
+        'metric': 'net_usage',
+        'min_value': 0,
+        'max_value': 100,
+        'color_scale': 'blue_green_red',
+        'brightness_mode': 'dynamic',
+        'brightness_min': 50,
+        'brightness_max': 255,
+        'zones': <String>['left'],
+      };
+    } else {
+      base = Map<String, dynamic>.from(p.metrics[index]);
+    }
     final isNew = index == null;
-    final base = isNew
-        ? <String, dynamic>{
-            'enabled': true,
-            'name': 'Nová metrika',
-            'type': 'system',
-            'metric': 'net_usage',
-            'min_value': 0,
-            'max_value': 100,
-            'color_scale': 'blue_green_red',
-            'brightness_mode': 'dynamic',
-            'brightness_min': 50,
-            'brightness_max': 255,
-            'zones': <String>['left'],
-          }
-        : Map<String, dynamic>.from(p.metrics[index!]);
 
     final nameCtrl = TextEditingController(text: base['name']?.toString() ?? '');
     final minCtrl = TextEditingController(text: '${asDouble(base['min_value'], 0)}');
@@ -285,10 +288,10 @@ class _PcHealthSettingsTabState extends State<PcHealthSettingsTab> {
     }
 
     final list = List<Map<String, dynamic>>.from(p.metrics);
-    if (isNew) {
+    if (index == null) {
       list.add(out);
     } else {
-      list[index!] = out;
+      list[index] = out;
     }
     widget.onChanged(p.copyWith(metrics: list));
   }

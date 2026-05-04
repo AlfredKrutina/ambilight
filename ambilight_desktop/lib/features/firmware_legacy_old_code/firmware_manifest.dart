@@ -22,6 +22,35 @@ class FirmwareManifest {
   final List<FirmwareSerialPart> parts;
   final String? otaHttpUrl;
 
+  /// Root pole `ota_http_url`, nebo odvozená HTTPS URL aplikační `.bin` z `parts`
+  /// (stejná heuristika jako `tools/gen_firmware_manifest.py`).
+  String? get resolvedOtaHttpUrl {
+    final direct = otaHttpUrl?.trim();
+    if (direct != null && direct.isNotEmpty) return direct;
+
+    int offHex(String o) {
+      final s = o.toLowerCase().replaceFirst('0x', '');
+      return int.tryParse(s, radix: 16) ?? 0;
+    }
+
+    bool isAppBin(FirmwareSerialPart p) {
+      final f = p.file.toLowerCase();
+      return !f.contains('bootloader') &&
+          !f.contains('partition') &&
+          f.endsWith('.bin');
+    }
+
+    final apps = parts.where(isAppBin).toList();
+    if (apps.isEmpty) return null;
+
+    final amb = apps.where((p) => p.file.toLowerCase().contains('ambilight')).toList();
+    final pool = amb.isNotEmpty ? amb : apps;
+    pool.sort((a, b) => offHex(a.offset).compareTo(offHex(b.offset)));
+    final pick = pool.last;
+    final u = pick.url.trim();
+    return u.isEmpty ? null : u;
+  }
+
   static FirmwareManifest parseJsonString(String raw) {
     final j = jsonDecode(raw);
     if (j is! Map<String, dynamic>) {

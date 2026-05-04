@@ -63,6 +63,21 @@ class DiscoveredLedController {
   String toString() => '$name ($ip) leds=$ledCount';
 }
 
+/// Parsování odpovědi z `ambilight.c` (`sprintf` … `ESP32_PONG|…`).
+DiscoveredLedController? parseEsp32PongDatagram(String sourceIp, String utf8Text) {
+  final text = utf8Text.trim();
+  if (!text.startsWith('ESP32_PONG')) return null;
+  final parts = text.split('|');
+  if (parts.length < 5) return null;
+  return DiscoveredLedController(
+    ip: sourceIp,
+    macSuffix: parts[1],
+    name: parts[2],
+    ledCount: int.tryParse(parts[3]) ?? 0,
+    version: parts[4].trim(),
+  );
+}
+
 /// Broadcast discovery on [udpPort] (default 4210).
 class LedDiscoveryService {
   LedDiscoveryService._();
@@ -89,17 +104,9 @@ class LedDiscoveryService {
           } catch (_) {
             return;
           }
-          if (!text.startsWith('ESP32_PONG')) return;
-          final parts = text.split('|');
-          if (parts.length < 5) return;
           final ip = dg.address.address;
-          final parsed = DiscoveredLedController(
-            ip: ip,
-            macSuffix: parts[1],
-            name: parts[2],
-            ledCount: int.tryParse(parts[3]) ?? 0,
-            version: parts[4].trim(),
-          );
+          final parsed = parseEsp32PongDatagram(ip, text);
+          if (parsed == null) return;
           out[ip] = parsed;
           _log.fine('PONG $parsed');
         } catch (e, st) {
@@ -149,16 +156,8 @@ class LedDiscoveryService {
           } catch (_) {
             return;
           }
-          if (!text.startsWith('ESP32_PONG')) return;
-          final parts = text.split('|');
-          if (parts.length < 5) return;
-          found = DiscoveredLedController(
-            ip: dg.address.address,
-            macSuffix: parts[1],
-            name: parts[2],
-            ledCount: int.tryParse(parts[3]) ?? 0,
-            version: parts[4].trim(),
-          );
+          found = parseEsp32PongDatagram(dg.address.address, text);
+          if (found == null) return;
           if (!completer.isCompleted) completer.complete();
         } catch (e, st) {
           _log.fine('queryPong listen: $e', e, st);

@@ -1,0 +1,265 @@
+# Append to l10n_merge_pairs.txt (key|||EN|||CS)
+onboardingUsbSerialLabel|||USB / serial|||USB / sériový
+onboardingUdpWifiLabel|||UDP / Wi‑Fi|||UDP / Wi‑Fi
+colorPickerHue|||Hue|||Odstín
+colorPickerSaturationValue|||Saturation & brightness|||Sytost a jas
+colorPickerPresets|||Presets|||Předvolby
+colorPickerDefaultTitle|||Color|||Barva
+guideMusicColorsTitle|||Music & artwork colors|||Hudba a barvy z obalu
+guideCloseTooltip|||Close|||Zavřít
+guideBrowserOpenFailed|||Could not open the browser.|||Otevření prohlížeče se nezdařilo.
+guideNeedSpotifyClientId|||Enter Spotify Client ID in Settings → Spotify first (see button above).|||Nejdřív v Nastavení → Spotify zadej Client ID (viz tlačítko výše).
+guideOpenSpotifyDeveloper|||Open Spotify Developer|||Otevřít Spotify Developer
+guideSignInSpotifyBrowser|||Sign in to Spotify in browser|||Přihlásit Spotify v prohlížeči
+guideIntroBlurb|||Briefly: in Music mode you get PC audio (effects) and optionally one color from track artwork.|||Stručně: v režimu Hudba jde o zvuk z PC (efekty) a volitelně jedna barva z obalu skladby.
+guideCard1Title|||1 · Mode and audio|||1 · Režim a zvuk
+guideCard1Body|||On the overview enable the Music tile. In Settings → Music pick an input (Stereo Mix, microphone, …) and allow audio capture for AmbiLight in the OS.|||Na přehledu zapni dlaždici „Hudba“. V Nastavení → Hudba vyber vstup (Stereo Mix, mikrofon, …) a v systému povol nahrávání zvuku pro AmbiLight.
+guideCard2Title|||2 · Artwork color|||2 · Barva z obalu
+guideCard2Body|||Either Spotify (below) or on Windows the “OS media” section in Settings → Spotify (Apple Music etc. via the OS). When artwork is enabled it takes priority over FFT effects.|||Buď Spotify (níže), nebo na Windows sekce „OS médium“ v Nastavení → Spotify (Apple Music apod. přes systém). Když je obal zapnutý, má přednost před „tančícími“ efekty z FFT.
+guideCard3Title|||3 · Spotify|||3 · Spotify
+guideCard3Body|||You need a Client ID from the developer console and redirect http://127.0.0.1:8767/callback in the console. The button below opens the web — signing in then launches the browser like “Sign in” on the overview.|||Potřebuješ Client ID z vývojářské konzole a v konzoli redirect http://127.0.0.1:8767/callback. Tlačítkem níže otevřeš web — přihlášení k účtu Spotify pak spustí prohlížeč stejně jako „Přihlásit“ na přehledu.
+guideCard4Title|||4 · Apple Music|||4 · Apple Music
+guideCard4Body|||There is no “sign in to Apple Music on the web” button here: Apple does not offer the same open OAuth as Spotify for this desktop app. On Windows enable OS media, play Apple Music (app) — color comes from the thumbnail the system shares when available.|||Žádné tlačítko „přihlásit Apple Music ve webu“ zde nepřidáme: Apple nemá pro tuto desktopovou aplikaci stejné otevřené OAuth jako Spotify. Na Windows zapni „OS médium“, pusť Apple Music (aplikace) a hraj — barva se bere z miniatury, kterou systém sdílí (když ji hráč pošle).
+guideCard5Title|||When something fails|||Když něco nejde
+guideCard5Body|||Spotify error after login → try Sign in again. No sound in effects → wrong input or permissions. Still only FFT → artwork integration off or nothing playing / no thumbnail.|||Spotify chyba po přihlášení → zkus znovu Přihlásit. Žádný zvuk v efektech → špatný vstup nebo oprávnění. Pořád jen FFT → vypnutá integrace obalu nebo nic nehraje / chybí miniatura.
+spotifySectionTitle|||Spotify|||Spotify
+spotifyOAuthNote|||OAuth tokens are stored on disk via ConfigRepository (sanitized); full token flow and Sign-in buttons are wired separately.|||OAuth tokény se do disku ukládají přes ConfigRepository sanitizovaně; plný tok a tlačítka „Přihlásit“ přidá agent A5.
+spotifyIntegrationEnabledTile|||Spotify integration enabled|||Spotify integrace zapnutá
+spotifyAlbumColorsApi|||Album colors (Spotify API)|||Barvy z alba (Spotify API)
+spotifyClientSecretHintStored|||Leave empty to keep current; clear in settings or enter a new secret|||Ponechte prázdné = beze změny; smažte v A5 nebo zadejte nový
+spotifyClientSecretHintOptional|||Optional|||Volitelné
+spotifyClearSecretButton|||Clear client secret from draft|||Smazat client secret z draftu
+spotifyAccessTokenTile|||Access token|||Access token
+spotifyRefreshTokenTile|||Refresh token|||Refresh token
+spotifyTokenSet|||Set (hidden)|||Nastaven (skryto)
+spotifyTokenMissing|||Missing|||Chybí
+spotifyOsMediaSection|||Apple Music / YouTube Music (OS)|||Apple Music / YouTube Music (OS)
+spotifyOsMediaBodyWin|||On Windows we read artwork from the current system player (GSMTC). It usually works for Apple Music and often YouTube Music in Edge or Chrome — depends on whether the player publishes a thumbnail. Official YouTube Music API is not used here.|||Na Windows čteme náhled obalu z aktuálního systémového přehrávače (GSMTC). Funguje typicky pro aplikaci Apple Music a často pro YouTube Music v Edge nebo Chrome — záleží, zda prohlížeč nebo hráč miniaturu do systému pošle. Oficiální API YouTube Music zde není.
+spotifyOsMediaBodyOther|||On this OS only Spotify (OAuth) for now. GSMTC / system thumbnail is implemented for Windows.|||Na tomto OS zatím jen Spotify (OAuth). GSMTC / systémový náhled je implementovaný pro Windows.
+spotifyOsAlbumColorGsmtc|||Album color via OS media (GSMTC)|||Barva z obalu přes OS média (GSMTC)
+spotifyOsAlbumColorUnavailable|||Album color via OS media (unavailable)|||Barva z obalu přes OS média (nedostupné)
+spotifyOsAlbumColorSubtitle|||Used in Music mode when Spotify does not provide a color or it is disabled.|||Použije se v music módu, pokud Spotify neposkytne barvu nebo je vypnuté.
+spotifyOsDominantThumbnail|||Use dominant color from OS thumbnail|||Použít dominantní barvu z miniatury OS
+discWizardTitle|||Discovery (Wi‑Fi)|||Discovery (D9)
+discDone|||Done|||Hotovo
+discScanning|||Scanning…|||Skenuji…
+discScanAgain|||Scan again|||Znovu skenovat
+discIntro|||Broadcast DISCOVER_ESP32 on port 4210. Identify sends a short highlight on the strip.|||Broadcast DISCOVER_ESP32 na port 4210. Identify pošle krátké zvýraznění na strip.
+discNoDevicesSnack|||No devices replied (UDP 4210).|||Žádné zařízení neodpovědělo (UDP 4210).
+discEmptyAfterScan|||No devices. Check network and firmware.|||Žádná zařízení. Zkontroluj síť a FW.
+discAddedSnack|||Added: {name}|||Přidáno: {name}
+discResetWifiTitle|||Reset Wi‑Fi?|||Reset Wi‑Fi?
+discResetWifiBody|||Device „{name}“ ({ip}) clears saved Wi‑Fi credentials and restarts. You must configure it again.|||Zařízení „{name}“ ({ip}) smaže uložené Wi‑Fi přihlašovací údaje a restartuje se. Budete ho muset znovu nakonfigurovat.
+discSendResetWifi|||Send RESET_WIFI|||Odeslat RESET_WIFI
+discResetWifiSnackOk|||RESET_WIFI sent.|||RESET_WIFI odeslán.
+discResetWifiSnackFail|||Send failed.|||Odeslání se nezdařilo.
+discAddButton|||Add|||Přidat
+discResetWifiTooltip|||Reset Wi‑Fi (clears saved credentials)|||Reset Wi‑Fi (smaže uložené přihlašovací údaje)
+discIdentifyTooltip|||Identify|||Identify
+zoneEditorTitle|||Zone / segment editor|||Editor zón / segmentů (D11)
+zoneEditorAddSegment|||Add segment|||Přidat segment
+zoneEditorSavedSegments|||Saved {count} segments.|||Uloženo {count} segmentů.
+zoneEditorIntro|||Max LED index: {max}. Each segment: LED range, edge, monitor, scan depth, reverse, pixel mapping and music role.|||Max LED index: {max}. Každý segment: LED rozsah, hrana, monitor, hloubka skenu, obrácený směr, mapování pixelů a role v hudbě.
+zoneEditorEmpty|||No segments — use the LED wizard or “Add segment”.|||Žádné segmenty — použij průvodce LED nebo „Přidat segment“.
+zoneEditorSegmentLine|||Segment {index} · {edge} · LED {start}–{end} · mon {mon}|||Segment {index} · {edge} · LED {start}–{end} · mon {mon}
+zoneEditorDeleteTooltip|||Delete|||Smazat
+zoneDeviceAllDefault|||— All / default —|||— všechna / výchozí —
+zoneRefFromCapture|||Reference size from last frame|||Ref. rozměry z posledního snímku
+calibWizardTitle|||Screen calibration|||Kalibrace obrazovky (D12)
+calibWizardIntro|||Profiles live in `screen_mode.calibration_profiles` (JSON). Full curve wizard — future detail.|||Profily jsou v `screen_mode.calibration_profiles` (JSON). Plný wizard křivek a náhled — D-detail / A3.
+calibNoProfiles|||No profiles in config.|||Žádné profily v configu.
+calibActiveProfileLabel|||Active calibration profile|||Aktivní kalibrační profil
+calibSaveChoice|||Save selection|||Uložit výběr
+calibActiveProfileSnack|||Active profile: {name}|||Aktivní profil: {name}
+configProfileWizardTitle|||Save screen preset|||Uložit screen preset (D14)
+configProfileIntro|||Config file is handled by ConfigRepository; this stores the current screen mode snapshot into user_screen_presets.|||Soubor profilu (`default.json` / jiný) řeší ConfigRepository; zde jen snapshot aktuálního screen módu do JSON pole user_screen_presets.
+configProfileNameLabel|||Preset name|||Název presetu
+configProfileExistingTitle|||Existing presets:|||Existující presety:
+configProfileSavedSnack|||Preset „{name}“ saved to user_screen_presets.|||Preset „{name}“ uložen do user_screen_presets.
+defaultPresetNameDraft|||My preset|||Můj preset
+ledWizTitle|||LED wizard|||Průvodce LED
+ledWizTitleWithDevice|||LED wizard — {name}|||Průvodce LED — {name}
+ledWizMonitorLocked|||Monitor: {idx} (locked)|||Monitor: {idx} (zámek)
+ledWizAppendBadge|||Mode: append segments|||Režim: přidat segmenty
+ledWizStepProgress|||Step {current} / {total}|||Krok {current} / {total}
+ledWizAddDeviceFirst|||Add a device first (Discovery or manually).|||Nejdřív přidejte zařízení (Discovery nebo ručně).
+ledWizDeviceLabel|||Device|||Zařízení
+ledWizStripSides|||Strip sides|||Strany pásku
+ledWizRefMonitorLabel|||Reference monitor (native list)|||Referenční monitor (nativní seznam)
+ledWizMonitorLine|||Monitor {idx} — {w}×{h}{suffix}|||Monitor {idx} — {w}×{h}{suffix}
+ledWizPrimarySuffix||| · primary||| · primární
+ledWizMonitorManualLabel|||Monitor index (MSS, manual — list unavailable)|||Index monitoru (MSS, ručně — seznam nedostupný)
+ledWizAppendSegmentsTitle|||Append to existing segments (multi-monitor)|||Přidat k existujícím segmentům (multi-monitor)
+ledWizAppendSegmentsSubtitle|||Otherwise only this device’s segments are cleared.|||Jinak se smažou segmenty jen tohoto zařízení.
+ledWizLedIndexSlider|||LED index {n}|||LED index {n}
+ledWizLedIndexRow|||LED index: {n}|||Index LED: {n}
+ledWizFinishBody|||Configuration complete. Saving sets Screen mode, updates segments and may update device LED count.|||Konfigurace je hotová. Uložením se nastaví režim Obrazovka, aktualizují se segmenty a případně počet LED u zařízení.
+ledWizStartCalibration|||Start calibration|||Spustit kalibraci
+ledWizPickOneSideSnack|||Select at least one side.|||Vyberte alespoň jednu stranu.
+ledWizSummary|||Summary|||Shrnutí
+ledWizSaveClose|||Save and close|||Uložit a zavřít
+ledWizSavedSnack|||Saved {segments} segments, LED {led}, monitor {mon}.|||Uloženo {segments} segmentů, LED {led}, monitor {mon}.
+ledWizConfigTitle|||Configuration|||Konfigurace
+ledWizConfigBody|||In Settings → Devices set LED count to at least an upper estimate (max 2000). Before calibration the app sends this count on USB. Then pick sides and monitor — move the green LED to each physical corner.|||V Nastavení → Zařízení nastav „Počet LED“ alespoň na horní odhad délky pásku (max. 2000). Před kalibrací aplikace pošle na ESP USB příkaz s tímto počtem. Pak vyber strany a monitor — u každého bodu posuneš zelenou LED na fyzické místo.
+ledWizFinishTitle|||Done|||Hotovo
+ledWizFinishBody|||Segments are computed from stored indices.|||Segmenty se dopočítají z uložených indexů.
+ledWizLeftStartTitle|||Left side — start|||Levá strana — začátek
+ledWizLeftStartBody|||Move the slider so the green LED is at the start of the left side (usually bottom).|||Posuňte posuvník tak, aby zelená LED byla na začátku levé strany (obvykle dole).
+ledWizLeftEndTitle|||Left side — end|||Levá strana — konec
+ledWizLeftEndBody|||Move the slider so the green LED is at the end of the left side (usually top).|||Posuňte posuvník tak, aby zelená LED byla na konci levé strany (obvykle nahoře).
+ledWizTopStartTitle|||Top side — start|||Horní strana — začátek
+ledWizTopStartBody|||Move the slider so the green LED is at the start of the top edge (left).|||Posuňte posuvník tak, aby zelená LED byla na začátku horní hrany (vlevo).
+ledWizTopEndTitle|||Top side — end|||Horní strana — konec
+ledWizTopEndBody|||Move the slider so the green LED is at the end of the top edge (right).|||Posuňte posuvník tak, aby zelená LED byla na konci horní hrany (vpravo).
+ledWizRightStartTitle|||Right side — start|||Pravá strana — začátek
+ledWizRightStartBody|||Move the slider so the green LED is at the start of the right side (usually top).|||Posuňte posuvník tak, aby zelená LED byla na začátku pravé strany (nahoře).
+ledWizRightEndTitle|||Right side — end|||Pravá strana — konec
+ledWizRightEndBody|||Move the slider so the green LED is at the end of the right side (usually bottom).|||Posuňte posuvník tak, aby zelená LED byla na konci pravé strany (dole).
+ledWizBottomStartTitle|||Bottom side — start|||Spodní strana — začátek
+ledWizBottomStartBody|||Move the slider so the green LED is at the start of the bottom edge (right).|||Posuňte posuvník tak, aby zelená LED byla na začátku spodní hrany (vpravo).
+ledWizBottomEndTitle|||Bottom side — end|||Spodní strana — konec
+ledWizBottomEndBody|||Move the slider so the green LED is at the end of the bottom edge (left).|||Posuňte posuvník tak, aby zelená LED byla na konci spodní hrany (vlevo).
+fwTitle|||ESP firmware|||Firmware ESP
+fwIntro|||CI can publish a manifest on GitHub Pages. Load the manifest, download .bin files and flash via USB (esptool in PATH) or run OTA over Wi‑Fi (UDP command). Switching to dual OTA layout needs one full USB flash first.|||CI build z repa může publikovat manifest na GitHub Pages. Zde načteš manifest, stáhneš .bin a flashneš přes USB (vyžaduje esptool v PATH) nebo spustíš OTA přes Wi‑Fi (UDP příkaz z firmware). Přechod na tabulku s dvěma OTA oddíly vyžaduje jednou úplný flash přes USB.
+fwManifestUrlLabel|||Manifest URL (GitHub Pages)|||URL manifestu (GitHub Pages)
+fwManifestUrlHint|||https://example.github.io/ambilight/firmware/latest/|||https://alfredkrutina.github.io/ambilight/firmware/latest/
+fwManifestHelper|||Default from global settings; /manifest.json is appended if missing.|||Výchozí z globálního nastavení; bez souboru doplníme /manifest.json
+fwLoadManifest|||Load manifest|||Načíst manifest
+fwDownloadBins|||Download binaries|||Stáhnout binárky
+fwVersionChipLine|||Version: {version} · chip: {chip}|||Verze: {version} · čip: {chip}
+fwPartBullet|||• {file} @ {offset}|||• {file} @ {offset}
+fwOtaUrlLine|||OTA URL: {url}|||OTA URL: {url}
+fwFlashUsbTitle|||Flash via USB (COM)|||Flash přes USB (COM)
+fwRefreshPortsTooltip|||Refresh port list|||Obnovit seznam portů
+fwSerialPortsError|||Cannot load serial ports: {error}|||Sériové porty nelze načíst: {error}
+fwSerialPortLabel|||Serial port|||Sériový port
+fwNoComHintDriver|||Try Refresh or check permissions / driver.|||Zkuste „Obnovit“ nebo oprávnění / ovladač.
+fwNoComEmpty|||No COM — connect ESP USB|||Žádný COM — připoj ESP USB
+fwFlashEsptool|||Flash with esptool|||Flashovat přes esptool
+fwOtaUdpTitle|||OTA over Wi‑Fi (UDP)|||OTA přes Wi‑Fi (UDP)
+fwDeviceIpLabel|||Device IP|||IP zařízení
+fwOtaHintNeedManifest|||Load the manifest first — OTA HTTPS URL is unknown without it.|||Nejdřív výše načti manifest — bez něj není známá HTTPS URL pro OTA_HTTP.
+fwOtaHintMissingUrl|||Manifest has no OTA URL — add root ota_http_url or parts with app .bin URLs.|||V manifestu chybí OTA URL — dopiš root pole ota_http_url nebo parts s URL na aplikační .bin.
+fwOtaHintWillUse|||OTA will use: {url}|||Pro OTA se použije: {url}
+fwVerifyUdpPong|||Verify reachability (UDP PONG)|||Ověřit dosah (UDP PONG)
+fwSendOtaHttp|||Send OTA_HTTP|||Odeslat OTA_HTTP
+fwStatusCacheFail|||Cannot create cache (path_provider).|||Nelze založit cache (path_provider).
+fwStatusEnterManifestUrl|||Enter manifest URL (e.g. …/firmware/latest/).|||Zadej URL manifestu (např. …/firmware/latest/).
+fwStatusLoadingManifest|||Loading manifest…|||Načítám manifest…
+fwStatusManifestOk|||Manifest OK — version {version}, chip {chip}, {count} files.|||Manifest OK — verze {version}, čip {chip}, {count} souborů.
+fwStatusManifestError|||Manifest error: {error}|||Chyba manifestu: {error}
+fwStatusDownloading|||Downloading…|||Stahuji…
+fwStatusDownloadedTo|||Downloaded to: {path}|||Staženo do: {path}
+fwStatusDownloadFailed|||Download failed: {error}|||Stažení selhalo: {error}
+fwStatusPickCom|||Pick a COM / serial port.|||Vyber COM / sériový port.
+fwStatusDownloadBinsFirst|||Download binaries first (button above).|||Nejdřív stáhni binárky (tlačítko výše).
+fwStatusFlashing|||Flashing via esptool… (stop app stream on the same COM)|||Flashuji přes esptool… (vypni v aplikaci stream na stejný COM)
+fwStatusFlashOk|||Flash OK.\n{log}|||Flash OK.\n{log}
+fwStatusFlashFail|||Flash failed.\n{log}|||Flash selhal.\n{log}
+fwStatusException|||Exception: {error}|||Výjimka: {error}
+fwStatusEnterIpProbe|||Enter device IP for probe (UDP PONG).|||Zadej IP zařízení pro ověření (UDP PONG).
+fwStatusProbing|||Probing device (UDP, max 2 s)…|||Ověřuji zařízení (UDP, max 2 s)…
+fwStatusProbeTimeout|||No reply in time — offline, wrong IP/port/firewall, or firmware without DISCOVER reply.|||Zařízení neodpovědělo v čase — offline, špatná IP/port/firewall, nebo firmware bez DISCOVER odpovědi.
+fwStatusProbeOnline|||Online: {name} · LED {led} · version {version} (ESP32_PONG).|||Online: {name} · LED {led} · verze {version} (ESP32_PONG).
+fwStatusNoOtaUrl|||Manifest has no usable OTA URL (ota_http_url or derived parts[].url).|||Manifest nemá použitelnou OTA URL (ota_http_url ani odvozený parts[].url).
+fwStatusEnterIpEsp|||Enter ESP IP (Wi‑Fi).|||Zadej IP ESP (Wi‑Fi).
+fwStatusSendingOta|||Sending OTA_HTTP to {ip}:{port}…|||Odesílám OTA_HTTP na {ip}:{port}…
+fwStatusOtaSent|||Command sent. ESP downloads firmware and reboots (check log / LEDs).|||Příkaz odeslán. ESP stáhne firmware a restartuje se (kontroluj log / LED).
+fwStatusUdpFailed|||UDP send failed.|||UDP se nepodařilo odeslat.
+pcHealthHeaderTitle|||PC Health|||PC Health
+pcHealthHeaderSubtitle|||Strip edge colors from system metrics. Pick PC Health on the overview to drive outputs.|||Barvy okrajů pásku podle systémových metrik. Na přehledu zvol režim PC Health, aby se výstup posílal na zařízení.
+pcHealthHintWeb|||System metrics are not read on the web.|||Na webu se systémové metriky nečtou.
+pcHealthHintMac|||macOS: CPU usage is estimated from load average / cores; disk from df; network from netstat byte totals. CPU temperature without tools like powermetrics may stay 0. NVIDIA GPU only if nvidia-smi is in PATH.|||macOS: CPU zátěž je odhad z load average / počet jader; disk z df; síť ze součtu Ibytes v netstat. Teplotu CPU bez rozšíření typu powermetrics nelze v běžném účtu spolehlivě číst — může zůstat 0. NVIDIA GPU jen pokud je v PATH nástroj nvidia-smi.
+pcHealthHintLinux|||Linux: disk_usage metric is not filled yet in the collector (0). Other values from /proc and thermal zones.|||Linux: využití disku v metrice disk_usage zatím není v collectoru naplněné (0). Ostatní z /proc a tepelné zóny.
+pcHealthHintWindows|||Windows: disk uses first fixed disk; CPU temperature from ACPI WMI when available.|||Windows: disk první pevný disk; teplota CPU z ACPI WMI, pokud systém poskytuje data.
+pcHealthEnabledTile|||PC Health enabled|||PC Health zapnuto
+pcHealthEnabledSubtitle|||Disabled = black output in this mode.|||Vypnuto = černý výstup v tomto režimu.
+pcHealthUpdateInterval|||Update interval: {ms} ms|||Interval aktualizace: {ms} ms
+pcHealthGlobalBrightness|||Global brightness: {v}|||Globální jas: {v}
+pcHealthLivePreviewTitle|||Live value preview|||Živý náhled hodnot
+pcHealthNotTrackingHint|||Active mode is not PC Health — showing last sample or manual measurement.|||Aktivní režim není PC Health — zobrazuje se poslední snímek nebo ruční měření.
+pcHealthMeasureNow|||Measure now|||Změřit teď
+pcHealthMeasuring|||Measuring…|||Měřím…
+pcHealthMetricsTitle|||Metrics ({count})|||Metriky ({count})
+pcHealthRestoreDefaults|||Restore defaults|||Výchozí
+pcHealthNoMetrics|||No metrics.|||Žádné metriky.
+pcHealthStagingDebug|||[staging] PC Health preview + metric editor|||[staging] PC Health: náhled + editor metrik
+pcHealthColorStripPreview|||Color strip (preview)|||Barevný pruh (náhled)
+pcHealthDialogNew|||New metric|||Nová metrika
+pcHealthDialogEdit|||Edit metric|||Upravit metriku
+pcHealthTileEnabled|||Enabled|||Zapnuto
+pcHealthFieldName|||Name|||Název
+pcHealthFieldMetric|||Metric|||Metrika
+pcHealthFieldMin|||Min|||Min
+pcHealthFieldMax|||Max|||Max
+pcHealthFieldColorScale|||Color scale|||Barevná škála
+pcHealthFieldBrightness|||Brightness|||Jas
+pcHealthBrightnessStatic|||Static|||Statický
+pcHealthBrightnessDynamic|||Dynamic (by value)|||Dynamický (podle hodnoty)
+pcHealthBrightnessValue|||Brightness: {v}|||Jas: {v}
+pcHealthBrightnessMin|||Brightness min: {v}|||Jas min: {v}
+pcHealthBrightnessMax|||Brightness max: {v}|||Jas max: {v}
+pcHealthZonesTitle|||Zones|||Zóny
+pcHealthMetricFallbackName|||Metric|||Metrika
+pcHealthEditTooltip|||Edit|||Upravit
+pcHealthDeleteTooltip|||Delete|||Smazat
+pcMetricCpuUsage|||CPU usage|||CPU zátěž
+pcMetricRamUsage|||RAM|||RAM
+pcMetricNetUsage|||Network (estimate)|||Síť (odhad)
+pcMetricCpuTemp|||CPU temperature|||Teplota CPU
+pcMetricGpuUsage|||GPU usage|||GPU zátěž
+pcMetricGpuTemp|||GPU temperature|||Teplota GPU
+pcMetricDiskUsage|||Disk|||Disk
+smartHomeTitle|||Smart home|||Chytrá domácnost
+smartHomeIntro|||Home Assistant: direct light.* control via REST. Apple Home (HomeKit): native on macOS. Google Home: no local public API — link via Home Assistant (below).|||Home Assistant: přímé ovládání entit light.* přes REST. Apple Home (HomeKit): nativně na macOS. Google Home: žádné veřejné lokální API — použij propojení přes Home Assistant (viz níže).
+smartPushColorsTile|||Push colors to smart lights|||Posílat barvy na chytrá světla
+smartPushColorsSubtitle|||Enable after configuring HA / HomeKit fixtures below.|||Zapni až po nastavení HA / HomeKit fixture níže.
+smartHaSection|||Home Assistant|||Home Assistant
+smartHaUrlLabel|||URL (https://…:8123)|||URL (https://…:8123)
+smartHaTokenLabel|||Long-lived access token|||Long-lived access token
+smartHaTokenHelper|||Stored outside default.json (application support / ha_long_lived_token.txt).|||Ukládá se mimo default.json (application support / ha_long_lived_token.txt).
+smartHaTrustCertTile|||Trust custom HTTPS certificate|||Důvěřovat vlastnímu HTTPS certifikátu
+smartHaTrustCertSubtitle|||Only for local HA with self-signed certs.|||Jen lokální HA s self-signed certem.
+smartTestConnection|||Test connection|||Test spojení
+smartAddHaLight|||Add light from HA|||Přidat světlo z HA
+smartHaFillUrlToken|||Fill URL and Home Assistant token first.|||Nejdřív nastav URL a token Home Assistant.
+smartHaNoLights|||No light.* entities in HA.|||V HA nejsou žádné entity light.*
+smartHaPickLightTitle|||Add light from Home Assistant|||Přidat světlo z Home Assistant
+smartHaError|||HA: {error}|||HA: {error}
+smartMaxHzLabel|||Max Hz per light|||Max. Hz na světlo
+smartBrightnessCapLabel|||Brightness cap %|||Strop jasu %
+smartHomeKitSection|||Apple Home (HomeKit)|||Apple Home (HomeKit)
+smartHomeKitNonMac|||Native HomeKit is macOS-only. On Windows/Linux add lights to Home Assistant (HomeKit Device / Matter bridge) and control via HA above.|||Nativní HomeKit je jen na macOS. Na Windows/Linux přidej světla do Home Assistant (HomeKit Device / Matter bridge) a ovládej je přes HA výše.
+smartHomeKitLoading|||Loading HomeKit…|||Načítám HomeKit…
+smartHomeKitEmpty|||No HomeKit lights (or missing permission).|||Žádná HomeKit světla (nebo chybí oprávnění).
+smartHomeKitCount|||{count} lights.|||{count} světel.
+smartRefreshHomeKit|||Refresh HomeKit light list|||Obnovit seznam HomeKit světel
+smartGoogleSection|||Google Home|||Google Home
+smartGoogleBody|||Google does not let desktop apps control Google Home lights directly. Reliable path: install Home Assistant, add Hue / Nest / … there and link HA with Google Assistant.|||Google nepovoluje desktopové aplikaci přímo řídit „Google Home“ světla. Spolehlivá cesta: nainstaluj Home Assistant, přidej tam Hue / Nest / … a propoj HA s Google Assistant.
+smartGoogleDocButton|||Docs: Google Assistant + HA|||Dokumentace: Google Assistant + HA
+smartMyHaButton|||My Home Assistant|||My Home Assistant
+smartVirtualRoomSection|||Virtual room|||Virtuální místnost
+smartVirtualRoomIntro|||Place the TV, yourself and lights on the plan. The cone shows viewing direction (relative to the TV axis). Wave modulates brightness by distance from TV and time; HA/HomeKit still receive mapped colors each frame.|||Umísti TV, sebe a světla v plánku. Kužel ukazuje směr pohledu (relativně k ose k TV). Vlna mění jas podle vzdálenosti od TV a času — signály na HA/HomeKit jdou každý snímek přes stávající mapování barev.
+smartFixturesTitle|||Configured lights ({count})|||Nakonfigurovaná světla ({count})
+smartFixturesEmpty|||None yet — add from HA or HomeKit.|||Zatím žádná — přidej z HA nebo HomeKit.
+smartFixtureRemoveTooltip|||Remove|||Odebrat
+smartFixtureHaLine|||HA: {id}|||HA: {id}
+smartFixtureHkLine|||HomeKit: {id}|||HomeKit: {id}
+smartBindingLabel|||Color mapping|||Mapování barvy
+smartBindingGlobalMean|||Average of all LEDs|||Průměr všech LED
+smartBindingLedRange|||LED range on device|||Rozsah LED na zařízení
+smartBindingScreenEdge|||Screen edge|||Hrana obrazovky
+smartDeviceIdOptional|||device_id (empty = first device)|||device_id (prázdné = první zařízení)
+smartEdgeLabel|||Edge|||Hrana
+smartMonitorIndexBinding|||monitor_index (0=desktop, 1…)|||monitor_index (0=desktop, 1…)
+smartHaStatusTesting|||Testing…|||Testuji…
+smartHaStatusOk|||OK: {msg}|||OK: {msg}
+smartHaStatusErr|||Error: {msg}|||Chyba: {msg}
+vrWaveTitle|||Room wave|||Vlna přes místnost
+vrWaveSubtitle|||Brightness modulation by distance from TV and frame time|||Modulace jasu podle vzdálenosti od TV a času snímku
+vrWaveStrength|||Wave strength: {pct} %|||Síla vlny: {pct} %
+vrWaveSpeed|||Wave speed|||Rychlost vlny
+vrDistanceSensitivity|||Distance sensitivity|||Citlivost na vzdálenost
+vrViewingAngle|||Viewing angle offset toward TV: {deg}°|||Úchyl pohledu od osy k TV: {deg}°
+vrTooltipTv|||TV (drag)|||TV (táhni)
+vrTooltipYou|||You (drag)|||Ty (táhni)

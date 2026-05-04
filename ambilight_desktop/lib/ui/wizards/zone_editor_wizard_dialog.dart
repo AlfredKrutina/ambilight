@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../application/ambilight_app_controller.dart';
 import '../../core/models/config_models.dart';
+import '../../l10n/context_ext.dart';
 import '../widgets/config_drag_slider.dart';
 import 'wizard_dialog_shell.dart';
 
@@ -115,25 +116,26 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Selector<AmbilightAppController, (int, int)>(
-      selector: (_, c) {
+    final ctrl = context.read<AmbilightAppController>();
+    return AnimatedBuilder(
+      animation: Listenable.merge([ctrl, ctrl.previewFrameNotifier]),
+      builder: (context, _) {
+        final l10n = context.l10n;
+        final c = ctrl;
         final fr = c.latestScreenFrame;
-        final px = (fr != null && fr.isValid) ? math.max(fr.width, fr.height).clamp(800, 8192) : -1;
-        return (px, _devicesSignature(c.config.globalSettings.devices));
-      },
-      builder: (context, sig, _) {
-        final c = context.read<AmbilightAppController>();
+        final px =
+            (fr != null && fr.isValid) ? math.max(fr.width, fr.height).clamp(800, 8192) : -1;
+        final sig = (px, _devicesSignature(c.config.globalSettings.devices));
         final pxCap = sig.$1 < 0 ? 4096 : sig.$1;
         final maxL = _maxLed(c.config);
-        final devices = c.config.globalSettings.devices;
 
         return WizardDialogShell(
-      title: 'Editor zón / segmentů (D11)',
+      title: l10n.zoneEditorTitle,
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Zrušit')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.cancel)),
         FilledButton.tonal(
           onPressed: _addSegment,
-          child: const Text('Přidat segment'),
+          child: Text(l10n.zoneEditorAddSegment),
         ),
         FilledButton(
           onPressed: () async {
@@ -143,19 +145,18 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
             if (context.mounted) {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Uloženo ${_segments.length} segmentů.')),
+                SnackBar(content: Text(l10n.zoneEditorSavedSegments(_segments.length))),
               );
             }
           },
-          child: const Text('Uložit'),
+          child: Text(l10n.save),
         ),
       ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Max LED index: $maxL. Každý segment: LED rozsah, hrana, monitor, hloubka skenu, obrácený směr, '
-            'mapování pixelů a role v hudbě.',
+            l10n.zoneEditorIntro(maxL),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -163,7 +164,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
           const SizedBox(height: 12),
           if (_segments.isEmpty)
             Text(
-              'Žádné segmenty — použij průvodce LED nebo „Přidat segment“.',
+              l10n.zoneEditorEmpty,
               style: Theme.of(context).textTheme.bodyLarge,
             )
           else
@@ -189,9 +190,11 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                       index: i,
                       child: const Icon(Icons.drag_handle),
                     ),
-                    title: Text('Segment $i · ${s.edge} · LED ${s.ledStart}–${s.ledEnd} · mon ${s.monitorIdx}'),
+                    title: Text(
+                      l10n.zoneEditorSegmentLine(i, s.edge, s.ledStart, s.ledEnd, s.monitorIdx),
+                    ),
                     trailing: IconButton(
-                      tooltip: 'Smazat',
+                      tooltip: l10n.zoneEditorDeleteTooltip,
                       icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
                       onPressed: () => setState(() => _segments.removeAt(i)),
                     ),
@@ -276,14 +279,17 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                               onChanged: (v) => setState(() => _segments[i] = s.copyWith(reverse: v)),
                             ),
                             DropdownButtonFormField<String?>(
-                              value: _deviceIdForDropdown(s, devices),
+                              value: _deviceIdForDropdown(s, c.config.globalSettings.devices),
                               decoration: const InputDecoration(
                                 labelText: 'device_id',
                                 border: OutlineInputBorder(),
                               ),
                               items: [
-                                const DropdownMenuItem<String?>(value: null, child: Text('— všechna / výchozí —')),
-                                ...devices.map(
+                                DropdownMenuItem<String?>(
+                                  value: null,
+                                  child: Text(l10n.zoneDeviceAllDefault),
+                                ),
+                                ...c.config.globalSettings.devices.map(
                                   (d) => DropdownMenuItem<String?>(
                                     value: d.id,
                                     child: Text('${d.name} (${d.id})'),
@@ -343,7 +349,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                             OutlinedButton.icon(
                               onPressed: () => _applyRefFromCapture(i),
                               icon: const Icon(Icons.aspect_ratio, size: 18),
-                              label: const Text('Ref. rozměry z posledního snímku'),
+                              label: Text(l10n.zoneRefFromCapture),
                             ),
                             DropdownButtonFormField<String>(
                               value: _musicEffects.contains(s.musicEffect) ? s.musicEffect : 'default',

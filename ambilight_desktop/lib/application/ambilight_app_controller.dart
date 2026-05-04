@@ -1,14 +1,17 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_libserialport/flutter_libserialport.dart';
 import 'package:logging/logging.dart';
 
 import 'app_error_safety.dart';
+import 'async_failure.dart';
+import 'build_environment.dart';
+import 'debug_trace.dart';
 import '../core/device_bindings_debug.dart';
 import '../core/models/config_models.dart';
-import '../core/models/custom_hotkey_models.dart';
 import '../core/protocol/serial_frame.dart';
 import '../data/config_repository.dart';
 import '../data/device_transport.dart';
@@ -18,6 +21,8 @@ import '../engine/ambilight_engine.dart';
 import '../engine/fallback_modes.dart' show brightnessForMode;
 import '../engine/screen/screen_color_pipeline.dart';
 import '../engine/screen/screen_frame.dart';
+import '../engine/light_pc_engine_isolate.dart';
+import '../engine/screen/screen_pipeline_isolate.dart';
 import '../features/screen_capture/screen_capture_source.dart';
 import '../features/pc_health/pc_health_collector.dart';
 import '../features/pc_health/pc_health_smoother.dart';
@@ -27,6 +32,7 @@ import '../features/system_media/system_media_now_playing_service.dart';
 import '../features/smart_lights/ha_token_store.dart';
 import '../features/smart_lights/smart_light_coordinator.dart';
 import '../services/music/music_audio_service.dart';
+import '../services/music/music_flat_strip_isolate.dart';
 import '../core/ambilight_presets.dart';
 
 final _log = Logger('AmbiController');
@@ -37,6 +43,24 @@ Map<String, List<(int, int, int)>> _cloneDeviceRgbMap(Map<String, List<(int, int
     out[e.key] = List<(int, int, int)>.from(e.value);
   }
   return out;
+}
+
+class _DistributeArgs {
+  _DistributeArgs({
+    required this.perDevice,
+    required this.brightnessScalar,
+    required this.applyWizardOverlay,
+    required this.clipToDeviceLedCount,
+    required this.smartLightsFrame,
+    required this.smartLightsAppEnabled,
+  });
+
+  final Map<String, List<(int, int, int)>> perDevice;
+  final int brightnessScalar;
+  final bool applyWizardOverlay;
+  final bool clipToDeviceLedCount;
+  final ScreenFrame? smartLightsFrame;
+  final bool smartLightsAppEnabled;
 }
 
 /// Po odebrání zařízení zůstává v segmentech `device_id` mimo seznam → pád Dropdown v editoru zón a nekonzistence pipeline.
@@ -63,7 +87,11 @@ AppConfig stripOrphanScreenSegmentDeviceIds(AppConfig cfg) {
   return cfg.copyWith(screenMode: cfg.screenMode.copyWith(segments: out));
 }
 
-/// Globální stav: konfigurace, transporty, hlavní smyčka (~33 Hz / ~25 Hz v performance módu).
+/// Globální stav: konfigurace, transporty, hlavní smyčka (60–240 Hz dle nastavení; při snímání ve výkonu 25 FPS).
+///
+/// Když je hlavní okno skryté (tray) nebo minimalizované, [syncAmbilightOcclusionFromShell]
+/// zapne „boost“ — nevypíná se přeskakování snímku obrazovky ani výkonová fronta sériového portu.
+/// Perioda hlavní smyčky — při snímání monitoru ve výkonovém režimu fixně 40 ms (25 FPS); jinak dle [GlobalSettings.screenRefreshRateHz].
 class AmbilightAppController extends ChangeNotifier {
   AppConfig _config = AppConfig.defaults();
   /// Po každém úspěšném [applyConfigAndPersist] — pro remount záložek s `TextFormField.initialValue`.
@@ -74,6 +102,8 @@ class AmbilightAppController extends ChangeNotifier {
   String _lastPersistedHaToken = '';
   Timer? _applyDebounceTimer;
   AppConfig? _applyDebouncePending;
+  /// Odděleně od [_applyConfigCore] — jen zápis JSON, bez přestavby transportů (snížení smyčky save/reconnect).
+  Timer? _persistDiskDebounceTimer;
   /// [_applyConfigLiveOnly] může přijít desítky za snímek při tažení posuvníku — jedna notifikace na frame stačí UI a šetří jank.
   bool _coalescedLiveNotifyScheduled = false;
   /// Fronta — paralelní [applyConfigAndPersist] + debounced [queueConfigApply] by rozbily dispose/bind COM a UDP.
@@ -86,21 +116,101 @@ class AmbilightAppController extends ChangeNotifier {
   bool _mainLoopTickHold = false;
   final Map<String, DeviceTransport> _transports = {};
   Timer? _timer;
+  /// Samostatný driver snímání obrazovky — nezávislý na délce [_tick] / výpočtech izolátu.
+  Timer? _screenCaptureDriverTimer;
+  int _captureDriverTick = 0;
+  DateTime? _screenPipelineSubmitSince;
   /// Perioda hlavní smyčky (ms); null = timer ještě neběžel.
   int? _loopPeriodMs;
+  /// `true` = okno není běžně vidět (minimalizované / schované do tray) → neomezovat výstup performance módem.
+  bool _shellOcclusionBoost = false;
+  Timer? _shellOcclusionDebounceTimer;
+  bool _shellOcclusionPending = false;
   int _animationTick = 0;
+  int _debugDistributeSeq = 0;
   bool _startupActive = true;
   int _startupFrame = 0;
+  /// Krátká ochrana při startu — dříve ~61 ticků (~2 s černého výstupu / náhledu).
+  static const int _startupBlackoutTicks = 6;
   bool _enabled = true;
   final ScreenPipelineRuntime _screenPipeline = ScreenPipelineRuntime();
+  ScreenPipelineIsolateBridge? _screenPipelineIsolate;
+  Future<void>? _screenIsolateBootFuture;
+  /// Zvýší se při [_shutdownScreenPipelineIsolate] — zabrání dokončení zastaralého [_bootScreenPipelineIsolate].
+  int _screenIsolateSessionId = 0;
+  String? _lastScreenIsolatePushSig;
+  String? _lastScreenIsolateTopo;
+  int _screenPipelineSubmitSeq = 0;
+  int _screenPipelineAppliedSeq = 0;
+  /// Poslední seq, na který worker odpověl ([out] nebo [skip]); pro gate fronty (applied roste jen u [out]).
+  int _screenPipelineLastAckSeq = 0;
+  Map<String, List<(int, int, int)>>? _asyncScreenColors;
+
+  /// Obnova UDP toku na lampě (FW „PC Data Stopped“) — periodický flush posledního platného snímku.
+  DateTime? _lastPcStreamUdpKeepaliveSent;
+  static const Duration _pcStreamUdpKeepaliveInterval = Duration(milliseconds: 100);
+
+  /// Max. jobů „na cestě“ do izolátu bez odpovědi — `submitSeq - lastAckSeq` musí zůstat ≤ tomuto číslu.
+  static const int _isolateQueueDepthMaxPending = 2;
+
+  MusicFlatStripIsolateBridge? _musicFlatIsolate;
+  String? _lastMusicFlatIsolatePushSig;
+  int _musicFlatSubmitSeq = 0;
+  int _musicFlatAppliedSeq = 0;
+  int _musicFlatLastAckSeq = 0;
+  DateTime? _musicFlatSubmitSince;
+  Map<String, List<(int, int, int)>>? _asyncMusicColors;
+
+  LightPcEngineIsolateBridge? _lightPcEngineIsolate;
+  String? _lastLightPcIsolatePushSig;
+  int _lightPcSubmitSeq = 0;
+  int _lightPcAppliedSeq = 0;
+  int _lightPcLastAckSeq = 0;
+  DateTime? _lightPcSubmitSince;
+  Map<String, List<(int, int, int)>>? _asyncLightPcColors;
+
+  _DistributeArgs? _distributePending;
+  bool _distributeFlushScheduled = false;
+  bool _controllerDisposed = false;
+
+  /// Úzký signál pro náhled snímku (overlay / nastavení) — bez [notifyListeners] na celý controller.
+  final ValueNotifier<ScreenFrame?> previewFrameNotifier = ValueNotifier<ScreenFrame?>(null);
+
+  /// Stav připojení zařízení — aktualizuje se jen při změně mapy (ne heartbeat každých N ticků).
+  final ValueNotifier<Map<String, bool>> connectionSnapshotNotifier =
+      ValueNotifier<Map<String, bool>>(<String, bool>{});
+
+  /// Živé metriky PC Health — jen při změně hodnot (bez [notifyListeners] na celý controller).
+  final ValueNotifier<PcHealthSnapshot> pcHealthSnapshotNotifier =
+      ValueNotifier<PcHealthSnapshot>(PcHealthSnapshot.empty);
+
   ScreenCaptureSource? _screenCapture;
   bool _screenCaptureInFlight = false;
+  bool _screenCaptureReplayPending = false;
+  /// Po řadě výjimek ze snímání — jeden banner, reset při úspěchu.
+  int _consecutiveScreenCaptureFailures = 0;
+  bool _screenCaptureFaultBannerShown = false;
+  /// Fáze 5.4 — při výkonovém throttlingu rozšiřuje krok snímání (max), když předchozí capture ještě běží.
+  static const int _captureStrideMin = 3;
+  static const int _captureStrideMax = 6;
+  int _adaptiveCaptureStrideMod = _captureStrideMin;
+  int _captureOverloadStreak = 0;
+  int _captureIdleStreak = 0;
+  /// Cache připojení transportů — přepočítává se ve smyčce; [notifyListeners] jen při změně (méně janku v UI).
+  Map<String, bool> _connectionSnapshotCache = const {};
+  DateTime? _lastScreenFrameUiNotify;
+  static const Duration _minScreenFrameUiNotifyGap = Duration(milliseconds: 33);
   ScreenFrame? _screenFrameLatest;
   ScreenSessionInfo _captureSessionInfo = ScreenSessionInfo.unknown;
   final MusicAudioService _musicAudio = MusicAudioService();
   int? _pendingShellIndex;
-  /// Po přechodu na Nastavení (2) — index záložky v [SettingsPage] (0…6), vyzvedne ji jen Settings.
+  /// Po přechodu na Nastavení (2) — index záložky v [SettingsPage], vyzvedne ji jen Settings.
   int? _pendingSettingsTabIndex;
+
+  /// Indexy záložek [SettingsPage] — musí odpovídat `tabChild` / `_tabCount` v `settings_page.dart`.
+  static const int settingsTabSpotify = 6;
+  static const int settingsTabSmartIntegration = 7;
+  static const int settingsTabFirmware = 8;
   int _reconnectCounter = 0;
   final SpotifyService spotify = SpotifyService();
   final SystemMediaNowPlayingService systemMediaNowPlaying = SystemMediaNowPlayingService();
@@ -129,9 +239,321 @@ class AmbilightAppController extends ChangeNotifier {
 
   final SmartLightCoordinator _smartLights = SmartLightCoordinator();
 
-  AmbilightAppController() {
-    spotify.addListener(notifyListeners);
-    systemMediaNowPlaying.addListener(notifyListeners);
+  AmbilightAppController();
+
+  void _resetScreenPipelineSmoothing() {
+    _screenPipeline.resetSmoothing();
+    _screenPipelineIsolate?.resetSmoothing();
+  }
+
+  String _screenIsolatePushSig(AppConfig c) {
+    final dev =
+        c.globalSettings.devices.map((d) => '${d.id}:${d.ledCount}:${d.controlViaHa}').join(';');
+    return '$dev|${jsonEncode(c.screenMode.toJson())}';
+  }
+
+  Future<void> _ensureScreenPipelineIsolate() async {
+    if (_screenPipelineIsolate != null) return;
+    if (_screenIsolateBootFuture != null) {
+      await _screenIsolateBootFuture!;
+      return;
+    }
+    _screenIsolateBootFuture = _bootScreenPipelineIsolate();
+    try {
+      await _screenIsolateBootFuture!;
+    } finally {
+      _screenIsolateBootFuture = null;
+    }
+  }
+
+  Future<void> _bootScreenPipelineIsolate() async {
+    final session = _screenIsolateSessionId;
+    final bridge = ScreenPipelineIsolateBridge();
+    bridge.onResult = _onScreenPipelineIsolateResult;
+    bridge.onSkip = _onScreenPipelineIsolateSkip;
+    try {
+      await bridge.start();
+      if (session != _screenIsolateSessionId) {
+        await bridge.dispose();
+        return;
+      }
+      _screenPipelineIsolate = bridge;
+      bridge.pushConfig(_config);
+      _lastScreenIsolatePushSig = _screenIsolatePushSig(_config);
+      _lastScreenIsolateTopo = _screenPipelineTopologySignature(_config);
+      if (kDebugMode) {
+        _log.fine('screen pipeline isolate started');
+      }
+    } catch (e, st) {
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning('screen pipeline isolate unavailable, sync fallback: $e', e, st);
+      }
+      await bridge.dispose();
+    }
+  }
+
+  void _onScreenPipelineIsolateResult(ScreenPipelineIsolateResult r) {
+    if (r.seq < _screenPipelineAppliedSeq) return;
+    _screenPipelineAppliedSeq = r.seq;
+    _screenPipelineLastAckSeq = r.seq;
+    _screenPipelineSubmitSince = null;
+    _asyncScreenColors = unpackDeviceColors(_config, r.packed);
+  }
+
+  void _onScreenPipelineIsolateSkip(int seq) {
+    if (seq < _screenPipelineAppliedSeq) return;
+    if (seq > _screenPipelineLastAckSeq) {
+      _screenPipelineLastAckSeq = seq;
+    }
+    if (seq == _screenPipelineSubmitSeq) {
+      _screenPipelineSubmitSince = null;
+    }
+  }
+
+  void _syncScreenIsolateConfigIfNeeded() {
+    final bridge = _screenPipelineIsolate;
+    if (bridge == null || !bridge.isReady) return;
+    final topo = _screenPipelineTopologySignature(_config);
+    if (_lastScreenIsolateTopo != topo) {
+      _lastScreenIsolateTopo = topo;
+      bridge.resetSmoothing();
+    }
+    final sig = _screenIsolatePushSig(_config);
+    if (_lastScreenIsolatePushSig == sig) return;
+    _lastScreenIsolatePushSig = sig;
+    bridge.pushConfig(_config);
+  }
+
+  void _shutdownScreenPipelineIsolate() {
+    _screenIsolateSessionId++;
+    _asyncScreenColors = null;
+    _screenPipelineAppliedSeq = 0;
+    _screenPipelineSubmitSeq = 0;
+    _screenPipelineLastAckSeq = 0;
+    _screenPipelineSubmitSince = null;
+    _lastScreenIsolatePushSig = null;
+    _lastScreenIsolateTopo = null;
+    final b = _screenPipelineIsolate;
+    _screenPipelineIsolate = null;
+    if (b != null) {
+      unawaited(b.dispose());
+    }
+  }
+
+  String _musicFlatIsolatePushSig(AppConfig c) {
+    final dev =
+        c.globalSettings.devices.map((d) => '${d.id}:${d.ledCount}:${d.controlViaHa}').join(';');
+    final segJson =
+        jsonEncode([for (final s in c.screenMode.segments) s.toJson()]);
+    return '$dev|${jsonEncode(c.musicMode.toJson())}|$segJson';
+  }
+
+  Future<void> _ensureMusicFlatStripIsolate() async {
+    if (_musicFlatIsolate != null) return;
+    final bridge = MusicFlatStripIsolateBridge();
+    bridge.onResult = _onMusicFlatStripIsolateResult;
+    bridge.onSkip = _onMusicFlatStripIsolateSkip;
+    try {
+      await bridge.start();
+      _musicFlatIsolate = bridge;
+      bridge.pushConfig(_config);
+      _lastMusicFlatIsolatePushSig = _musicFlatIsolatePushSig(_config);
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.fine('music flat strip isolate started');
+      }
+    } catch (e, st) {
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning('music flat strip isolate unavailable, sync fallback: $e', e, st);
+      }
+      await bridge.dispose();
+    }
+  }
+
+  void _onMusicFlatStripIsolateResult(MusicFlatStripIsolateResult r) {
+    if (r.seq < _musicFlatAppliedSeq) return;
+    _musicFlatAppliedSeq = r.seq;
+    _musicFlatLastAckSeq = r.seq;
+    _musicFlatSubmitSince = null;
+    _asyncMusicColors = unpackDeviceColors(_config, r.packed);
+  }
+
+  void _onMusicFlatStripIsolateSkip(int seq) {
+    if (seq < _musicFlatAppliedSeq) return;
+    if (seq > _musicFlatLastAckSeq) {
+      _musicFlatLastAckSeq = seq;
+    }
+    if (seq == _musicFlatSubmitSeq) {
+      _musicFlatSubmitSince = null;
+    }
+  }
+
+  void _syncMusicFlatIsolateConfigIfNeeded() {
+    final bridge = _musicFlatIsolate;
+    if (bridge == null || !bridge.isReady) return;
+    final sig = _musicFlatIsolatePushSig(_config);
+    if (_lastMusicFlatIsolatePushSig == sig) return;
+    _lastMusicFlatIsolatePushSig = sig;
+    bridge.pushConfig(_config);
+  }
+
+  void _shutdownMusicFlatStripIsolate() {
+    _asyncMusicColors = null;
+    _musicFlatAppliedSeq = 0;
+    _musicFlatSubmitSeq = 0;
+    _musicFlatLastAckSeq = 0;
+    _musicFlatSubmitSince = null;
+    _lastMusicFlatIsolatePushSig = null;
+    final b = _musicFlatIsolate;
+    _musicFlatIsolate = null;
+    if (b != null) {
+      unawaited(b.dispose());
+    }
+  }
+
+  String _lightPcIsolatePushSig(AppConfig c) {
+    final dev =
+        c.globalSettings.devices.map((d) => '${d.id}:${d.ledCount}:${d.controlViaHa}').join(';');
+    return '$dev|${jsonEncode(c.lightMode.toJson())}|${jsonEncode(c.pcHealth.toJson())}|${c.globalSettings.startMode}';
+  }
+
+  Future<void> _ensureLightPcEngineIsolate() async {
+    if (_lightPcEngineIsolate != null) return;
+    final bridge = LightPcEngineIsolateBridge();
+    bridge.onResult = _onLightPcEngineIsolateResult;
+    bridge.onSkip = _onLightPcEngineIsolateSkip;
+    try {
+      await bridge.start();
+      _lightPcEngineIsolate = bridge;
+      bridge.pushConfig(_config);
+      _lastLightPcIsolatePushSig = _lightPcIsolatePushSig(_config);
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.fine('light/pc engine isolate started');
+      }
+    } catch (e, st) {
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning('light/pc engine isolate unavailable, sync fallback: $e', e, st);
+      }
+      await bridge.dispose();
+    }
+  }
+
+  void _onLightPcEngineIsolateResult(LightPcEngineIsolateResult r) {
+    if (r.seq < _lightPcAppliedSeq) return;
+    _lightPcAppliedSeq = r.seq;
+    _lightPcLastAckSeq = r.seq;
+    _lightPcSubmitSince = null;
+    _asyncLightPcColors = unpackDeviceColors(_config, r.packed);
+  }
+
+  void _onLightPcEngineIsolateSkip(int seq) {
+    if (seq < _lightPcAppliedSeq) return;
+    if (seq > _lightPcLastAckSeq) {
+      _lightPcLastAckSeq = seq;
+    }
+    if (seq == _lightPcSubmitSeq) {
+      _lightPcSubmitSince = null;
+    }
+  }
+
+  void _syncLightPcIsolateConfigIfNeeded() {
+    final bridge = _lightPcEngineIsolate;
+    if (bridge == null || !bridge.isReady) return;
+    final sig = _lightPcIsolatePushSig(_config);
+    if (_lastLightPcIsolatePushSig == sig) return;
+    _lastLightPcIsolatePushSig = sig;
+    bridge.pushConfig(_config);
+  }
+
+  void _shutdownLightPcEngineIsolate() {
+    _asyncLightPcColors = null;
+    _lightPcAppliedSeq = 0;
+    _lightPcSubmitSeq = 0;
+    _lightPcLastAckSeq = 0;
+    _lightPcSubmitSince = null;
+    _lastLightPcIsolatePushSig = null;
+    final b = _lightPcEngineIsolate;
+    _lightPcEngineIsolate = null;
+    if (b != null) {
+      unawaited(b.dispose());
+    }
+  }
+
+  Future<void> _submitLightPcEngineJobAsync() async {
+    _recoverLightPcEngineIfStuck();
+    if (_lightPcSubmitSeq - _lightPcLastAckSeq > _isolateQueueDepthMaxPending) {
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning(
+          'light/pc engine: izolát nestíhá — zahazuji tick (submit=$_lightPcSubmitSeq '
+          'lastAck=$_lightPcLastAckSeq)',
+        );
+      }
+      return;
+    }
+    await _ensureLightPcEngineIsolate();
+    final bridge = _lightPcEngineIsolate;
+    if (bridge == null || !bridge.isReady) return;
+    _syncLightPcIsolateConfigIfNeeded();
+    _lightPcSubmitSeq++;
+    _lightPcSubmitSince = DateTime.now();
+    bridge.submitJob(
+      seq: _lightPcSubmitSeq,
+      animationTick: _animationTick,
+      pcHealthPortable: pcHealthSnapshotToPortableMap(_pcHealthSnapshot),
+    );
+  }
+
+  Future<void> _submitMusicFlatStripJobAsync(ScreenFrame f) async {
+    _recoverMusicFlatStripIfStuck();
+    if (_musicFlatSubmitSeq - _musicFlatLastAckSeq > _isolateQueueDepthMaxPending) {
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning(
+          'music flat strip: izolát nestíhá — zahazuji snímek (submit=$_musicFlatSubmitSeq '
+          'lastAck=$_musicFlatLastAckSeq)',
+        );
+      }
+      return;
+    }
+    await _ensureMusicFlatStripIsolate();
+    final bridge = _musicFlatIsolate;
+    if (bridge == null || !bridge.isReady) return;
+    _syncMusicFlatIsolateConfigIfNeeded();
+    _musicFlatSubmitSeq++;
+    _musicFlatSubmitSince = DateTime.now();
+    bridge.submitJob(
+      seq: _musicFlatSubmitSeq,
+      snapshot: _musicAudio.currentSnapshot,
+      timeSec: DateTime.now().millisecondsSinceEpoch / 1000.0,
+      width: f.width,
+      height: f.height,
+      monitorIndex: f.monitorIndex,
+      rgba: f.rgba,
+    );
+  }
+
+  Future<void> _submitScreenPipelineFrameAsync(ScreenFrame f) async {
+    _recoverScreenPipelineIfStuck();
+    if (_screenPipelineSubmitSeq - _screenPipelineLastAckSeq > _isolateQueueDepthMaxPending) {
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning(
+          'screen pipeline: izolát nestíhá — zahazuji snímek (submit=$_screenPipelineSubmitSeq '
+          'lastAck=$_screenPipelineLastAckSeq)',
+        );
+      }
+      return;
+    }
+    await _ensureScreenPipelineIsolate();
+    final bridge = _screenPipelineIsolate;
+    if (bridge == null || !bridge.isReady) return;
+    _syncScreenIsolateConfigIfNeeded();
+    _screenPipelineSubmitSeq++;
+    _screenPipelineSubmitSince = DateTime.now();
+    bridge.submitFrame(
+      seq: _screenPipelineSubmitSeq,
+      width: f.width,
+      height: f.height,
+      monitorIndex: f.monitorIndex,
+      rgba: f.rgba,
+    );
   }
 
   @override
@@ -155,8 +577,39 @@ class AmbilightAppController extends ChangeNotifier {
     return null;
   }
 
-  /// Po [applyConfigAndPersist] / [load] — např. hotkeys + autostart.
+  /// Po [applyConfigAndPersist] / [load] — např. autostart.
   Future<void> Function()? onAfterConfigApplied;
+
+  /// Volá desktop shell (`window_manager`): tray / minimalizace → výstup bez throttlingu výkonového režimu.
+  /// Debounce omezuje kolísání `isVisible()` / poll, které jinak přepínalo timer a ničilo capture.
+  void syncAmbilightOcclusionFromShell({required bool occluded}) {
+    _shellOcclusionPending = occluded;
+    _shellOcclusionDebounceTimer?.cancel();
+    _shellOcclusionDebounceTimer = Timer(const Duration(milliseconds: 320), () {
+      _shellOcclusionDebounceTimer = null;
+      _applyShellOcclusionBoost(_shellOcclusionPending);
+    });
+  }
+
+  void _applyShellOcclusionBoost(bool boost) {
+    if (_shellOcclusionBoost == boost) return;
+    _shellOcclusionBoost = boost;
+    if (kDebugMode) {
+      _log.info(
+        boost
+            ? 'Shell: okno skryté/minimalizované → výstup bez omezení výkonového režimu (snímání + fronta)'
+            : 'Shell: okno viditelné → výkon dle nastavení uživatele',
+      );
+    }
+    _ensureMainLoopTimer();
+    _syncPerformanceModeOnTransports();
+    _restartPcHealthTimer();
+    notifyListeners();
+  }
+
+  /// `performanceMode` z nastavení platí pro UI/jank; při [_shellOcclusionBoost] se výstup na LED neškrtí.
+  bool get _effectiveThrottlePerformance =>
+      _config.globalSettings.performanceMode && !_shellOcclusionBoost;
 
   AppConfig get config => _config;
   int get configPersistGeneration => _configPersistGeneration;
@@ -180,7 +633,10 @@ class AmbilightAppController extends ChangeNotifier {
   /// Uživatel požádal o zamčení; čeká na další tick s platným výstupem.
   bool get musicPaletteLockCapturePending => _musicPaletteLockCapturePending;
   int get animationTick => _animationTick;
-  Map<String, bool> get connectionSnapshot {
+  Map<String, bool> get connectionSnapshot =>
+      Map<String, bool>.unmodifiable(_connectionSnapshotCache);
+
+  bool _syncConnectionSnapshotCache() {
     final m = <String, bool>{};
     try {
       final entries = List<MapEntry<String, DeviceTransport>>.from(_transports.entries);
@@ -197,7 +653,10 @@ class AmbilightAppController extends ChangeNotifier {
     } catch (e, st) {
       traceDeviceBindingsWarning('connectionSnapshot iteration', e, st);
     }
-    return m;
+    if (mapEquals(_connectionSnapshotCache, m)) return false;
+    _connectionSnapshotCache = m;
+    connectionSnapshotNotifier.value = Map<String, bool>.from(m);
+    return true;
   }
 
   /// `true` když je potřeba znovu vytvořit transporty (COM/UDP) — ne stačí [queueConfigApply].
@@ -214,8 +673,8 @@ class AmbilightAppController extends ChangeNotifier {
       final p = prevById[n.id];
       if (p == null) return true;
       if (p.type != n.type ||
-          p.port != n.port ||
-          p.ipAddress != n.ipAddress ||
+          p.port.trim() != n.port.trim() ||
+          p.ipAddress.trim() != n.ipAddress.trim() ||
           p.udpPort != n.udpPort ||
           p.controlViaHa != n.controlViaHa) {
         return true;
@@ -241,8 +700,8 @@ class AmbilightAppController extends ChangeNotifier {
       final b = nm[id];
       if (a == null || b == null) return false;
       if (a.type != b.type ||
-          a.port != b.port ||
-          a.ipAddress != b.ipAddress ||
+          a.port.trim() != b.port.trim() ||
+          a.ipAddress.trim() != b.ipAddress.trim() ||
           a.udpPort != b.udpPort ||
           a.controlViaHa != b.controlViaHa) {
         return false;
@@ -281,7 +740,7 @@ class AmbilightAppController extends ChangeNotifier {
   }
 
   void _syncPerformanceModeOnTransports() {
-    final perf = _config.globalSettings.performanceMode;
+    final perf = _effectiveThrottlePerformance;
     for (final t in _transports.values) {
       t.applyPerformanceMode(perf);
     }
@@ -319,22 +778,8 @@ class AmbilightAppController extends ChangeNotifier {
     }
   }
 
-  static bool _hotkeysOrAutostartChanged(AppConfig prev, AppConfig next) {
-    final ga = prev.globalSettings;
-    final gb = next.globalSettings;
-    if (ga.autostart != gb.autostart) return true;
-    if (ga.hotkeysEnabled != gb.hotkeysEnabled) return true;
-    if (ga.hotkeyToggle != gb.hotkeyToggle) return true;
-    if (ga.hotkeyModeLight != gb.hotkeyModeLight) return true;
-    if (ga.hotkeyModeScreen != gb.hotkeyModeScreen) return true;
-    if (ga.hotkeyModeMusic != gb.hotkeyModeMusic) return true;
-    if (ga.customHotkeys.length != gb.customHotkeys.length) return true;
-    for (var i = 0; i < ga.customHotkeys.length; i++) {
-      final ca = ga.customHotkeys[i];
-      final cb = gb.customHotkeys[i];
-      if (ca.key != cb.key || ca.action != cb.action) return true;
-    }
-    return false;
+  static bool _autostartChanged(AppConfig prev, AppConfig next) {
+    return prev.globalSettings.autostart != next.globalSettings.autostart;
   }
 
   static List<String> serialPorts() {
@@ -349,7 +794,15 @@ class AmbilightAppController extends ChangeNotifier {
   Future<void> load() async {
     _transportsRebuilding = true;
     try {
-      _config = stripOrphanScreenSegmentDeviceIds(await ConfigRepository.load());
+      final loaded = await ConfigRepository.loadDetailed();
+      _config = stripOrphanScreenSegmentDeviceIds(loaded.config);
+      logEspTransportBindingWarnings(_config);
+      if (loaded.discardedUnreadableJson) {
+        reportAppFault(
+          'Konfigurační soubor je poškozený nebo nekompatibilní — používám výchozí nastavení. '
+          'Obnov zálohu v části Import / export.',
+        );
+      }
       final haFromFile = await HaTokenStore.read();
       if (haFromFile != null && haFromFile.isNotEmpty) {
         _config = _config.copyWith(
@@ -363,7 +816,7 @@ class AmbilightAppController extends ChangeNotifier {
       spotify.startPollingIfNeeded(_config);
       systemMediaNowPlaying.startPollingIfNeeded(_config);
       await _rebuildTransports();
-      _screenPipeline.resetSmoothing();
+      _resetScreenPipelineSmoothing();
       await _musicAudio.syncWithConfig(_config);
       _restartPcHealthTimer();
       _configPersistGeneration++;
@@ -479,6 +932,13 @@ class AmbilightAppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Otevře stránku Nastavení na konkrétní záložce (např. z přehledu Integrace).
+  void requestOpenSettingsTabIndex(int tabIndex) {
+    _pendingShellIndex = 2;
+    _pendingSettingsTabIndex = tabIndex.clamp(0, settingsTabFirmware);
+    notifyListeners();
+  }
+
   /// Z přehledu: Nastavení + záložka odpovídající `start_mode` (`light` / `screen` / `music` / `pchealth`).
   void requestOpenSettingsForStartMode(String startModeId) {
     _pendingShellIndex = 2;
@@ -588,7 +1048,7 @@ class AmbilightAppController extends ChangeNotifier {
         activePreset: patch.activePresetLabel,
       ),
     );
-    _screenPipeline.resetSmoothing();
+    _resetScreenPipelineSmoothing();
     notifyListeners();
     await save();
     await _musicAudio.syncWithConfig(_config);
@@ -634,150 +1094,27 @@ class AmbilightAppController extends ChangeNotifier {
     }
   }
 
-  /// Globální hotkey — přepnutí výstupu (bez zápisu do JSON, stejně jako Python `app_state.enabled`).
-  void toggleEnabledHotkey() {
-    _enabled = !_enabled;
-    if (!_enabled) _clearTransientLedOutputs();
-    if (kDebugMode) {
-      _log.fine('hotkey: enabled=$_enabled');
-    }
-    _restartPcHealthTimer();
-    notifyListeners();
-  }
-
-  Future<void> setStartModeHotkey(String mode) async {
-    await setStartMode(mode);
-  }
-
-  Future<void> handleCustomHotkeyAction(
-    CustomAmbilightAction action,
-    Map<String, dynamic> payload,
-  ) async {
-    switch (action) {
-      case CustomAmbilightAction.brightUp:
-        await _adjustBrightness(10);
-        break;
-      case CustomAmbilightAction.brightDown:
-        await _adjustBrightness(-10);
-        break;
-      case CustomAmbilightAction.brightMax:
-        await _setBrightnessAbsolute(255);
-        break;
-      case CustomAmbilightAction.brightMin:
-        await _setBrightnessAbsolute(25);
-        break;
-      case CustomAmbilightAction.togglePower:
-        toggleEnabledHotkey();
-        break;
-      case CustomAmbilightAction.modeMusic:
-        await setStartMode('music');
-        break;
-      case CustomAmbilightAction.modeScreen:
-        await setStartMode('screen');
-        break;
-      case CustomAmbilightAction.modeLight:
-        await setStartMode('light');
-        break;
-      case CustomAmbilightAction.modeNext:
-        await _modeNext();
-        break;
-      case CustomAmbilightAction.effectNext:
-        await _cycleEffectHotkey();
-        break;
-      case CustomAmbilightAction.presetNext:
-        break;
-      case CustomAmbilightAction.calibAuto:
-        _config = _config.copyWith(screenMode: _config.screenMode.withClearedCalibration());
-        await save();
-        notifyListeners();
-        if (kDebugMode) _log.fine('hotkey: calibration cleared');
-        break;
-      case CustomAmbilightAction.unknown:
-        break;
-    }
-  }
-
-  Future<void> _modeNext() async {
-    const modes = ['screen', 'music', 'light'];
-    final cur = _config.globalSettings.startMode;
-    var idx = modes.indexOf(cur);
-    if (idx < 0) idx = 0;
-    await setStartMode(modes[(idx + 1) % modes.length]);
-  }
-
-  Future<void> _adjustBrightness(int delta) async {
-    final mode = _config.globalSettings.startMode;
-    AppConfig next;
-    switch (mode) {
-      case 'light':
-        final v = (_config.lightMode.brightness + delta).clamp(0, 255);
-        next = _config.copyWith(lightMode: _config.lightMode.copyWith(brightness: v));
-        break;
-      case 'screen':
-        final v = (_config.screenMode.brightness + delta).clamp(0, 255);
-        next = _config.copyWith(screenMode: _config.screenMode.withBrightness(v));
-        break;
-      case 'music':
-        final v = (_config.musicMode.brightness + delta).clamp(0, 255);
-        next = _config.copyWith(musicMode: _config.musicMode.withBrightness(v));
-        break;
-      case 'pchealth':
-        final v = (_config.pcHealth.brightness + delta).clamp(0, 255);
-        next = _config.copyWith(pcHealth: _config.pcHealth.withBrightness(v));
-        break;
-      default:
-        return;
-    }
-    _config = next;
-    await save();
-    notifyListeners();
-  }
-
-  Future<void> _setBrightnessAbsolute(int val) async {
-    final cur = brightnessForMode(_config);
-    await _adjustBrightness(val - cur);
-  }
-
-  Future<void> _cycleEffectHotkey() async {
-    final mode = _config.globalSettings.startMode;
-    AppConfig next;
-    if (mode == 'light') {
-      const effs = ['rainbow', 'chase', 'breathing', 'static'];
-      final curr = _config.lightMode.effect;
-      var i = effs.indexOf(curr);
-      if (i < 0) i = 0;
-      final ne = effs[(i + 1) % effs.length];
-      next = _config.copyWith(lightMode: _config.lightMode.copyWith(effect: ne));
-    } else if (mode == 'music') {
-      const effs = ['smart_music', 'spectrum', 'energy', 'strobe', 'vumeter'];
-      final curr = _config.musicMode.effect;
-      var i = effs.indexOf(curr);
-      if (i < 0) i = 0;
-      final ne = effs[(i + 1) % effs.length];
-      next = _config.copyWith(musicMode: _config.musicMode.withEffect(ne));
-    } else {
-      return;
-    }
-    _config = next;
-    await save();
-    notifyListeners();
-  }
-
   Future<void> setStartMode(String mode) async {
+    final normalized = normalizeAmbilightStartMode(mode);
     final prev = _config.globalSettings.startMode;
     _config = _config.copyWith(
-      globalSettings: _config.globalSettings.copyWith(startMode: mode),
+      globalSettings: _config.globalSettings.copyWith(startMode: normalized),
     );
     _clearMusicPaletteLockOutsideMusicMode(mode);
     if (prev == 'screen' && mode != 'screen') {
-      _screenPipeline.resetSmoothing();
+      _resetScreenPipelineSmoothing();
       _screenFrameLatest = null;
+      previewFrameNotifier.value = null;
+      _shutdownScreenPipelineIsolate();
     }
     if (prev == 'pchealth' && mode != 'pchealth') {
       _pcHealthSmoother.reset();
     }
     unawaited(_musicAudio.syncWithConfig(_config));
     _restartPcHealthTimer();
+    if (_timer != null) {
+      _ensureMainLoopTimer();
+    }
     spotify.startPollingIfNeeded(_config);
     systemMediaNowPlaying.startPollingIfNeeded(_config);
     notifyListeners();
@@ -800,6 +1137,9 @@ class AmbilightAppController extends ChangeNotifier {
       notifyListeners();
     } finally {
       _mainLoopTickHold = false;
+      if (_timer != null) {
+        _ensureMainLoopTimer();
+      }
     }
   }
 
@@ -807,6 +1147,8 @@ class AmbilightAppController extends ChangeNotifier {
     traceDeviceBindings('applyConfigAndPersist: vstup (řetěz serializovaných apply)');
     traceConfigBindings('applyConfigAndPersist PŘED (aktuální _config)', _config);
     traceConfigBindings('applyConfigAndPersist POŽADAVEK (next)', next);
+    _persistDiskDebounceTimer?.cancel();
+    _persistDiskDebounceTimer = null;
     _applyDebounceTimer?.cancel();
     _applyDebounceTimer = null;
     _applyDebouncePending = null;
@@ -834,13 +1176,13 @@ class AmbilightAppController extends ChangeNotifier {
     required bool rebuildTransports,
     required bool clearTransient,
     required bool runAfterConfigHook,
+    bool persistToDisk = true,
   }) async {
-    _mainLoopTickHold = true;
     final prev = _config;
-    // Před změnou [_config] zastav výstupní tick — jinak mezi `await _musicAudio…` a dispose COM
-    // může [_tick] posílat na starý transport s už prázdným seznamem zařízení → pád na Windows.
+    // Držet [_tick] jen během přestavby COM/UDP — zápis JSON na disk nesmí sekát výstup na pásek.
     if (rebuildTransports) {
       _transportsRebuilding = true;
+      _mainLoopTickHold = true;
     }
     try {
       traceDeviceBindings(
@@ -850,6 +1192,7 @@ class AmbilightAppController extends ChangeNotifier {
       if (clearTransient) _clearTransientLedOutputs();
       _config = stripOrphanScreenSegmentDeviceIds(next);
       traceConfigBindings('_applyConfigCore: po stripOrphan', _config);
+      logEspTransportBindingWarnings(_config);
       _clearMusicPaletteLockOutsideMusicMode(_config.globalSettings.startMode);
       await _musicAudio.syncWithConfig(_config);
       if (rebuildTransports) {
@@ -863,17 +1206,32 @@ class AmbilightAppController extends ChangeNotifier {
         _syncSerialStripAnnouncements(prev, _config);
         _syncPerformanceModeOnTransports();
       }
+    } catch (e, st) {
+      traceDeviceBindingsSevere('_applyConfigCore: CHYBA (transport)', e, st);
+      _log.warning('applyConfigCore: $e', e, st);
+      reportAppFault('Nastavení se nepodařilo aplikovat: ${e.toString().split('\n').first}');
+      notifyListeners();
+      return;
+    } finally {
+      if (rebuildTransports) {
+        _transportsRebuilding = false;
+        traceDeviceBindings('_applyConfigCore: transportBarrier OFF');
+      }
+      _mainLoopTickHold = false;
+    }
+
+    try {
       _pruneWizardLedPreviewForConfig(_config);
       final topologyChanged =
           _screenPipelineTopologySignature(prev) != _screenPipelineTopologySignature(_config);
       if (rebuildTransports || topologyChanged) {
-        _screenPipeline.resetSmoothing();
+        _resetScreenPipelineSmoothing();
       }
-      final wrote = await save();
+      final wrote = persistToDisk ? await save() : false;
       _restartPcHealthTimer();
       spotify.startPollingIfNeeded(_config);
       systemMediaNowPlaying.startPollingIfNeeded(_config);
-      if (wrote || rebuildTransports || topologyChanged) {
+      if ((persistToDisk && wrote) || rebuildTransports || topologyChanged) {
         _configPersistGeneration++;
       }
       notifyListeners();
@@ -883,36 +1241,29 @@ class AmbilightAppController extends ChangeNotifier {
       }
       traceConfigBindings('_applyConfigCore: HOTOVO (úspěch)', _config);
     } catch (e, st) {
-      traceDeviceBindingsSevere('_applyConfigCore: CHYBA', e, st);
-      _log.warning('applyConfigCore: $e', e, st);
-      reportAppFault('Nastavení se nepodařilo aplikovat: ${e.toString().split('\n').first}');
+      traceDeviceBindingsSevere('_applyConfigCore: CHYBA (persist)', e, st);
+      _log.warning('applyConfigCore persist: $e', e, st);
+      reportAppFault('Uložení nastavení selhalo: ${e.toString().split('\n').first}');
       notifyListeners();
-    } finally {
-      if (rebuildTransports) {
-        _transportsRebuilding = false;
-        traceDeviceBindings('_applyConfigCore: transportBarrier OFF');
-      }
-      _mainLoopTickHold = false;
     }
   }
 
-  /// Okamžitě promítne [next] do [_config] a výstupní smyčky (pokud nejde o COM/IP/hotkeys),
-  /// disk se uloží až po ~220 ms klidu — bez „posunu a až pak změna“ u posuvníků.
+  /// Okamžitě promítne [next] do [_config] a výstupní smyčky (pokud nejde o COM/IP/autostart hook),
+  /// disk se uloží až po krátké prodlevě klidu (~85 ms mimo výkonový režim) — bez sekání výstupu.
   ///
   /// Na rozdíl od [applyConfigAndPersist] po debounci znovu neotevírá sériový port / UDP, pokud
   /// se nezměnily vazby zařízení.
   bool _canApplyConfigLive(AppConfig next) {
-    return _transportsBindingUnchanged(_config, next) && !_hotkeysOrAutostartChanged(_config, next);
+    return _transportsBindingUnchanged(_config, next) && !_autostartChanged(_config, next);
   }
 
   void _applyConfigLiveOnly(AppConfig next) {
-    _mainLoopTickHold = true;
     final prev = _config;
     try {
       _config = stripOrphanScreenSegmentDeviceIds(next);
       _clearMusicPaletteLockOutsideMusicMode(_config.globalSettings.startMode);
       if (_screenPipelineTopologySignature(prev) != _screenPipelineTopologySignature(_config)) {
-        _screenPipeline.resetSmoothing();
+        _resetScreenPipelineSmoothing();
       }
       _pruneWizardLedPreviewForConfig(_config);
       unawaited(_musicAudio.syncWithConfig(_config));
@@ -924,15 +1275,13 @@ class AmbilightAppController extends ChangeNotifier {
       _ensureMainLoopTimer();
     } catch (e, st) {
       _log.fine('applyConfigLiveOnly: $e', e, st);
-    } finally {
-      _mainLoopTickHold = false;
     }
   }
 
   void _scheduleCoalescedLiveNotify() {
     if (_coalescedLiveNotifyScheduled) return;
     _coalescedLiveNotifyScheduled = true;
-    SchedulerBinding.instance.scheduleFrameCallback((_) {
+    scheduleMicrotask(() {
       _coalescedLiveNotifyScheduled = false;
       notifyListeners();
     });
@@ -955,7 +1304,7 @@ class AmbilightAppController extends ChangeNotifier {
       _applyConfigLiveOnly(next);
     }
     _applyDebounceTimer?.cancel();
-    final debounceMs = next.globalSettings.performanceMode ? 280 : 220;
+    final debounceMs = next.globalSettings.performanceMode ? 260 : 85;
     _applyDebounceTimer = Timer(Duration(milliseconds: debounceMs), () async {
       final p = _applyDebouncePending;
       _applyDebouncePending = null;
@@ -964,19 +1313,23 @@ class AmbilightAppController extends ChangeNotifier {
       try {
         final prev = _config;
         final sameBindings = _transportsBindingUnchanged(prev, p);
-        final hotkeysDirty = _hotkeysOrAutostartChanged(prev, p);
-        if (kDebugMode) {
+        final autostartDirty = _autostartChanged(prev, p);
+        if (kDebugMode || ambilightVerboseLogsEnabled) {
           _log.fine(
-            '[staging] debounced config: sameBindings=$sameBindings hotkeysOrAutostart=$hotkeysDirty',
+            '[staging] debounced config: sameBindings=$sameBindings autostartChanged=$autostartDirty',
           );
         }
         await _runConfigApplySerialized(
-          () => _applyConfigCore(
-            p,
-            rebuildTransports: !sameBindings,
-            clearTransient: false,
-            runAfterConfigHook: hotkeysDirty,
-          ),
+          () async {
+            await _applyConfigCore(
+              p,
+              rebuildTransports: !sameBindings,
+              clearTransient: false,
+              runAfterConfigHook: autostartDirty,
+              persistToDisk: false,
+            );
+            _scheduleCoalescedDiskPersist();
+          },
         );
       } catch (e, st) {
         traceDeviceBindingsSevere('queueConfigApply debounced timer: selhalo', e, st);
@@ -986,6 +1339,91 @@ class AmbilightAppController extends ChangeNotifier {
     });
   }
 
+  /// Jen zápis profilu na disk — bez transportů a bez vázání na engine tick / izoláty.
+  void _scheduleCoalescedDiskPersist() {
+    if (_controllerDisposed) return;
+    _persistDiskDebounceTimer?.cancel();
+    _persistDiskDebounceTimer = Timer(const Duration(milliseconds: 2000), () async {
+      _persistDiskDebounceTimer = null;
+      if (_controllerDisposed) return;
+      try {
+        final wrote = await save();
+        if (wrote) {
+          _configPersistGeneration++;
+          notifyListeners();
+        }
+      } catch (e, st) {
+        _log.warning('coalesced disk persist: $e', e, st);
+      }
+    });
+  }
+
+  /// Když nepřijde ACK z workeru (kanál / pád), neblokovat další snímky navěky.
+  void _recoverScreenPipelineIfStuck() {
+    if (_screenPipelineSubmitSeq <= _screenPipelineAppliedSeq) {
+      _screenPipelineSubmitSince = null;
+      return;
+    }
+    final t = _screenPipelineSubmitSince;
+    if (t == null) return;
+    if (DateTime.now().difference(t) > const Duration(milliseconds: 900)) {
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning(
+          'screen pipeline ACK timeout — unlocking (submit=$_screenPipelineSubmitSeq '
+          'applied=$_screenPipelineAppliedSeq)',
+        );
+      }
+      // Nezvedat applied na submit — opožděný „out“ se stejným seq by se pak zahodil.
+      _screenPipelineSubmitSince = null;
+    }
+  }
+
+  /// Analogicky k [_recoverScreenPipelineIfStuck]: timeout bez ACK uvolní jen čekání, bez úpravy applied seq.
+  void _recoverMusicFlatStripIfStuck() {
+    if (_musicFlatSubmitSeq <= _musicFlatAppliedSeq) {
+      _musicFlatSubmitSince = null;
+      return;
+    }
+    final t = _musicFlatSubmitSince;
+    if (t == null) return;
+    if (DateTime.now().difference(t) > const Duration(milliseconds: 900)) {
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning(
+          'music flat strip ACK timeout — unlocking (submit=$_musicFlatSubmitSeq '
+          'applied=$_musicFlatAppliedSeq)',
+        );
+      }
+      _musicFlatSubmitSince = null;
+    }
+  }
+
+  /// Jako [_recoverScreenPipelineIfStuck] / [_recoverMusicFlatStripIfStuck].
+  void _recoverLightPcEngineIfStuck() {
+    if (_lightPcSubmitSeq <= _lightPcAppliedSeq) {
+      _lightPcSubmitSince = null;
+      return;
+    }
+    final t = _lightPcSubmitSince;
+    if (t == null) return;
+    if (DateTime.now().difference(t) > const Duration(milliseconds: 900)) {
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning(
+          'light/pc engine ACK timeout — unlocking (submit=$_lightPcSubmitSeq '
+          'applied=$_lightPcAppliedSeq)',
+        );
+      }
+      _lightPcSubmitSince = null;
+    }
+  }
+
+  bool _hasWifiAmbilightStripDevice() {
+    for (final d in _config.globalSettings.devices) {
+      if (d.controlViaHa) continue;
+      if (d.type == 'wifi' && d.ipAddress.isNotEmpty) return true;
+    }
+    return false;
+  }
+
   void _restartPcHealthTimer() {
     _pcHealthTimer?.cancel();
     _pcHealthTimer = null;
@@ -993,19 +1431,24 @@ class AmbilightAppController extends ChangeNotifier {
       return;
     }
     var ms = _config.pcHealth.updateRate.clamp(200, 10000);
-    if (_config.globalSettings.performanceMode && ms < 800) {
+    if (_effectiveThrottlePerformance && ms < 800) {
       ms = 800;
     }
     Future<void> tick() async {
       try {
+        final prev = _pcHealthSnapshot;
         final raw = await _pcHealthCollector.collect();
-        _pcHealthSnapshot = _pcHealthSmoother.apply(raw);
-        notifyListeners();
+        final next = _pcHealthSmoother.apply(raw).finiteSanitized;
+        if (next != prev) {
+          _pcHealthSnapshot = next;
+          pcHealthSnapshotNotifier.value = next;
+        }
       } catch (e, st) {
         if (kDebugMode) _log.fine('pc health: $e', e, st);
       }
     }
 
+    pcHealthSnapshotNotifier.value = _pcHealthSnapshot;
     unawaited(tick());
     _pcHealthTimer = Timer.periodic(Duration(milliseconds: ms), (_) => tick());
   }
@@ -1087,11 +1530,15 @@ class AmbilightAppController extends ChangeNotifier {
           _log.fine('transport dispose: $e', e, st);
         }
       }
-      await Future.wait(toDispose.map((t) => t.flushPendingDispose()));
+      await Future.wait<void>(
+        [for (final t in toDispose) t.flushPendingDispose()],
+        eagerError: false,
+      );
       traceDeviceBindings('_rebuildTransports: dispose hotovo ($disposed), clear()');
       _transports.clear();
       // Uvolnění COM/UDP socketů na Windows může chvíli trvat — před novým bindem počkáme déle.
       await Future<void>.delayed(const Duration(milliseconds: 220));
+      traceDeviceBindingsDebug('_rebuildTransports: po 220 ms delay — nové sockety');
       for (final d in _config.globalSettings.devices) {
         if (d.controlViaHa) {
           traceDeviceBindings('_rebuildTransports: přeskočeno HA-only ${d.id}');
@@ -1103,7 +1550,7 @@ class AmbilightAppController extends ChangeNotifier {
             _transports[d.id] = SerialDeviceTransport(
               d,
               baudRate: _config.globalSettings.baudRate,
-              writeQueuePeriodMs: _config.globalSettings.performanceMode ? 8 : 4,
+              writeQueuePeriodMs: _effectiveThrottlePerformance ? 8 : 2,
             );
           } else if (d.type == 'wifi' && d.ipAddress.isNotEmpty) {
             traceDeviceBindings('_rebuildTransports: vytvářím UDP ${d.id} ${d.ipAddress}:${d.udpPort}');
@@ -1131,16 +1578,105 @@ class AmbilightAppController extends ChangeNotifier {
     } catch (e, st) {
       traceDeviceBindingsSevere('_rebuildTransports: fatální', e, st);
       _log.warning('_rebuildTransports: $e', e, st);
+    } finally {
+      _syncConnectionSnapshotCache();
     }
     traceDeviceBindings('_rebuildTransports: KONEC (barieru drží volající)');
   }
 
+  bool _mainLoopUsesScreenCapture() {
+    final gs = _config.globalSettings;
+    return gs.startMode == 'screen' ||
+        (gs.startMode == 'music' && _config.musicMode.colorSource == 'monitor');
+  }
+
+  /// Výkonový režim při snímání monitoru = 25 FPS; světlo bez capture zůstává ~62 Hz. Mimo výkon: [GlobalSettings.screenRefreshRateHz].
+  int _mainLoopPeriodMs() {
+    final gs = _config.globalSettings;
+    if (_effectiveThrottlePerformance) {
+      if (_mainLoopUsesScreenCapture()) {
+        return 40;
+      }
+      if (gs.startMode == 'light') {
+        return 16;
+      }
+      return 40;
+    }
+    final hz = gs.screenRefreshRateHz;
+    final ms = (1000.0 / hz).round().clamp(4, 500);
+    return ms;
+  }
+
   void _ensureMainLoopTimer() {
-    final want = _config.globalSettings.performanceMode ? 40 : 30;
-    if (_timer != null && _loopPeriodMs == want) return;
+    // Nepřepínat na extrémně krátkou periodu při tray: async screen capture nestíhá
+    // (_screenCaptureInFlight) a Flutter/OS při skrytém okně často stejně throttlují timer.
+    final want = _mainLoopPeriodMs();
+    if (_timer != null && _loopPeriodMs == want) {
+      _ensureScreenCaptureDriverTimer();
+      return;
+    }
     _timer?.cancel();
     _loopPeriodMs = want;
     _timer = Timer.periodic(Duration(milliseconds: want), (_) => _tick());
+    _ensureScreenCaptureDriverTimer();
+  }
+
+  void _ensureScreenCaptureDriverTimer() {
+    _screenCaptureDriverTimer?.cancel();
+    _screenCaptureDriverTimer = null;
+    if (!_mainLoopUsesScreenCapture()) {
+      _captureDriverTick = 0;
+      return;
+    }
+    final ms = _effectiveThrottlePerformance ? 40 : _mainLoopPeriodMs().clamp(8, 500);
+    _screenCaptureDriverTimer = Timer.periodic(Duration(milliseconds: ms), (_) => _screenCaptureDriverFire());
+  }
+
+  void _screenCaptureDriverFire() {
+    if (_controllerDisposed) return;
+    if (_transportsRebuilding || _mainLoopTickHold) return;
+    if (!_mainLoopUsesScreenCapture()) return;
+    _recoverScreenPipelineIfStuck();
+    _recoverMusicFlatStripIfStuck();
+    if (!_effectiveThrottlePerformance) {
+      _adaptiveCaptureStrideMod = _captureStrideMin;
+      _captureOverloadStreak = 0;
+      _captureIdleStreak = 0;
+      unawaited(_captureScreenFrameAsync());
+      return;
+    }
+    if (_screenCaptureInFlight) {
+      _captureOverloadStreak++;
+      _captureIdleStreak = 0;
+      if (_captureOverloadStreak >= 8) {
+        _captureOverloadStreak = 0;
+        if (_adaptiveCaptureStrideMod < _captureStrideMax) {
+          _adaptiveCaptureStrideMod++;
+          if (kDebugMode || ambilightVerboseLogsEnabled) {
+            _log.fine(
+              '[adaptive] screen capture stride → $_adaptiveCaptureStrideMod (capture overlap)',
+            );
+          }
+        }
+      }
+    } else {
+      _captureOverloadStreak = 0;
+      _captureIdleStreak++;
+      if (_captureIdleStreak >= 180 && _adaptiveCaptureStrideMod > _captureStrideMin) {
+        _captureIdleStreak = 0;
+        _adaptiveCaptureStrideMod--;
+        if (kDebugMode || ambilightVerboseLogsEnabled) {
+          _log.fine(
+            '[adaptive] screen capture stride → $_adaptiveCaptureStrideMod (idle recovery)',
+          );
+        }
+      }
+    }
+    _captureDriverTick++;
+    final skipCap = (_captureDriverTick % _adaptiveCaptureStrideMod) != 0;
+    if (!skipCap) {
+      unawaited(_captureScreenFrameAsync());
+    }
   }
 
   void startLoop() {
@@ -1153,6 +1689,8 @@ class AmbilightAppController extends ChangeNotifier {
     _timer?.cancel();
     _timer = null;
     _loopPeriodMs = null;
+    _screenCaptureDriverTimer?.cancel();
+    _screenCaptureDriverTimer = null;
   }
 
   void _ensureScreenCapture() {
@@ -1166,7 +1704,10 @@ class AmbilightAppController extends ChangeNotifier {
 
   /// Jedna požadavka na snímek; při chybě nebo null zůstane poslední platný snímek (žádný pád pipeline).
   Future<void> _captureScreenFrameAsync() async {
-    if (_screenCaptureInFlight) return;
+    if (_screenCaptureInFlight) {
+      _screenCaptureReplayPending = true;
+      return;
+    }
     final mode = _config.globalSettings.startMode;
     final musicMonitor = mode == 'music' && _config.musicMode.colorSource == 'monitor';
     if (mode != 'screen' && !musicMonitor) return;
@@ -1175,17 +1716,41 @@ class AmbilightAppController extends ChangeNotifier {
       _ensureScreenCapture();
       if (_screenCapture == null) return;
       final idx = _config.screenMode.monitorIndex;
-      final f = await _screenCapture!.captureFrame(idx);
+      final f = await _screenCapture!.captureFrame(
+        idx,
+        windowsCaptureBackend:
+            (!kIsWeb && Platform.isWindows) ? _config.screenMode.windowsCaptureBackend : null,
+      );
       final mode2 = _config.globalSettings.startMode;
       final musicMon2 = mode2 == 'music' && _config.musicMode.colorSource == 'monitor';
       if (mode2 != 'screen' && !musicMon2) return;
       if (f != null && f.isValid) {
         _screenFrameLatest = f;
+        _consecutiveScreenCaptureFailures = 0;
+        _screenCaptureFaultBannerShown = false;
+        final now = DateTime.now();
+        if (_lastScreenFrameUiNotify == null ||
+            now.difference(_lastScreenFrameUiNotify!) >= _minScreenFrameUiNotifyGap) {
+          _lastScreenFrameUiNotify = now;
+          previewFrameNotifier.value = f;
+        }
       }
     } catch (e, st) {
+      _consecutiveScreenCaptureFailures++;
+      logTransportBackgroundFailure('screen capture', e, st);
       if (kDebugMode) _log.fine('screen capture: $e', e, st);
+      if (_consecutiveScreenCaptureFailures >= 12 && !_screenCaptureFaultBannerShown) {
+        _screenCaptureFaultBannerShown = true;
+        reportAppFault(
+          'Snímání obrazovky opakovaně selhává. Zkontroluj oprávnění (Windows: nastavení soukromí) a výběr monitoru.',
+        );
+      }
     } finally {
       _screenCaptureInFlight = false;
+      if (_screenCaptureReplayPending) {
+        _screenCaptureReplayPending = false;
+        unawaited(_captureScreenFrameAsync());
+      }
     }
   }
 
@@ -1195,16 +1760,69 @@ class AmbilightAppController extends ChangeNotifier {
     spotify.attachPollConfig(_config);
     systemMediaNowPlaying.attachPollConfig(_config);
     _animationTick++;
-    final startupBlackout = _startupActive && _startupFrame < 61;
+    if (ambilightDebugTraceEnabled && _animationTick % 120 == 0) {
+      ambilightDebugTrace(
+        '_tick#$_animationTick mode=${_config.globalSettings.startMode} enabled=$_enabled '
+        'transports=${_transports.length} rebuild=$_transportsRebuilding hold=$_mainLoopTickHold '
+        'bri=${brightnessForMode(_config)}',
+      );
+    }
+    final startupBlackout = _startupActive && _startupFrame < _startupBlackoutTicks;
     final needScreenCapture = _config.globalSettings.startMode == 'screen' ||
         (_config.globalSettings.startMode == 'music' && _config.musicMode.colorSource == 'monitor');
-    if (needScreenCapture) {
-      final skipCap = _config.globalSettings.performanceMode && (_animationTick % 3) != 0;
-      if (!skipCap) {
-        unawaited(_captureScreenFrameAsync());
-      }
-    } else {
+    if (!needScreenCapture) {
       _screenFrameLatest = null;
+      previewFrameNotifier.value = null;
+      _adaptiveCaptureStrideMod = _captureStrideMin;
+      _captureOverloadStreak = 0;
+      _captureIdleStreak = 0;
+      _captureDriverTick = 0;
+      _shutdownScreenPipelineIsolate();
+    }
+
+    final modeForSubmit = _config.globalSettings.startMode;
+    final capFrame = _screenFrameLatest;
+    final wantMusicFlatWorker = modeForSubmit == 'music' &&
+        _config.musicMode.colorSource == 'monitor' &&
+        _musicAlbumArtDominantRgb() == null &&
+        _enabled &&
+        !startupBlackout;
+
+    if (wantMusicFlatWorker) {
+      unawaited(_ensureMusicFlatStripIsolate());
+    } else {
+      _shutdownMusicFlatStripIsolate();
+    }
+
+    final wantLightPcWorker = _enabled &&
+        !startupBlackout &&
+        (modeForSubmit == 'light' ||
+            ((modeForSubmit == 'pchealth' || modeForSubmit == 'pc_health') &&
+                _config.pcHealth.enabled));
+
+    if (wantLightPcWorker) {
+      unawaited(_ensureLightPcEngineIsolate());
+    } else {
+      _shutdownLightPcEngineIsolate();
+    }
+
+    if (modeForSubmit == 'screen' &&
+        capFrame != null &&
+        capFrame.isValid &&
+        !startupBlackout &&
+        _enabled) {
+      unawaited(_submitScreenPipelineFrameAsync(capFrame));
+    }
+
+    if (wantMusicFlatWorker &&
+        capFrame != null &&
+        capFrame.isValid &&
+        !startupBlackout) {
+      unawaited(_submitMusicFlatStripJobAsync(capFrame));
+    }
+
+    if (wantLightPcWorker) {
+      unawaited(_submitLightPcEngineJobAsync());
     }
 
     if (_tickErrorStripUntilAnimationTick != null &&
@@ -1213,8 +1831,9 @@ class AmbilightAppController extends ChangeNotifier {
     }
 
     final bri = brightnessForMode(_config);
-    final homeKitHold =
-        _config.globalSettings.startMode == 'light' && _config.lightMode.homekitEnabled;
+    final homeKitHold = _config.globalSettings.startMode == 'light' &&
+        _config.lightMode.homekitEnabled &&
+        _config.globalSettings.devices.any((d) => d.controlViaHa);
     final allowOverrideSends = _wizardLedPreview != null ||
         _calibrationCorner != null ||
         (_stripColorPreviewRgb != null && _stripColorPreviewTicksLeft > 0);
@@ -1228,6 +1847,7 @@ class AmbilightAppController extends ChangeNotifier {
         applyWizardOverlay: false,
         smartLightsFrame: _screenFrameLatest,
         smartLightsAppEnabled: false,
+        flushImmediately: true,
       );
       _advanceTickPhase();
       return;
@@ -1242,6 +1862,7 @@ class AmbilightAppController extends ChangeNotifier {
           applyWizardOverlay: false,
           smartLightsFrame: _screenFrameLatest,
           smartLightsAppEnabled: _enabled,
+          flushImmediately: true,
         );
       }
       _stripColorPreviewTicksLeft--;
@@ -1262,6 +1883,7 @@ class AmbilightAppController extends ChangeNotifier {
           clipToDeviceLedCount: false,
           smartLightsFrame: _screenFrameLatest,
           smartLightsAppEnabled: _enabled,
+          flushImmediately: true,
         );
       }
       _advanceTickPhase();
@@ -1281,9 +1903,10 @@ class AmbilightAppController extends ChangeNotifier {
         _distribute(
           early,
           bri,
-          applyWizardOverlay: false,
+          applyWizardOverlay: true,
           smartLightsFrame: _screenFrameLatest,
           smartLightsAppEnabled: _enabled,
+          flushImmediately: true,
         );
       }
       _advanceTickPhase();
@@ -1291,18 +1914,82 @@ class AmbilightAppController extends ChangeNotifier {
     }
 
     try {
-      final liveDeviceColors = AmbilightEngine.computeFrame(
-        _config,
-        _animationTick,
-        startupBlackout: startupBlackout,
-        enabled: _enabled,
-        screenFrame: needScreenCapture ? _screenFrameLatest : null,
-        screenPipeline: _screenPipeline,
-        musicSnapshot:
-            _config.globalSettings.startMode == 'music' ? _musicAudio.currentSnapshot : null,
-        pcHealthSnapshot: _pcHealthSnapshot,
-        musicAlbumDominantRgb: _musicAlbumArtDominantRgb(),
-      );
+      final modeNow = _config.globalSettings.startMode;
+      final bridge = _screenPipelineIsolate;
+      final musicBridge = _musicFlatIsolate;
+      final useScreenIsolate = modeNow == 'screen' &&
+          bridge != null &&
+          bridge.isReady &&
+          !startupBlackout &&
+          _screenFrameLatest != null &&
+          _screenFrameLatest!.isValid;
+
+      final useMusicIsolate = wantMusicFlatWorker &&
+          musicBridge != null &&
+          musicBridge.isReady &&
+          capFrame != null &&
+          capFrame.isValid;
+
+      final lightPcBridge = _lightPcEngineIsolate;
+      final useLightPcIsolate = wantLightPcWorker &&
+          lightPcBridge != null &&
+          lightPcBridge.isReady;
+
+      final Map<String, List<(int, int, int)>> liveDeviceColors;
+      if (startupBlackout) {
+        liveDeviceColors = AmbilightEngine.blackoutPerDevice(_config);
+      } else if (useScreenIsolate) {
+        liveDeviceColors = _asyncScreenColors ??
+            AmbilightEngine.computeFrame(
+              _config,
+              _animationTick,
+              startupBlackout: startupBlackout,
+              enabled: _enabled,
+              screenFrame: needScreenCapture ? _screenFrameLatest : null,
+              screenPipeline: _screenPipeline,
+              musicSnapshot: modeNow == 'music' ? _musicAudio.currentSnapshot : null,
+              pcHealthSnapshot: _pcHealthSnapshot,
+              musicAlbumDominantRgb: _musicAlbumArtDominantRgb(),
+            );
+      } else if (useMusicIsolate) {
+        liveDeviceColors = _asyncMusicColors ??
+            AmbilightEngine.computeFrame(
+              _config,
+              _animationTick,
+              startupBlackout: startupBlackout,
+              enabled: _enabled,
+              screenFrame: needScreenCapture ? _screenFrameLatest : null,
+              screenPipeline: _screenPipeline,
+              musicSnapshot: modeNow == 'music' ? _musicAudio.currentSnapshot : null,
+              pcHealthSnapshot: _pcHealthSnapshot,
+              musicAlbumDominantRgb: _musicAlbumArtDominantRgb(),
+            );
+      } else if (useLightPcIsolate) {
+        liveDeviceColors = _asyncLightPcColors ??
+            AmbilightEngine.computeFrame(
+              _config,
+              _animationTick,
+              startupBlackout: startupBlackout,
+              enabled: _enabled,
+              screenFrame: needScreenCapture ? _screenFrameLatest : null,
+              screenPipeline: _screenPipeline,
+              musicSnapshot: modeNow == 'music' ? _musicAudio.currentSnapshot : null,
+              pcHealthSnapshot: _pcHealthSnapshot,
+              musicAlbumDominantRgb: _musicAlbumArtDominantRgb(),
+            );
+      } else {
+        liveDeviceColors = AmbilightEngine.computeFrame(
+          _config,
+          _animationTick,
+          startupBlackout: startupBlackout,
+          enabled: _enabled,
+          screenFrame: needScreenCapture ? _screenFrameLatest : null,
+          screenPipeline: _screenPipeline,
+          musicSnapshot: modeNow == 'music' ? _musicAudio.currentSnapshot : null,
+          pcHealthSnapshot: _pcHealthSnapshot,
+          musicAlbumDominantRgb: _musicAlbumArtDominantRgb(),
+        );
+      }
       var perDevice = liveDeviceColors;
       final inMusic = _config.globalSettings.startMode == 'music';
       if (_musicPaletteLockCapturePending && inMusic && !startupBlackout && _enabled) {
@@ -1317,12 +2004,31 @@ class AmbilightAppController extends ChangeNotifier {
         perDevice = _dimRedErrorStripMap();
       }
       if (!skipAllSends) {
-        _distribute(
-          perDevice,
-          bri,
-          smartLightsFrame: _screenFrameLatest,
-          smartLightsAppEnabled: _enabled,
-        );
+        final isolatePcStream =
+            useScreenIsolate || useMusicIsolate || useLightPcIsolate;
+        final nowHb = DateTime.now();
+        final udpKeepalive = isolatePcStream &&
+            _hasWifiAmbilightStripDevice() &&
+            (_lastPcStreamUdpKeepaliveSent == null ||
+                nowHb.difference(_lastPcStreamUdpKeepaliveSent!) >=
+                    _pcStreamUdpKeepaliveInterval);
+        if (udpKeepalive) {
+          _lastPcStreamUdpKeepaliveSent = nowHb;
+          _distribute(
+            perDevice,
+            bri,
+            smartLightsFrame: _screenFrameLatest,
+            smartLightsAppEnabled: _enabled,
+            flushImmediately: true,
+          );
+        } else {
+          _distribute(
+            perDevice,
+            bri,
+            smartLightsFrame: _screenFrameLatest,
+            smartLightsAppEnabled: _enabled,
+          );
+        }
       }
     } catch (e, st) {
       _log.warning('tick: $e', e, st);
@@ -1335,6 +2041,7 @@ class AmbilightAppController extends ChangeNotifier {
             applyWizardOverlay: false,
             smartLightsFrame: _screenFrameLatest,
             smartLightsAppEnabled: _enabled,
+            flushImmediately: true,
           );
         } catch (e2, st2) {
           _log.fine('tick error strip distribute: $e2', e2, st2);
@@ -1356,19 +2063,22 @@ class AmbilightAppController extends ChangeNotifier {
   void _advanceTickPhase() {
     try {
       if (_startupActive) {
-        if (_startupFrame < 61) {
+        if (_startupFrame < _startupBlackoutTicks) {
           _startupFrame++;
-          if (_startupFrame > 60) {
+          if (_startupFrame >= _startupBlackoutTicks) {
             _startupActive = false;
           }
         }
       }
-      final notifyEvery = _config.globalSettings.performanceMode ? 72 : 36;
-      if (_animationTick % notifyEvery == 0) {
+      final connChanged = _syncConnectionSnapshotCache();
+      if (connChanged) {
         notifyListeners();
       }
       _reconnectCounter++;
-      final reconnectEvery = _config.globalSettings.performanceMode ? 125 : 150;
+      final anyDisconnected = _transports.values.any((t) => !t.isConnected);
+      final reconnectEvery = anyDisconnected
+          ? (_effectiveThrottlePerformance ? 15 : 20)
+          : (_effectiveThrottlePerformance ? 125 : 150);
       if (_reconnectCounter >= reconnectEvery) {
         _reconnectCounter = 0;
         if (!_transportsRebuilding) {
@@ -1388,7 +2098,7 @@ class AmbilightAppController extends ChangeNotifier {
     try {
       await t.connect();
     } catch (e, st) {
-      _log.fine('reconnect transport: $e', e, st);
+      logTransportBackgroundFailure('reconnect transport (${t.device.id})', e, st);
     }
   }
 
@@ -1447,6 +2157,22 @@ class AmbilightAppController extends ChangeNotifier {
     return m;
   }
 
+  void _flushDistributeMicrotask() {
+    _distributeFlushScheduled = false;
+    if (_controllerDisposed) return;
+    final p = _distributePending;
+    _distributePending = null;
+    if (p == null) return;
+    _distributeSync(
+      p.perDevice,
+      p.brightnessScalar,
+      applyWizardOverlay: p.applyWizardOverlay,
+      clipToDeviceLedCount: p.clipToDeviceLedCount,
+      smartLightsFrame: p.smartLightsFrame,
+      smartLightsAppEnabled: p.smartLightsAppEnabled,
+    );
+  }
+
   void _distribute(
     Map<String, List<(int, int, int)>> perDevice,
     int brightnessScalar, {
@@ -1455,7 +2181,54 @@ class AmbilightAppController extends ChangeNotifier {
     bool clipToDeviceLedCount = true,
     ScreenFrame? smartLightsFrame,
     bool smartLightsAppEnabled = true,
+    /// Okamžitý výstup (vypnutí, kalibrace, průvodce) — bez čekání na microtask z hlavní smyčky.
+    bool flushImmediately = false,
   }) {
+    if (flushImmediately) {
+      _distributePending = null;
+      _distributeFlushScheduled = false;
+      _distributeSync(
+        perDevice,
+        brightnessScalar,
+        applyWizardOverlay: applyWizardOverlay,
+        clipToDeviceLedCount: clipToDeviceLedCount,
+        smartLightsFrame: smartLightsFrame,
+        smartLightsAppEnabled: smartLightsAppEnabled,
+      );
+      return;
+    }
+    _distributePending = _DistributeArgs(
+      perDevice: perDevice,
+      brightnessScalar: brightnessScalar,
+      applyWizardOverlay: applyWizardOverlay,
+      clipToDeviceLedCount: clipToDeviceLedCount,
+      smartLightsFrame: smartLightsFrame,
+      smartLightsAppEnabled: smartLightsAppEnabled,
+    );
+    if (_distributeFlushScheduled) return;
+    _distributeFlushScheduled = true;
+    scheduleMicrotask(_flushDistributeMicrotask);
+  }
+
+  void _distributeSync(
+    Map<String, List<(int, int, int)>> perDevice,
+    int brightnessScalar, {
+    bool applyWizardOverlay = true,
+    /// `false` jen u kalibrace — nezkracovat buffer na `device.ledCount`, aby šly rozsvítit vysoké indexy.
+    bool clipToDeviceLedCount = true,
+    ScreenFrame? smartLightsFrame,
+    bool smartLightsAppEnabled = true,
+  }) {
+    if (ambilightDebugTraceEnabled) {
+      _debugDistributeSeq++;
+      if (_debugDistributeSeq % 200 == 0) {
+        ambilightDebugTrace(
+          '_distributeSync#$_debugDistributeSeq bri=$brightnessScalar '
+          'perDevice=${perDevice.keys.join(",")} wizardOverlay=$applyWizardOverlay '
+          'clipLed=$clipToDeviceLedCount smartLights=$smartLightsAppEnabled',
+        );
+      }
+    }
     final pv = applyWizardOverlay ? _wizardLedPreview : null;
     for (final dev in _config.globalSettings.devices) {
       if (dev.controlViaHa) continue;
@@ -1468,9 +2241,19 @@ class AmbilightAppController extends ChangeNotifier {
           final g = pv.$4;
           final b = pv.$5;
           if (dev.type == 'wifi') {
-            // Jako Python: krátký „off“ rámec + jeden pixel (UDP 0x03).
-            t.sendColors([(0, 0, 0)], 0);
-            t.sendPixel(idx, r, g, b);
+            final zeros = List<(int, int, int)>.filled(
+              dev.ledCount,
+              (0, 0, 0),
+              growable: false,
+            );
+            unawaited(() async {
+              try {
+                await t.sendColorsNow(zeros, brightnessScalar);
+                t.sendPixel(idx, r, g, b);
+              } catch (e, st) {
+                _log.fine('wizard wifi preview: $e', e, st);
+              }
+            }());
             continue;
           }
           // Serial: buffer až do [maxLedsPerDevice] (legacy / wide rámec podle délky).
@@ -1518,13 +2301,32 @@ class AmbilightAppController extends ChangeNotifier {
   @override
   void dispose() {
     try {
+      _controllerDisposed = true;
+      _distributeFlushScheduled = false;
+      final pend = _distributePending;
+      _distributePending = null;
+      if (pend != null) {
+        _distributeSync(
+          pend.perDevice,
+          pend.brightnessScalar,
+          applyWizardOverlay: pend.applyWizardOverlay,
+          clipToDeviceLedCount: pend.clipToDeviceLedCount,
+          smartLightsFrame: pend.smartLightsFrame,
+          smartLightsAppEnabled: pend.smartLightsAppEnabled,
+        );
+      }
+      _shellOcclusionDebounceTimer?.cancel();
+      _shellOcclusionDebounceTimer = null;
       _applyDebounceTimer?.cancel();
       _applyDebounceTimer = null;
       _applyDebouncePending = null;
+      _persistDiskDebounceTimer?.cancel();
+      _persistDiskDebounceTimer = null;
       _clearTransientLedOutputs();
-      spotify.removeListener(notifyListeners);
+      previewFrameNotifier.dispose();
+      connectionSnapshotNotifier.dispose();
+      pcHealthSnapshotNotifier.dispose();
       spotify.stopPolling();
-      systemMediaNowPlaying.removeListener(notifyListeners);
       systemMediaNowPlaying.stopPolling();
       _pcHealthTimer?.cancel();
       stopLoop();
@@ -1535,6 +2337,9 @@ class AmbilightAppController extends ChangeNotifier {
       }
       _screenCapture = null;
       _screenFrameLatest = null;
+      _shutdownScreenPipelineIsolate();
+      _shutdownMusicFlatStripIsolate();
+      _shutdownLightPcEngineIsolate();
       unawaited(_musicAudio.dispose());
       for (final t in _transports.values) {
         try {

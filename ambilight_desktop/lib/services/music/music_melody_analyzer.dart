@@ -80,8 +80,6 @@ class MusicMelodyAnalyzer {
     );
   }
 
-  static const _notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-
   int _freqToNoteClass(double freq) {
     if (freq < 20 || freq > 4000) return -1;
     const a4 = 440.0;

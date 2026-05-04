@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Dashboard paleta (tmavý SaaS + světlý „mint“).
+/// Palety rozhraní — výběr v Globální nastavení (`GlobalSettings.theme` + [normalizeAmbilightUiTheme]).
 abstract final class AmbiLightTheme {
   static const Color _cyan = Color(0xFF22D3EE);
   static const Color _violet = Color(0xFFA78BFA);
@@ -23,7 +23,8 @@ abstract final class AmbiLightTheme {
     return _build(colors);
   }
 
-  static ThemeData dark() {
+  /// Dřívější výchozí „tmavý“ vzhled — cyan / fialové akcenty na modré ploše.
+  static ThemeData darkBlue() {
     const surface = Color(0xFF0B0F14);
     final colors = ColorScheme.fromSeed(
       seedColor: _cyan,
@@ -52,6 +53,93 @@ abstract final class AmbiLightTheme {
       surfaceContainerLow: const Color(0xFF0F141C),
     );
     return _build(colors);
+  }
+
+  /// Neutrální tmavý (orientačně „SnowRunner“) — šedé plochy, rezavý akcent bez neonové cyan.
+  static ThemeData snowrunner() {
+    const surface = Color(0xFF171718);
+    final colors = ColorScheme.fromSeed(
+      seedColor: const Color(0xFFC2410C),
+      brightness: Brightness.dark,
+      surface: surface,
+    ).copyWith(
+      primary: const Color(0xFFEA580C),
+      onPrimary: const Color(0xFF1C0A00),
+      primaryContainer: const Color(0xFF431407),
+      onPrimaryContainer: const Color(0xFFFFEDD5),
+      secondary: const Color(0xFFA8A29E),
+      onSecondary: const Color(0xFF1C1917),
+      secondaryContainer: const Color(0xFF44403C),
+      onSecondaryContainer: const Color(0xFFE7E5E4),
+      tertiary: const Color(0xFF78716C),
+      onTertiary: Colors.white,
+      onSurface: const Color(0xFFE7E5E4),
+      onSurfaceVariant: const Color(0xFFA8A29E),
+      outline: const Color(0xFF525252),
+      outlineVariant: const Color(0xFF3F3F46),
+      surfaceContainerHighest: const Color(0xFF27272A),
+      surfaceContainerHigh: const Color(0xFF1F1F23),
+      surfaceContainer: const Color(0xFF1A1A1D),
+      surfaceContainerLow: const Color(0xFF141416),
+    );
+    return _build(colors);
+  }
+
+  /// Coffee / kavárna — krémově-hnědé pozadí, tlumený „tmavší light“ (ne čistě bílý).
+  static ThemeData coffee() {
+    const surface = Color(0xFFDDD2C6);
+    const onSurface = Color(0xFF2A211C);
+    final colors = ColorScheme(
+      brightness: Brightness.light,
+      primary: const Color(0xFF5C4033),
+      onPrimary: const Color(0xFFFFF4EC),
+      primaryContainer: const Color(0xFFC4A882),
+      onPrimaryContainer: const Color(0xFF2C1810),
+      secondary: const Color(0xFF6D5B4D),
+      onSecondary: const Color(0xFFFFF4EC),
+      secondaryContainer: const Color(0xFFB5A08E),
+      onSecondaryContainer: const Color(0xFF221A14),
+      tertiary: const Color(0xFF8B7355),
+      onTertiary: const Color(0xFFFFF4EC),
+      tertiaryContainer: const Color(0xFFD4BC9E),
+      onTertiaryContainer: const Color(0xFF2A1F14),
+      error: const Color(0xFFB3261E),
+      onError: Colors.white,
+      errorContainer: const Color(0xFFF9DEDC),
+      onErrorContainer: const Color(0xFF410E0B),
+      surface: surface,
+      onSurface: onSurface,
+      surfaceContainerHighest: const Color(0xFFC9B8A8),
+      surfaceContainerHigh: const Color(0xFFD2C3B4),
+      surfaceContainer: const Color(0xFFD8CABB),
+      surfaceContainerLow: const Color(0xFFE3D6CA),
+      surfaceContainerLowest: const Color(0xFFECE2D8),
+      surfaceBright: const Color(0xFFE8DED4),
+      surfaceDim: const Color(0xFFD0C4B6),
+      onSurfaceVariant: const Color(0xFF52443C),
+      outline: const Color(0xFF85756A),
+      outlineVariant: const Color(0xFFB0A090),
+      shadow: const Color(0xFF1A1410),
+      scrim: const Color(0xFF1A1410),
+      inverseSurface: const Color(0xFF38302A),
+      onInverseSurface: const Color(0xFFF5EBE3),
+      inversePrimary: const Color(0xFFD4BC9E),
+    );
+    return _build(colors);
+  }
+
+  static ThemeData themeForKey(String canonicalKey) {
+    switch (canonicalKey) {
+      case 'light':
+        return light();
+      case 'coffee':
+        return coffee();
+      case 'snowrunner':
+        return snowrunner();
+      case 'dark_blue':
+      default:
+        return darkBlue();
+    }
   }
 
   static ThemeData _build(ColorScheme colors) {

@@ -1,3 +1,5 @@
 # Sladění s partitions.csv (2× OTA; mapa ~3,9 MB) — modul musí mít fyzicky 4 MB flash.
 # Bez tohoto se po set-target / novém klonu často vrátí výchozí 2 MB a gen_esp32part spadne.
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+# Jemnější tick kvůli čekáním v boot vlnové animaci (~100 LED/s včetně refresh).
+CONFIG_FREERTOS_HZ=1000

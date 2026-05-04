@@ -1,13 +1,65 @@
 import 'dart:convert';
 
 import '../json/json_utils.dart';
-import 'custom_hotkey_models.dart';
 import 'pc_health_defaults.dart';
 import 'smart_lights_models.dart';
 
 /// Výchozí URL `manifest.json` na GitHub Pages (repozitář AlfredKrutina/ambilight).
 const String kAmbilightFirmwareManifestUrl =
     'https://alfredkrutina.github.io/ambilight/firmware/latest/';
+
+/// Prázdný řetězec z UI nebo JSON → stejná výchozí URL jako [kAmbilightFirmwareManifestUrl].
+String effectiveFirmwareManifestUrl(String raw) {
+  final t = raw.trim();
+  return t.isEmpty ? kAmbilightFirmwareManifestUrl : t;
+}
+
+/// Python starší větve používají `pc_health`; engine a UI očekávají `pchealth`.
+String normalizeAmbilightStartMode(String raw) {
+  final t = raw.trim();
+  if (t.isEmpty) return 'screen';
+  final k = t.toLowerCase().replaceAll('-', '_');
+  if (k == 'pc_health') return 'pchealth';
+  return t;
+}
+
+/// UI paleta: historicky uložené `"dark"` = dnešní modrý vzhled → [`dark_blue`].
+/// Neutrální SnowRunner styl = [`snowrunner`].
+String normalizeAmbilightUiTheme(String raw) {
+  final t = raw.trim().toLowerCase().replaceAll('-', '_');
+  if (t.isEmpty) return 'dark_blue';
+  if (t == 'snowrunner') return 'snowrunner';
+  if (t == 'darkblue' || t == 'dark_blue') return 'dark_blue';
+  if (t == 'dark') return 'dark_blue';
+  if (t == 'light') return 'light';
+  if (t == 'coffee') return 'coffee';
+  return 'dark_blue';
+}
+
+/// UI jazyk: [`system`] podle OS, nebo vynucená [`en`] / [`cs`].
+/// Povolené hodnoty Hz hlavní smyčky mimo [GlobalSettings.performanceMode].
+const kAmbilightScreenRefreshRatesHz = <int>[60, 120, 240];
+
+int normalizeAmbilightScreenRefreshRateHz(num? raw) {
+  final v = raw == null ? 60 : raw.round();
+  if (kAmbilightScreenRefreshRatesHz.contains(v)) return v;
+  return 60;
+}
+
+/// Windows: `gdi` (CPU BitBlt), `dxgi` (GPU Desktop Duplication). Ostatní OS ignorují.
+String normalizeWindowsScreenCaptureBackend(String raw) {
+  final k = raw.trim().toLowerCase();
+  if (k == 'dxgi' || k == 'gpu') return 'dxgi';
+  return 'gdi';
+}
+
+String normalizeAmbilightUiLanguage(String raw) {
+  final t = raw.trim().toLowerCase().replaceAll('-', '_');
+  if (t.isEmpty || t == 'system') return 'system';
+  if (t == 'cs' || t == 'cs_cz') return 'cs';
+  if (t == 'en' || t == 'en_us' || t == 'en_gb') return 'en';
+  return 'system';
+}
 
 /// --- Device ---
 
@@ -110,17 +162,17 @@ class GlobalSettings {
     this.startMode = 'screen',
     this.startMinimized = false,
     this.autostart = false,
-    this.theme = 'dark',
+    this.theme = 'dark_blue',
     this.captureMethod = 'mss',
-    this.hotkeysEnabled = true,
-    this.hotkeyToggle = 'ctrl+shift+l',
-    this.hotkeyModeLight = '',
-    this.hotkeyModeScreen = '',
-    this.hotkeyModeMusic = '',
-    this.customHotkeys = const [],
     this.uiAnimationsEnabled = true,
     this.performanceMode = false,
+    /// Hlavní smyčka (snímání / výstup) mimo výkonový režim — jen [kAmbilightScreenRefreshRatesHz].
+    this.screenRefreshRateHz = 60,
     this.firmwareManifestUrl = kAmbilightFirmwareManifestUrl,
+    /// Zda už uživatel dokončil úvodní průvodce. Chybějící klíč v JSON = považovat za dokončeno (legacy konfigurace).
+    this.onboardingCompleted = false,
+    /// [`system`] = podle systému, jinak vynucený kód jazyka (viz [normalizeAmbilightUiLanguage]).
+    this.uiLanguage = 'system',
   });
 
   final String serialPort;
@@ -132,18 +184,17 @@ class GlobalSettings {
   final bool autostart;
   final String theme;
   final String captureMethod;
-  final bool hotkeysEnabled;
-  final String hotkeyToggle;
-  final String hotkeyModeLight;
-  final String hotkeyModeScreen;
-  final String hotkeyModeMusic;
-  final List<CustomHotkeyEntry> customHotkeys;
   /// Krátké UI přechody; vypnuto = `MediaQuery.disableAnimations` pro celou aplikaci.
   final bool uiAnimationsEnabled;
   /// Nižší frekvence smyčky, řidší snímání obrazovky a pozadí — bez vypínání UI animací.
   final bool performanceMode;
-  /// URL `manifest.json` (GitHub Pages). Výchozí: `kAmbilightFirmwareManifestUrl`. Prázdný řetězec = vypnuto (ručně vymazat pole).
+  /// Při vypnutém [performanceMode]: frekvence hlavní smyčky (snímání / LED). Ve výkonovém režimu je fixně 25 FPS při snímání monitoru.
+  final int screenRefreshRateHz;
+  /// URL základ (`…/firmware/latest/`) nebo přímo `manifest.json`. Prázdné uložené pole → při načtení/Uložení [kAmbilightFirmwareManifestUrl].
   final String firmwareManifestUrl;
+  final bool onboardingCompleted;
+  /// `system` | `en` | `cs`
+  final String uiLanguage;
 
   GlobalSettings copyWith({
     String? serialPort,
@@ -155,15 +206,12 @@ class GlobalSettings {
     bool? autostart,
     String? theme,
     String? captureMethod,
-    bool? hotkeysEnabled,
-    String? hotkeyToggle,
-    String? hotkeyModeLight,
-    String? hotkeyModeScreen,
-    String? hotkeyModeMusic,
-    List<CustomHotkeyEntry>? customHotkeys,
     bool? uiAnimationsEnabled,
     bool? performanceMode,
+    int? screenRefreshRateHz,
     String? firmwareManifestUrl,
+    bool? onboardingCompleted,
+    String? uiLanguage,
   }) {
     return GlobalSettings(
       serialPort: serialPort ?? this.serialPort,
@@ -175,15 +223,16 @@ class GlobalSettings {
       autostart: autostart ?? this.autostart,
       theme: theme ?? this.theme,
       captureMethod: captureMethod ?? this.captureMethod,
-      hotkeysEnabled: hotkeysEnabled ?? this.hotkeysEnabled,
-      hotkeyToggle: hotkeyToggle ?? this.hotkeyToggle,
-      hotkeyModeLight: hotkeyModeLight ?? this.hotkeyModeLight,
-      hotkeyModeScreen: hotkeyModeScreen ?? this.hotkeyModeScreen,
-      hotkeyModeMusic: hotkeyModeMusic ?? this.hotkeyModeMusic,
-      customHotkeys: customHotkeys ?? this.customHotkeys,
       uiAnimationsEnabled: uiAnimationsEnabled ?? this.uiAnimationsEnabled,
       performanceMode: performanceMode ?? this.performanceMode,
-      firmwareManifestUrl: firmwareManifestUrl ?? this.firmwareManifestUrl,
+      screenRefreshRateHz: screenRefreshRateHz != null
+          ? normalizeAmbilightScreenRefreshRateHz(screenRefreshRateHz)
+          : this.screenRefreshRateHz,
+      firmwareManifestUrl: firmwareManifestUrl == null
+          ? this.firmwareManifestUrl
+          : effectiveFirmwareManifestUrl(firmwareManifestUrl),
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      uiLanguage: uiLanguage != null ? normalizeAmbilightUiLanguage(uiLanguage) : this.uiLanguage,
     );
   }
 
@@ -197,15 +246,12 @@ class GlobalSettings {
         'autostart': autostart,
         'theme': theme,
         'capture_method': captureMethod,
-        'hotkeys_enabled': hotkeysEnabled,
-        'hotkey_toggle': hotkeyToggle,
-        'hotkey_mode_light': hotkeyModeLight,
-        'hotkey_mode_screen': hotkeyModeScreen,
-        'hotkey_mode_music': hotkeyModeMusic,
-        'custom_hotkeys': customHotkeys.map((e) => e.toJson()).toList(),
         'ui_animations_enabled': uiAnimationsEnabled,
         'performance_mode': performanceMode,
+        'screen_refresh_rate_hz': screenRefreshRateHz,
         'firmware_manifest_url': firmwareManifestUrl,
+        'onboarding_completed': onboardingCompleted,
+        'ui_language': uiLanguage,
       };
 
   factory GlobalSettings.fromJson(Map<String, dynamic> j) {
@@ -231,23 +277,21 @@ class GlobalSettings {
       baudRate: asInt(j['baud_rate'], 115200),
       ledCount: asInt(j['led_count'], 66),
       devices: devs,
-      startMode: asString(j['start_mode'], 'screen'),
+      startMode: normalizeAmbilightStartMode(asString(j['start_mode'], 'screen')),
       startMinimized: asBool(j['start_minimized'], false),
       autostart: asBool(j['autostart'], false),
-      theme: asString(j['theme'], 'dark'),
+      theme: normalizeAmbilightUiTheme(asString(j['theme'], 'dark_blue')),
       captureMethod: asString(j['capture_method'], 'mss'),
-      hotkeysEnabled: asBool(j['hotkeys_enabled'], true),
-      hotkeyToggle: asString(j['hotkey_toggle'], 'ctrl+shift+l'),
-      hotkeyModeLight: asString(j['hotkey_mode_light'], ''),
-      hotkeyModeScreen: asString(j['hotkey_mode_screen'], ''),
-      hotkeyModeMusic: asString(j['hotkey_mode_music'], ''),
-      customHotkeys: asMapList(j['custom_hotkeys']).map((e) => CustomHotkeyEntry.fromJson(Map<String, dynamic>.from(e))).toList(),
       uiAnimationsEnabled: asBool(j['ui_animations_enabled'], true),
       performanceMode: asBool(j['performance_mode'], false),
-      firmwareManifestUrl: asString(
-        j['firmware_manifest_url'],
-        kAmbilightFirmwareManifestUrl,
+      screenRefreshRateHz: normalizeAmbilightScreenRefreshRateHz(
+        asInt(j['screen_refresh_rate_hz'], 60),
       ),
+      firmwareManifestUrl: effectiveFirmwareManifestUrl(
+        asString(j['firmware_manifest_url'], ''),
+      ),
+      onboardingCompleted: asBool(j['onboarding_completed'], true),
+      uiLanguage: normalizeAmbilightUiLanguage(asString(j['ui_language'], 'system')),
     );
   }
 }
@@ -514,6 +558,8 @@ class ScreenModeSettings {
     this.scanDepthLeft = 10,
     this.scanDepthRight = 10,
     this.segments = const [],
+    /// Jen Windows — viz [normalizeWindowsScreenCaptureBackend].
+    this.windowsCaptureBackend = 'gdi',
   });
 
   final int monitorIndex;
@@ -541,6 +587,8 @@ class ScreenModeSettings {
   final int scanDepthLeft;
   final int scanDepthRight;
   final List<LedSegment> segments;
+  /// Windows: `gdi` | `dxgi`.
+  final String windowsCaptureBackend;
 
   Map<String, dynamic> toJson() => {
         'monitor_index': monitorIndex,
@@ -568,6 +616,7 @@ class ScreenModeSettings {
         'scan_depth_left': scanDepthLeft,
         'scan_depth_right': scanDepthRight,
         'segments': segments.map((e) => e.toJson()).toList(),
+        'windows_capture_backend': windowsCaptureBackend,
       };
 
   factory ScreenModeSettings.fromJson(Map<String, dynamic> j) {
@@ -611,6 +660,8 @@ class ScreenModeSettings {
       scanDepthLeft: asInt(j['scan_depth_left'], 10),
       scanDepthRight: asInt(j['scan_depth_right'], 10),
       segments: segList,
+      windowsCaptureBackend:
+          normalizeWindowsScreenCaptureBackend(asString(j['windows_capture_backend'], 'gdi')),
     );
   }
 
@@ -640,6 +691,7 @@ class ScreenModeSettings {
         scanDepthLeft: scanDepthLeft,
         scanDepthRight: scanDepthRight,
         segments: segments,
+        windowsCaptureBackend: windowsCaptureBackend,
       );
 
   /// Python `calib_auto`: vymaže uložené kalibrační body.
@@ -669,6 +721,7 @@ class ScreenModeSettings {
         scanDepthLeft: scanDepthLeft,
         scanDepthRight: scanDepthRight,
         segments: segments,
+        windowsCaptureBackend: windowsCaptureBackend,
       );
 
   /// Tray / rychlé presety — mění jen vybrané parametry obrazovky.
@@ -705,6 +758,7 @@ class ScreenModeSettings {
         scanDepthLeft: scanDepthLeft,
         scanDepthRight: scanDepthRight,
         segments: segments,
+        windowsCaptureBackend: windowsCaptureBackend,
       );
 
   ScreenModeSettings copyWith({
@@ -733,6 +787,7 @@ class ScreenModeSettings {
     int? scanDepthLeft,
     int? scanDepthRight,
     List<LedSegment>? segments,
+    String? windowsCaptureBackend,
   }) =>
       ScreenModeSettings(
         monitorIndex: monitorIndex ?? this.monitorIndex,
@@ -760,6 +815,9 @@ class ScreenModeSettings {
         scanDepthLeft: scanDepthLeft ?? this.scanDepthLeft,
         scanDepthRight: scanDepthRight ?? this.scanDepthRight,
         segments: segments ?? this.segments,
+        windowsCaptureBackend: windowsCaptureBackend != null
+            ? normalizeWindowsScreenCaptureBackend(windowsCaptureBackend)
+            : this.windowsCaptureBackend,
       );
 }
 

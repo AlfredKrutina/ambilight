@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 
 import '../application/ambilight_app_controller.dart';
 import '../application/app_error_safety.dart';
+import '../l10n/app_locale_bridge.dart';
+import '../l10n/context_ext.dart';
 import '../core/device_bindings_debug.dart';
 import '../core/models/config_models.dart';
 import '../data/udp_device_commands.dart';
@@ -39,7 +41,7 @@ class _DevicesPageState extends State<DevicesPage> {
     final c = context.read<AmbilightAppController>();
     setState(() => _findingCom = true);
     final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(const SnackBar(content: Text('Hledám COM s handshake 0xAA / 0xBB…')));
+    messenger.showSnackBar(SnackBar(content: Text(context.l10n.comScanHandshake)));
     final snap = c.connectionSnapshot;
     final skipOpenCom = <String>{
       for (final d in c.config.globalSettings.devices)
@@ -56,7 +58,7 @@ class _DevicesPageState extends State<DevicesPage> {
     setState(() => _findingCom = false);
     if (port == null) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('Žádný port neodpověděl (Ambilight handshake).')),
+        SnackBar(content: Text(context.l10n.comScanNoReply)),
       );
       return;
     }
@@ -73,7 +75,7 @@ class _DevicesPageState extends State<DevicesPage> {
     traceConfigBindings('DevicesPage._findAmbilightCom před apply', c.config);
     await c.applyConfigAndPersist(next);
     if (mounted) {
-      messenger.showSnackBar(SnackBar(content: Text('Nastaven sériový port: $port')));
+      messenger.showSnackBar(SnackBar(content: Text(context.l10n.serialPortSet(port))));
     }
   }
 
@@ -104,28 +106,28 @@ class _DevicesPageState extends State<DevicesPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Uložit zařízení', style: Theme.of(ctx).textTheme.titleLarge),
+              Text(ctx.l10n.saveDeviceTitle, style: Theme.of(ctx).textTheme.titleLarge),
               const SizedBox(height: 12),
-              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Název')),
+              TextField(controller: nameCtrl, decoration: InputDecoration(labelText: ctx.l10n.fieldDeviceName)),
               TextField(
                 controller: ipCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'IP adresa',
+                decoration: InputDecoration(
+                  labelText: ctx.l10n.fieldIpAddress,
                   hintText: '192.168.1.42',
                 ),
                 keyboardType: TextInputType.url,
               ),
               TextField(
                 controller: portCtrl,
-                decoration: const InputDecoration(labelText: 'UDP port'),
+                decoration: InputDecoration(labelText: ctx.l10n.fieldUdpPort),
                 keyboardType: TextInputType.number,
               ),
               TextField(
                 controller: ledCtrl,
-                decoration: const InputDecoration(labelText: 'Počet LED'),
+                decoration: InputDecoration(labelText: ctx.l10n.fieldLedCount),
                 keyboardType: TextInputType.number,
               ),
-              if (fw.isNotEmpty) Text('Firmware (z PONG): $fw', style: Theme.of(ctx).textTheme.bodySmall),
+              if (fw.isNotEmpty) Text(ctx.l10n.firmwareFromPong(fw), style: Theme.of(ctx).textTheme.bodySmall),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -134,7 +136,7 @@ class _DevicesPageState extends State<DevicesPage> {
                       final ip = ipCtrl.text.trim();
                       if (!_isValidIp(ip)) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Neplatná IP adresa.')),
+                          SnackBar(content: Text(context.l10n.invalidIp)),
                         );
                         return;
                       }
@@ -143,15 +145,15 @@ class _DevicesPageState extends State<DevicesPage> {
                       if (!ctx.mounted) return;
                       if (pong == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('PONG nepřišel (timeout).')),
+                          SnackBar(content: Text(context.l10n.pongTimeout)),
                         );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('PONG: FW ${pong.version}, LED ${pong.ledCount}')),
+                          SnackBar(content: Text(context.l10n.pongResult(pong.version, pong.ledCount))),
                         );
                       }
                     },
-                    child: const Text('Ověřit PONG'),
+                    child: Text(ctx.l10n.verifyPong),
                   ),
                   const Spacer(),
                   FilledButton(
@@ -159,7 +161,7 @@ class _DevicesPageState extends State<DevicesPage> {
                       final ip = ipCtrl.text.trim();
                       if (!_isValidIp(ip)) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Zadej platnou IPv4 adresu.')),
+                          SnackBar(content: Text(context.l10n.enterValidIpv4)),
                         );
                         return;
                       }
@@ -194,10 +196,10 @@ class _DevicesPageState extends State<DevicesPage> {
                       if (!ctx.mounted) return;
                       Navigator.pop(ctx);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Zařízení uloženo.')),
+                        SnackBar(content: Text(context.l10n.deviceSaved)),
                       );
                     },
-                    child: const Text('Uložit'),
+                    child: Text(ctx.l10n.save),
                   ),
                 ],
               ),
@@ -217,17 +219,14 @@ class _DevicesPageState extends State<DevicesPage> {
     final go = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Reset Wi‑Fi?'),
-        content: Text(
-          'Zařízení „${dev.name}“ smaže uložené Wi‑Fi přihlašovací údaje na kontroléru '
-          'a restartuje se. Budete ho muset znovu připojit k síti.',
-        ),
+        title: Text(ctx.l10n.resetWifiTitle),
+        content: Text(ctx.l10n.resetWifiContent(dev.name)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Zrušit')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.cancel)),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Odeslat RESET_WIFI'),
+            child: Text(ctx.l10n.sendResetWifi),
           ),
         ],
       ),
@@ -236,7 +235,7 @@ class _DevicesPageState extends State<DevicesPage> {
     final ok = await UdpDeviceCommands.sendResetWifi(dev.ipAddress, dev.udpPort, logContext: dev.name);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? 'RESET_WIFI odeslán.' : 'Odeslání se nezdařilo.')),
+      SnackBar(content: Text(ok ? context.l10n.resetWifiSent : context.l10n.resetWifiFailed)),
     );
   }
 
@@ -262,17 +261,17 @@ class _DevicesPageState extends State<DevicesPage> {
       );
     } catch (e, st) {
       traceDeviceBindingsSevere('DevicesPage._removeDeviceAt: apply selhal', e, st);
-      reportAppFault('Odebrání zařízení selhalo: ${e.toString().split('\n').first}');
+      reportAppFault(AppLocaleBridge.strings.removeDeviceFailed(e.toString().split('\n').first));
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Odebrání se nepodařilo: $e')),
+          SnackBar(content: Text(context.l10n.removeFailed(e.toString()))),
         );
       }
       return;
     }
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Zařízení „$name“ bylo odebráno.')),
+      SnackBar(content: Text(context.l10n.deviceRemoved(name))),
     );
   }
 
@@ -283,7 +282,7 @@ class _DevicesPageState extends State<DevicesPage> {
     if (!context.mounted) return;
     if (pong == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PONG nepřišel.')),
+        SnackBar(content: Text(context.l10n.pongMissing)),
       );
       return;
     }
@@ -295,26 +294,28 @@ class _DevicesPageState extends State<DevicesPage> {
     );
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Firmware: ${pong.version}')),
+        SnackBar(content: Text(context.l10n.firmwareLabel(pong.version))),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<AmbilightAppController>();
+    final c = context.read<AmbilightAppController>();
     final scheme = Theme.of(context).colorScheme;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return ResponsiveBody(
-          maxWidth: constraints.maxWidth,
-          child: ListView(
+    return AnimatedBuilder(
+      animation: Listenable.merge([c, c.previewFrameNotifier, c.connectionSnapshotNotifier]),
+      builder: (context, _) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            return ResponsiveBody(
+              maxWidth: constraints.maxWidth,
+              child: ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       children: [
         AmbiPageHeader(
-          title: 'Zařízení',
-          subtitle:
-              'Vyhledání v síti, úprava segmentů a kalibrace. Klepnutím na řádek zařízení otevřeš mapování LED.',
+          title: context.l10n.devicesPageTitle,
+          subtitle: context.l10n.devicesPageSubtitle,
           bottomSpacing: 20,
         ),
         AmbiGlassPanel(
@@ -322,12 +323,12 @@ class _DevicesPageState extends State<DevicesPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Akce', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+              Text(context.l10n.devicesActionsTitle, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: _discover,
                 icon: const Icon(Icons.wifi_tethering),
-                label: const Text('Discovery — průvodce'),
+                label: Text(context.l10n.discoveryWizardLabel),
               ),
               const SizedBox(height: 10),
               LayoutBuilder(
@@ -337,17 +338,17 @@ class _DevicesPageState extends State<DevicesPage> {
               OutlinedButton.icon(
                 onPressed: () => ZoneEditorWizardDialog.show(context),
                 icon: const Icon(Icons.border_outer),
-                label: const Text('Segmenty'),
+                label: Text(context.l10n.segmentsLabel),
               ),
               OutlinedButton.icon(
                 onPressed: () => CalibrationWizardDialog.show(context),
                 icon: const Icon(Icons.tune),
-                label: const Text('Kalibrace'),
+                label: Text(context.l10n.calibrationLabel),
               ),
               OutlinedButton.icon(
                 onPressed: () => ConfigProfileWizardDialog.show(context),
                 icon: const Icon(Icons.bookmark_add_outlined),
-                label: const Text('Screen preset'),
+                label: Text(context.l10n.screenPresetLabel),
               ),
             ];
             if (narrow) {
@@ -365,7 +366,7 @@ class _DevicesPageState extends State<DevicesPage> {
               OutlinedButton.icon(
                 onPressed: () => _openSaveDeviceSheet(context, preset: null),
                 icon: const Icon(Icons.add),
-                label: const Text('Přidat Wi‑Fi ručně'),
+                label: Text(context.l10n.addWifiManual),
               ),
               const SizedBox(height: 8),
               OutlinedButton.icon(
@@ -373,14 +374,14 @@ class _DevicesPageState extends State<DevicesPage> {
                 icon: _findingCom
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.usb),
-                label: Text(_findingCom ? 'Hledám COM…' : 'Najít Ambilight (COM)'),
+                label: Text(_findingCom ? context.l10n.findingCom : context.l10n.findAmbilightCom),
               ),
             ],
           ),
         ),
         const Divider(height: 32),
         Text(
-          'Nakonfigurovaná zařízení',
+          context.l10n.devicesConfiguredTitle,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
@@ -390,7 +391,7 @@ class _DevicesPageState extends State<DevicesPage> {
             child: AmbiGlassPanel(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Zatím žádné — můžeš nejdřív nastavit režimy a presety. Pro ovládání pásku přidej USB nebo Wi‑Fi výše.',
+                context.l10n.devicesEmptyStateBody,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ),
@@ -421,13 +422,13 @@ class _DevicesPageState extends State<DevicesPage> {
             tilePadding: EdgeInsets.zero,
             childrenPadding: const EdgeInsets.only(bottom: 8),
             title: Text(
-              'Diagnostika (COM porty)',
+              context.l10n.diagnosticsComPorts,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
             children: [
               SelectableText(
                 AmbilightAppController.serialPorts().join(', ').isEmpty
-                    ? 'Žádné porty nejsou detekované.'
+                    ? context.l10n.noSerialPortsDetected
                     : AmbilightAppController.serialPorts().join(', '),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
@@ -435,8 +436,10 @@ class _DevicesPageState extends State<DevicesPage> {
           ),
         ),
       ],
-          ),
-        );
+            ),
+          );
+        },
+      );
       },
     );
   }

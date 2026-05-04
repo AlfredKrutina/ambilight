@@ -4,7 +4,9 @@ import 'dart:typed_data';
 /// Jedna snímka monitoru ve formátu RGBA (4 B / pixel, řádek po řádku).
 ///
 /// [monitorIndex]: MSS-styl (`0` = celý virtuální desktop, `1`…`n` = fyzické monitory).
-/// Shodně s [ScreenCaptureSource.captureFrame] a `LedSegment.monitorIdx`.
+/// Shodně s [ScreenCaptureSource.captureFrame].
+/// Segmenty z legacy Python často mají `monitor_idx` o 1 menší než tento index — řeší
+/// [ScreenColorPipeline.segmentMatchesCaptureFrame].
 class ScreenFrame {
   const ScreenFrame({
     required this.monitorIndex,

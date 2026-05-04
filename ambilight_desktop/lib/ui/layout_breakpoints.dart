@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// G1 — jeden zdroj breakpointů (MASTER plán): compact < 600, medium 600–1200, expanded ≥ 1200.
@@ -31,6 +33,17 @@ abstract final class AppBreakpoints {
   static double maxContentWidth(double width) {
     if (width <= contentMaxReading) return width;
     return contentMaxReading;
+  }
+
+  /// Vnitřní šířka záložek Nastavení. Nahrazuje nebezpečný vzor
+  /// `maxContentWidth(w).clamp(280, w)` — při `w < 280` by [num.clamp] spadl (nesplní se min ≤ max).
+  static double settingsContentInnerMax(double parentWidth) {
+    var p = parentWidth;
+    if (!p.isFinite || p < 0) p = 280.0;
+    final capped = maxContentWidth(p);
+    final lo = math.min(280.0, p);
+    final hi = math.max(lo, p);
+    return capped.clamp(lo, hi);
   }
 
   /// Šířka pro layout logiku na stránkách zabalených v [ResponsiveBody] (stejný strop jako obsah).

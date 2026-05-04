@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:logging/logging.dart';
@@ -6,7 +7,12 @@ import 'package:path_provider/path_provider.dart';
 
 import '../core/models/config_models.dart';
 
+import '../application/app_crash_log.dart';
+
 final _log = Logger('ConfigRepository');
+
+/// Výsledek [ConfigRepository.loadDetailed]: konfigurace + příznak „JSON pod čitelný soubor šel do výchozích hodnot“.
+typedef ConfigLoadDetailed = ({AppConfig config, bool discardedUnreadableJson});
 
 /// Persists [AppConfig] next to the Python app (`config/default.json`) or under app support.
 class ConfigRepository {
@@ -32,18 +38,37 @@ class ConfigRepository {
     return f;
   }
 
-  static Future<AppConfig> load([String profile = defaultProfile]) async {
+  /// Načte konfiguraci; při poškozeném JSON vrátí [AppConfig.defaults] a `discardedUnreadableJson: true`.
+  static Future<ConfigLoadDetailed> loadDetailed([String profile = defaultProfile]) async {
     try {
       final file = await resolveConfigFile(profile);
       if (!await file.exists()) {
-        return AppConfig.defaults();
+        return (config: AppConfig.defaults(), discardedUnreadableJson: false);
       }
       final text = await file.readAsString();
-      return AppConfig.parse(text);
+      try {
+        return (config: AppConfig.parse(text), discardedUnreadableJson: false);
+      } catch (e, st) {
+        _log.warning('Config parse failed (using defaults): $e', e, st);
+        unawaited(
+          AppCrashLog.append(
+            'Config JSON parse failed (${file.path})',
+            error: e,
+            stack: st,
+          ),
+        );
+        return (config: AppConfig.defaults(), discardedUnreadableJson: true);
+      }
     } catch (e, st) {
       _log.warning('Config load failed: $e', e, st);
-      return AppConfig.defaults();
+      unawaited(AppCrashLog.append('Config load I/O failed', error: e, stack: st));
+      return (config: AppConfig.defaults(), discardedUnreadableJson: false);
     }
+  }
+
+  static Future<AppConfig> load([String profile = defaultProfile]) async {
+    final d = await loadDetailed(profile);
+    return d.config;
   }
 
   /// Zapíše JSON přes `.tmp` a přejmenování — při pádu během zápisu zůstane buď starý [file], nebo obnovitelný `.bak`.

@@ -8,6 +8,7 @@
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
 #include "esp_log.h"
+#include "esp_heap_caps.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -16,6 +17,24 @@ static const char *TAG_OTA = "LampOTA";
 static volatile bool s_ota_busy;
 
 bool ambilight_ota_in_progress(void) { return s_ota_busy; }
+
+/// Zakáže řídicí znaky a mezery-only URL (HTTP klient / stabilita).
+static bool ota_url_chars_valid(const char *u) {
+  if (u == NULL || *u == '\0') {
+    return false;
+  }
+  bool seen_non_space = false;
+  for (const char *p = u; *p; p++) {
+    unsigned char c = (unsigned char)*p;
+    if (c < 0x20 || c == 0x7f) {
+      return false;
+    }
+    if (c != ' ' && c != '\t') {
+      seen_non_space = true;
+    }
+  }
+  return seen_non_space;
+}
 
 static void ota_task(void *pv) {
   char *url = (char *)pv;
@@ -30,7 +49,10 @@ static void ota_task(void *pv) {
   };
   const esp_app_desc_t *app = esp_app_get_description();
   ESP_LOGI(TAG_OTA, "Start OTA (běží %s) → %s", app ? app->version : "?", url);
+  ESP_LOGI(TAG_OTA, "heap free=%u před esp_https_ota",
+           (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
   esp_err_t ret = esp_https_ota(&ota_cfg);
+  ESP_LOGI(TAG_OTA, "esp_https_ota → %s", esp_err_to_name(ret));
   free(url);
   s_ota_busy = false;
   if (ret == ESP_OK) {
@@ -43,7 +65,9 @@ static void ota_task(void *pv) {
 }
 
 void ambilight_start_ota(const char *url_in) {
+  ESP_LOGI(TAG_OTA, "ambilight_start_ota voláno");
   if (url_in == NULL) {
+    ESP_LOGW(TAG_OTA, "url_in=NULL");
     return;
   }
   if (s_ota_busy) {
@@ -51,6 +75,7 @@ void ambilight_start_ota(const char *url_in) {
     return;
   }
   size_t n = strlen(url_in);
+  ESP_LOGI(TAG_OTA, "délka URL=%u", (unsigned)n);
   /* Shoda s ambilight_desktop UdpDeviceCommands.sendOtaHttpUrl (max 1300). */
   if (n < 12 || n > 1300) {
     ESP_LOGW(TAG_OTA, "Neplatná délka URL");
@@ -60,13 +85,18 @@ void ambilight_start_ota(const char *url_in) {
     ESP_LOGW(TAG_OTA, "URL musí začínat http:// nebo https://");
     return;
   }
+  if (!ota_url_chars_valid(url_in)) {
+    ESP_LOGW(TAG_OTA, "Neplatné znaky v URL");
+    return;
+  }
   char *url = (char *)malloc(n + 1);
   if (url == NULL) {
-    ESP_LOGE(TAG_OTA, "malloc");
+    ESP_LOGE(TAG_OTA, "malloc selhal (n=%u)", (unsigned)n);
     return;
   }
   memcpy(url, url_in, n + 1);
   s_ota_busy = true;
+  ESP_LOGI(TAG_OTA, "startuji task lamp_ota (stack 12288, prio 5)");
   const BaseType_t ok = xTaskCreate(ota_task, "lamp_ota", 12288, url, 5, NULL);
   if (ok != pdPASS) {
     s_ota_busy = false;

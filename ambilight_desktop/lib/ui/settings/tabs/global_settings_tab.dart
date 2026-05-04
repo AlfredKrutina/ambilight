@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/models/config_models.dart';
+import '../../../l10n/context_ext.dart';
 import '../config_backup_section.dart';
-import '../hotkey_validation.dart';
 import '../settings_common.dart';
 import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
@@ -12,118 +12,138 @@ List<Widget> globalSettingsFields(
   GlobalSettings g,
   ValueChanged<GlobalSettings> onChanged,
 ) {
+  final l10n = context.l10n;
+  final langVal = normalizeAmbilightUiLanguage(g.uiLanguage);
+  final langDropdown = langVal == 'system' ? 'system' : langVal;
+
   return [
     DropdownButtonFormField<String>(
-      decoration: const InputDecoration(
-        labelText: 'Výchozí režim po startu',
-        border: OutlineInputBorder(),
+      decoration: InputDecoration(
+        labelText: l10n.languageLabel,
+        border: const OutlineInputBorder(),
+      ),
+      value: langDropdown,
+      items: [
+        DropdownMenuItem(value: 'system', child: Text(l10n.languageSystem)),
+        DropdownMenuItem(value: 'en', child: Text(l10n.languageEnglish)),
+        DropdownMenuItem(value: 'cs', child: Text(l10n.languageCzech)),
+      ],
+      onChanged: (v) {
+        if (v == null) return;
+        onChanged(g.copyWith(uiLanguage: v));
+      },
+    ),
+    DropdownButtonFormField<String>(
+      decoration: InputDecoration(
+        labelText: l10n.startModeLabel,
+        border: const OutlineInputBorder(),
       ),
       value: g.startMode,
-      items: const [
-        DropdownMenuItem(value: 'light', child: Text('Světlo')),
-        DropdownMenuItem(value: 'screen', child: Text('Obrazovka (Ambilight)')),
-        DropdownMenuItem(value: 'music', child: Text('Hudba')),
-        DropdownMenuItem(value: 'pchealth', child: Text('PC Health')),
+      items: [
+        DropdownMenuItem(value: 'light', child: Text(l10n.startModeLight)),
+        DropdownMenuItem(value: 'screen', child: Text(l10n.startModeScreen)),
+        DropdownMenuItem(value: 'music', child: Text(l10n.startModeMusic)),
+        DropdownMenuItem(value: 'pchealth', child: Text(l10n.startModePcHealth)),
       ],
       onChanged: (v) {
         if (v == null) return;
         onChanged(g.copyWith(startMode: v));
       },
     ),
-    Builder(
-      builder: (context) {
-        final themeKey = g.theme.toLowerCase() == 'light' ? 'light' : 'dark';
-        return SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'dark', label: Text('Tmavé'), icon: Icon(Icons.dark_mode_outlined)),
-            ButtonSegment(value: 'light', label: Text('Světlé'), icon: Icon(Icons.light_mode_outlined)),
-          ],
-          selected: {themeKey},
-          onSelectionChanged: (s) {
-            if (s.isEmpty) return;
-            onChanged(g.copyWith(theme: s.first));
-          },
-        );
+    DropdownButtonFormField<String>(
+      decoration: InputDecoration(
+        labelText: l10n.themeLabel,
+        border: const OutlineInputBorder(),
+        helperText: l10n.themeHelper,
+      ),
+      value: normalizeAmbilightUiTheme(g.theme),
+      items: [
+        DropdownMenuItem(value: 'snowrunner', child: Text(l10n.themeSnowrunner)),
+        DropdownMenuItem(value: 'dark_blue', child: Text(l10n.themeDarkBlue)),
+        DropdownMenuItem(value: 'light', child: Text(l10n.themeLight)),
+        DropdownMenuItem(value: 'coffee', child: Text(l10n.themeCoffee)),
+      ],
+      onChanged: (v) {
+        if (v == null) return;
+        onChanged(g.copyWith(theme: v));
       },
     ),
     SwitchListTile(
-      title: const Text('Animace rozhraní'),
-      subtitle: const Text(
-        'Krátké přechody mezi sekcemi. Vypni při opakované práci — respektuje i systémové snížení animací.',
-      ),
+      title: Text(l10n.uiAnimationsTitle),
+      subtitle: Text(l10n.uiAnimationsSubtitle),
       value: g.uiAnimationsEnabled,
       onChanged: (v) => onChanged(g.copyWith(uiAnimationsEnabled: v)),
     ),
     SwitchListTile(
-      title: const Text('Režim výkonu'),
-      subtitle: const Text(
-        'Smyčka ~25 Hz, snímání obrazovky každý 3. tick, delší intervaly Spotify / PC Health a šetrnější fronta na sériový port. Přepínač „Animace rozhraní“ ovládá jen Material přechody.',
-      ),
+      title: Text(l10n.performanceModeTitle),
+      subtitle: Text(l10n.performanceModeSubtitle),
       value: g.performanceMode,
       onChanged: (v) => onChanged(g.copyWith(performanceMode: v)),
     ),
+    DropdownButtonFormField<int>(
+      decoration: InputDecoration(
+        labelText: l10n.screenRefreshRateTitle,
+        border: const OutlineInputBorder(),
+        helperText: g.performanceMode ? l10n.screenRefreshRateDisabledHint : l10n.screenRefreshRateSubtitle,
+      ),
+      value: normalizeAmbilightScreenRefreshRateHz(g.screenRefreshRateHz),
+      items: [
+        for (final hz in kAmbilightScreenRefreshRatesHz)
+          DropdownMenuItem(
+            value: hz,
+            child: Text(
+              switch (hz) {
+                60 => l10n.screenRefreshRateHz60,
+                120 => l10n.screenRefreshRateHz120,
+                _ => l10n.screenRefreshRateHz240,
+              },
+            ),
+          ),
+      ],
+      onChanged: g.performanceMode
+          ? null
+          : (v) {
+              if (v == null) return;
+              onChanged(g.copyWith(screenRefreshRateHz: v));
+            },
+    ),
     SwitchListTile(
-      title: const Text('Spustit s Windows'),
-      subtitle: const Text('Autostart aplikace po přihlášení k účtu.'),
+      title: Text(l10n.autostartTitle),
+      subtitle: Text(l10n.autostartSubtitle),
       value: g.autostart,
       onChanged: (v) => onChanged(g.copyWith(autostart: v)),
     ),
     SwitchListTile(
-      title: const Text('Spustit minimalizovaně'),
+      title: Text(l10n.startMinimizedTitle),
       value: g.startMinimized,
       onChanged: (v) => onChanged(g.copyWith(startMinimized: v)),
     ),
-    TextFormField(
-      initialValue: g.captureMethod,
-      decoration: const InputDecoration(
-        labelText: 'Metoda snímání obrazovky (pokročilé)',
-        hintText: 'např. mss, dxcam',
-        border: OutlineInputBorder(),
-        helperText: 'Ponech výchozí, pokud snímání obrazovky funguje.',
-      ),
-      onChanged: (v) => onChanged(g.copyWith(captureMethod: v)),
-    ),
-    SwitchListTile(
-      title: const Text('Globální zkratky zapnuty'),
-      subtitle: const Text('macOS: Accessibility — context/README_PERMISSIONS.md'),
-      value: g.hotkeysEnabled,
-      onChanged: (v) => onChanged(g.copyWith(hotkeysEnabled: v)),
-    ),
-    TextFormField(
-      initialValue: g.hotkeyToggle,
-      decoration: const InputDecoration(
-        labelText: 'Hotkey — přepnutí',
-        border: OutlineInputBorder(),
-      ),
-      validator: validateHotkeyField,
-      onChanged: (v) => onChanged(g.copyWith(hotkeyToggle: v)),
-    ),
-    TextFormField(
-      initialValue: g.hotkeyModeLight,
-      decoration: const InputDecoration(
-        labelText: 'Hotkey — režim light (volitelné)',
-        border: OutlineInputBorder(),
-      ),
-      validator: validateHotkeyField,
-      onChanged: (v) => onChanged(g.copyWith(hotkeyModeLight: v)),
-    ),
-    TextFormField(
-      initialValue: g.hotkeyModeScreen,
-      decoration: const InputDecoration(
-        labelText: 'Hotkey — režim screen (volitelné)',
-        border: OutlineInputBorder(),
-      ),
-      validator: validateHotkeyField,
-      onChanged: (v) => onChanged(g.copyWith(hotkeyModeScreen: v)),
-    ),
-    TextFormField(
-      initialValue: g.hotkeyModeMusic,
-      decoration: const InputDecoration(
-        labelText: 'Hotkey — režim music (volitelné)',
-        border: OutlineInputBorder(),
-      ),
-      validator: validateHotkeyField,
-      onChanged: (v) => onChanged(g.copyWith(hotkeyModeMusic: v)),
+    Builder(
+      builder: (context) {
+        final trimmed = g.captureMethod.trim();
+        final value = trimmed.isEmpty || trimmed == 'mss' ? 'mss' : trimmed;
+        final items = <DropdownMenuItem<String>>[
+          DropdownMenuItem(value: 'mss', child: Text(l10n.captureMethodNativeMss)),
+          if (value != 'mss')
+            DropdownMenuItem(
+              value: value,
+              child: Text(l10n.captureMethodCustomSaved(value)),
+            ),
+        ];
+        return DropdownButtonFormField<String>(
+          decoration: InputDecoration(
+            labelText: l10n.captureMethodLabel,
+            border: const OutlineInputBorder(),
+            helperText: l10n.captureMethodHelper,
+          ),
+          value: value,
+          items: items,
+          onChanged: (v) {
+            if (v == null) return;
+            onChanged(g.copyWith(captureMethod: v));
+          },
+        );
+      },
     ),
   ];
 }
@@ -135,19 +155,22 @@ class GlobalSettingsTab extends StatelessWidget {
     required this.maxWidth,
     required this.onChanged,
     this.onImportedFromDisk,
+    this.onReplayOnboarding,
   });
 
   final AppConfig draft;
   final double maxWidth;
   final ValueChanged<GlobalSettings> onChanged;
   final VoidCallback? onImportedFromDisk;
+  /// Okamžitě uloží `onboarding_completed: false` a znovu zobrazí úvodní průvodce (nad hlavním UI).
+  final VoidCallback? onReplayOnboarding;
 
   @override
   Widget build(BuildContext context) {
     final g = draft.globalSettings;
     final innerMax = AppBreakpoints.maxContentWidth(maxWidth).clamp(280.0, maxWidth);
     final fields = globalSettingsFields(context, g, onChanged);
-    const splitAt = 5;
+    const splitAt = 4;
 
     return Align(
       alignment: Alignment.topCenter,
@@ -159,9 +182,8 @@ class GlobalSettingsTab extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               AmbiSectionHeader(
-                title: 'Globální',
-                subtitle:
-                    'Chování po startu, vzhled, výkon a klávesové zkratky. Import a export konfigurace najdeš níže.',
+                title: context.l10n.globalSectionTitle,
+                subtitle: context.l10n.globalSectionSubtitle,
                 bottomSpacing: 12,
               ),
               if (AppBreakpoints.formColumnsForWidth(innerMax) >= 2)
@@ -175,6 +197,27 @@ class GlobalSettingsTab extends StatelessWidget {
                 )
               else
                 paddedSettingsColumn(fields),
+              if (onReplayOnboarding != null) ...[
+                const SizedBox(height: 22),
+                Text(
+                  context.l10n.onboardingReplayTitle,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  context.l10n.onboardingReplayBody,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: onReplayOnboarding,
+                  icon: const Icon(Icons.auto_stories_outlined, size: 20),
+                  label: Text(context.l10n.replayOnboardingButton),
+                ),
+              ],
               ConfigBackupSection(onImported: onImportedFromDisk),
             ],
           ),

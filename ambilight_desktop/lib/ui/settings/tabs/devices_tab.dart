@@ -6,6 +6,8 @@ import '../../../core/device_bindings_debug.dart';
 import '../../../core/models/config_models.dart';
 import '../../layout_breakpoints.dart';
 import '../../widgets/config_device_list_tile.dart';
+import '../../../l10n/context_ext.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class DevicesTab extends StatelessWidget {
   const DevicesTab({
@@ -21,17 +23,18 @@ class DevicesTab extends StatelessWidget {
 
   static String _newDeviceId() => 'd${DateTime.now().millisecondsSinceEpoch}';
 
-  static String _connectionTileSubtitle(DeviceSettings d) {
+  static String _connectionTileSubtitle(DeviceSettings d, AppLocalizations l10n) {
     if (d.type == 'wifi') {
-      if (d.ipAddress.trim().isEmpty) return 'Doplň IP adresu kontroléru';
-      return 'Síťové údaje uloženy (uprav v rozbalení)';
+      if (d.ipAddress.trim().isEmpty) return l10n.devicesWifiIpMissing;
+      return l10n.devicesWifiSaved;
     }
-    if (d.port.trim().isEmpty) return 'Zadej COM port nebo vyber z detekovaných';
-    return 'Port ${d.port}';
+    if (d.port.trim().isEmpty) return l10n.devicesSerialPortMissing;
+    return l10n.devicesPortSummary(d.port);
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final devices = draft.globalSettings.devices;
     final innerMax = AppBreakpoints.maxContentWidth(maxWidth).clamp(280.0, maxWidth);
     final ports = AmbilightAppController.serialPorts();
@@ -46,12 +49,12 @@ class DevicesTab extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Zařízení',
+                l10n.devicesTabHeader,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 4),
               Text(
-                'Název a počet LED jsou důležité pro ovládání. IP a port jsou v sekci Připojení.',
+                l10n.devicesTabIntro,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -59,7 +62,7 @@ class DevicesTab extends StatelessWidget {
               if (devices.isEmpty) ...[
                 const SizedBox(height: 10),
                 Text(
-                  'Seznam může zůstat prázdný — vhodné jen pro přípravu profilů. Pro výstup na pásek přidej aspoň jedno zařízení.',
+                  l10n.devicesTabEmptyHint,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         height: 1.35,
@@ -73,7 +76,7 @@ class DevicesTab extends StatelessWidget {
                     ..add(
                       DeviceSettings(
                         id: _newDeviceId(),
-                        name: 'Nové zařízení',
+                        name: l10n.devicesNewDeviceName,
                         type: 'serial',
                         port: ports.isNotEmpty ? ports.first : 'COM5',
                         ledCount: draft.globalSettings.ledCount,
@@ -82,7 +85,7 @@ class DevicesTab extends StatelessWidget {
                   onDevicesChanged(next);
                 },
                 icon: const Icon(Icons.add),
-                label: const Text('Přidat zařízení'),
+                label: Text(l10n.devicesAddDevice),
               ),
               const SizedBox(height: 16),
               ...devices.asMap().entries.map((e) {
@@ -100,14 +103,14 @@ class DevicesTab extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                d.name.isEmpty ? 'Zařízení ${i + 1}' : d.name,
+                                d.name.isEmpty ? l10n.devicesUnnamedDevice(i + 1) : d.name,
                                 style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                               ),
                             ),
                             IconButton(
-                              tooltip: 'Odebrat zařízení',
+                              tooltip: l10n.devicesRemoveTooltip,
                               onPressed: () async {
-                                final name = d.name.trim().isEmpty ? 'Zařízení ${i + 1}' : d.name;
+                                final name = d.name.trim().isEmpty ? l10n.devicesUnnamedDevice(i + 1) : d.name;
                                 final ok = await showConfirmRemoveDeviceDialog(
                                   context,
                                   deviceName: name,
@@ -127,7 +130,7 @@ class DevicesTab extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          deviceFriendlySubtitle(d),
+                          deviceFriendlySubtitle(d, l10n),
                           style: Theme.of(context).textTheme.labelMedium?.copyWith(
                                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
@@ -135,9 +138,9 @@ class DevicesTab extends StatelessWidget {
                         const SizedBox(height: 12),
                         TextFormField(
                           initialValue: d.name,
-                          decoration: const InputDecoration(
-                            labelText: 'Zobrazovaný název',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l10n.fieldDisplayName,
+                            border: const OutlineInputBorder(),
                           ),
                           onChanged: (v) {
                             final next = List<DeviceSettings>.from(devices);
@@ -147,11 +150,14 @@ class DevicesTab extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
-                          decoration: const InputDecoration(labelText: 'Typ připojení', border: OutlineInputBorder()),
+                          decoration: InputDecoration(
+                            labelText: l10n.fieldConnectionType,
+                            border: const OutlineInputBorder(),
+                          ),
                           value: (d.type == 'wifi' || d.type == 'serial') ? d.type : 'serial',
-                          items: const [
-                            DropdownMenuItem(value: 'serial', child: Text('USB (sériový port)')),
-                            DropdownMenuItem(value: 'wifi', child: Text('Wi‑Fi (UDP)')),
+                          items: [
+                            DropdownMenuItem(value: 'serial', child: Text(l10n.devicesTypeUsb)),
+                            DropdownMenuItem(value: 'wifi', child: Text(l10n.devicesTypeWifi)),
                           ],
                           onChanged: (v) {
                             if (v == null) return;
@@ -181,9 +187,9 @@ class DevicesTab extends StatelessWidget {
                         const SizedBox(height: 8),
                         TextFormField(
                           initialValue: '${d.ledCount}',
-                          decoration: const InputDecoration(
-                            labelText: 'Počet LED',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l10n.fieldLedCount,
+                            border: const OutlineInputBorder(),
                           ),
                           keyboardType: TextInputType.number,
                           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -197,8 +203,8 @@ class DevicesTab extends StatelessWidget {
                         const SizedBox(height: 4),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
-                          title: const Text('Ovládat přes Home Assistant'),
-                          subtitle: const Text('PC nebude na toto zařízení posílat barvy.'),
+                          title: Text(l10n.devicesControlViaHa),
+                          subtitle: Text(l10n.devicesControlViaHaSubtitle),
                           value: d.controlViaHa,
                           onChanged: (v) {
                             final next = List<DeviceSettings>.from(devices);
@@ -209,20 +215,20 @@ class DevicesTab extends StatelessWidget {
                         ExpansionTile(
                           initiallyExpanded: d.type == 'serial' ||
                               (d.type == 'wifi' && d.ipAddress.trim().isEmpty),
-                          title: const Text('Připojení a interní údaje'),
-                          subtitle: Text(_connectionTileSubtitle(d)),
+                          title: Text(l10n.devicesConnectionSection),
+                          subtitle: Text(_connectionTileSubtitle(d, l10n)),
                           children: [
                             if (d.type == 'serial') ...[
                               TextFormField(
                                 key: ValueKey<String>('port-$i-${d.port}'),
                                 initialValue: d.port,
                                 decoration: InputDecoration(
-                                  labelText: 'COM port',
-                                  hintText: ports.isNotEmpty ? 'např. ${ports.first}' : 'COM3',
+                                  labelText: l10n.fieldComPort,
+                                  hintText: ports.isNotEmpty ? l10n.devicesComHintExample(ports.first) : l10n.devicesComHintExample('COM3'),
                                   border: const OutlineInputBorder(),
                                   helperText: ports.isEmpty
                                       ? null
-                                      : 'Detekované: ${ports.join(", ")} — klepnutím níže rychle vyplníš',
+                                      : l10n.devicesComDetectedHelper(ports.join(', ')),
                                 ),
                                 onChanged: (v) {
                                   final next = List<DeviceSettings>.from(devices);
@@ -254,9 +260,9 @@ class DevicesTab extends StatelessWidget {
                               TextFormField(
                                 key: ValueKey<String>('ip-$i-${d.ipAddress}'),
                                 initialValue: d.ipAddress,
-                                decoration: const InputDecoration(
-                                  labelText: 'IP adresa kontroléru',
-                                  border: OutlineInputBorder(),
+                                decoration: InputDecoration(
+                                  labelText: l10n.fieldControllerIp,
+                                  border: const OutlineInputBorder(),
                                 ),
                                 keyboardType: TextInputType.url,
                                 onChanged: (v) {
@@ -269,9 +275,9 @@ class DevicesTab extends StatelessWidget {
                               TextFormField(
                                 key: ValueKey<String>('udp-$i-${d.udpPort}'),
                                 initialValue: '${d.udpPort}',
-                                decoration: const InputDecoration(
-                                  labelText: 'UDP port',
-                                  border: OutlineInputBorder(),
+                                decoration: InputDecoration(
+                                  labelText: l10n.fieldUdpPort,
+                                  border: const OutlineInputBorder(),
                                 ),
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -287,10 +293,10 @@ class DevicesTab extends StatelessWidget {
                             TextFormField(
                               key: ValueKey<String>('id-$i-${d.id}'),
                               initialValue: d.id,
-                              decoration: const InputDecoration(
-                                labelText: 'Interní ID (odkazy v konfiguraci)',
-                                helperText: 'Měň jen pokud víš, že segmenty v JSON na to odkazují.',
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: l10n.fieldInternalId,
+                                helperText: l10n.helperInternalId,
+                                border: const OutlineInputBorder(),
                               ),
                               onChanged: (v) {
                                 final next = List<DeviceSettings>.from(devices);

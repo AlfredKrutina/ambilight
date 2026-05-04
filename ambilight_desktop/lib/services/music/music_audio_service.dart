@@ -5,21 +5,23 @@ import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:record/record.dart';
 
+import '../../application/app_error_safety.dart';
+import '../../application/build_environment.dart';
 import '../../core/models/config_models.dart';
 import 'music_fft_analyzer.dart';
+import 'music_fft_isolate.dart';
 import 'music_types.dart';
 
 final _log = Logger('MusicAudio');
 
-/// Capture přes `record` + analýza mimo UI (stream callback → krátký výpočet, drop při zpoždění).
-///
-/// **Loopback (Windows WASAPI exclusive v Pythonu):** balíček `record` typicky nabízí
-/// standardní vstupy (mikrofon, „Stereo Mix“, virtuální kabel). Skutečný WASAPI loopback
-/// bez ovladače v systému Flutter **není** v tomto PR — viz `context/MUSIC_PORT_STATUS.md`.
+/// Capture přes `record` + FFT analýza v samostatném izolátu (fallback na hlavní izolát při selhání spawn).
 class MusicAudioService {
-  MusicAudioService() : _analyzer = MusicFftAnalyzer();
+  MusicAudioService();
 
-  final MusicFftAnalyzer _analyzer;
+  MusicFftAnalyzer? _fallbackAnalyzer;
+  MusicFftIsolateBridge? _fftBridge;
+  bool _fftIsolateReady = false;
+
   AudioRecorder? _recorder;
   StreamSubscription<Uint8List>? _sub;
   MusicAnalysisSnapshot _latest = MusicAnalysisSnapshot.silent();
@@ -27,8 +29,52 @@ class MusicAudioService {
   bool _running = false;
   bool _busy = false;
   final List<int> _pcmAcc = [];
+  static const _frameBytes = 4096 * 2;
+  final Uint8List _pcmFrameScratch = Uint8List(_frameBytes);
+  bool _audioStartFaultBannerShown = false;
 
   MusicAnalysisSnapshot get currentSnapshot => _latest;
+
+  Future<void> _ensureFftIsolate() async {
+    if (_fftIsolateReady) return;
+    final bridge = MusicFftIsolateBridge();
+    bridge.onResult = (snap) {
+      _latest = snap;
+    };
+    try {
+      await bridge.start();
+      _fftBridge = bridge;
+      _fftIsolateReady = true;
+      if (kDebugMode) {
+        _log.fine('music FFT isolate started');
+      }
+    } catch (e, st) {
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning('music FFT isolate unavailable, main-isolate FFT: $e', e, st);
+      }
+      await bridge.dispose();
+      _fallbackAnalyzer ??= MusicFftAnalyzer();
+      _fftIsolateReady = false;
+    }
+  }
+
+  void _pushAnalyzerConfig(MusicModeSettings mm) {
+    final rate = 48000;
+    if (_fftIsolateReady && _fftBridge != null) {
+      _fftBridge!.pushAnalyzerConfig(
+        beatDetectionEnabled: mm.beatDetectionEnabled,
+        beatThreshold: mm.beatThreshold,
+        sampleRate: rate,
+      );
+    } else {
+      _fallbackAnalyzer ??= MusicFftAnalyzer(sampleRate: rate);
+      _fallbackAnalyzer!.setSampleRate(rate);
+      _fallbackAnalyzer!.setBeatDetection(
+        enabled: mm.beatDetectionEnabled,
+        thresholdMultiplier: mm.beatThreshold,
+      );
+    }
+  }
 
   static Future<List<MusicCaptureDeviceInfo>> listDevices() async {
     try {
@@ -56,7 +102,6 @@ class MusicAudioService {
     }
   }
 
-  /// Drží capture v souladu s režimem / zařízením; při přepnutí z music [await] uvolní hardware před serial rebuild.
   Future<void> syncWithConfig(AppConfig config) async {
     final mode = config.globalSettings.startMode;
     if (mode != 'music') {
@@ -65,11 +110,8 @@ class MusicAudioService {
       return;
     }
     final mm = config.musicMode;
-    _analyzer.setBeatDetection(
-      enabled: mm.beatDetectionEnabled,
-      thresholdMultiplier: mm.beatThreshold,
-    );
-    _analyzer.setSampleRate(48000);
+    await _ensureFftIsolate();
+    _pushAnalyzerConfig(mm);
 
     final prev = _lastConfig;
     final needRestart = !_running ||
@@ -85,11 +127,20 @@ class MusicAudioService {
     await _stopInternal();
     _running = true;
     try {
+      await _ensureFftIsolate();
+      _pushAnalyzerConfig(mm);
+
       _recorder = AudioRecorder();
       final has = await _recorder!.hasPermission();
       if (has != true) {
         if (kDebugMode) {
           _log.warning('music: microphone permission denied');
+        }
+        if (!_audioStartFaultBannerShown) {
+          _audioStartFaultBannerShown = true;
+          reportAppFault(
+            'Záznam zvuku pro hudbu není povolený (oprávnění mikrofonu). Režim hudba poběží bez analýzy.',
+          );
         }
         _running = false;
         return;
@@ -134,14 +185,12 @@ class MusicAudioService {
       }
 
       const channels = 1;
-      const rate = 48000;
-      _analyzer.setSampleRate(rate);
 
       final stream = await _recorder!.startStream(
         RecordConfig(
           encoder: AudioEncoder.pcm16bits,
           numChannels: channels,
-          sampleRate: rate,
+          sampleRate: 48000,
           device: device,
         ),
       );
@@ -151,6 +200,7 @@ class MusicAudioService {
       }
 
       _pcmAcc.clear();
+      _audioStartFaultBannerShown = false;
       _sub = stream.listen(_onPcm, onError: (Object e, StackTrace st) {
         if (kDebugMode) {
           _log.warning('music stream: $e', e, st);
@@ -159,6 +209,12 @@ class MusicAudioService {
     } catch (e, st) {
       if (kDebugMode) {
         _log.warning('music start failed: $e', e, st);
+      }
+      if (!_audioStartFaultBannerShown) {
+        _audioStartFaultBannerShown = true;
+        reportAppFault(
+          'Hudba: nepodařilo se spustit záznam zvuku (${e.toString().split('\n').first}).',
+        );
       }
       _running = false;
     }
@@ -171,14 +227,17 @@ class MusicAudioService {
     _busy = true;
     try {
       _pcmAcc.addAll(data);
-      const frameBytes = 4096 * 2;
-      while (_pcmAcc.length >= frameBytes) {
-        final chunk = Uint8List(frameBytes);
-        for (var i = 0; i < frameBytes; i++) {
-          chunk[i] = _pcmAcc[i];
+      while (_pcmAcc.length >= _frameBytes) {
+        for (var i = 0; i < _frameBytes; i++) {
+          _pcmFrameScratch[i] = _pcmAcc[i];
         }
-        _pcmAcc.removeRange(0, frameBytes);
-        _latest = _analyzer.processPcmInt16Le(chunk, 1);
+        _pcmAcc.removeRange(0, _frameBytes);
+        if (_fftIsolateReady && _fftBridge != null) {
+          _fftBridge!.submitPcm16MonoFrame(_pcmFrameScratch);
+        } else {
+          _fallbackAnalyzer ??= MusicFftAnalyzer();
+          _latest = _fallbackAnalyzer!.processPcmInt16Le(_pcmFrameScratch, 1);
+        }
       }
     } finally {
       _busy = false;
@@ -198,5 +257,11 @@ class MusicAudioService {
     _latest = MusicAnalysisSnapshot.silent();
   }
 
-  Future<void> dispose() => _stopInternal();
+  Future<void> dispose() async {
+    await _stopInternal();
+    await _fftBridge?.dispose();
+    _fftBridge = null;
+    _fftIsolateReady = false;
+    _fallbackAnalyzer = null;
+  }
 }

@@ -7,7 +7,7 @@ Cíl: měřit **hlavní tick** (`AmbilightAppController` → `AmbilightEngine.co
 1. Spusť aplikaci v profile módu:  
    `flutter run --profile` (desktop target dle OS).
 2. Otevři **DevTools → Performance** a nahrávej 5–10 s při běžícím ticku (~30 Hz).
-3. Hledej dlouhé frame na UI threadu; engine by měl držet CPU v rozumných mezích — při problémech zkontroluj alokace v `LightModeLogic` / `ScreenColorPipeline` (dočasné listy vs reuse bufferu).
+3. Hledej dlouhé frame na UI threadu; engine by měl držet CPU v rozumných mezích — při problémech zkontroluj alokace v `LightModeLogic` / `ScreenColorPipeline` (dočasné listy vs reuse bufferu). Těžké části kontroluj na worker isolate: screen, hudba‑monitor, light a pc_health (`ScreenPipelineIsolateBridge`, `MusicFlatStripIsolateBridge`, `LightPcEngineIsolateBridge`).
 
 ## Mikrobenchmark v kódu (bez závislosti na CI)
 

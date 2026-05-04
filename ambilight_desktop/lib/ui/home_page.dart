@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../application/ambilight_app_controller.dart';
+import '../core/models/config_models.dart';
+import '../features/spotify/spotify_service.dart';
+import '../l10n/context_ext.dart';
 import 'dashboard_ui.dart';
 import 'guides/music_spotify_integration_guide.dart';
 import 'layout_breakpoints.dart';
@@ -17,83 +20,97 @@ typedef _HomePick = ({
   bool spotifyIntegrationEnabled,
   bool spotifyUseAlbumColors,
   String? spotifyClientId,
+  bool smartLightsEnabled,
+  bool haLooksConfigured,
+  int smartFixtureCount,
+  String firmwareManifestDisplay,
   List<_HomeDev> devices,
 });
 
-_HomePick _homePick(AmbilightAppController c) => (
+_HomePick _homePick(AmbilightAppController c, SpotifyService sp) => (
       enabled: c.enabled,
       startMode: c.config.globalSettings.startMode,
-      spotifyConnected: c.spotify.isConnected,
-      spotifyLastError: c.spotify.lastError,
+      spotifyConnected: sp.isConnected,
+      spotifyLastError: sp.lastError,
       spotifyIntegrationEnabled: c.config.spotify.enabled,
       spotifyUseAlbumColors: c.config.spotify.useAlbumColors,
       spotifyClientId: c.config.spotify.clientId,
+      smartLightsEnabled: c.config.smartLights.enabled,
+      haLooksConfigured: c.config.smartLights.haBaseUrl.trim().isNotEmpty &&
+          c.config.smartLights.haLongLivedToken.trim().isNotEmpty,
+      smartFixtureCount: c.config.smartLights.fixtures.length,
+      firmwareManifestDisplay: effectiveFirmwareManifestUrl(c.config.globalSettings.firmwareManifestUrl),
       devices: [
         for (final d in c.config.globalSettings.devices)
           (id: d.id, name: d.name, type: d.type, ledCount: d.ledCount, ok: c.connectionSnapshot[d.id] ?? false),
       ],
     );
 
-String _deviceStripSubtitle(String type, int ledCount) {
-  final kind = type == 'wifi' ? 'Wi‑Fi' : 'USB';
-  return '$kind · $ledCount LED';
+String _deviceStripSubtitle(BuildContext context, String type, int ledCount) {
+  final l10n = context.l10n;
+  final kind = type == 'wifi' ? l10n.kindWifi : l10n.kindUsb;
+  return l10n.deviceLedSubtitle(kind, ledCount);
 }
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
-  static final _modes = <({
-    String id,
-    String title,
-    String subtitle,
-    IconData icon,
-    Gradient gradient,
-  })>[
-    (
-      id: 'light',
-      title: 'Světlo',
-      subtitle: 'Statické efekty, zóny, dýchání',
-      icon: Icons.light_mode_rounded,
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFFFB923C), Color(0xFFF472B6)],
+  List<
+      ({
+        String id,
+        String title,
+        String subtitle,
+        IconData icon,
+        Gradient gradient,
+      })> _modes(BuildContext context) {
+    final l = context.l10n;
+    return [
+      (
+        id: 'light',
+        title: l.modeLightTitle,
+        subtitle: l.modeLightSubtitle,
+        icon: Icons.light_mode_rounded,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFB923C), Color(0xFFF472B6)],
+        ),
       ),
-    ),
-    (
-      id: 'screen',
-      title: 'Obrazovka',
-      subtitle: 'Ambilight ze snímku monitoru',
-      icon: Icons.desktop_windows_rounded,
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF2563EB), Color(0xFF06B6D4)],
+      (
+        id: 'screen',
+        title: l.modeScreenTitle,
+        subtitle: l.modeScreenSubtitle,
+        icon: Icons.desktop_windows_rounded,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF2563EB), Color(0xFF06B6D4)],
+        ),
       ),
-    ),
-    (
-      id: 'music',
-      title: 'Hudba',
-      subtitle: 'FFT, melodie, barvy',
-      icon: Icons.graphic_eq_rounded,
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF7C3AED), Color(0xFFDB2777)],
+      (
+        id: 'music',
+        title: l.modeMusicTitle,
+        subtitle: l.modeMusicSubtitle,
+        icon: Icons.graphic_eq_rounded,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF7C3AED), Color(0xFFDB2777)],
+        ),
       ),
-    ),
-    (
-      id: 'pchealth',
-      title: 'PC Health',
-      subtitle: 'Teploty, zátěž, vizualizace',
-      icon: Icons.monitor_heart_rounded,
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF0D9488), Color(0xFF22C55E)],
+      (
+        id: 'pchealth',
+        title: l.modePcHealthTitle,
+        subtitle: l.modePcHealthSubtitle,
+        icon: Icons.monitor_heart_rounded,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0D9488), Color(0xFF22C55E)],
+        ),
       ),
-    ),
-  ];
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,11 +121,12 @@ class HomePage extends StatelessWidget {
         final layoutW = AppBreakpoints.layoutContentWidth(cw);
         final useWideHero = layoutW >= 760;
 
-        return Selector<AmbilightAppController, _HomePick>(
-          selector: (_, c) => _homePick(c),
+        return Selector2<AmbilightAppController, SpotifyService, _HomePick>(
+          selector: (_, c, sp) => _homePick(c, sp),
           builder: (context, v, _) {
             final ctrl = context.read<AmbilightAppController>();
             final current = v.startMode;
+            final modes = _modes(context);
             return ResponsiveBody(
               maxWidth: cw,
               child: CustomScrollView(
@@ -117,9 +135,8 @@ class HomePage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
           sliver: SliverToBoxAdapter(
             child: AmbiPageHeader(
-              title: 'Přehled',
-              subtitle:
-                  'Zapni výstup, vyber režim a zkontroluj připojení. Podrobná konfigurace je v záložkách Zařízení a Nastavení.',
+              title: context.l10n.homeOverviewTitle,
+              subtitle: context.l10n.homeOverviewSubtitle,
               bottomSpacing: 8,
             ),
           ),
@@ -136,9 +153,8 @@ class HomePage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
           sliver: SliverToBoxAdapter(
             child: AmbiSectionHeader(
-              title: 'Režim',
-              subtitle:
-                  'Klepnutím na dlaždici změníš aktivní režim. Ikona tužky v rohu otevře Nastavení přímo pro daný režim.',
+              title: context.l10n.homeModeTitle,
+              subtitle: context.l10n.homeModeSubtitle,
             ),
           ),
         ),
@@ -153,7 +169,7 @@ class HomePage extends StatelessWidget {
                       ),
                       delegate: SliverChildBuilderDelegate(
                         (context, i) {
-                          final m = _modes[i];
+                          final m = modes[i];
                           return ClipRRect(
                             borderRadius: BorderRadius.circular(DashboardUi.radiusLg),
                             child: Stack(
@@ -178,7 +194,7 @@ class HomePage extends StatelessWidget {
                                       Material(
                                         color: Colors.transparent,
                                         child: IconButton.filledTonal(
-                                          tooltip: 'Nastavení režimu „${m.title}“',
+                                          tooltip: context.l10n.modeSettingsTooltip(m.title),
                                           style: IconButton.styleFrom(
                                             visualDensity: VisualDensity.compact,
                                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -210,7 +226,7 @@ class HomePage extends StatelessWidget {
                             ),
                           );
                         },
-                        childCount: _modes.length,
+                        childCount: modes.length,
                       ),
                     ),
                   ),
@@ -218,23 +234,19 @@ class HomePage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
           sliver: SliverToBoxAdapter(
             child: AmbiSectionHeader(
-              title: 'Spotify',
-              subtitle:
-                  'Barvy z alba: Spotify (OAuth) nebo na Windows z aktuálního OS přehrávače (Apple Music, často YouTube v prohlížeči). Tokeny a Client ID: Nastavení → Spotify.',
+              title: context.l10n.homeIntegrationsTitle,
+              subtitle: context.l10n.homeIntegrationsSubtitle,
             ),
           ),
         ),
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                     sliver: SliverToBoxAdapter(
-                      child: _SpotifyCard(
-                        c: ctrl,
+                      child: _IntegrationsDashboardRow(
+                        layoutW: layoutW,
+                        ctrl: ctrl,
                         scheme: scheme,
-                        connected: v.spotifyConnected,
-                        lastError: v.spotifyLastError,
-                        integrationEnabled: v.spotifyIntegrationEnabled,
-                        useAlbumColors: v.spotifyUseAlbumColors,
-                        clientId: v.spotifyClientId,
+                        v: v,
                       ),
                     ),
                   ),
@@ -242,9 +254,8 @@ class HomePage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
           sliver: SliverToBoxAdapter(
             child: AmbiSectionHeader(
-              title: 'Zařízení',
-              subtitle:
-                  'Rychlý náhled stavu. Úpravy pásku, discovery a sítě jsou v hlavní sekci „Zařízení“ v navigaci.',
+              title: context.l10n.homeDevicesTitle,
+              subtitle: context.l10n.homeDevicesSubtitle,
             ),
           ),
         ),
@@ -258,8 +269,7 @@ class HomePage extends StatelessWidget {
                                 padding: const EdgeInsets.all(20),
                                 child: Center(
                         child: Text(
-                          'Žádné výstupní zařízení — běžný stav, dokud nepřipojíš pásek.\n\n'
-                          'Můžeš nastavovat režimy, presety a zálohu. Pro odesílání barev přidej zařízení v „Zařízení“ (Discovery nebo ručně).',
+                          context.l10n.homeDevicesEmpty,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                         ),
@@ -405,7 +415,7 @@ class _PowerHeroCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Výstup na LED',
+                  context.l10n.homeLedOutputTitle,
                   style: titleStyle?.copyWith(
                         color: on ? Colors.white : scheme.onSurface,
                         fontWeight: FontWeight.w800,
@@ -413,7 +423,7 @@ class _PowerHeroCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  on ? 'Barvy se posílají na všechna aktivní zařízení.' : 'Vypnuto — pásky dostanou černou.',
+                  on ? context.l10n.homeLedOutputOnBody : context.l10n.homeLedOutputOffBody,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: on ? Colors.white.withValues(alpha: 0.92) : scheme.onSurfaceVariant,
                       ),
@@ -437,17 +447,20 @@ class _EngineStatus extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Služba', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+        Text(context.l10n.homeServiceTitle, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
         Row(
           children: [
             SizedBox(
               width: 44,
               height: 44,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                backgroundColor: scheme.outlineVariant.withValues(alpha: 0.35),
-                color: scheme.primary,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: scheme.primaryContainer.withValues(alpha: 0.65),
+                  border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.45)),
+                ),
+                child: Icon(Icons.blur_on_rounded, color: scheme.primary, size: 26),
               ),
             ),
             const SizedBox(width: 14),
@@ -455,11 +468,9 @@ class _EngineStatus extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Běží na pozadí', style: Theme.of(context).textTheme.titleMedium),
+                  Text(context.l10n.homeBackgroundTitle, style: Theme.of(context).textTheme.titleMedium),
                   Text(
-                    'Aplikace průběžně připravuje barvy pro pásky. '
-                    'Stav se mění při přepnutí režimu nebo zařízení. '
-                    '(Snímků: ${context.select<AmbilightAppController, int>((c) => c.animationTick)})',
+                    context.l10n.homeBackgroundBody,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ],
@@ -472,32 +483,108 @@ class _EngineStatus extends StatelessWidget {
   }
 }
 
-class _SpotifyCard extends StatelessWidget {
-  const _SpotifyCard({
-    required this.c,
+class _IntegrationsDashboardRow extends StatelessWidget {
+  const _IntegrationsDashboardRow({
+    required this.layoutW,
+    required this.ctrl,
     required this.scheme,
-    required this.connected,
-    required this.lastError,
-    required this.integrationEnabled,
-    required this.useAlbumColors,
-    required this.clientId,
+    required this.v,
   });
 
-  final AmbilightAppController c;
+  final double layoutW;
+  final AmbilightAppController ctrl;
   final ColorScheme scheme;
-  final bool connected;
-  final String? lastError;
-  final bool integrationEnabled;
-  final bool useAlbumColors;
-  final String? clientId;
+  final _HomePick v;
 
   @override
   Widget build(BuildContext context) {
+    final wide = layoutW >= 720;
+    final music = _IntegrationMusicCard(c: ctrl, scheme: scheme, v: v);
+    final ha = _IntegrationHaCard(ctrl: ctrl, scheme: scheme, v: v);
+    final fw = _IntegrationFirmwareCard(ctrl: ctrl, scheme: scheme, v: v);
+    if (wide) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: music),
+          const SizedBox(width: 12),
+          Expanded(child: ha),
+          const SizedBox(width: 12),
+          Expanded(child: fw),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        music,
+        const SizedBox(height: 12),
+        ha,
+        const SizedBox(height: 12),
+        fw,
+      ],
+    );
+  }
+}
+
+class _IntegrationCardHeader extends StatelessWidget {
+  const _IntegrationCardHeader({
+    required this.title,
+    required this.icon,
+    required this.scheme,
+    required this.onOpenSettings,
+  });
+
+  final String title;
+  final IconData icon;
+  final ColorScheme scheme;
+  final VoidCallback onOpenSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(icon, size: 22, color: scheme.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ),
+        TextButton(
+          onPressed: onOpenSettings,
+          child: Text(context.l10n.integrationSettingsButton),
+        ),
+      ],
+    );
+  }
+}
+
+class _IntegrationMusicCard extends StatelessWidget {
+  const _IntegrationMusicCard({required this.c, required this.scheme, required this.v});
+
+  final AmbilightAppController c;
+  final ColorScheme scheme;
+  final _HomePick v;
+
+  @override
+  Widget build(BuildContext context) {
+    final connected = v.spotifyConnected;
+    final clientId = v.spotifyClientId;
     return AmbiGlassPanel(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _IntegrationCardHeader(
+            title: context.l10n.musicCardTitle,
+            icon: Icons.graphic_eq_rounded,
+            scheme: scheme,
+            onOpenSettings: () => c.requestOpenSettingsTabIndex(AmbilightAppController.settingsTabSpotify),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Icon(
@@ -506,51 +593,154 @@ class _SpotifyCard extends StatelessWidget {
                 color: connected ? scheme.secondary : scheme.onSurfaceVariant,
               ),
               const SizedBox(width: 10),
-              Text(
-                connected ? 'Připojeno' : 'Nepřipojeno',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              Expanded(
+                child: Text(
+                  connected ? context.l10n.spotifyConnected : context.l10n.spotifyDisconnected,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            lastError ??
-                ((clientId == null || clientId!.isEmpty)
-                    ? 'Pro přihlášení k účtu Spotify doplníš Client ID v Nastavení → Spotify.'
-                    : 'Po „Přihlásit“ potvrdíš přístup v prohlížeči; návrat proběhne automaticky na tento počítač.'),
+            v.spotifyLastError ??
+                ((clientId == null || clientId.isEmpty)
+                    ? context.l10n.spotifyHintNeedClientId
+                    : context.l10n.spotifyHintLogin),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
               onPressed: () => MusicSpotifyIntegrationGuide.show(context),
               icon: const Icon(Icons.menu_book_outlined, size: 20),
-              label: const Text('Nápověda: hudba a obaly'),
+              label: Text(context.l10n.help),
             ),
           ),
-          const SizedBox(height: 4),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Spotify integrace (OAuth + API)'),
-            subtitle: const Text('Zapne dotazování účtu; vypnutím se zastaví polling.'),
-            value: integrationEnabled,
+            title: Text(context.l10n.spotifyOAuthTitle),
+            subtitle: Text(context.l10n.spotifyOAuthSubtitle),
+            value: v.spotifyIntegrationEnabled,
             onChanged: c.setSpotifyIntegrationEnabled,
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Barvy z alba přes Spotify'),
-            subtitle: const Text('V music módu má přednost před FFT, pokud API vrátí obal.'),
-            value: useAlbumColors,
-            onChanged: integrationEnabled ? c.setSpotifyUseAlbumColors : null,
+            title: Text(context.l10n.spotifyAlbumColorsTitle),
+            subtitle: Text(context.l10n.spotifyAlbumColorsSubtitle),
+            value: v.spotifyUseAlbumColors,
+            onChanged: v.spotifyIntegrationEnabled ? c.setSpotifyUseAlbumColors : null,
           ),
           Wrap(
             spacing: 10,
             runSpacing: 10,
             children: [
-              FilledButton.tonal(onPressed: () => c.spotifyConnect(), child: const Text('Přihlásit')),
-              OutlinedButton(onPressed: () => c.spotifyDisconnect(), child: const Text('Odpojit')),
+              FilledButton.tonal(onPressed: () => c.spotifyConnect(), child: Text(context.l10n.signIn)),
+              OutlinedButton(onPressed: () => c.spotifyDisconnect(), child: Text(context.l10n.signOut)),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IntegrationHaCard extends StatelessWidget {
+  const _IntegrationHaCard({required this.ctrl, required this.scheme, required this.v});
+
+  final AmbilightAppController ctrl;
+  final ColorScheme scheme;
+  final _HomePick v;
+
+  @override
+  Widget build(BuildContext context) {
+    final on = v.smartLightsEnabled;
+    final ok = v.haLooksConfigured;
+    final statusLine = !on
+        ? context.l10n.haStatusOff
+        : ok
+            ? context.l10n.haStatusOnOk(v.smartFixtureCount)
+            : context.l10n.haStatusOnNeedUrl;
+    final detail = ok ? context.l10n.haDetailOk : context.l10n.haDetailNeedUrl;
+
+    return AmbiGlassPanel(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _IntegrationCardHeader(
+            title: context.l10n.haCardTitle,
+            icon: Icons.home_work_outlined,
+            scheme: scheme,
+            onOpenSettings: () => ctrl.requestOpenSettingsTabIndex(AmbilightAppController.settingsTabSmartIntegration),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(
+                on && ok ? Icons.check_circle_rounded : Icons.tune_rounded,
+                size: 22,
+                color: on && ok ? scheme.secondary : scheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  statusLine,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            detail,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IntegrationFirmwareCard extends StatelessWidget {
+  const _IntegrationFirmwareCard({required this.ctrl, required this.scheme, required this.v});
+
+  final AmbilightAppController ctrl;
+  final ColorScheme scheme;
+  final _HomePick v;
+
+  @override
+  Widget build(BuildContext context) {
+    return AmbiGlassPanel(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _IntegrationCardHeader(
+            title: context.l10n.fwCardTitle,
+            icon: Icons.system_update_alt_rounded,
+            scheme: scheme,
+            onOpenSettings: () => ctrl.requestOpenSettingsTabIndex(AmbilightAppController.settingsTabFirmware),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            context.l10n.fwManifestLabel,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            v.firmwareManifestDisplay,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            context.l10n.fwManifestHint,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -591,7 +781,7 @@ class _DeviceStripCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  type == 'wifi' ? 'Wi‑Fi' : 'USB',
+                  type == 'wifi' ? context.l10n.kindWifi : context.l10n.kindUsb,
                   style: Theme.of(context).textTheme.labelSmall,
                 ),
               ],
@@ -604,7 +794,10 @@ class _DeviceStripCard extends StatelessWidget {
               style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
             Text(
-              '${_deviceStripSubtitle(type, ledCount)} · ${connected ? "připojeno" : "nepřipojeno"}',
+              context.l10n.deviceStripStateLine(
+                _deviceStripSubtitle(context, type, ledCount),
+                connected ? context.l10n.deviceConnected : context.l10n.deviceDisconnected,
+              ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),

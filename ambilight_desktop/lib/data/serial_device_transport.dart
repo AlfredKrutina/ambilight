@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_libserialport/flutter_libserialport.dart';
 import 'package:logging/logging.dart';
 
+import '../application/build_environment.dart';
+import '../application/debug_trace.dart';
 import '../core/models/config_models.dart';
 import '../core/protocol/serial_frame.dart';
 import 'device_transport.dart';
@@ -66,13 +68,18 @@ class SerialDeviceTransport extends DeviceTransport {
   SerialDeviceTransport(
     super.device, {
     this.baudRate = 115200,
-    int writeQueuePeriodMs = 4,
+    int writeQueuePeriodMs = 2,
   }) : _writeQueuePeriodMs = writeQueuePeriodMs;
 
   /// Musí odpovídat `global_settings.baud_rate` v JSON (jako Python `SerialHandler.baud_rate`).
   final int baudRate;
   /// Perioda vyprázdnění fronty zápisů (ms); v performance módu vyšší = méně wake-upů.
   int _writeQueuePeriodMs;
+
+  /// Jednorázový odběh [_drain] hned po enqueue — bez čekání na periodic timer (nižší latence na pásku).
+  bool _drainKickScheduled = false;
+
+  int _debugDrainSample = 0;
 
   SerialPort? _port;
   bool _connected = false;
@@ -191,6 +198,10 @@ class SerialDeviceTransport extends DeviceTransport {
       provisional = null;
       _connected = true;
       _reconnectNotBefore = null;
+      ambilightDebugTrace(
+        'SerialTransport connected dev=${device.id} port=$portName baud=$baudRate '
+        'queueMs=${_writeQueuePeriodMs.clamp(2, 32)} led=${device.ledCount}',
+      );
       _log.info('Serial connected $portName');
       announceLogicalStripLength(device.ledCount);
       final qMs = _writeQueuePeriodMs.clamp(2, 32);
@@ -321,6 +332,7 @@ class SerialDeviceTransport extends DeviceTransport {
   void disconnect() {
     _closingPort = true;
     _lifecycleGen++;
+    _drainKickScheduled = false;
     _drainTimer?.cancel();
     _drainTimer = null;
     _connected = false;
@@ -372,6 +384,15 @@ class SerialDeviceTransport extends DeviceTransport {
     if (genAtEnter != _lifecycleGen) return;
     try {
       port.write(frame.bytes, timeout: 200);
+      if (ambilightDebugTraceEnabled) {
+        _debugDrainSample++;
+        if (_debugDrainSample % 128 == 0) {
+          ambilightDebugTrace(
+            'SerialTransport drain dev=${device.id} frame=${frame.bytes.length} B '
+            'queue=${_queue.length}',
+          );
+        }
+      }
     } on SerialPortError catch (e) {
       _log.warning('write failed: $e');
       _connected = false;
@@ -383,6 +404,19 @@ class SerialDeviceTransport extends DeviceTransport {
       disconnect();
       _armReconnectBackoff();
     }
+  }
+
+  void _kickDrain() {
+    if (_drainKickScheduled) return;
+    _drainKickScheduled = true;
+    scheduleMicrotask(() {
+      _drainKickScheduled = false;
+      var n = 0;
+      while (_queue.isNotEmpty && _connected && !_closingPort && n < 3) {
+        _drain();
+        n++;
+      }
+    });
   }
 
   @override
@@ -407,7 +441,7 @@ class SerialDeviceTransport extends DeviceTransport {
 
   @override
   void applyPerformanceMode(bool performanceMode) {
-    final nextMs = performanceMode ? 8 : 4;
+    final nextMs = performanceMode ? 8 : 2;
     if (_writeQueuePeriodMs == nextMs) return;
     _writeQueuePeriodMs = nextMs;
     if (_drainTimer != null) {
@@ -439,6 +473,7 @@ class SerialDeviceTransport extends DeviceTransport {
       _queue.removeFirst();
     }
     _queue.addLast(_Frame(packet));
+    _kickDrain();
   }
 
   @override

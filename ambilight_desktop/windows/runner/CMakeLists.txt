@@ -11,6 +11,7 @@ add_executable(${BINARY_NAME} WIN32
   "main.cpp"
   "now_playing_channel.cpp"
   "screen_capture_channel.cpp"
+  "screen_capture_dxgi.cpp"
   "utils.cpp"
   "win32_window.cpp"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
@@ -35,7 +36,7 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 # Add dependency libraries and include directories. Add any application-specific
 # dependencies here.
 target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
-target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "gdi32.lib" "user32.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "gdi32.lib" "user32.lib" "d3d11.lib" "dxgi.lib")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # GSMTC (Windows.Media.Control) — OBJECT knihovna s /EHsc; runner jinak používá _HAS_EXCEPTIONS=0.

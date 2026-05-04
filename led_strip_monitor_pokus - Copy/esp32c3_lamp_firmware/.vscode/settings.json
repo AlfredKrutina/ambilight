@@ -17,6 +17,6 @@
     "--compile-commands-dir=c:\\Users\\alfid\\ESP_Projects\\esp32c3_lamp_firmware\\build"
   ],
   "idf.flashType": "JTAG",
-  "idf.portWin": "COM19",
+  "idf.portWin": "COM17",
   "idf.currentSetup": "C:\\Users\\alfid\\esp\\v5.5\\esp-idf"
 }

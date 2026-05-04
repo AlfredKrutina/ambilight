@@ -9,6 +9,9 @@ Flutter desktop klient pro AmbiLight (kompatibilní s existujícím JSON / firmw
 - **Firmware:** záložka **Nastavení → Firmware** — `manifest.json` z Pages, cache, flash **esptool** (PATH), nebo **OTA** přes UDP `OTA_HTTP <https://…/ambilight_esp32c6.bin>`; na zařízení lze totéž přes MQTT topic `…/ota` (viz firmware `ota_update.h`).
 - **Po startu**: `load()` založí transporty a zkusí `connect()`. Pokud ESP ještě není připravený, spojení se **automaticky zkusí znovu cca každých 5 s**, dokud handshake / UDP bind nepůjde.
 - **Zařízení**: v `config` musí být platný `port` (serial) nebo `ip_address` + `udp_port` (wifi). Prázdný port = žádný výstup na dané zařízení.
+- **UDP a FW lampy:** firmware v `ambilight.c` zpracuje bulk rámec `0x02` nejrychleji cca **každých 15 ms** — rychlejší rámce **zahodí**. Klient ve [`UdpDeviceTransport`](lib/data/udp_device_transport.dart) slučuje odeslání na **~16 ms** a bere vždy **poslední** barvy. Rozšířené logy: `--dart-define=AMBI_VERBOSE_LOGS=true`.
+- **Wi‑Fi &gt;499 LED:** jeden `0x02` stačí jen do **499** LED od indexu 0; delší pásek = chunky **`0x06`** + jeden flush **`0x08`** (vyžaduje aktuální lamp FW). Kalibrace jedním bodem dál používá **`0x03`**.
+- **USB + Wi‑Fi na stejný ESP:** po sériové komunikaci FW **ignoruje UDP** po dobu řádu sekund (source lock). Pro stabilní stream použij **jednu cestu** nebo dva oddělené kontrolery. Podrobně: [context/ESP_UDP_TRANSPORT_NOTES.md](../../context/ESP_UDP_TRANSPORT_NOTES.md), matice testů [context/REPRO_MATRIX_FLUTTER_ESP.md](../../context/REPRO_MATRIX_FLUTTER_ESP.md), HA [context/HA_AMBILIGHT_COEXIST.md](../../context/HA_AMBILIGHT_COEXIST.md).
 
 Obecný postup běhu a CI: **[README_RUN.md](README_RUN.md)** (včetně `flutter run` pro Windows / Linux / macOS).
 
@@ -41,7 +44,7 @@ Shodně s Python MSS / `ScreenModeSettings.monitorIndex`:
 - **HDR / široký gamut**: GDI vrstva často pracuje v SDR / kompozitovaném prostoru; barvy u HDR obsahu nemusí odpovídat „syrovému“ panelu.
 - **Více GPU**: výběr DC je systémem řízený; hry na jiném GPU než desktop můžou mít výjimky.
 - **Fullscreen exclusive / chráněný obsah**: obsah chráněný proti kopírování může být černý nebo zastaralý (stejná třída limitů jako u běžného desktop capture, není DXGI duplikace).
-- **Výkon**: BitBlt je jednoduchý na údržbu; pro vyšší FPS / hry lze v P5 zvážit **Windows.Graphics.Capture** nebo **DXGI Desktop Duplication** a stejný Dart kontrakt.
+- **Výkon**: BitBlt je jednoduchý na údržbu; pro vyšší FPS / hry lze v P5 zvážit **Windows.Graphics.Capture** nebo **DXGI Desktop Duplication** a stejný Dart kontrakt. Profilování Flutter UI vs ESP: [context/FLUTTER_PERFORMANCE_PROFILE.md](../../context/FLUTTER_PERFORMANCE_PROFILE.md).
 
 ### Dart API (P6)
 

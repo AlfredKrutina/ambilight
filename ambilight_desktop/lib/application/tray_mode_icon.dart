@@ -24,6 +24,7 @@ bool get _skip => Platform.environment['FLUTTER_TEST'] == 'true';
     case 'music':
       return (im.ColorRgb8(156, 39, 176), 'music');
     case 'pchealth':
+    case 'pc_health':
       return (im.ColorRgb8(76, 175, 80), 'pchealth');
     case 'light':
     default:

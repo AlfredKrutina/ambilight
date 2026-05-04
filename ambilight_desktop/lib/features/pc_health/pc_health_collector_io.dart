@@ -48,7 +48,7 @@ class _IoCollector implements PcHealthCollector {
         [
           '-NoProfile',
           '-Command',
-          r"(Get-CimInstance -Namespace root/wmi -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty CurrentTemperature)",
+          r'(Get-CimInstance -Namespace root/wmi -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty CurrentTemperature)',
         ],
         const Duration(seconds: 2),
       );

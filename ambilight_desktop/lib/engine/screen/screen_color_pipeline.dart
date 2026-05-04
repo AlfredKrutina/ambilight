@@ -75,6 +75,18 @@ abstract final class ScreenColorPipeline {
     return out;
   }
 
+  /// Python MSS: `target_mss_idx = segment.monitor_idx + 1` (`capture.py`), tedy legacy
+  /// `monitor_idx == 0` znamená první fyzický monitor = MSS `[1]` = [ScreenFrame.monitorIndex] `1`.
+  /// Flutter už posílá přímo MSS index (`0` virtuální plocha, `1`… první LCD…).
+  /// Shoda: stejný index **nebo** legacy `frame.monitorIndex == segment.monitorIdx + 1` pro `frame >= 1`.
+  static bool segmentMatchesCaptureFrame(LedSegment seg, ScreenFrame frame) {
+    final fm = frame.monitorIndex;
+    final sm = seg.monitorIdx;
+    if (sm == fm) return true;
+    if (fm >= 1 && sm + 1 == fm) return true;
+    return false;
+  }
+
   /// ROI jako v Python `CaptureThread._recalc_geometry_cache` (per-edge scan depth + padding).
   static SegmentRoiRect segmentRoi(
     LedSegment seg,
@@ -112,10 +124,22 @@ abstract final class ScreenColorPipeline {
       pE = seg.pixelEnd;
     }
 
-    if (seg.refWidth > 0) {
-      final scale = monW / seg.refWidth;
-      pS = (pS * scale).floor();
-      pE = (pE * scale).floor();
+    // Horizontální rozsah (horní/spodní okraj): škálovat podle šířky referenčního snímku.
+    // Vertikální rozsah (levý/pravý okraj): podle výšky — starší konfigurace mívají jen ref_width;
+    // pak použijeme ref_height nebo ref_width jako fallback pro poměr výšky.
+    if (seg.edge == 'top' || seg.edge == 'bottom') {
+      if (seg.refWidth > 0) {
+        final scale = monW / seg.refWidth;
+        pS = (pS * scale).floor();
+        pE = (pE * scale).floor();
+      }
+    } else {
+      final refV = seg.refHeight > 0 ? seg.refHeight : seg.refWidth;
+      if (refV > 0) {
+        final scale = monH / refV;
+        pS = (pS * scale).floor();
+        pE = (pE * scale).floor();
+      }
     }
 
     switch (seg.edge) {
@@ -502,7 +526,7 @@ abstract final class ScreenColorPipeline {
     }
 
     for (final seg in segments) {
-      if (seg.monitorIdx != frame.monitorIndex) continue;
+      if (!segmentMatchesCaptureFrame(seg, frame)) continue;
       final roi = segmentRoi(seg, sm, frame.width, frame.height);
       final cnt = (seg.ledEnd - seg.ledStart).abs() + 1;
       if (cnt <= 0 || roi.isEmpty) continue;

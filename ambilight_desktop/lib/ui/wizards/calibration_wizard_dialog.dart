@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../application/ambilight_app_controller.dart';
+import '../../l10n/context_ext.dart';
 import 'wizard_dialog_shell.dart';
 
 /// D12 — výběr aktivního kalibračního profilu z `calibration_profiles`.
@@ -37,13 +38,14 @@ class _CalibrationWizardDialogState extends State<CalibrationWizardDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final c = context.watch<AmbilightAppController>();
     final sm = c.config.screenMode;
 
     return WizardDialogShell(
-      title: 'Kalibrace obrazovky (D12)',
+      title: l10n.calibWizardTitle,
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Zavřít')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.close)),
         FilledButton(
           onPressed: _names.isEmpty || _selected == null
               ? null
@@ -56,18 +58,18 @@ class _CalibrationWizardDialogState extends State<CalibrationWizardDialog> {
                   if (context.mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Aktivní profil: $_selected')),
+                      SnackBar(content: Text(l10n.calibActiveProfileSnack(_selected!))),
                     );
                   }
                 },
-          child: const Text('Uložit výběr'),
+          child: Text(l10n.calibSaveChoice),
         ),
       ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Profily jsou v `screen_mode.calibration_profiles` (JSON). Plný wizard křivek a náhled — D-detail / A3.',
+            l10n.calibWizardIntro,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -75,15 +77,15 @@ class _CalibrationWizardDialogState extends State<CalibrationWizardDialog> {
           const SizedBox(height: 16),
           if (_names.isEmpty)
             Text(
-              'Žádné profily v configu.',
+              l10n.calibNoProfiles,
               style: Theme.of(context).textTheme.bodyLarge,
             )
           else
             DropdownButtonFormField<String>(
               value: _names.contains(_selected) ? _selected : _names.first,
-              decoration: const InputDecoration(
-                labelText: 'Aktivní kalibrační profil',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.calibActiveProfileLabel,
+                border: const OutlineInputBorder(),
               ),
               items: _names.map((n) => DropdownMenuItem(value: n, child: Text(n))).toList(),
               onChanged: (v) => setState(() => _selected = v),

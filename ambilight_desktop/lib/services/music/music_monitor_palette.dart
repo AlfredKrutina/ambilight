@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import '../../engine/screen/screen_frame.dart';
 
 /// Dominantní RGB z RGBA snímku (rychlý downsample — parita s Python „center pixel“ / průměr).

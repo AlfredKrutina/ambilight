@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../application/ambilight_app_controller.dart';
+import '../../l10n/context_ext.dart';
 import 'wizard_dialog_shell.dart';
 
 /// D14 — uloží aktuální `screen_mode` jako uživatelský preset do `user_screen_presets`.
@@ -17,7 +18,8 @@ class ConfigProfileWizardDialog extends StatefulWidget {
 }
 
 class _ConfigProfileWizardDialogState extends State<ConfigProfileWizardDialog> {
-  final _nameCtrl = TextEditingController(text: 'Můj preset');
+  final _nameCtrl = TextEditingController();
+  bool _draftNameApplied = false;
 
   @override
   void dispose() {
@@ -26,14 +28,23 @@ class _ConfigProfileWizardDialogState extends State<ConfigProfileWizardDialog> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_draftNameApplied) return;
+    _draftNameApplied = true;
+    _nameCtrl.text = context.l10n.defaultPresetNameDraft;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final c = context.watch<AmbilightAppController>();
     final existing = c.config.userScreenPresets.keys.toList()..sort();
 
     return WizardDialogShell(
-      title: 'Uložit screen preset (D14)',
+      title: l10n.configProfileWizardTitle,
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Zavřít')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.close)),
         FilledButton(
           onPressed: () async {
             final name = _nameCtrl.text.trim();
@@ -44,18 +55,18 @@ class _ConfigProfileWizardDialogState extends State<ConfigProfileWizardDialog> {
             if (context.mounted) {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Preset „$name“ uložen do user_screen_presets.')),
+                SnackBar(content: Text(l10n.configProfileSavedSnack(name))),
               );
             }
           },
-          child: const Text('Uložit'),
+          child: Text(l10n.save),
         ),
       ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Soubor profilu (`default.json` / jiný) řeší ConfigRepository; zde jen snapshot aktuálního screen módu do JSON pole user_screen_presets.',
+            l10n.configProfileIntro,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -63,14 +74,14 @@ class _ConfigProfileWizardDialogState extends State<ConfigProfileWizardDialog> {
           const SizedBox(height: 12),
           TextField(
             controller: _nameCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Název presetu',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.configProfileNameLabel,
+              border: const OutlineInputBorder(),
             ),
           ),
           if (existing.isNotEmpty) ...[
             const SizedBox(height: 16),
-            Text('Existující presety:', style: Theme.of(context).textTheme.titleSmall),
+            Text(l10n.configProfileExistingTitle, style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
             ...existing.map((e) => ListTile(dense: true, title: Text(e))),
           ],

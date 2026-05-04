@@ -16,6 +16,7 @@ int brightnessForMode(AppConfig c) {
     case 'music':
       return c.musicMode.brightness;
     case 'pchealth':
+    case 'pc_health':
       // Barvy už mají zahrnutý jas z metrik (`_process_pchealth_mode` vrací 255).
       return 255;
     default:

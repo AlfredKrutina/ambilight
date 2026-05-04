@@ -1,0 +1,18 @@
+Ambilight Desktop — pravidla lokalizace (EN + CS)
+
+1) Veškeré uživatelsky viditelné řetězce v novém kódu přidávat jako klíče do:
+   - lib/l10n/app_en.arb (anglický zdroj / template)
+   - lib/l10n/app_cs.arb (český překlad, stejné klíče)
+   Pak: flutter gen-l10n (nebo flutter pub get, který umí generovat při buildu podle l10n.yaml).
+
+2) V UI používat context.l10n (viz lib/l10n/context_ext.dart) nebo AppLocalizations.of(context).
+
+3) Volba jazyka: GlobalSettings.ui_language v konfiguraci — system | en | cs.
+   UI přepínač: Nastavení → Globální → první položka „Jazyk“.
+
+4) Řetězce mimo widget strom (chyby při bootu): AppLocaleBridge + lookupAppLocalizations v lib/l10n/app_locale_bridge.dart.
+
+5) Widget testy musí obalit MaterialApp přes test/support/l10n_test_app.dart (ambilightTestMaterialApp),
+   jinak AppLocalizations.of zhodí null check.
+
+6) Pomocný generátor počáteční sady klíčů: tool/build_l10n_arbs.py (volitelné; ruční úpravy ARB jsou v pořádku).

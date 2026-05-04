@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../application/ambilight_app_controller.dart';
+import '../../l10n/context_ext.dart';
 
 /// Export / import JSON konfigurace (parita PyQt + `importConfigFromJsonString`).
 class ConfigBackupSection extends StatelessWidget {
@@ -17,7 +18,7 @@ class ConfigBackupSection extends StatelessWidget {
   Future<void> _export(BuildContext context) async {
     final c = context.read<AmbilightAppController>();
     final path = await FilePicker.platform.saveFile(
-      dialogTitle: 'Export konfigurace AmbiLight',
+      dialogTitle: context.l10n.exportDialogTitle,
       fileName: 'ambilight_config.json',
       type: FileType.custom,
       allowedExtensions: const ['json'],
@@ -27,11 +28,11 @@ class ConfigBackupSection extends StatelessWidget {
     try {
       await File(out).writeAsString(c.exportConfigJsonString());
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Uloženo: $out')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.exportSavedTo(out))));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export selhal: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.exportFailed(e.toString()))));
       }
     }
   }
@@ -48,7 +49,7 @@ class ConfigBackupSection extends StatelessWidget {
     if (p == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Soubor nelze přečíst (chybí cesta).')),
+          SnackBar(content: Text(context.l10n.importReadError)),
         );
       }
       return;
@@ -59,12 +60,12 @@ class ConfigBackupSection extends StatelessWidget {
       onImported?.call();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Konfigurace načtena a uložena.')),
+          SnackBar(content: Text(context.l10n.importLoaded)),
         );
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Import selhal: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.importFailed(e.toString()))));
       }
     }
   }
@@ -82,10 +83,10 @@ class ConfigBackupSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Záloha konfigurace', style: Theme.of(context).textTheme.titleSmall),
+            Text(context.l10n.backupTitle, style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 6),
             Text(
-              'JSON stejný jako u Python verze (`config/default.json`). Import přepíše běžící nastavení a uloží ho.',
+              context.l10n.backupIntroBody,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 12),
@@ -96,12 +97,12 @@ class ConfigBackupSection extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: () => _export(context),
                   icon: const Icon(Icons.save_outlined, size: 20),
-                  label: const Text('Exportovat JSON…'),
+                  label: Text(context.l10n.backupExport),
                 ),
                 FilledButton.tonalIcon(
                   onPressed: () => _import(context),
                   icon: const Icon(Icons.folder_open_outlined, size: 20),
-                  label: const Text('Importovat JSON…'),
+                  label: Text(context.l10n.backupImport),
                 ),
               ],
             ),

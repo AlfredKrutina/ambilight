@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
+
 /// Sdílené widgety dashboard UI (glass, gradient, navigace).
 abstract final class DashboardUi {
   static const double sidebarWidth = 264;
@@ -103,7 +105,7 @@ class AmbiPageHeader extends StatelessWidget {
   }
 }
 
-/// Nadpis sekce uvnitř stránky (Režim, Spotify, …).
+/// Nadpis sekce uvnitř stránky (Režim, Integrace, …).
 class AmbiSectionHeader extends StatelessWidget {
   const AmbiSectionHeader({
     super.key,
@@ -170,7 +172,7 @@ class AmbiGradientTile extends StatelessWidget {
     if (subtitle != null && subtitle!.isNotEmpty) {
       semanticsLabel.write(', ${subtitle!}');
     }
-    if (selected) semanticsLabel.write(', vybráno');
+    if (selected) semanticsLabel.write(AppLocalizations.of(context).semanticsSelected);
     return Semantics(
       button: true,
       selected: selected,

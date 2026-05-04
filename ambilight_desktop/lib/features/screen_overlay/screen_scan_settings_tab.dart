@@ -12,6 +12,8 @@ import 'scan_overlay_controller.dart';
 import 'scan_overlay_painter.dart';
 import 'scan_region_geometry.dart';
 import '../../ui/widgets/config_drag_slider.dart';
+import '../../l10n/context_ext.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// Sekce scan overlay + mini schéma + náhled snímku (vložit do [ScreenSettingsTab]).
 class ScreenScanOverlaySection extends StatefulWidget {
@@ -116,8 +118,10 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
     final c = _ambi;
     if (c == null) return;
     if (c.config.globalSettings.startMode != 'screen') return;
+    // Debounce: při tažení posuvníku přeneseme poslední snímek krátce po ustání updatů (řidší než každý tick engine).
     _thumbDebounce?.cancel();
-    _thumbDebounce = Timer(const Duration(milliseconds: 280), () {
+    _thumbDebounce = Timer(const Duration(milliseconds: 100), () {
+      _thumbDebounce = null;
       if (!mounted) return;
       unawaited(_decodeThumb(_ambi ?? context.read<AmbilightAppController>()));
     });
@@ -177,20 +181,22 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
     if (!_ambiListenerAttached) {
       _ambiListenerAttached = true;
       _ambi = context.read<AmbilightAppController>();
-      _ambi!.addListener(_onAmbiControllerChanged);
+      _ambi!.previewFrameNotifier.addListener(_onAmbiControllerChanged);
     }
   }
 
   @override
   void dispose() {
     _thumbDebounce?.cancel();
-    _ambi?.removeListener(_onAmbiControllerChanged);
+    _ambi?.previewFrameNotifier.removeListener(_onAmbiControllerChanged);
     _thumb?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final hidePreviewAfterSec = ScanOverlayController.autoHideAfterSliderRelease.inSeconds;
     final sm = widget.draft.screenMode;
     final innerMax = (widget.maxWidth * 0.92).clamp(280.0, 720.0);
     final previewArmed = context.select<ScanOverlayController, bool>((s) => s.monitorPreviewArmed);
@@ -217,25 +223,21 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Divider(height: 32),
-          Text('Scan overlay (D-detail)', style: Theme.of(context).textTheme.titleLarge),
+          Text(l10n.scanOverlayTitle, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           Text(
-            'Zvýrazněné jsou jen pruhy skutečné oblasti snímání (střed okna zůstává čistý). '
-            'Poměr odpovídá zvolenému monitoru; okno aplikace se nemění na fullscreen. '
-            'Po puštění slideru náhled zmizí za ${ScanOverlayController.autoHideAfterSliderRelease.inSeconds} s. '
-            'Tlačítkem níže náhled na chvíli zobrazíš i bez posunu slideru. Chip vpravo nahoře nebo Escape zavře.',
+            l10n.scanOverlayIntro(hidePreviewAfterSec),
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
           SwitchListTile(
-            title: const Text('Náhled zón na monitor při ladění'),
+            title: Text(l10n.scanPreviewMonitorTitle),
             subtitle: Text(
               !previewArmed
-                  ? 'Vypnuto'
+                  ? l10n.scanPreviewOff
                   : overlayVisible
-                      ? 'Vidět náhled; po puštění skrytí za '
-                          '${ScanOverlayController.autoHideAfterSliderRelease.inSeconds} s'
-                      : 'Zapnuto — náhled při tažení sliderů (oblast snímání)',
+                      ? l10n.scanPreviewVisible(hidePreviewAfterSec)
+                      : l10n.scanPreviewOnDragging,
             ),
             value: previewArmed,
             onChanged: (v) async {
@@ -244,16 +246,16 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
             },
           ),
           DropdownButtonFormField<int>(
-            decoration: const InputDecoration(
-              labelText: 'Monitor (MSS index, shodně s capture)',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.fieldMonitorMssSameAsCapture,
+              border: const OutlineInputBorder(),
             ),
             value: _validMonitorValue(sm.monitorIndex),
             items: _monitors.isEmpty
                 ? [
                     DropdownMenuItem(
                       value: sm.monitorIndex,
-                      child: Text('Monitor ${sm.monitorIndex} (bez enumerace OS)'),
+                      child: Text(l10n.scanMonitorNoEnum(sm.monitorIndex)),
                     ),
                   ]
                 : _monitors
@@ -282,14 +284,15 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
                     if (context.mounted) setState(() {});
                   },
             icon: const Icon(Icons.preview_outlined, size: 18),
-            label: const Text('Ukázat náhled zón teď (~1 s)'),
+            label: Text(l10n.scanPreviewNowButton),
           ),
           const SizedBox(height: 16),
           if (widget.advancedScanLayout) ...[
-          Text('Hloubka snímání % (per-edge)', style: Theme.of(context).textTheme.titleSmall),
+          Text(l10n.scanDepthPerEdge, style: Theme.of(context).textTheme.titleSmall),
           _pctSlider(
             context,
-            'Horní',
+            l10n,
+            l10n.scanEdgeTop,
             effTop(),
             (v) {
               final next = sm.copyWith(scanDepthTop: v.round());
@@ -300,7 +303,8 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
           ),
           _pctSlider(
             context,
-            'Spodní',
+            l10n,
+            l10n.scanEdgeBottom,
             effBot(),
             (v) {
               final next = sm.copyWith(scanDepthBottom: v.round());
@@ -311,7 +315,8 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
           ),
           _pctSlider(
             context,
-            'Levá',
+            l10n,
+            l10n.scanEdgeLeft,
             effLeft(),
             (v) {
               final next = sm.copyWith(scanDepthLeft: v.round());
@@ -322,7 +327,8 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
           ),
           _pctSlider(
             context,
-            'Pravá',
+            l10n,
+            l10n.scanEdgeRight,
             effRight(),
             (v) {
               final next = sm.copyWith(scanDepthRight: v.round());
@@ -332,10 +338,11 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
             onChangeEnd: () => _onScanSliderRelease(context),
           ),
           const SizedBox(height: 8),
-          Text('Odsazení % (per-edge)', style: Theme.of(context).textTheme.titleSmall),
+          Text(l10n.scanPaddingPerEdge, style: Theme.of(context).textTheme.titleSmall),
           _pctSlider(
             context,
-            'Horní',
+            l10n,
+            l10n.scanEdgeTop,
             effPadT(),
             (v) {
               final next = sm.copyWith(paddingTop: v.round());
@@ -346,7 +353,8 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
           ),
           _pctSlider(
             context,
-            'Spodní',
+            l10n,
+            l10n.scanEdgeBottom,
             effPadB(),
             (v) {
               final next = sm.copyWith(paddingBottom: v.round());
@@ -357,7 +365,8 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
           ),
           _pctSlider(
             context,
-            'Levé',
+            l10n,
+            l10n.scanPadLeft,
             effPadL(),
             (v) {
               final next = sm.copyWith(paddingLeft: v.round());
@@ -368,7 +377,8 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
           ),
           _pctSlider(
             context,
-            'Pravé',
+            l10n,
+            l10n.scanPadRight,
             effPadR(),
             (v) {
               final next = sm.copyWith(paddingRight: v.round());
@@ -379,14 +389,13 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
           ),
           ] else ...[
             Text(
-              'Jednotná hloubka a odsazení nastavíš výše v sekci „Oblast snímání“. '
-              'Pro samostatné hrany zapni rozšířený režim obrazovky.',
+              l10n.scanSimpleModeHint,
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
           ],
           const SizedBox(height: 16),
-          Text('Schéma oblasti (poměr zvoleného monitoru)', style: Theme.of(context).textTheme.titleSmall),
+          Text(l10n.scanDiagramTitle, style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
           RepaintBoundary(
             child: AspectRatio(
@@ -418,7 +427,7 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Poslední snímek (screen režim)', style: Theme.of(context).textTheme.titleSmall),
+          Text(l10n.scanLastFrameTitle, style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
           RepaintBoundary(
             child: SizedBox(
@@ -431,8 +440,8 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
                       ? Center(
                           child: Text(
                             startMode != 'screen'
-                                ? 'Zapni režim screen pro živý náhled.'
-                                : 'Čekám na snímek…',
+                                ? l10n.scanThumbNeedScreenMode
+                                : l10n.scanThumbWaiting,
                             textAlign: TextAlign.center,
                           ),
                         )
@@ -470,7 +479,8 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
 
   Widget _pctSlider(
     BuildContext context,
-    String label,
+    AppLocalizations l10n,
+    String edgeLabel,
     double value,
     ValueChanged<double> onChanged, {
     VoidCallback? onChangeEnd,
@@ -478,7 +488,7 @@ class _ScreenScanOverlaySectionState extends State<ScreenScanOverlaySection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('$label: ${value.round()} %', style: Theme.of(context).textTheme.labelLarge),
+        Text(l10n.scanPctLabel(edgeLabel, value.round()), style: Theme.of(context).textTheme.labelLarge),
         ConfigDragSlider(
           value: value.clamp(0, 100),
           min: 0,

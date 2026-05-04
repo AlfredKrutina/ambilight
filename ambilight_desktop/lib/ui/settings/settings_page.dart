@@ -5,9 +5,12 @@ import 'package:provider/provider.dart';
 
 import '../../application/ambilight_app_controller.dart';
 import '../../application/app_error_safety.dart';
+import '../../l10n/app_locale_bridge.dart';
 import '../../core/device_bindings_debug.dart';
 import '../../core/models/config_models.dart';
+import '../../features/pc_health/pc_health_snapshot.dart';
 import '../../core/models/smart_lights_models.dart';
+import '../../l10n/context_ext.dart';
 import '../dashboard_ui.dart';
 import '../layout_breakpoints.dart';
 import '../responsive_body.dart';
@@ -88,7 +91,7 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
           traceDeviceBindings('SettingsPage._patchDevices: applyConfigAndPersist OK');
         } catch (e, st) {
           traceDeviceBindingsSevere('SettingsPage._patchDevices: applyConfigAndPersist výjimka', e, st);
-          reportAppFault('Uložení seznamu zařízení selhalo: ${e.toString().split('\n').first}');
+          reportAppFault(AppLocaleBridge.strings.settingsDevicesSaveFailed(e.toString().split('\n').first));
         }
       }());
     } else {
@@ -121,80 +124,97 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
     _queue(c.config.copyWith(smartLights: s));
   }
 
+  Future<void> _replayOnboarding() async {
+    final ctrl = context.read<AmbilightAppController>();
+    await ctrl.applyConfigAndPersist(
+      ctrl.config.copyWith(
+        globalSettings: ctrl.config.globalSettings.copyWith(onboardingCompleted: false),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<AmbilightAppController>();
+    return Selector<AmbilightAppController, AppConfig>(
+      selector: (_, ctrl) => ctrl.config,
+      builder: (context, draft, _) {
+        final ctrl = context.read<AmbilightAppController>();
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        final useRail = AppBreakpoints.useSettingsSideRail(w);
-        final contentW = useRail ? (w - 252 - 1) : w;
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            final useRail = AppBreakpoints.useSettingsSideRail(w);
+            final contentW = useRail ? (w - 252 - 1) : w;
 
-        Widget tabChild(int i) {
-          switch (i) {
-            case 0:
-              return GlobalSettingsTab(
-                draft: c.config,
-                maxWidth: contentW,
-                onChanged: _patchGlobal,
-              );
-            case 1:
-              return DevicesTab(
-                draft: c.config,
-                maxWidth: contentW,
-                onDevicesChanged: _patchDevices,
-              );
-            case 2:
-              return LightSettingsTab(
-                draft: c.config,
-                maxWidth: contentW,
-                onChanged: _patchLight,
-              );
-            case 3:
-              return ScreenSettingsTab(
-                draft: c.config,
-                maxWidth: contentW,
-                onChanged: _patchScreen,
-              );
-            case 4:
-              return MusicSettingsTab(
-                draft: c.config,
-                maxWidth: contentW,
-                onChanged: _patchMusic,
-              );
-            case 5:
-              return PcHealthSettingsTab(
-                controller: c,
-                maxWidth: contentW,
-                onChanged: _patchPcHealth,
-              );
-            case 6:
-              return SpotifySettingsTab(
-                draft: c.config,
-                maxWidth: contentW,
-                onSpotifyChanged: _patchSpotify,
-                onSystemMediaAlbumChanged: (sm) {
-                  final ctrl = context.read<AmbilightAppController>();
-                  _queue(ctrl.config.copyWith(systemMediaAlbum: sm));
-                },
-              );
-            case 7:
-              return SmartIntegrationTab(
-                draft: c.config,
-                maxWidth: contentW,
-                onSmartLightsChanged: _patchSmartLights,
-              );
-            case 8:
-              return FirmwareSettingsTab(
-                draft: c.config,
-                maxWidth: contentW,
-                onGlobalChanged: _patchGlobal,
-              );
-            default:
-              return const SizedBox.shrink();
-          }
-        }
+            // Pořadí indexů musí sedět s [AmbilightAppController.settingsTab*] a přehledem Integrace.
+            Widget tabChild(int i) {
+              switch (i) {
+                case 0:
+                  return GlobalSettingsTab(
+                    draft: draft,
+                    maxWidth: contentW,
+                    onChanged: _patchGlobal,
+                    onReplayOnboarding: () => unawaited(_replayOnboarding()),
+                  );
+                case 1:
+                  return DevicesTab(
+                    draft: draft,
+                    maxWidth: contentW,
+                    onDevicesChanged: _patchDevices,
+                  );
+                case 2:
+                  return LightSettingsTab(
+                    draft: draft,
+                    maxWidth: contentW,
+                    onChanged: _patchLight,
+                  );
+                case 3:
+                  return ScreenSettingsTab(
+                    draft: draft,
+                    maxWidth: contentW,
+                    onChanged: _patchScreen,
+                  );
+                case 4:
+                  return MusicSettingsTab(
+                    draft: draft,
+                    maxWidth: contentW,
+                    onChanged: _patchMusic,
+                  );
+                case 5:
+                  return ValueListenableBuilder<PcHealthSnapshot>(
+                    valueListenable: ctrl.pcHealthSnapshotNotifier,
+                    builder: (context, _, __) => PcHealthSettingsTab(
+                      controller: ctrl,
+                      maxWidth: contentW,
+                      onChanged: _patchPcHealth,
+                    ),
+                  );
+                case 6:
+                  return SpotifySettingsTab(
+                    draft: draft,
+                    maxWidth: contentW,
+                    onSpotifyChanged: _patchSpotify,
+                    onSystemMediaAlbumChanged: (sm) {
+                      final c = context.read<AmbilightAppController>();
+                      _queue(c.config.copyWith(systemMediaAlbum: sm));
+                    },
+                  );
+                case 7:
+                  return SmartIntegrationTab(
+                    draft: draft,
+                    maxWidth: contentW,
+                    onSmartLightsChanged: _patchSmartLights,
+                  );
+                case 8:
+                  return FirmwareSettingsTab(
+                    draft: draft,
+                    maxWidth: contentW,
+                    onGlobalChanged: _patchGlobal,
+                  );
+                default:
+                  return const SizedBox.shrink();
+              }
+            }
 
         final body = TabBarView(
           controller: _tabController,
@@ -226,7 +246,7 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Engine a posuvníky reagují hned; na disk se zapíše krátce po poslední změně. Presety obrazovky a hudby se tím nemění.',
+                    context.l10n.settingsPersistHint,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ),
@@ -253,9 +273,9 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Nastavení', style: Theme.of(context).textTheme.headlineSmall),
+                          Text(context.l10n.settingsPageTitle, style: Theme.of(context).textTheme.headlineSmall),
                           Text(
-                            'Vyber téma vlevo — tlačítko Použít nepotřebuješ.',
+                            context.l10n.settingsRailSubtitle,
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   color: scheme.onSurfaceVariant,
                                 ),
@@ -282,22 +302,22 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-              child: Text('Nastavení', style: Theme.of(context).textTheme.headlineSmall),
+              child: Text(context.l10n.settingsPageTitle, style: Theme.of(context).textTheme.headlineSmall),
             ),
             hint,
             TabBar(
               controller: _tabController,
               isScrollable: true,
-              tabs: const [
-                Tab(text: 'Globální'),
-                Tab(text: 'Zařízení'),
-                Tab(text: 'Světlo'),
-                Tab(text: 'Obrazovka'),
-                Tab(text: 'Hudba'),
-                Tab(text: 'PC Health'),
-                Tab(text: 'Spotify'),
-                Tab(text: 'Smart Home'),
-                Tab(text: 'Firmware'),
+              tabs: [
+                Tab(text: context.l10n.tabGlobal),
+                Tab(text: context.l10n.tabDevices),
+                Tab(text: context.l10n.tabLight),
+                Tab(text: context.l10n.tabScreen),
+                Tab(text: context.l10n.tabMusic),
+                Tab(text: context.l10n.tabPcHealth),
+                Tab(text: context.l10n.tabSpotify),
+                Tab(text: context.l10n.tabSmartHome),
+                Tab(text: context.l10n.tabFirmware),
               ],
             ),
             Expanded(
@@ -307,6 +327,8 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
               ),
             ),
           ],
+        );
+          },
         );
       },
     );
@@ -325,6 +347,7 @@ class _SettingsSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     return SizedBox(
       width: 252,
       child: DecoratedBox(
@@ -334,60 +357,60 @@ class _SettingsSidebar extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.only(top: 8, bottom: 16),
           children: [
-            const AmbiSidebarSectionLabel('Základ'),
+            AmbiSidebarSectionLabel(l10n.settingsSidebarBasics),
             AmbiSidebarTile(
               icon: Icons.tune_rounded,
-              label: 'Globální',
+              label: l10n.tabGlobal,
               selected: selectedIndex == 0,
               onTap: () => onSelect(0),
             ),
             AmbiSidebarTile(
               icon: Icons.usb_rounded,
-              label: 'Zařízení',
+              label: l10n.tabDevices,
               selected: selectedIndex == 1,
               onTap: () => onSelect(1),
             ),
-            const AmbiSidebarSectionLabel('Režimy'),
+            AmbiSidebarSectionLabel(l10n.settingsSidebarModes),
             AmbiSidebarTile(
               icon: Icons.palette_rounded,
-              label: 'Světlo',
+              label: l10n.tabLight,
               selected: selectedIndex == 2,
               onTap: () => onSelect(2),
             ),
             AmbiSidebarTile(
               icon: Icons.desktop_windows_rounded,
-              label: 'Obrazovka',
+              label: l10n.tabScreen,
               selected: selectedIndex == 3,
               onTap: () => onSelect(3),
             ),
             AmbiSidebarTile(
               icon: Icons.graphic_eq_rounded,
-              label: 'Hudba',
+              label: l10n.tabMusic,
               selected: selectedIndex == 4,
               onTap: () => onSelect(4),
             ),
             AmbiSidebarTile(
               icon: Icons.monitor_heart_rounded,
-              label: 'PC Health',
+              label: l10n.tabPcHealth,
               selected: selectedIndex == 5,
               onTap: () => onSelect(5),
             ),
-            const AmbiSidebarSectionLabel('Integrace'),
+            AmbiSidebarSectionLabel(l10n.settingsSidebarIntegrations),
             AmbiSidebarTile(
               icon: Icons.queue_music_rounded,
-              label: 'Spotify',
+              label: l10n.tabSpotify,
               selected: selectedIndex == 6,
               onTap: () => onSelect(6),
             ),
             AmbiSidebarTile(
               icon: Icons.home_work_outlined,
-              label: 'Smart Home',
+              label: l10n.tabSmartHome,
               selected: selectedIndex == 7,
               onTap: () => onSelect(7),
             ),
             AmbiSidebarTile(
               icon: Icons.system_update_alt_rounded,
-              label: 'Firmware',
+              label: l10n.tabFirmware,
               selected: selectedIndex == 8,
               onTap: () => onSelect(8),
             ),
