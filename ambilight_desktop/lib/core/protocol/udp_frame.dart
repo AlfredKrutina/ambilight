@@ -8,7 +8,8 @@ class UdpAmbilightProtocol {
   static const int maxRgbPixelsPerUdpDatagram = 499;
 
   /// Rámec `0x06`: `[cmd, idx_hi, idx_lo]` + RGB×M — max M aby `3 + 3*M <= 1499` (lampa FW).
-  static const int maxRgbPixelsPerUdpOpcode06Chunk = 498;
+  /// Volitelně držíme ≤400 LED (~1203 B) pro méně datagramů na snímek na Windows.
+  static const int maxRgbPixelsPerUdpOpcode06Chunk = 400;
 
   /// Počet RGB pixelů vhodný pro jeden datagram `0x02` (bez výpočtu přesné délky bytu).
   static bool isRgbPixelCountValidForBulkFrame(int n) =>

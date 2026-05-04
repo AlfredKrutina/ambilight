@@ -36,7 +36,7 @@
 /// Po resetu / přeflashování: postupné rozsvícení modré „vlny“ (ne IDENTIFY UDP).
 #define BOOT_POST_FLASH_BLUE_WAVE_LEDS 500
 /// Cílové tempo vlny (~LED/s; čekání dopočítává čas za refresh pásku).
-#define BOOT_POST_FLASH_BLUE_WAVE_LEDS_PER_SEC 1000
+#define BOOT_POST_FLASH_BLUE_WAVE_LEDS_PER_SEC 4000
 #define UDP_PORT 4210
 #define AP_SSID "Ambilight_Setup"
 #define SERIAL_TIMEOUT_US (25 * 100000LL) // 2.5 seconds (Faster Auto-Off)

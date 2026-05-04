@@ -50,7 +50,7 @@ void main() {
         (i) => (0, 0, 0),
       );
       final b = UdpAmbilightProtocol.buildRgbChunkOpcode06(0, px);
-      expect(b.length, 3 + 498 * 3);
+      expect(b.length, 3 + 400 * 3);
       expect(b.length <= 1499, isTrue);
     });
   });

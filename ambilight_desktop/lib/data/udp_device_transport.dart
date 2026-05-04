@@ -124,10 +124,6 @@ class UdpDeviceTransport extends DeviceTransport {
         for (var i = 0; i < packets.length; i++) {
           final pkt = packets[i];
           await _sendOneEphemeralDatagramWindows(s, pkt, addr, port);
-          // Krátká prodleva — vyhnout se vyčerpání TX bufferu při burstu 0x06→0x08.
-          if (i + 1 < packets.length) {
-            await Future<void>.delayed(const Duration(milliseconds: 1));
-          }
         }
         if (ambilightVerboseLogsEnabled && packets.isNotEmpty) {
           final bytes = packets.fold<int>(0, (a, p) => a + p.length);
@@ -408,8 +404,19 @@ class UdpDeviceTransport extends DeviceTransport {
     final addr = _addr;
     if (!_ready || sock == null || addr == null) return;
     try {
-      final pkt = UdpAmbilightProtocol.buildSinglePixel(index, r, g, b);
-      _sendUdp(sock, pkt, addr, _udpPort);
+      final pkt = Uint8List.fromList(UdpAmbilightProtocol.buildSinglePixel(index, r, g, b));
+      final port = _udpPort;
+      // Windows: persistent RawDatagramSocket často vrací 0 — vždy ephemeral; zařadit za
+      // [_windowsOversizedSendChain], ať 0x03 neproběhne před dokončeným 0x06/0x08.
+      if (Platform.isWindows) {
+        _windowsOversizedSendChain =
+            (_windowsOversizedSendChain ?? Future<void>.value()).then((_) async {
+          await _sendUdpEphemeralWindows(pkt, addr, port);
+        });
+        unawaited(_windowsOversizedSendChain);
+        return;
+      }
+      _sendUdp(sock, pkt, addr, port);
     } catch (e, st) {
       _log.fine('pixel send: $e', e, st);
     }
