@@ -346,6 +346,16 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
       );
     }
 
+    Widget sectionLabel(String title) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Text(
+          title,
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+      );
+    }
+
     final baseCard = <Widget>[
       AmbiSectionHeader(
         title: l10n.screenSectionTitle,
@@ -488,8 +498,9 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(l10n.screenColorsDetailTitle, style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
-              Text(l10n.screenGammaValue(s.gamma.toStringAsFixed(2)), style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(height: 10),
+              sectionLabel(l10n.screenGammaValue(s.gamma.toStringAsFixed(2))),
+              const SizedBox(height: 2),
               ConfigDragSlider(
                 value: s.gamma,
                 min: 0.5,
@@ -498,8 +509,9 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                 label: s.gamma.toStringAsFixed(2),
                 onChanged: (v) => _patch(s.copyWith(gamma: v)),
               ),
-              Text(l10n.screenSaturationBoostValue(s.saturationBoost.toStringAsFixed(2)),
-                  style: Theme.of(context).textTheme.labelLarge),
+              const Divider(height: 20),
+              sectionLabel(l10n.screenSaturationBoostValue(s.saturationBoost.toStringAsFixed(2))),
+              const SizedBox(height: 2),
               ConfigDragSlider(
                 value: s.saturationBoost,
                 min: 0.5,
@@ -511,20 +523,31 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(l10n.screenUltraSaturation),
+                subtitle: Text(
+                  l10n.screenUltraAmountValue(s.ultraSaturationAmount.toStringAsFixed(2)),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 value: s.ultraSaturation,
                 onChanged: (v) => _patch(s.copyWith(ultraSaturation: v)),
               ),
-              Text(l10n.screenUltraAmountValue(s.ultraSaturationAmount.toStringAsFixed(2)),
-                  style: Theme.of(context).textTheme.labelLarge),
-              ConfigDragSlider(
-                value: s.ultraSaturationAmount,
-                min: 1.0,
-                max: 5.0,
-                divisions: 40,
-                label: s.ultraSaturationAmount.toStringAsFixed(2),
-                onChanged: (v) => _patch(s.copyWith(ultraSaturationAmount: v)),
+              const SizedBox(height: 4),
+              Opacity(
+                opacity: s.ultraSaturation ? 1 : 0.55,
+                child: IgnorePointer(
+                  ignoring: !s.ultraSaturation,
+                  child: ConfigDragSlider(
+                    value: s.ultraSaturationAmount,
+                    min: 1.0,
+                    max: 5.0,
+                    divisions: 40,
+                    label: s.ultraSaturationAmount.toStringAsFixed(2),
+                    onChanged: (v) => _patch(s.copyWith(ultraSaturationAmount: v)),
+                  ),
+                ),
               ),
-              Text(l10n.screenMinBrightnessLed(s.minBrightness), style: Theme.of(context).textTheme.labelLarge),
+              const Divider(height: 20),
+              sectionLabel(l10n.screenMinBrightnessLed(s.minBrightness)),
+              const SizedBox(height: 2),
               ConfigDragSlider(
                 value: s.minBrightness.toDouble(),
                 min: 0,
@@ -533,6 +556,18 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                 label: '${s.minBrightness}',
                 onChanged: (v) => _patch(s.copyWith(minBrightness: v.round())),
               ),
+            ],
+          ),
+        ),
+      ),
+      Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              sectionLabel(l10n.fieldScreenColorPreset),
               DropdownButtonFormField<String>(
                 decoration: InputDecoration(
                   labelText: l10n.fieldScreenColorPreset,
@@ -549,6 +584,7 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                 },
               ),
               const SizedBox(height: 12),
+              sectionLabel(l10n.fieldActiveCalibrationProfile),
               DropdownButtonFormField<String>(
                 decoration: InputDecoration(
                   labelText: l10n.fieldActiveCalibrationProfile,
