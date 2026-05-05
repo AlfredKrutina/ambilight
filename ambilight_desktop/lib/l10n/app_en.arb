@@ -1,0 +1,1527 @@
+{
+  "@@locale": "en",
+  "appTitle": "AmbiLight",
+  "languageLabel": "Language",
+  "languageSystem": "System default",
+  "languageEnglish": "English",
+  "languageCzech": "Czech",
+  "cancel": "Cancel",
+  "save": "Save",
+  "close": "Close",
+  "done": "Done",
+  "next": "Next",
+  "back": "Back",
+  "skip": "Skip",
+  "settings": "Settings",
+  "help": "Help",
+  "add": "Add",
+  "delete": "Delete",
+  "edit": "Edit",
+  "verify": "Verify",
+  "refresh": "Refresh",
+  "send": "Send",
+  "remove": "Remove",
+  "scanning": "Scanning…",
+  "measuring": "Measuring…",
+  "findingCom": "Finding COM…",
+  "navOverview": "Overview",
+  "navDevices": "Devices",
+  "navSettings": "Settings",
+  "navAbout": "About",
+  "navOverviewTooltip": "Home — modes and device preview",
+  "navDevicesTooltip": "Discovery, strips and calibration",
+  "navSettingsTooltip": "Modes, integrations and config backup",
+  "navAboutTooltip": "Version and basics",
+  "navigationSection": "Navigation",
+  "outputOn": "Output on",
+  "outputOff": "Output off",
+  "tooltipColorsOn": "Stop sending colors to strips",
+  "tooltipColorsOff": "Start sending colors to strips",
+  "allOutputsOnline": "All output devices connected ({online}/{total}).",
+  "@allOutputsOnline": {
+    "placeholders": {
+      "online": {},
+      "total": {}
+    }
+  },
+  "someOutputsOffline": "Some outputs offline ({online}/{total}) — check USB or Wi‑Fi.",
+  "@someOutputsOffline": {
+    "placeholders": {
+      "online": {},
+      "total": {}
+    }
+  },
+  "footerNoOutputs": "No output devices (optional)",
+  "footerUsbOne": "USB",
+  "footerUsbMany": "{count}× USB",
+  "@footerUsbMany": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "footerWifiOne": "Wi‑Fi",
+  "footerWifiMany": "{count}× Wi‑Fi",
+  "@footerWifiMany": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "pathCopiedSnackbar": "Path copied to clipboard",
+  "aboutTitle": "About",
+  "aboutSubtitle": "AmbiLight Desktop — LED strips from Windows (USB and Wi‑Fi).",
+  "aboutBody": "Desktop Flutter client aligned with ESP32 firmware. In-app wizards cover strips, screen segments and calibration.",
+  "aboutAppName": "AmbiLight Desktop",
+  "showOnboardingAgain": "Show onboarding again",
+  "crashLogFileLabel": "Crash / diagnostic log file:",
+  "copyLogPath": "Copy log path",
+  "debugSection": "Debug",
+  "engineTickDebug": "Engine frame counter: {tick}\n(Updates on device connection changes, new screen frame, or ~4 s interval.)",
+  "@engineTickDebug": {
+    "placeholders": {
+      "tick": {}
+    }
+  },
+  "versionLoadError": "Could not load version: {error}",
+  "@versionLoadError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "versionLine": "Version: {version} ({build})",
+  "@versionLine": {
+    "placeholders": {
+      "version": {},
+      "build": {}
+    }
+  },
+  "buildLine": "Build: {mode} · channel: {channel}",
+  "@buildLine": {
+    "placeholders": {
+      "mode": {},
+      "channel": {}
+    }
+  },
+  "gitLine": "Git: {sha}",
+  "@gitLine": {
+    "placeholders": {
+      "sha": {}
+    }
+  },
+  "semanticsCloseScanOverlay": "Close capture region preview",
+  "scanZonesChip": "Zone preview",
+  "bootstrapFailed": "App failed to start: {detail}",
+  "@bootstrapFailed": {
+    "placeholders": {
+      "detail": {}
+    }
+  },
+  "configLoadFailed": "Could not load settings, using defaults: {detail}",
+  "@configLoadFailed": {
+    "placeholders": {
+      "detail": {}
+    }
+  },
+  "faultUiError": "UI error: {detail}",
+  "@faultUiError": {
+    "placeholders": {
+      "detail": {}
+    }
+  },
+  "faultUncaughtAsync": "Uncaught error in async code.",
+  "errorWidgetTitle": "Error rendering a widget. The app keeps running.\n\n",
+  "closeBannerTooltip": "Dismiss",
+  "settingsDevicesSaveFailed": "Saving device list failed: {detail}",
+  "@settingsDevicesSaveFailed": {
+    "placeholders": {
+      "detail": {}
+    }
+  },
+  "semanticsSelected": ", selected",
+  "homeOverviewTitle": "Overview",
+  "homeOverviewSubtitle": "Turn on output, pick a mode and check connectivity. Details live under Devices and Settings.",
+  "homeModeTitle": "Mode",
+  "homeModeSubtitle": "Tap a tile to change the active mode. The pencil opens Settings for that mode.",
+  "homeIntegrationsTitle": "Integrations",
+  "homeIntegrationsSubtitle": "Music (Spotify OAuth plus optional OS player colors), Home Assistant and ESP firmware — edit each under Settings.",
+  "homeDevicesTitle": "Devices",
+  "homeDevicesSubtitle": "Quick status. Strip setup, discovery and networking are under Devices in the sidebar.",
+  "homeDevicesEmpty": "No output devices yet — normal until you connect a strip.\n\nYou can still tune modes, presets and backups. To send colors, add a device under Devices (Discovery or manual).",
+  "modeLightTitle": "Light",
+  "modeLightSubtitle": "Static effects, zones, breathing",
+  "modeScreenTitle": "Screen",
+  "modeScreenSubtitle": "Ambilight from monitor capture",
+  "modeMusicTitle": "Music",
+  "modeMusicSubtitle": "FFT, melody, colors",
+  "modePcHealthTitle": "PC Health",
+  "modePcHealthSubtitle": "Temps, load, visualization",
+  "modeSettingsTooltip": "Settings for mode \"{mode}\"",
+  "@modeSettingsTooltip": {
+    "placeholders": {
+      "mode": {}
+    }
+  },
+  "homeLedOutputTitle": "LED output",
+  "homeLedOutputOnBody": "Colors are sent to all active devices.",
+  "homeLedOutputOffBody": "Off — strips receive black.",
+  "homeServiceTitle": "Service",
+  "homeBackgroundTitle": "Runs in background",
+  "homeBackgroundBody": "The app continuously prepares colors for strips. Status changes when you switch modes or connect devices.",
+  "integrationSettingsButton": "Settings",
+  "musicCardTitle": "Music",
+  "spotifyConnected": "Spotify: connected",
+  "spotifyDisconnected": "Spotify: not connected",
+  "spotifyHintNeedClientId": "Add Client ID under Settings → Spotify.",
+  "spotifyHintLogin": "“Sign in” opens the browser; on Windows you can also take colors from the OS media player (see help).",
+  "spotifyOAuthTitle": "Spotify integration (OAuth)",
+  "spotifyOAuthSubtitle": "Enables account polling; disable to stop polling.",
+  "spotifyAlbumColorsTitle": "Album colors via Spotify",
+  "spotifyAlbumColorsSubtitle": "In Music mode, preferred over FFT when the API returns artwork.",
+  "signIn": "Sign in",
+  "signOut": "Sign out",
+  "haCardTitle": "Home Assistant",
+  "haStatusOff": "Integration disabled.",
+  "haStatusOnOk": "On · {count} lights in map.",
+  "@haStatusOnOk": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "haStatusOnNeedUrl": "On — add URL and token in Settings.",
+  "haDetailOk": "REST API to Home Assistant; map engine colors to light.* entities.",
+  "haDetailNeedUrl": "First add your instance URL and long-lived token (HA user profile).",
+  "fwCardTitle": "Firmware",
+  "fwManifestLabel": "Manifest (OTA)",
+  "fwManifestHint": "Download binaries, OTA command via UDP or flash via USB (esptool).",
+  "kindUsb": "USB",
+  "kindWifi": "Wi‑Fi",
+  "deviceConnected": "connected",
+  "deviceDisconnected": "not connected",
+  "deviceLedSubtitle": "{kind} · {count} LED",
+  "@deviceLedSubtitle": {
+    "placeholders": {
+      "kind": {},
+      "count": {}
+    }
+  },
+  "deviceStripStateLine": "{info} · {state}",
+  "@deviceStripStateLine": {
+    "placeholders": {
+      "info": {},
+      "state": {}
+    }
+  },
+  "settingsPageTitle": "Settings",
+  "settingsRailSubtitle": "Pick a topic on the left — no Apply button needed.",
+  "settingsPersistHint": "The engine updates immediately; disk save follows shortly after your last change. Screen/music presets are not changed.",
+  "settingsSidebarBasics": "Basics",
+  "settingsSidebarModes": "Modes",
+  "settingsSidebarIntegrations": "Integrations",
+  "tabGlobal": "Global",
+  "tabDevices": "Devices",
+  "tabLight": "Light",
+  "tabScreen": "Screen",
+  "tabMusic": "Music",
+  "tabPcHealth": "PC Health",
+  "tabSpotify": "Spotify",
+  "tabSmartHome": "Smart Home",
+  "tabFirmware": "Firmware",
+  "globalSectionTitle": "Global",
+  "globalSectionSubtitle": "Startup behavior, appearance and performance. Import/export below.",
+  "startModeLabel": "Default mode on startup",
+  "startModeLight": "Light",
+  "startModeScreen": "Screen (Ambilight)",
+  "startModeMusic": "Music",
+  "startModePcHealth": "PC Health",
+  "themeLabel": "App appearance",
+  "themeHelper": "Dark blue = legacy default look. SnowRunner = neutral dark gray.",
+  "themeSnowrunner": "Dark (SnowRunner)",
+  "themeDarkBlue": "Dark blue",
+  "themeLight": "Light",
+  "themeCoffee": "Coffee",
+  "uiAnimationsTitle": "UI animations",
+  "uiAnimationsSubtitle": "Short transitions between sections. Disable when tweaking repeatedly; also respects system reduced motion.",
+  "performanceModeTitle": "Performance mode",
+  "performanceModeSubtitle": "When the app captures the monitor (Screen mode or Music with “monitor” colors), the main loop runs at 25 FPS; Spotify / PC Health intervals are longer and the USB queue is gentler. Light-only mode stays faster (~62 Hz). When performance mode is off, set the refresh rate below (60 / 120 / 240 FPS). “UI animations” only affects Material transitions.",
+  "screenRefreshRateTitle": "Ambilight refresh rate",
+  "screenRefreshRateSubtitle": "Main loop when performance mode is off — applies to capture and LED output.",
+  "screenRefreshRateDisabledHint": "Turn off performance mode to change this (capture is fixed at 25 FPS while performance is on).",
+  "screenRefreshRateHz60": "60 FPS",
+  "screenRefreshRateHz120": "120 FPS",
+  "screenRefreshRateHz240": "240 FPS",
+  "autostartTitle": "Launch with Windows",
+  "autostartSubtitle": "Start the app after signing in.",
+  "trayDisableOutput": "Disable output",
+  "trayEnableOutput": "Enable output",
+  "trayModeLine": "Mode: {mode}",
+  "@trayModeLine": {
+    "placeholders": {
+      "mode": {}
+    }
+  },
+  "trayScreenPresetsSection": "Screen — presets",
+  "trayMusicPresetsSection": "Music — presets",
+  "trayMusicUnlockColors": "Unlock colors (music)",
+  "trayMusicCancelLockPending": "Cancel color lock (waiting for frame)",
+  "trayMusicLockColorsShort": "Lock colors (music)",
+  "traySettingsEllipsis": "Settings…",
+  "trayQuit": "Quit",
+  "startMinimizedTitle": "Start minimized",
+  "captureMethodLabel": "Screen capture method (advanced)",
+  "captureMethodHint": "e.g. mss, dxcam",
+  "captureMethodHelper": "The desktop app uses the native capture plugin. On Windows, choose GDI vs DXGI under Settings → Screen.",
+  "captureMethodNativeMss": "Native capture (default · mss)",
+  "captureMethodCustomSaved": "Saved: {name}",
+  "@captureMethodCustomSaved": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "screenMonitorVirtualDesktopChoice": "0 · Virtual desktop (all monitors)",
+  "screenMonitorRefreshTooltip": "Refresh monitor list",
+  "screenMonitorListFallbackHint": "Monitor list unavailable — values below are manual MSS indices. Tap refresh.",
+  "onboardWelcomeTitle": "Welcome to AmbiLight",
+  "onboardWelcomeBody": "This app drives your LED strips from Windows — USB (serial) or network (UDP). ESP32 firmware stays compatible with older clients; this UI is clearer.",
+  "onboardHowTitle": "How it works",
+  "onboardHowBody": "AmbiLight takes colors from the screen, microphone, PC sensors or static effects and sends RGB data to the controller. The top bar toggles output — when off, strips stop receiving new commands.",
+  "onboardOutputTitle": "Output on / off",
+  "onboardOutputBody": "The “Output on” button in the header is the main switch: turn it off to leave strips idle or while troubleshooting. Turn it on once devices and mode are set.",
+  "onboardModesTitle": "Modes",
+  "onboardModesBody": "Light — static colors and effects. Screen — ambilight from monitor capture (segments and edge depth in Settings). Music — FFT and melody from mic or system. PC Health — temps and load visualization.",
+  "onboardDevicesTitle": "Devices",
+  "onboardDevicesBody": "On Devices you add strips, run discovery and set LED count, offset and default monitor. USB uses COM and baud; Wi‑Fi needs IP and UDP port (same as firmware).",
+  "onboardScreenTitle": "Screen and zones",
+  "onboardScreenBody": "Under Settings → Screen set edge depth, padding and per-strip segments. The capture-region preview overlay helps verify geometry.",
+  "onboardMusicTitle": "Music and Spotify",
+  "onboardMusicBody": "Music can use microphone or sound card output. Spotify is optional — get Client ID from Spotify Developer; detailed steps are next to Spotify settings.",
+  "onboardSmartTitle": "PC Health and smart lights",
+  "onboardSmartBody": "PC Health reads sensors (temps, load) and maps them to colors. Smart lights supports Home Assistant: after URL and token you can mirror colors to other lamps.",
+  "onboardFirmwareTitle": "Settings and firmware",
+  "onboardFirmwareBody": "Global settings include theme, performance mode, capture method and firmware manifest (OTA links). Export/import JSON — back up before experiments.",
+  "onboardReadyTitle": "You are ready",
+  "onboardReadyBody": "You can reopen this guide under About. Suggested flow: add device → verify output → pick Screen or Light → tune brightness in Settings.",
+  "onboardStartUsing": "Start using",
+  "onboardProgress": "{current} / {total}",
+  "@onboardProgress": {
+    "placeholders": {
+      "current": {},
+      "total": {}
+    }
+  },
+  "devicesPageTitle": "Devices",
+  "devicesActionsTitle": "Actions",
+  "discoveryWizardLabel": "Discovery — wizard",
+  "segmentsLabel": "Segments",
+  "calibrationLabel": "Calibration",
+  "screenPresetLabel": "Screen preset",
+  "addWifiManual": "Add Wi‑Fi manually",
+  "findAmbilightCom": "Find Ambilight (COM)",
+  "devicesIntro": "Manage strips: discovery, Wi‑Fi setup and calibration. Saving writes config and reconnects transports.",
+  "saveDeviceTitle": "Save device",
+  "invalidIp": "Invalid IP address.",
+  "pongTimeout": "PONG timed out.",
+  "pongResult": "PONG: FW {version}, LED {leds}",
+  "@pongResult": {
+    "placeholders": {
+      "version": {},
+      "leds": {}
+    }
+  },
+  "verifyPong": "Verify PONG",
+  "enterValidIpv4": "Enter a valid IPv4 address.",
+  "deviceSaved": "Device saved.",
+  "resetWifiTitle": "Reset Wi‑Fi?",
+  "resetWifiBody": "Sends RESET_WIFI over UDP to the device. Use only when you know what you are doing.",
+  "sendResetWifi": "Send RESET_WIFI",
+  "resetWifiSent": "RESET_WIFI sent.",
+  "resetWifiFailed": "Send failed.",
+  "removeFailed": "Remove failed: {error}",
+  "@removeFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "deviceRemoved": "Device “{name}” removed.",
+  "@deviceRemoved": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pongMissing": "PONG did not arrive.",
+  "firmwareFromPong": "Firmware (from PONG): {version}",
+  "@firmwareFromPong": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "comScanHandshake": "Scanning COM with handshake 0xAA / 0xBB…",
+  "comScanNoReply": "No port replied (Ambilight handshake).",
+  "serialPortSet": "Serial port set: {port}",
+  "@serialPortSet": {
+    "placeholders": {
+      "port": {}
+    }
+  },
+  "comScanUsbDeviceDefaultName": "USB ({port})",
+  "@comScanUsbDeviceDefaultName": {
+    "placeholders": {
+      "port": {}
+    }
+  },
+  "comScanUsbDeviceAdded": "USB device added on {port}. You can rename it in the list.",
+  "@comScanUsbDeviceAdded": {
+    "placeholders": {
+      "port": {}
+    }
+  },
+  "firmwareLabel": "Firmware: {version}",
+  "@firmwareLabel": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "discoveryTitle": "Discovery (D9)",
+  "discoveryRescan": "Scan again",
+  "discoveryScanning": "Scanning…",
+  "discoveryNoReply": "No device replied (UDP 4210).",
+  "discoveryAdded": "Added: {name}",
+  "@discoveryAdded": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "discoveryAdd": "Add",
+  "discoverySelectHint": "Scan the LAN on UDP 4210; identified devices appear below.",
+  "zoneEditorTitle": "Zone / segment editor",
+  "zoneEditorAddSegment": "Add segment",
+  "zoneEditorSaved": "Saved {count} segments.",
+  "@zoneEditorSaved": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "zoneEditorIntro": "Max LED index: {max}. Each segment: LED range, edge, monitor, scan depth, reverse, pixel mapping and music role.",
+  "zoneEditorSegmentTitle": "Segment {index} · {edge} · LED {ledStart}–{ledEnd} · mon {monitor}",
+  "@zoneEditorSegmentTitle": {
+    "placeholders": {
+      "index": {},
+      "edge": {},
+      "ledStart": {},
+      "ledEnd": {},
+      "monitor": {}
+    }
+  },
+  "refDimsFromCapture": "Ref. dimensions from last capture",
+  "dropdownAllDefault": "— all / default —",
+  "guideMusicTitle": "Music & Spotify",
+  "guideBrowserFailed": "Could not open the browser.",
+  "guideNeedClientIdFirst": "First enter Client ID under Settings → Spotify (see button above).",
+  "guideClose": "Close",
+  "guideOpenSpotifyDev": "Open Spotify Developer",
+  "guideSpotifyBrowserLogin": "Sign in to Spotify in browser",
+  "guideSectionSound": "1 · Mode and audio",
+  "guideSectionAlbum": "2 · Album color",
+  "guideSectionSpotify": "3 · Spotify",
+  "guideSectionApple": "4 · Apple Music",
+  "guideSectionTrouble": "When something fails",
+  "backupTitle": "Configuration backup",
+  "backupExport": "Export JSON…",
+  "backupImport": "Import JSON…",
+  "backupExported": "Configuration exported.",
+  "backupImported": "Configuration imported.",
+  "backupInvalid": "Invalid configuration file.",
+  "spotifyTabTitle": "Spotify",
+  "spotifyTabIntro": "OAuth tokens and album artwork colors. Help explains audio routing and artwork.",
+  "spotifyHelpAlbum": "Help: music & artwork",
+  "spotifyIntegrationEnabled": "Spotify integration enabled",
+  "spotifyAlbumColors": "Album colors (Spotify API)",
+  "spotifyDeleteSecretDraft": "Remove client secret from draft",
+  "spotifyAccessToken": "Access token",
+  "spotifyRefreshToken": "Refresh token",
+  "spotifyTokenSetHidden": "Set (hidden)",
+  "spotifyTokenMissing": "Missing",
+  "spotifyAppleOsTitle": "Apple Music / YouTube Music (OS)",
+  "spotifyAppleOsBody": "Uses dominant color from OS media thumbnails when Spotify does not provide a color.",
+  "spotifyGsmtcOn": "Album color via OS media (GSMTC)",
+  "spotifyGsmtcOff": "Album color via OS media (unavailable)",
+  "spotifyGsmtcSubtitle": "Used in music mode when Spotify has no color or it is disabled.",
+  "spotifyDominantThumb": "Use dominant color from OS thumbnail",
+  "firmwareEspTitle": "ESP firmware",
+  "firmwareEspIntro": "Manifest URL, downloads and flash/OTA actions. Requires compatible controller.",
+  "firmwareManifestUrlLabel": "Manifest URL (GitHub Pages)",
+  "firmwareManifestUrlHint": "https://alfredkrutina.github.io/ambilight/firmware/latest/",
+  "firmwareManifestHelper": "Inherited from global settings; without a file we append /manifest.json",
+  "firmwareLoadManifest": "Load manifest",
+  "firmwareDownloadBins": "Download binaries",
+  "firmwareVersionChip": "Version: {version} · chip: {chip}",
+  "@firmwareVersionChip": {
+    "placeholders": {
+      "version": {},
+      "chip": {}
+    }
+  },
+  "firmwarePartLine": "• {file} @ {offset}",
+  "@firmwarePartLine": {
+    "placeholders": {
+      "file": {},
+      "offset": {}
+    }
+  },
+  "firmwareOtaUrlLine": "OTA URL: {url}",
+  "@firmwareOtaUrlLine": {
+    "placeholders": {
+      "url": {}
+    }
+  },
+  "firmwareUsbFlashTitle": "USB flash (COM)",
+  "firmwareRefreshPorts": "Refresh port list",
+  "firmwareSelectPortFirst": "Select a serial port.",
+  "firmwarePickFirmwareFolder": "Pick a firmware folder with manifest.json.",
+  "firmwareFlashEsptool": "Flash via esptool",
+  "firmwareOtaUdpTitle": "OTA over Wi‑Fi (UDP)",
+  "firmwareDeviceIp": "Device IP",
+  "firmwareUdpPort": "UDP port",
+  "firmwareVerifyReachability": "Verify reachability (UDP PONG)",
+  "firmwareSendOtaHttp": "Send OTA_HTTP",
+  "smartHaUrlLabel": "URL (https://…:8123)",
+  "smartHaTokenLabel": "Long-lived access token",
+  "smartHaConfigureFirst": "First set Home Assistant URL and token.",
+  "smartHaError": "HA: {error}",
+  "@smartHaError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "smartHaNoLights": "No light.* entities in HA.",
+  "smartAddLightTitle": "Add light from Home Assistant",
+  "smartIntegrationTitle": "Smart Home",
+  "smartIntegrationSubtitle": "Home Assistant and virtual room wave.",
+  "virtualRoomWaveTitle": "Room wave",
+  "virtualRoomWaveSubtitle": "Brightness modulation by distance from TV and capture time.",
+  "virtualRoomWaveStrength": "Wave strength: {pct} %",
+  "@virtualRoomWaveStrength": {
+    "placeholders": {
+      "pct": {}
+    }
+  },
+  "virtualRoomWaveSpeed": "Wave speed",
+  "virtualRoomDistanceSens": "Distance sensitivity",
+  "virtualRoomFacing": "View angle offset toward TV: {deg}°",
+  "@virtualRoomFacing": {
+    "placeholders": {
+      "deg": {}
+    }
+  },
+  "scanOverlaySettingsTitle": "Scan overlay (detail)",
+  "scanOverlaySettingsIntro": "Preview capture zones on the monitor while tuning screen mode.",
+  "scanOverlayPreviewTitle": "Show zone preview while tuning",
+  "scanOverlayPreviewSubtitle": "Short fullscreen overlay; does not affect capture.",
+  "scanOverlayMonitorLabel": "Monitor (MSS index, same as capture)",
+  "scanOverlayShowNow": "Show zone preview now (~1 s)",
+  "scanDepthPercentTitle": "Scan depth % (per edge)",
+  "scanPaddingPercentTitle": "Padding % (per edge)",
+  "scanRegionSchemeTitle": "Region scheme (ratio of selected monitor)",
+  "scanLastFrameTitle": "Latest frame (screen mode)",
+  "pcHealthSectionTitle": "PC Health",
+  "pcHealthSectionSubtitle": "Sensors to colors. Add metrics and map them to zones.",
+  "pcHealthEnabledTitle": "PC Health enabled",
+  "pcHealthEnabledSubtitle": "Disabled = black output in this mode.",
+  "pcHealthMetricNew": "New metric",
+  "pcHealthMetricEdit": "Edit metric",
+  "pcHealthMetricEnabled": "Enabled",
+  "pcHealthMetricName": "Name",
+  "pcHealthMetricKey": "Metric",
+  "pcHealthMetricMin": "Min",
+  "pcHealthMetricMax": "Max",
+  "pcHealthColorScale": "Color scale",
+  "pcHealthBrightnessMode": "Brightness",
+  "pcHealthBrightnessStatic": "Static",
+  "pcHealthBrightnessDynamic": "Dynamic (by value)",
+  "pcHealthZonesTitle": "Zones",
+  "pcHealthLivePreview": "Live value preview",
+  "pcHealthMeasureNow": "Measure now",
+  "pcHealthMetricsHeader": "Metrics ({count})",
+  "@pcHealthMetricsHeader": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "pcHealthNoMetrics": "No metrics.",
+  "pcHealthDefaultMetrics": "Defaults",
+  "pcHealthColorStripPreview": "Color strip (preview)",
+  "pcHealthStagingHint": "[staging] PC Health: preview + metric editor",
+  "lightSectionTitle": "Light mode",
+  "lightSectionSubtitle": "Static color, effects, zones and brightness.",
+  "screenSectionTitle": "Screen",
+  "screenSectionSubtitle": "Screen mode: colors from monitor edges. Calibration and segments can also be adjusted in Devices. The zone preview while tuning is only an in-app overlay (highlighted scan bands; the window is not moved).",
+  "musicSectionTitle": "Music mode",
+  "musicSectionSubtitle": "Microphone, effects and Spotify integration.",
+  "devicesTabTitle": "Devices",
+  "devicesTabSubtitle": "USB and Wi‑Fi controllers, LED counts and default monitor.",
+  "usbSerialLabel": "USB / serial",
+  "udpWifiLabel": "UDP / Wi‑Fi",
+  "onboardingModesDemoLabel": "Modes",
+  "onboardingOutputDemoOn": "Output on",
+  "onboardingOutputDemoOff": "Output off",
+  "calibrationTitle": "Calibration",
+  "ledStripWizardTitle": "LED strip wizard",
+  "configProfileWizardTitle": "Save screen preset",
+  "colorPickerTitle": "Pick color",
+  "colorPickerHex": "Hex",
+  "devicesTabPlaceholder": "",
+  "onboardingReplayTitle": "Onboarding",
+  "onboardingReplayBody": "Same guide as first launch — output, modes, devices and settings.",
+  "replayOnboardingButton": "Run onboarding again",
+  "devicesPageSubtitle": "Network discovery, segment editing and calibration. Tap a device row for LED mapping.",
+  "fieldDeviceName": "Name",
+  "fieldIpAddress": "IP address",
+  "fieldUdpPort": "UDP port",
+  "fieldLedCount": "LED count",
+  "removeDeviceFailed": "Removing device failed: {detail}",
+  "@removeDeviceFailed": {
+    "placeholders": {
+      "detail": {}
+    }
+  },
+  "exportSavedTo": "Saved: {path}",
+  "@exportSavedTo": {
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "exportFailed": "Export failed: {error}",
+  "@exportFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "importReadError": "Cannot read file (missing path).",
+  "importLoaded": "Configuration loaded and saved.",
+  "importFailed": "Import failed: {error}",
+  "@importFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "backupIntroBody": "JSON compatible with the Python client (`config/default.json`). Import replaces current settings and persists them.",
+  "exportDialogTitle": "Export AmbiLight configuration",
+  "devicesConfiguredTitle": "Configured devices",
+  "devicesEmptyStateBody": "None yet — you can set up modes and presets first. Add USB or Wi‑Fi above to drive a strip.",
+  "diagnosticsComPorts": "Diagnostics (COM ports)",
+  "noSerialPortsDetected": "No serial ports detected.",
+  "resetWifiContent": "Device \"{name}\" clears saved Wi‑Fi credentials on the controller and restarts. You must reconnect it to the network.",
+  "@resetWifiContent": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "screenSettingsLayoutTitle": "Settings layout",
+  "screenModeSimpleLabel": "Simple",
+  "screenModeAdvancedLabel": "Advanced",
+  "screenModeHintAdvanced": "Shows all fields including color curves, technical monitor index and per-edge controls in the preview section.",
+  "screenModeHintSimple": "Monitor, brightness, smoothing and uniform scan depth / padding are enough. Detailed zones appear in the preview below.",
+  "fieldMonitorIndexLabel": "Monitor (index)",
+  "fieldMonitorSameAsCaptureLabel": "Monitor (same as capture)",
+  "screenScanDepthUniformPct": "Scan depth (uniform): {pct} %",
+  "screenPaddingUniformPct": "Padding (uniform): {pct} %",
+  "screenCaptureCardTitle": "Screen capture",
+  "refreshDiagnostics": "Refresh diagnostics",
+  "screenCapturePermissionOk": "Screen permission: OK â€” check Privacy settings if needed.",
+  "screenCapturePermissionDenied": "Permission denied or unavailable.",
+  "macosRequestScreenCapture": "macOS: request screen capture",
+  "screenImageOutputTitle": "Image and output",
+  "screenWindowsCaptureBackendLabel": "Windows capture",
+  "screenWindowsCaptureBackendHint": "CPU (GDI) often reduces cursor flicker; GPU (DXGI) uses Desktop Duplication on a specific monitor (not virtual desktop 0).",
+  "screenWindowsCaptureBackendCpu": "CPU (GDI)",
+  "screenWindowsCaptureBackendGpu": "GPU (DXGI)",
+  "screenBrightnessValue": "Brightness (screen): {v}",
+  "screenInterpolationMs": "Interpolation (ms): {v}",
+  "screenUniformRegionTitle": "Uniform capture region",
+  "screenTechMonitorTitle": "Technical monitor and uniform region",
+  "fieldMonitorIndexMssLabel": "monitor_index (MSS, 0â€“32)",
+  "screenColorsDetailTitle": "Colors and scan (detail)",
+  "screenGammaValue": "Gamma: {v}",
+  "screenSaturationBoostValue": "Saturation boost: {v}",
+  "screenUltraSaturation": "Ultra saturation",
+  "screenUltraAmountValue": "Ultra amount: {v}",
+  "screenMinBrightnessLed": "Min. brightness (LED): {v}",
+  "fieldScreenColorPreset": "Screen color preset",
+  "helperScreenColorPreset": "Quick presets, built-in names and saved user_screen_presets",
+  "fieldActiveCalibrationProfile": "Active calibration profile",
+  "helperCalibrationProfileKeys": "Keys from calibration_profiles in config",
+  "stripMarkersTitle": "LED markers on strip",
+  "stripMarkersBody": "Green LEDs at corners (like PyQt calibration). When indicating, max strip length is used for transport (USB up to 2000 LEDs with wide 0xFC framing, Wiâ€‘Fi per UDP), not the LED count from device settings â€” so high indices can light up. Turn off before saving or switching tabs.",
+  "markerTopLeft": "Top left",
+  "markerTopRight": "Top right",
+  "markerBottomRight": "Bottom right",
+  "markerBottomLeft": "Bottom left",
+  "markerOff": "Turn off markers",
+  "segmentsTileTitle": "Segments",
+  "segmentsZoneEditorSubtitle": "Count: {count} (zone editor A7)",
+  "lightZoneColorTitle": "Zone color",
+  "lightPrimaryColorTitle": "Primary color",
+  "lightSettingsHeader": "Light",
+  "lightSettingsSubtitle": "Static colors and effects on the strip without screen capture. Picking a color may briefly preview on the strip.",
+  "lightPrimaryColorTile": "Primary color",
+  "lightPrimaryColorRgbHint": "RGB({rgb}) · tap to pick like Home / Hue",
+  "fieldEffect": "Effect",
+  "lightSpeedValue": "Speed: {v}",
+  "lightExtraValue": "Extra: {v}",
+  "lightBrightnessValue": "Brightness: {v}",
+  "lightHomekitTile": "HomeKit (FW / MQTT â€” do not send colors from PC)",
+  "lightHomekitSubtitle": "homekit_enabled",
+  "lightCustomZonesTitle": "Custom zones",
+  "lightAddZone": "Add zone",
+  "lightZoneDefaultName": "Zone {n}",
+  "fieldZoneName": "Name",
+  "fieldStartPercent": "Start %",
+  "fieldEndPercent": "End %",
+  "fieldZoneEffect": "Zone effect",
+  "lightZoneSpeedValue": "Zone speed: {v}",
+  "lightRemoveZone": "Remove zone",
+  "lightEffectStatic": "Static",
+  "lightEffectBreathing": "Breathing",
+  "lightEffectRainbow": "Rainbow",
+  "lightEffectChase": "Chase",
+  "lightEffectCustomZones": "Custom zones",
+  "musicDeviceError": "Device: {error}",
+  "musicInputDeviceLabel": "Audio input device",
+  "musicDefaultInputDevice": "Default (first suitable)",
+  "musicRefreshDeviceListTooltip": "Refresh device list",
+  "musicSettingsHeader": "Music",
+  "musicSettingsSubtitle": "Audio source, effects and color preview. Music mode must be active on the overview for output to reach strips.",
+  "musicGuideMusicArtwork": "Guide: music & artwork",
+  "musicLockPaletteTitle": "Lock color output to strip (music)",
+  "musicLockPaletteFrozen": "Sending frozen palette (same as tray item).",
+  "musicLockPalettePending": "Waiting for next frame, then palette freezes.",
+  "musicLockPaletteIdle": "Only meaningful in music mode; switching modes clears the lock.",
+  "musicPreferMicTitle": "Prefer microphone",
+  "musicPreferMicSubtitle": "If no device is selected, a suitable input outside the speaker loop is preferred.",
+  "musicColorSourceLabel": "Color source",
+  "musicColorSourceFixed": "Fixed color",
+  "musicColorSourceSpectrum": "Spectrum from audio",
+  "musicColorSourceMonitor": "Colors from monitor (Ambilight)",
+  "musicFixedColorHeader": "Fixed color",
+  "musicFixedColorHint": "Pick color like Home / Hue â€” strip preview while adjusting.",
+  "musicVisualEffectLabel": "Visual effect",
+  "musicSmartMusicHint": "Smart Music: spectrum, beat and melody map to the strip in real time (local, no cloud).",
+  "musicBrightnessValue": "Brightness (music): {v}",
+  "musicBeatDetection": "Beat detection",
+  "musicBeatThreshold": "Beat threshold: {v}",
+  "musicOverallSensitivity": "Overall sensitivity: {v}",
+  "musicBandSensitivityCaption": "Band sensitivity (bass / mids / highs / overall)",
+  "musicBassValue": "Bass: {v}",
+  "musicMidValue": "Mid: {v}",
+  "musicHighValue": "High: {v}",
+  "musicGlobalValue": "Global: {v}",
+  "musicAutoGainTitle": "Automatic gain",
+  "musicAutoGainSubtitle": "Normalizes input volume to track dynamics.",
+  "musicAutoMidTitle": "Auto mids",
+  "musicAutoHighTitle": "Auto highs",
+  "musicSmoothingMs": "Temporal smoothing: {v} ms",
+  "musicMinBrightnessValue": "min_brightness (music): {v}",
+  "musicRotationSpeedValue": "rotation_speed: {v}",
+  "musicActivePresetField": "active_preset",
+  "musicFixedColorPickerTitle": "Fixed color (music)",
+  "musicEditColorButton": "Edit color",
+  "musicRgbTriple": "RGB {r} · {g} · {b}",
+  "musicEffectSmartMusic": "Smart Music",
+  "musicEffectEnergy": "Energy",
+  "musicEffectSpectrum": "Spectrum",
+  "musicEffectSpectrumRotate": "Rotating spectrum",
+  "musicEffectSpectrumPunchy": "Spectrum (punchy)",
+  "musicEffectStrobe": "Strobe",
+  "musicEffectVuMeter": "VU meter",
+  "musicEffectVuSpectrum": "VU + spectrum",
+  "musicEffectPulse": "Pulse",
+  "musicEffectReactiveBass": "Reactive bass",
+  "devicesTabHeader": "Devices",
+  "devicesTabIntro": "Name and LED count matter for control. IP and port are under Connection.",
+  "devicesTabEmptyHint": "The list may stay empty â€” useful for preparing profiles only. Add at least one device to drive a strip.",
+  "devicesAddDevice": "Add device",
+  "devicesNewDeviceName": "New device",
+  "devicesUnnamedDevice": "Device {index}",
+  "devicesRemoveTooltip": "Remove device",
+  "fieldDisplayName": "Display name",
+  "fieldConnectionType": "Connection type",
+  "devicesTypeUsb": "USB (serial)",
+  "devicesTypeWifi": "Wiâ€‘Fi (UDP)",
+  "devicesControlViaHa": "Control via Home Assistant",
+  "devicesControlViaHaSubtitle": "PC will not send colors to this device.",
+  "devicesConnectionSection": "Connection and internal fields",
+  "devicesWifiIpMissing": "Enter controller IP address",
+  "devicesWifiSaved": "Network details saved (edit in expansion)",
+  "devicesSerialPortMissing": "Enter COM port or pick from detected",
+  "devicesPortSummary": "Port {port}",
+  "fieldComPort": "COM port",
+  "devicesComHintExample": "e.g. {example}",
+  "devicesComDetectedHelper": "Detected: {ports} â€” tap chips below to fill quickly",
+  "fieldControllerIp": "Controller IP address",
+  "fieldInternalId": "Internal ID (links in config)",
+  "helperInternalId": "Change only if JSON segments reference it.",
+  "scanOverlayTitle": "Scan overlay (detail)",
+  "scanOverlayIntro": "Highlighted bands show the actual capture region (center stays clear). Ratio matches the selected monitor; the app window does not go fullscreen. After releasing a slider the preview hides in {seconds} s. The button below shows a brief preview without moving sliders. The chip top-right or Escape closes it.",
+  "scanPreviewMonitorTitle": "Monitor preview while tuning",
+  "scanPreviewOff": "Off",
+  "scanPreviewVisible": "Preview visible; hides {seconds} s after release",
+  "scanPreviewOnDragging": "On â€” preview while dragging sliders (capture region)",
+  "fieldMonitorMssSameAsCapture": "Monitor (MSS index, same as capture)",
+  "scanMonitorNoEnum": "Monitor {index} (OS enumeration unavailable)",
+  "scanPreviewNowButton": "Show zone preview now (~1 s)",
+  "scanDepthPerEdge": "Scan depth % (per-edge)",
+  "scanPaddingPerEdge": "Padding % (per-edge)",
+  "scanEdgeTop": "Top",
+  "scanEdgeBottom": "Bottom",
+  "scanEdgeLeft": "Left",
+  "scanEdgeRight": "Right",
+  "scanPadLeft": "Left (padding)",
+  "scanPadRight": "Right (padding)",
+  "scanPctLabel": "{label}: {pct} %",
+  "scanSimpleModeHint": "Set uniform depth and padding above under Capture region. Enable advanced screen mode for independent edges.",
+  "scanDiagramTitle": "Region diagram (selected monitor aspect)",
+  "scanThumbNeedScreenMode": "Turn on screen mode for a live preview.",
+  "scanThumbWaiting": "Waiting for frameâ€¦",
+  "removeDeviceDialogTitle": "Remove device?",
+  "removeDeviceDialogLastBody": "The device list may stay empty â€” that is fine. Without a device you cannot send colors to strips; you can still configure modes and presets. When hardware is connected, add it again here or via Discovery.",
+  "removeDeviceDialogNamedBody": "Device \"{name}\" will be removed from configuration.",
+  "deviceDetailsTitle": "Technical details",
+  "detailLineInternalId": "Internal ID: {id}",
+  "detailLineType": "Type: {type}",
+  "detailLineLedCount": "LED count: {count}",
+  "detailLineIp": "IP: {ip}",
+  "detailLineUdpPort": "UDP port: {port}",
+  "detailLineSerialPort": "Port: {port}",
+  "detailLineFirmware": "Firmware: {version}",
+  "deviceConnectionOkLabel": "Connected",
+  "deviceConnectionOfflineLabel": "Disconnected",
+  "deviceHaControlledNote": "Controlled via Home Assistant â€” PC colors are not sent to this device.",
+  "menuMoreActions": "More actions",
+  "menuEditLedMapping": "Edit LED mapping",
+  "menuTechnicalDetailsEllipsis": "Technical detailsâ€¦",
+  "menuIdentifyBlink": "Brief identify (blink)",
+  "menuRefreshFirmwareInfo": "Refresh firmware info",
+  "menuResetSavedWifi": "Reset saved Wi‑Fi on controller",
+  "menuRemoveDeviceEllipsis": "Remove deviceâ€¦",
+  "deviceSubtitleUsbLed": "USB · {count} LED",
+  "deviceSubtitleWifiLed": "Wiâ€‘Fi Â· {count} LED",
+  "@screenScanDepthUniformPct": {
+    "placeholders": {
+      "pct": {}
+    }
+  },
+  "@screenPaddingUniformPct": {
+    "placeholders": {
+      "pct": {}
+    }
+  },
+  "@screenBrightnessValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@screenInterpolationMs": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@screenGammaValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@screenSaturationBoostValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@screenUltraAmountValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@screenMinBrightnessLed": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@segmentsZoneEditorSubtitle": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "@lightPrimaryColorRgbHint": {
+    "placeholders": {
+      "rgb": {}
+    }
+  },
+  "@lightSpeedValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@lightExtraValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@lightBrightnessValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@lightZoneDefaultName": {
+    "placeholders": {
+      "n": {}
+    }
+  },
+  "@lightZoneSpeedValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@musicDeviceError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "@musicBrightnessValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@musicBeatThreshold": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@musicOverallSensitivity": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@musicBassValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@musicMidValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@musicHighValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@musicGlobalValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@musicSmoothingMs": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@musicMinBrightnessValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@musicRotationSpeedValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@musicRgbTriple": {
+    "placeholders": {
+      "r": {},
+      "g": {},
+      "b": {}
+    }
+  },
+  "@devicesUnnamedDevice": {
+    "placeholders": {
+      "index": {}
+    }
+  },
+  "@devicesPortSummary": {
+    "placeholders": {
+      "port": {}
+    }
+  },
+  "@devicesComHintExample": {
+    "placeholders": {
+      "example": {}
+    }
+  },
+  "@devicesComDetectedHelper": {
+    "placeholders": {
+      "ports": {}
+    }
+  },
+  "@scanOverlayIntro": {
+    "placeholders": {
+      "seconds": {}
+    }
+  },
+  "@scanPreviewVisible": {
+    "placeholders": {
+      "seconds": {}
+    }
+  },
+  "@scanMonitorNoEnum": {
+    "placeholders": {
+      "index": {}
+    }
+  },
+  "@scanPctLabel": {
+    "placeholders": {
+      "label": {},
+      "pct": {}
+    }
+  },
+  "@removeDeviceDialogNamedBody": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "@detailLineInternalId": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "@detailLineType": {
+    "placeholders": {
+      "type": {}
+    }
+  },
+  "@detailLineLedCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "@detailLineIp": {
+    "placeholders": {
+      "ip": {}
+    }
+  },
+  "@detailLineUdpPort": {
+    "placeholders": {
+      "port": {}
+    }
+  },
+  "@detailLineSerialPort": {
+    "placeholders": {
+      "port": {}
+    }
+  },
+  "@detailLineFirmware": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "@deviceSubtitleUsbLed": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "@deviceSubtitleWifiLed": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "onboardingUsbSerialLabel": "USB / serial",
+  "onboardingUdpWifiLabel": "UDP / Wi‑Fi",
+  "colorPickerHue": "Hue",
+  "colorPickerSaturationValue": "Saturation & brightness",
+  "colorPickerPresets": "Presets",
+  "colorPickerDefaultTitle": "Color",
+  "guideMusicColorsTitle": "Music & artwork colors",
+  "guideCloseTooltip": "Close",
+  "guideBrowserOpenFailed": "Could not open the browser.",
+  "guideNeedSpotifyClientId": "Enter Spotify Client ID in Settings → Spotify first (see button above).",
+  "guideOpenSpotifyDeveloper": "Open Spotify Developer",
+  "guideSignInSpotifyBrowser": "Sign in to Spotify in browser",
+  "guideIntroBlurb": "Briefly: in Music mode you get PC audio (effects) and optionally one color from track artwork.",
+  "guideCard1Title": "1 · Mode and audio",
+  "guideCard1Body": "On the overview enable the Music tile. In Settings → Music pick an input (Stereo Mix, microphone, …) and allow audio capture for AmbiLight in the OS.",
+  "guideCard2Title": "2 · Artwork color",
+  "guideCard2Body": "Either Spotify (below) or on Windows the “OS media” section in Settings → Spotify (Apple Music etc. via the OS). When artwork is enabled it takes priority over FFT effects.",
+  "guideCard3Title": "3 · Spotify",
+  "guideCard3Body": "You need a Client ID from the developer console and redirect http://127.0.0.1:8767/callback in the console. The button below opens the web — signing in then launches the browser like “Sign in” on the overview.",
+  "guideCard4Title": "4 · Apple Music",
+  "guideCard4Body": "There is no “sign in to Apple Music on the web” button here: Apple does not offer the same open OAuth as Spotify for this desktop app. On Windows enable OS media, play Apple Music (app) — color comes from the thumbnail the system shares when available.",
+  "guideCard5Title": "When something fails",
+  "guideCard5Body": "Spotify error after login → try Sign in again. No sound in effects → wrong input or permissions. Still only FFT → artwork integration off or nothing playing / no thumbnail.",
+  "spotifySectionTitle": "Spotify",
+  "spotifyOAuthNote": "OAuth tokens are stored on disk via ConfigRepository (sanitized); full token flow and Sign-in buttons are wired separately.",
+  "spotifyIntegrationEnabledTile": "Spotify integration enabled",
+  "spotifyAlbumColorsApi": "Album colors (Spotify API)",
+  "spotifyClientSecretHintStored": "Leave empty to keep current; clear in settings or enter a new secret",
+  "spotifyClientSecretHintOptional": "Optional",
+  "spotifyClearSecretButton": "Clear client secret from draft",
+  "spotifyAccessTokenTile": "Access token",
+  "spotifyRefreshTokenTile": "Refresh token",
+  "spotifyTokenSet": "Set (hidden)",
+  "spotifyOsMediaSection": "Apple Music / YouTube Music (OS)",
+  "spotifyOsMediaBodyWin": "On Windows we read artwork from the current system player (GSMTC). It usually works for Apple Music and often YouTube Music in Edge or Chrome — depends on whether the player publishes a thumbnail. Official YouTube Music API is not used here.",
+  "spotifyOsMediaBodyOther": "On this OS only Spotify (OAuth) for now. GSMTC / system thumbnail is implemented for Windows.",
+  "spotifyOsAlbumColorGsmtc": "Album color via OS media (GSMTC)",
+  "spotifyOsAlbumColorUnavailable": "Album color via OS media (unavailable)",
+  "spotifyOsAlbumColorSubtitle": "Used in Music mode when Spotify does not provide a color or it is disabled.",
+  "spotifyOsDominantThumbnail": "Use dominant color from OS thumbnail",
+  "discWizardTitle": "Discovery (Wi‑Fi)",
+  "discDone": "Done",
+  "discScanning": "Scanning…",
+  "discScanAgain": "Scan again",
+  "discIntro": "Broadcast DISCOVER_ESP32 on port 4210. Identify sends a short highlight on the strip.",
+  "discNoDevicesSnack": "No devices replied (UDP 4210).",
+  "discEmptyAfterScan": "No devices. Check network and firmware.",
+  "discAddedSnack": "Added: {name}",
+  "discResetWifiTitle": "Reset Wi‑Fi?",
+  "discResetWifiBody": "Device „{name}“ ({ip}) clears saved Wi‑Fi credentials and restarts. You must configure it again.",
+  "discSendResetWifi": "Send RESET_WIFI",
+  "discResetWifiSnackOk": "RESET_WIFI sent.",
+  "discResetWifiSnackFail": "Send failed.",
+  "discAddButton": "Add",
+  "discResetWifiTooltip": "Reset Wi‑Fi (clears saved credentials)",
+  "discIdentifyTooltip": "Identify",
+  "zoneEditorSavedSegments": "Saved {count} segments.",
+  "zoneEditorEmpty": "No segments — use the LED wizard or “Add segment”.",
+  "zoneEditorSegmentLine": "Segment {index} · {edge} · LED {start}–{end} · mon {mon}",
+  "zoneEditorDeleteTooltip": "Delete",
+  "zoneDeviceAllDefault": "— All / default —",
+  "zoneRefFromCapture": "Reference size from last frame",
+  "calibWizardTitle": "Screen calibration",
+  "calibWizardIntro": "Profiles live in `screen_mode.calibration_profiles` (JSON). Full curve wizard — future detail.",
+  "calibNoProfiles": "No profiles in config.",
+  "calibActiveProfileLabel": "Active calibration profile",
+  "calibSaveChoice": "Save selection",
+  "calibActiveProfileSnack": "Active profile: {name}",
+  "configProfileIntro": "Config file is handled by ConfigRepository; this stores the current screen mode snapshot into user_screen_presets.",
+  "configProfileNameLabel": "Preset name",
+  "configProfileExistingTitle": "Existing presets:",
+  "configProfileSavedSnack": "Preset „{name}“ saved to user_screen_presets.",
+  "defaultPresetNameDraft": "My preset",
+  "ledWizTitle": "LED wizard",
+  "ledWizTitleWithDevice": "LED wizard — {name}",
+  "ledWizMonitorLocked": "Monitor: {idx} (locked)",
+  "ledWizAppendBadge": "Mode: append segments",
+  "ledWizStepProgress": "Step {current} / {total}",
+  "ledWizAddDeviceFirst": "Add a device first (Discovery or manually).",
+  "ledWizDeviceLabel": "Device",
+  "ledWizStripSides": "Strip sides",
+  "ledWizRefMonitorLabel": "Reference monitor (native list)",
+  "ledWizMonitorLine": "Monitor {idx} — {w}×{h}{suffix}",
+  "ledWizPrimarySuffix": " · primary",
+  "ledWizMonitorManualLabel": "Monitor index (MSS, manual — list unavailable)",
+  "ledWizAppendSegmentsTitle": "Append to existing segments (multi-monitor)",
+  "ledWizAppendSegmentsSubtitle": "Otherwise only this device’s segments are cleared.",
+  "ledWizLedIndexSlider": "LED index {n}",
+  "ledWizLedIndexRow": "LED index: {n}",
+  "ledWizFinishBody": "Segments are computed from stored indices.",
+  "ledWizStartCalibration": "Start calibration",
+  "ledWizPickOneSideSnack": "Select at least one side.",
+  "ledWizSummary": "Summary",
+  "ledWizNext": "Next",
+  "ledWizSaveClose": "Save and close",
+  "ledWizSavedSnack": "Saved {segments} segments, LED {led}, monitor {mon}.",
+  "ledWizConfigTitle": "Configuration",
+  "ledWizConfigBody": "In Settings → Devices set LED count to at least an upper estimate (max 2000). Before calibration the app sends this count on USB. Then pick sides and monitor — move the green LED to each physical corner.",
+  "ledWizFinishTitle": "Done",
+  "ledWizLeftStartTitle": "Left side — start",
+  "ledWizLeftStartBody": "Move the slider so the green LED is at the start of the left side (usually bottom).",
+  "ledWizLeftEndTitle": "Left side — end",
+  "ledWizLeftEndBody": "Move the slider so the green LED is at the end of the left side (usually top).",
+  "ledWizTopStartTitle": "Top side — start",
+  "ledWizTopStartBody": "Move the slider so the green LED is at the start of the top edge (left).",
+  "ledWizTopEndTitle": "Top side — end",
+  "ledWizTopEndBody": "Move the slider so the green LED is at the end of the top edge (right).",
+  "ledWizRightStartTitle": "Right side — start",
+  "ledWizRightStartBody": "Move the slider so the green LED is at the start of the right side (usually top).",
+  "ledWizRightEndTitle": "Right side — end",
+  "ledWizRightEndBody": "Move the slider so the green LED is at the end of the right side (usually bottom).",
+  "ledWizBottomStartTitle": "Bottom side — start",
+  "ledWizBottomStartBody": "Move the slider so the green LED is at the start of the bottom edge (right).",
+  "ledWizBottomEndTitle": "Bottom side — end",
+  "ledWizBottomEndBody": "Move the slider so the green LED is at the end of the bottom edge (left).",
+  "fwTitle": "ESP firmware",
+  "fwIntro": "CI can publish a manifest on GitHub Pages. Load the manifest, download .bin files and flash via USB (esptool in PATH) or run OTA over Wi‑Fi (UDP command). Switching to dual OTA layout needs one full USB flash first.",
+  "fwManifestUrlLabel": "Manifest URL (GitHub Pages)",
+  "fwManifestUrlHint": "https://example.github.io/ambilight/firmware/latest/",
+  "fwManifestHelper": "Default from global settings; /manifest.json is appended if missing.",
+  "fwLoadManifest": "Load manifest",
+  "fwDownloadBins": "Download binaries",
+  "fwVersionChipLine": "Version: {version} · chip: {chip}",
+  "fwPartBullet": "• {file} @ {offset}",
+  "fwOtaUrlLine": "OTA URL: {url}",
+  "fwFlashUsbTitle": "Flash via USB (COM)",
+  "fwRefreshPortsTooltip": "Refresh port list",
+  "fwSerialPortsError": "Cannot load serial ports: {error}",
+  "fwSerialPortLabel": "Serial port",
+  "fwNoComHintDriver": "Try Refresh or check permissions / driver.",
+  "fwNoComEmpty": "No COM — connect ESP USB",
+  "fwFlashEsptool": "Flash with esptool",
+  "fwOtaUdpTitle": "OTA over Wi‑Fi (UDP)",
+  "fwDeviceIpLabel": "Device IP",
+  "fwOtaHintNeedManifest": "Load the manifest first — OTA HTTPS URL is unknown without it.",
+  "fwOtaHintMissingUrl": "Manifest has no OTA URL — add root ota_http_url or parts with app .bin URLs.",
+  "fwOtaHintWillUse": "OTA will use: {url}",
+  "fwVerifyUdpPong": "Verify reachability (UDP PONG)",
+  "fwSendOtaHttp": "Send OTA_HTTP",
+  "fwStatusCacheFail": "Cannot create cache (path_provider).",
+  "fwStatusEnterManifestUrl": "Enter manifest URL (e.g. …/firmware/latest/).",
+  "fwStatusLoadingManifest": "Loading manifest…",
+  "fwStatusManifestOk": "Manifest OK — version {version}, chip {chip}, {count} files.",
+  "fwStatusManifestError": "Manifest error: {error}",
+  "fwStatusDownloading": "Downloading…",
+  "fwStatusDownloadedTo": "Downloaded to: {path}",
+  "fwStatusDownloadFailed": "Download failed: {error}",
+  "fwStatusPickCom": "Pick a COM / serial port.",
+  "fwStatusDownloadBinsFirst": "Download binaries first (button above).",
+  "fwStatusFlashing": "Flashing via esptool… (stop app stream on the same COM)",
+  "fwStatusFlashOk": "Flash OK.\\n{log}",
+  "fwStatusFlashFail": "Flash failed.\\n{log}",
+  "fwStatusException": "Exception: {error}",
+  "fwStatusEnterIpProbe": "Enter device IP for probe (UDP PONG).",
+  "fwStatusProbing": "Probing device (UDP, max 2 s)…",
+  "fwStatusProbeTimeout": "No reply in time — offline, wrong IP/port/firewall, or firmware without DISCOVER reply.",
+  "fwStatusProbeOnline": "Online: {name} · LED {led} · version {version} (ESP32_PONG).",
+  "fwStatusNoOtaUrl": "Manifest has no usable OTA URL (ota_http_url or derived parts[].url).",
+  "fwStatusEnterIpEsp": "Enter ESP IP (Wi‑Fi).",
+  "fwStatusSendingOta": "Sending OTA_HTTP to {ip}:{port}…",
+  "fwStatusOtaSent": "Command sent. ESP downloads firmware and reboots (check log / LEDs).",
+  "fwStatusUdpFailed": "UDP send failed.",
+  "fwStatusOtaInvalidTarget": "Invalid device IP address.",
+  "fwStatusOtaUrlTooShort": "OTA URL is too short (firmware requires at least 12 characters).",
+  "fwStatusOtaUrlTooLong": "OTA URL is too long for the device (max 1300 characters).",
+  "fwStatusOtaInvalidChars": "OTA URL contains characters the device rejects (control codes, etc.).",
+  "fwStatusOtaBadScheme": "OTA URL must start with https:// or http:// (same rule as the device).",
+  "fwStatusOtaPayloadInvalid": "OTA command does not pass device-side checks.",
+  "fwFillFromDevices": "Fill from Devices",
+  "fwFillFromDevicesTooltip": "Copy IP and UDP port from the first Wi-Fi device in your list (Devices tab).",
+  "fwStatusNoWifiDevice": "No Wi-Fi device with an IP in your list — add one under Devices.",
+  "fwStatusFilledFromDevice": "Filled from “{name}”: {ip}:{port}.",
+  "pcHealthHeaderTitle": "PC Health",
+  "pcHealthHeaderSubtitle": "Strip edge colors from system metrics. Pick PC Health on the overview to drive outputs.",
+  "pcHealthHintWeb": "System metrics are not read on the web.",
+  "pcHealthHintMac": "macOS: CPU usage is estimated from load average / cores; disk from df; network from netstat byte totals. CPU temperature without tools like powermetrics may stay 0. NVIDIA GPU only if nvidia-smi is in PATH.",
+  "pcHealthHintLinux": "Linux: disk_usage metric is not filled yet in the collector (0). Other values from /proc and thermal zones.",
+  "pcHealthHintWindows": "Windows: disk uses first fixed disk; CPU temperature from ACPI WMI when available.",
+  "pcHealthEnabledTile": "PC Health enabled",
+  "pcHealthUpdateInterval": "Update interval: {ms} ms",
+  "pcHealthGlobalBrightness": "Global brightness: {v}",
+  "pcHealthLivePreviewTitle": "Live value preview",
+  "pcHealthNotTrackingHint": "Active mode is not PC Health — showing last sample or manual measurement.",
+  "pcHealthMeasuring": "Measuring…",
+  "pcHealthMetricsTitle": "Metrics ({count})",
+  "pcHealthRestoreDefaults": "Restore defaults",
+  "pcHealthStagingDebug": "[staging] PC Health preview + metric editor",
+  "pcHealthDialogNew": "New metric",
+  "pcHealthDialogEdit": "Edit metric",
+  "pcHealthTileEnabled": "Enabled",
+  "pcHealthFieldName": "Name",
+  "pcHealthFieldMetric": "Metric",
+  "pcHealthFieldMin": "Min",
+  "pcHealthFieldMax": "Max",
+  "pcHealthFieldColorScale": "Color scale",
+  "pcHealthFieldBrightness": "Brightness",
+  "pcHealthBrightnessValue": "Brightness: {v}",
+  "pcHealthBrightnessMin": "Brightness min: {v}",
+  "pcHealthBrightnessMax": "Brightness max: {v}",
+  "pcHealthMetricFallbackName": "Metric",
+  "pcHealthEditTooltip": "Edit",
+  "pcHealthDeleteTooltip": "Delete",
+  "pcMetricCpuUsage": "CPU usage",
+  "pcMetricRamUsage": "RAM",
+  "pcMetricNetUsage": "Network (estimate)",
+  "pcMetricCpuTemp": "CPU temperature",
+  "pcMetricGpuUsage": "GPU usage",
+  "pcMetricGpuTemp": "GPU temperature",
+  "pcMetricDiskUsage": "Disk",
+  "smartHomeTitle": "Smart home",
+  "smartHomeIntro": "Home Assistant: direct light.* control via REST. Apple Home (HomeKit): native on macOS. Google Home: no local public API — link via Home Assistant (below).",
+  "smartPushColorsTile": "Push colors to smart lights",
+  "smartPushColorsSubtitle": "Enable after configuring HA / HomeKit fixtures below.",
+  "smartHaSection": "Home Assistant",
+  "smartHaTokenHelper": "Stored outside default.json (application support / ha_long_lived_token.txt).",
+  "smartHaTrustCertTile": "Trust custom HTTPS certificate",
+  "smartHaTrustCertSubtitle": "Only for local HA with self-signed certs.",
+  "smartTestConnection": "Test connection",
+  "smartAddHaLight": "Add light from HA",
+  "smartHaFillUrlToken": "Fill URL and Home Assistant token first.",
+  "smartHaPickLightTitle": "Add light from Home Assistant",
+  "smartMaxHzLabel": "Max Hz per light",
+  "smartBrightnessCapLabel": "Brightness cap %",
+  "smartHomeKitSection": "Apple Home (HomeKit)",
+  "smartHomeKitNonMac": "Native HomeKit is macOS-only. On Windows/Linux add lights to Home Assistant (HomeKit Device / Matter bridge) and control via HA above.",
+  "smartHomeKitLoading": "Loading HomeKit…",
+  "smartHomeKitEmpty": "No HomeKit lights (or missing permission).",
+  "smartHomeKitCount": "{count} lights.",
+  "smartRefreshHomeKit": "Refresh HomeKit light list",
+  "smartGoogleSection": "Google Home",
+  "smartGoogleBody": "Google does not let desktop apps control Google Home lights directly. Reliable path: install Home Assistant, add Hue / Nest / … there and link HA with Google Assistant.",
+  "smartGoogleDocButton": "Docs: Google Assistant + HA",
+  "smartMyHaButton": "My Home Assistant",
+  "smartVirtualRoomSection": "Virtual room",
+  "smartVirtualRoomIntro": "Place the TV, yourself and lights on the plan. The cone shows viewing direction (relative to the TV axis). Wave modulates brightness by distance from TV and time; HA/HomeKit still receive mapped colors each frame.",
+  "smartFixturesTitle": "Configured lights ({count})",
+  "smartFixturesEmpty": "None yet — add from HA or HomeKit.",
+  "smartFixtureRemoveTooltip": "Remove",
+  "smartFixtureHaLine": "HA: {id}",
+  "smartFixtureHkLine": "HomeKit: {id}",
+  "smartBindingLabel": "Color mapping",
+  "smartBindingGlobalMean": "Average of all LEDs",
+  "smartBindingLedRange": "LED range on device",
+  "smartBindingScreenEdge": "Screen edge",
+  "smartDeviceIdOptional": "device_id (empty = first device)",
+  "smartEdgeLabel": "Edge",
+  "smartMonitorIndexBinding": "monitor_index (0=desktop, 1…)",
+  "smartHaStatusTesting": "Testing…",
+  "smartHaStatusOk": "OK: {msg}",
+  "smartHaStatusErr": "Error: {msg}",
+  "vrWaveTitle": "Room wave",
+  "vrWaveSubtitle": "Brightness modulation by distance from TV and frame time",
+  "vrWaveStrength": "Wave strength: {pct} %",
+  "vrWaveSpeed": "Wave speed",
+  "vrDistanceSensitivity": "Distance sensitivity",
+  "vrViewingAngle": "Viewing angle offset toward TV: {deg}°",
+  "vrTooltipTv": "TV (drag)",
+  "vrTooltipYou": "You (drag)",
+  "@discAddedSnack": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "@discResetWifiBody": {
+    "placeholders": {
+      "name": {},
+      "ip": {}
+    }
+  },
+  "@zoneEditorSavedSegments": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "@zoneEditorIntro": {
+    "placeholders": {
+      "max": {}
+    }
+  },
+  "@zoneEditorSegmentLine": {
+    "placeholders": {
+      "index": {},
+      "edge": {},
+      "start": {},
+      "end": {},
+      "mon": {}
+    }
+  },
+  "@calibActiveProfileSnack": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "@configProfileSavedSnack": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "@ledWizTitleWithDevice": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "@ledWizMonitorLocked": {
+    "placeholders": {
+      "idx": {}
+    }
+  },
+  "@ledWizStepProgress": {
+    "placeholders": {
+      "current": {},
+      "total": {}
+    }
+  },
+  "@ledWizMonitorLine": {
+    "placeholders": {
+      "idx": {},
+      "w": {},
+      "h": {},
+      "suffix": {}
+    }
+  },
+  "@ledWizLedIndexSlider": {
+    "placeholders": {
+      "n": {}
+    }
+  },
+  "@ledWizLedIndexRow": {
+    "placeholders": {
+      "n": {}
+    }
+  },
+  "@ledWizSavedSnack": {
+    "placeholders": {
+      "segments": {},
+      "led": {},
+      "mon": {}
+    }
+  },
+  "@fwVersionChipLine": {
+    "placeholders": {
+      "version": {},
+      "chip": {}
+    }
+  },
+  "@fwPartBullet": {
+    "placeholders": {
+      "file": {},
+      "offset": {}
+    }
+  },
+  "@fwOtaUrlLine": {
+    "placeholders": {
+      "url": {}
+    }
+  },
+  "@fwSerialPortsError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "@fwOtaHintWillUse": {
+    "placeholders": {
+      "url": {}
+    }
+  },
+  "@fwStatusManifestOk": {
+    "placeholders": {
+      "version": {},
+      "chip": {},
+      "count": {}
+    }
+  },
+  "@fwStatusManifestError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "@fwStatusDownloadedTo": {
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "@fwStatusDownloadFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "@fwStatusFlashOk": {
+    "placeholders": {
+      "log": {}
+    }
+  },
+  "@fwStatusFlashFail": {
+    "placeholders": {
+      "log": {}
+    }
+  },
+  "@fwStatusException": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "@fwStatusProbeOnline": {
+    "placeholders": {
+      "name": {},
+      "led": {},
+      "version": {}
+    }
+  },
+  "@fwStatusSendingOta": {
+    "placeholders": {
+      "ip": {},
+      "port": {}
+    }
+  },
+  "@fwStatusFilledFromDevice": {
+    "placeholders": {
+      "name": {},
+      "ip": {},
+      "port": {}
+    }
+  },
+  "@pcHealthUpdateInterval": {
+    "placeholders": {
+      "ms": {}
+    }
+  },
+  "@pcHealthGlobalBrightness": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@pcHealthMetricsTitle": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "@pcHealthBrightnessValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@pcHealthBrightnessMin": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@pcHealthBrightnessMax": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@smartHomeKitCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "@smartFixturesTitle": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "@smartFixtureHaLine": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "@smartFixtureHkLine": {
+    "placeholders": {
+      "id": {}
+    }
+  },
+  "@smartHaStatusOk": {
+    "placeholders": {
+      "msg": {}
+    }
+  },
+  "@smartHaStatusErr": {
+    "placeholders": {
+      "msg": {}
+    }
+  },
+  "@vrWaveStrength": {
+    "placeholders": {
+      "pct": {}
+    }
+  },
+  "@vrViewingAngle": {
+    "placeholders": {
+      "deg": {}
+    }
+  }
+}

@@ -1,0 +1,454 @@
+# key|||EN|||CS (tool/apply_l10n_merge.py)
+screenSettingsLayoutTitle|||Settings layout|||ReĹľim nastavenĂ­
+screenModeSimpleLabel|||Simple|||JednoduchĂ˝
+screenModeAdvancedLabel|||Advanced|||RozĹˇĂ­Ĺ™enĂ˝
+screenModeHintAdvanced|||Shows all fields including color curves, technical monitor index and per-edge controls in the preview section.|||ZobrazĂ­ se vĹˇechna pole vÄŤetnÄ› barevnĂ˝ch kĹ™ivek, technickĂ©ho indexu monitoru a perâ€‘hrana v sekci nĂˇhledu.
+screenModeHintSimple|||Monitor, brightness, smoothing and uniform scan depth / padding are enough. Detailed zones appear in the preview below.|||StaÄŤĂ­ monitor, jas, plynulost a jednotnĂˇ hloubka / odsazenĂ­ skenu. DetailnĂ­ zĂłny v nĂˇhledu dole.
+fieldMonitorIndexLabel|||Monitor (index)|||Monitor (index)
+fieldMonitorSameAsCaptureLabel|||Monitor (same as capture)|||Monitor (shodnÄ› se snĂ­mĂˇnĂ­m)
+screenScanDepthUniformPct|||Scan depth (uniform): {pct} %|||Hloubka snĂ­mĂˇnĂ­ (jednotnÄ›): {pct} %
+screenPaddingUniformPct|||Padding (uniform): {pct} %|||OdsazenĂ­ (jednotnÄ›): {pct} %
+screenSectionTitle|||Screen|||Obrazovka
+screenSectionSubtitle|||Screen mode: colors from monitor edges. Calibration and segments can also be adjusted in Devices. The zone preview while tuning is only an in-app overlay (highlighted scan bands; the window is not moved).|||ReĹľim screen: barvy z okrajĹŻ monitoru. Kalibraci a segmenty upravĂ­Ĺˇ i v ZaĹ™Ă­zenĂ­ch. NĂˇhled zĂłn pĹ™i ladÄ›nĂ­ je jen vrstva v oknÄ› aplikace (zvĂ˝raznÄ›nĂ© pruhy skenu, bez pĹ™esunu okna).
+screenCaptureCardTitle|||Screen capture|||SnĂ­mĂˇnĂ­ obrazovky
+refreshDiagnostics|||Refresh diagnostics|||Obnovit diagnostiku
+screenCapturePermissionOk|||Screen permission: OK â€” check Privacy settings if needed.|||OprĂˇvnÄ›nĂ­ obrazovky: OK / zkontroluj SoukromĂ­.
+screenCapturePermissionDenied|||Permission denied or unavailable.|||OprĂˇvnÄ›nĂ­ zamĂ­tnuto nebo nedostupnĂ©.
+macosRequestScreenCapture|||macOS: request screen capture|||macOS: ĹľĂˇdost o snĂ­mĂˇnĂ­ obrazovky
+screenImageOutputTitle|||Image and output|||Obraz a vĂ˝stup
+screenBrightnessValue|||Brightness (screen): {v}|||Jas (screen): {v}
+screenInterpolationMs|||Interpolation (ms): {v}|||Interpolace (ms): {v}
+screenUniformRegionTitle|||Uniform capture region|||Oblast snĂ­mĂˇnĂ­ (jednotnĂ©)
+screenTechMonitorTitle|||Technical monitor and uniform region|||TechnickĂ˝ monitor a jednotnĂˇ oblast
+fieldMonitorIndexMssLabel|||monitor_index (MSS, 0â€“32)|||monitor_index (MSS, 0â€“32)
+screenColorsDetailTitle|||Colors and scan (detail)|||Barvy a sken (podrobnÄ›)
+screenGammaValue|||Gamma: {v}|||Gamma: {v}
+screenSaturationBoostValue|||Saturation boost: {v}|||Saturation boost: {v}
+screenUltraSaturation|||Ultra saturation|||Ultra saturace
+screenUltraAmountValue|||Ultra amount: {v}|||Ultra amount: {v}
+screenMinBrightnessLed|||Min. brightness (LED): {v}|||Min. jas (LED): {v}
+fieldScreenColorPreset|||Screen color preset|||BarevnĂ˝ preset obrazovky
+helperScreenColorPreset|||Quick presets, built-in names and saved user_screen_presets|||RychlĂ© presety, vĂ˝chozĂ­ nĂˇzvy a uloĹľenĂ© user_screen_presets
+fieldActiveCalibrationProfile|||Active calibration profile|||AktivnĂ­ kalibraÄŤnĂ­ profil
+helperCalibrationProfileKeys|||Keys from calibration_profiles in config|||KlĂ­ÄŤe z calibration_profiles v konfiguraci
+stripMarkersTitle|||LED markers on strip|||ZnaÄŤky na pĂˇsku
+stripMarkersBody|||Green LEDs at corners (like PyQt calibration). When indicating, max strip length is used for transport (USB up to 2000 LEDs with wide 0xFC framing, Wiâ€‘Fi per UDP), not the LED count from device settings â€” so high indices can light up. Turn off before saving or switching tabs.|||ZelenĂ© LED v rozĂ­ch (jako PyQt kalibrace). PĹ™i indikaci se pouĹľije max. dĂ©lka pro transport (USB aĹľ 2000 LED s wide rĂˇmcem 0xFC, Wiâ€‘Fi dle UDP), ne zadanĂ˝ poÄŤet LED v zaĹ™Ă­zenĂ­ â€” aby Ĺˇly rozsvĂ­tit i vysokĂ© indexy. â€žVypnoutâ€ś pĹ™ed uloĹľenĂ­m nebo pĹ™i pĹ™epnutĂ­ zĂˇloĹľky.
+markerTopLeft|||Top left|||LevĂ˝ hornĂ­
+markerTopRight|||Top right|||PravĂ˝ hornĂ­
+markerBottomRight|||Bottom right|||PravĂ˝ spodnĂ­
+markerBottomLeft|||Bottom left|||LevĂ˝ spodnĂ­
+markerOff|||Turn off markers|||Vypnout znaÄŤky
+segmentsTileTitle|||Segments|||Segmenty
+segmentsZoneEditorSubtitle|||Count: {count} (zone editor A7)|||PoÄŤet: {count} (editor zĂłn A7)
+lightZoneColorTitle|||Zone color|||Barva zĂłny
+lightPrimaryColorTitle|||Primary color|||ZĂˇkladnĂ­ barva
+lightSettingsHeader|||Light|||SvÄ›tlo
+lightSettingsSubtitle|||Static colors and effects on the strip without screen capture. Picking a color may briefly preview on the strip.|||StatickĂ© barvy a efekty na pĂˇsku bez snĂ­mĂˇnĂ­ obrazovky. VĂ˝bÄ›r barvy mĹŻĹľe krĂˇtce rozsvĂ­tit nĂˇhled na pĂˇsku.
+lightPrimaryColorTile|||Primary color|||ZĂˇkladnĂ­ barva
+lightPrimaryColorRgbHint|||RGB({rgb}) · tap to pick like Home / Hue|||RGB({rgb}) Â· klepnutĂ­m vĂ˝bÄ›r jako Home / Hue
+fieldEffect|||Effect|||Efekt
+lightSpeedValue|||Speed: {v}|||Rychlost: {v}
+lightExtraValue|||Extra: {v}|||Extra: {v}
+lightBrightnessValue|||Brightness: {v}|||Jas: {v}
+lightHomekitTile|||HomeKit (FW / MQTT â€” do not send colors from PC)|||HomeKit (FW / MQTT â€” neposĂ­lat barvy z PC)
+lightHomekitSubtitle|||homekit_enabled|||homekit_enabled
+lightCustomZonesTitle|||Custom zones|||VlastnĂ­ zĂłny
+lightAddZone|||Add zone|||PĹ™idat zĂłnu
+lightZoneDefaultName|||Zone {n}|||ZĂłna {n}
+fieldZoneName|||Name|||NĂˇzev
+fieldStartPercent|||Start %|||Start %
+fieldEndPercent|||End %|||Konec %
+fieldZoneEffect|||Zone effect|||Efekt zĂłny
+lightZoneSpeedValue|||Zone speed: {v}|||Rychlost zĂłny: {v}
+lightRemoveZone|||Remove zone|||Odebrat zĂłnu
+lightEffectStatic|||Static|||StatickĂˇ
+lightEffectBreathing|||Breathing|||DĂ˝chĂˇnĂ­
+lightEffectRainbow|||Rainbow|||Duha
+lightEffectChase|||Chase|||HonÄ›nĂ­
+lightEffectCustomZones|||Custom zones|||VlastnĂ­ zĂłny
+musicDeviceError|||Device: {error}|||ZaĹ™Ă­zenĂ­: {error}
+musicInputDeviceLabel|||Audio input device|||VstupnĂ­ zvukovĂ© zaĹ™Ă­zenĂ­
+musicDefaultInputDevice|||Default (first suitable)|||VĂ˝chozĂ­ (prvnĂ­ vhodnĂ©)
+musicRefreshDeviceListTooltip|||Refresh device list|||Obnovit seznam
+musicSettingsHeader|||Music|||Hudba
+musicSettingsSubtitle|||Audio source, effects and color preview. Music mode must be active on the overview for output to reach strips.|||Zdroj zvuku, efekty a nĂˇhled barev. ReĹľim Hudba na pĹ™ehledu musĂ­ bĂ˝t aktivnĂ­, aby se vĂ˝stup promĂ­tl na pĂˇsky.
+musicGuideMusicArtwork|||Guide: music & artwork|||NĂˇpovÄ›da: hudba a obaly
+musicLockPaletteTitle|||Lock color output to strip (music)|||Zamknout vĂ˝stup barev na pĂˇsek (hudba)
+musicLockPaletteFrozen|||Sending frozen palette (same as tray item).|||PosĂ­lĂˇ se zmrazenĂˇ paleta (stejnĂ© jako poloĹľka v tray).
+musicLockPalettePending|||Waiting for next frame, then palette freezes.|||ÄŚekĂˇ na dalĹˇĂ­ snĂ­mek, pak se paleta zmrazĂ­.
+musicLockPaletteIdle|||Only meaningful in music mode; switching modes clears the lock.|||Jen v music mĂłdu mĂˇ smysl; pĹ™epnutĂ­m reĹľimu se zĂˇmek zruĹˇĂ­.
+musicPreferMicTitle|||Prefer microphone|||Preferovat mikrofon
+musicPreferMicSubtitle|||If no device is selected, a suitable input outside the speaker loop is preferred.|||Pokud nenĂ­ vybrĂˇno zaĹ™Ă­zenĂ­, hledĂˇ se vhodnĂ˝ vstup mimo smyÄŤku reproduktorĹŻ.
+musicColorSourceLabel|||Color source|||Zdroj barev
+musicColorSourceFixed|||Fixed color|||PevnĂˇ barva
+musicColorSourceSpectrum|||Spectrum from audio|||Spektrum zvuku
+musicColorSourceMonitor|||Colors from monitor (Ambilight)|||Barvy z monitoru (Ambilight)
+musicFixedColorHeader|||Fixed color|||Barva pĹ™i pevnĂ© barvÄ›
+musicFixedColorHint|||Pick color like Home / Hue â€” strip preview while adjusting.|||Barvu vybĂ­rej jako v Home / Hue â€” nĂˇhled na pĂˇsku pĹ™i ĂşpravÄ›.
+musicVisualEffectLabel|||Visual effect|||VizuĂˇlnĂ­ efekt
+musicSmartMusicHint|||Smart Music: spectrum, beat and melody map to the strip in real time (local, no cloud).|||Smart Music: spektrum, beat a melodie se mapujĂ­ na pĂˇsek v reĂˇlnĂ©m ÄŤase (lokĂˇlnÄ›, bez cloudu).
+musicBrightnessValue|||Brightness (music): {v}|||Jas (music): {v}
+musicBeatDetection|||Beat detection|||Detekce beatu
+musicBeatThreshold|||Beat threshold: {v}|||Prah detekce beatu: {v}
+musicOverallSensitivity|||Overall sensitivity: {v}|||CelkovĂˇ citlivost: {v}
+musicBandSensitivityCaption|||Band sensitivity (bass / mids / highs / overall)|||Citlivost pĂˇsem (bas / stĹ™edy / vĂ˝Ĺˇky / celkovÄ›)
+musicBassValue|||Bass: {v}|||Bass: {v}
+musicMidValue|||Mid: {v}|||Mid: {v}
+musicHighValue|||High: {v}|||High: {v}
+musicGlobalValue|||Global: {v}|||Global: {v}
+musicAutoGainTitle|||Automatic gain|||AutomatickĂ© zesĂ­lenĂ­
+musicAutoGainSubtitle|||Normalizes input volume to track dynamics.|||VyrovnĂˇ hlasitost vstupu podle dynamiky skladby.
+musicAutoMidTitle|||Auto mids|||Auto stĹ™edy
+musicAutoHighTitle|||Auto highs|||Auto vĂ˝Ĺˇky
+musicSmoothingMs|||Temporal smoothing: {v} ms|||VyhlazenĂ­ v ÄŤase: {v} ms
+musicMinBrightnessValue|||min_brightness (music): {v}|||min_brightness (music): {v}
+musicRotationSpeedValue|||rotation_speed: {v}|||rotation_speed: {v}
+musicActivePresetField|||active_preset|||active_preset
+musicFixedColorPickerTitle|||Fixed color (music)|||PevnĂˇ barva (hudba)
+musicEditColorButton|||Edit color|||Upravit barvu
+musicRgbTriple|||RGB {r} · {g} · {b}|||RGB {r} · {g} · {b}
+musicEffectSmartMusic|||Smart Music|||Smart Music
+musicEffectEnergy|||Energy|||Energie
+musicEffectSpectrum|||Spectrum|||Spektrum
+musicEffectSpectrumRotate|||Rotating spectrum|||RotujĂ­cĂ­ spektrum
+musicEffectSpectrumPunchy|||Spectrum (punchy)|||Spektrum (vĂ˝raznĂ©)
+musicEffectStrobe|||Strobe|||Stroboskop
+musicEffectVuMeter|||VU meter|||VU mÄ›Ĺ™iÄŤ
+musicEffectVuSpectrum|||VU + spectrum|||VU + spektrum
+musicEffectPulse|||Pulse|||Pulz
+musicEffectReactiveBass|||Reactive bass|||ReaktivnĂ­ basy
+devicesTabHeader|||Devices|||ZaĹ™Ă­zenĂ­
+devicesTabIntro|||Name and LED count matter for control. IP and port are under Connection.|||NĂˇzev a poÄŤet LED jsou dĹŻleĹľitĂ© pro ovlĂˇdĂˇnĂ­. IP a port jsou v sekci PĹ™ipojenĂ­.
+devicesTabEmptyHint|||The list may stay empty â€” useful for preparing profiles only. Add at least one device to drive a strip.|||Seznam mĹŻĹľe zĹŻstat prĂˇzdnĂ˝ â€” vhodnĂ© jen pro pĹ™Ă­pravu profilĹŻ. Pro vĂ˝stup na pĂˇsek pĹ™idej aspoĹ jedno zaĹ™Ă­zenĂ­.
+devicesAddDevice|||Add device|||PĹ™idat zaĹ™Ă­zenĂ­
+devicesNewDeviceName|||New device|||NovĂ© zaĹ™Ă­zenĂ­
+devicesUnnamedDevice|||Device {index}|||ZaĹ™Ă­zenĂ­ {index}
+devicesRemoveTooltip|||Remove device|||Odebrat zaĹ™Ă­zenĂ­
+fieldDisplayName|||Display name|||ZobrazovanĂ˝ nĂˇzev
+fieldConnectionType|||Connection type|||Typ pĹ™ipojenĂ­
+devicesTypeUsb|||USB (serial)|||USB (sĂ©riovĂ˝ port)
+devicesTypeWifi|||Wiâ€‘Fi (UDP)|||Wiâ€‘Fi (UDP)
+devicesControlViaHa|||Control via Home Assistant|||OvlĂˇdat pĹ™es Home Assistant
+devicesControlViaHaSubtitle|||PC will not send colors to this device.|||PC nebude na toto zaĹ™Ă­zenĂ­ posĂ­lat barvy.
+devicesConnectionSection|||Connection and internal fields|||PĹ™ipojenĂ­ a internĂ­ Ăşdaje
+devicesWifiIpMissing|||Enter controller IP address|||DoplĹ IP adresu kontrolĂ©ru
+devicesWifiSaved|||Network details saved (edit in expansion)|||SĂ­ĹĄovĂ© Ăşdaje uloĹľeny (uprav v rozbalenĂ­)
+devicesSerialPortMissing|||Enter COM port or pick from detected|||Zadej COM port nebo vyber z detekovanĂ˝ch
+devicesPortSummary|||Port {port}|||Port {port}
+fieldComPort|||COM port|||COM port
+devicesComHintExample|||e.g. {example}|||napĹ™. {example}
+devicesComDetectedHelper|||Detected: {ports} â€” tap chips below to fill quickly|||DetekovanĂ©: {ports} â€” klepnutĂ­m nĂ­Ĺľe rychle vyplnĂ­Ĺˇ
+fieldControllerIp|||Controller IP address|||IP adresa kontrolĂ©ru
+fieldInternalId|||Internal ID (links in config)|||InternĂ­ ID (odkazy v konfiguraci)
+helperInternalId|||Change only if JSON segments reference it.|||MÄ›Ĺ jen pokud vĂ­Ĺˇ, Ĺľe segmenty v JSON na to odkazujĂ­.
+scanOverlayTitle|||Scan overlay (detail)|||Scan overlay (D-detail)
+scanOverlayIntro|||Highlighted bands show the actual capture region (center stays clear). Ratio matches the selected monitor; the app window does not go fullscreen. After releasing a slider the preview hides in {seconds} s. The button below shows a brief preview without moving sliders. The chip top-right or Escape closes it.|||ZvĂ˝raznÄ›nĂ© jsou jen pruhy skuteÄŤnĂ© oblasti snĂ­mĂˇnĂ­ (stĹ™ed okna zĹŻstĂˇvĂˇ ÄŤistĂ˝). PomÄ›r odpovĂ­dĂˇ zvolenĂ©mu monitoru; okno aplikace se nemÄ›nĂ­ na fullscreen. Po puĹˇtÄ›nĂ­ slideru nĂˇhled zmizĂ­ za {seconds} s. TlaÄŤĂ­tkem nĂ­Ĺľe nĂˇhled na chvĂ­li zobrazĂ­Ĺˇ i bez posunu slideru. Chip vpravo nahoĹ™e nebo Escape zavĹ™e.
+scanPreviewMonitorTitle|||Monitor preview while tuning|||NĂˇhled zĂłn na monitor pĹ™i ladÄ›nĂ­
+scanPreviewOff|||Off|||Vypnuto
+scanPreviewVisible|||Preview visible; hides {seconds} s after release|||VidÄ›t nĂˇhled; po puĹˇtÄ›nĂ­ skrytĂ­ za {seconds} s
+scanPreviewOnDragging|||On â€” preview while dragging sliders (capture region)|||Zapnuto â€” nĂˇhled pĹ™i taĹľenĂ­ sliderĹŻ (oblast snĂ­mĂˇnĂ­)
+fieldMonitorMssSameAsCapture|||Monitor (MSS index, same as capture)|||Monitor (MSS index, shodnÄ› s capture)
+scanMonitorNoEnum|||Monitor {index} (OS enumeration unavailable)|||Monitor {index} (bez enumerace OS)
+scanPreviewNowButton|||Show zone preview now (~1 s)|||UkĂˇzat nĂˇhled zĂłn teÄŹ (~1 s)
+scanDepthPerEdge|||Scan depth % (per-edge)|||Hloubka snĂ­mĂˇnĂ­ % (per-edge)
+scanPaddingPerEdge|||Padding % (per-edge)|||OdsazenĂ­ % (per-edge)
+scanEdgeTop|||Top|||HornĂ­
+scanEdgeBottom|||Bottom|||SpodnĂ­
+scanEdgeLeft|||Left|||LevĂˇ
+scanEdgeRight|||Right|||PravĂˇ
+scanPadLeft|||Left (padding)|||LevĂ©
+scanPadRight|||Right (padding)|||PravĂ©
+scanPctLabel|||{label}: {pct} %|||{label}: {pct} %
+scanSimpleModeHint|||Set uniform depth and padding above under Capture region. Enable advanced screen mode for independent edges.|||JednotnĂˇ hloubka a odsazenĂ­ nastavĂ­Ĺˇ vĂ˝Ĺˇe v sekci â€žOblast snĂ­mĂˇnĂ­â€ś. Pro samostatnĂ© hrany zapni rozĹˇĂ­Ĺ™enĂ˝ reĹľim obrazovky.
+scanDiagramTitle|||Region diagram (selected monitor aspect)|||SchĂ©ma oblasti (pomÄ›r zvolenĂ©ho monitoru)
+scanLastFrameTitle|||Latest frame (screen mode)|||PoslednĂ­ snĂ­mek (screen reĹľim)
+scanThumbNeedScreenMode|||Turn on screen mode for a live preview.|||Zapni reĹľim screen pro ĹľivĂ˝ nĂˇhled.
+scanThumbWaiting|||Waiting for frameâ€¦|||ÄŚekĂˇm na snĂ­mekâ€¦
+removeDeviceDialogTitle|||Remove device?|||Odebrat zaĹ™Ă­zenĂ­?
+removeDeviceDialogLastBody|||The device list may stay empty â€” that is fine. Without a device you cannot send colors to strips; you can still configure modes and presets. When hardware is connected, add it again here or via Discovery.|||Seznam zaĹ™Ă­zenĂ­ mĹŻĹľe zĹŻstat prĂˇzdnĂ˝ â€” nenĂ­ to chyba. Bez zaĹ™Ă­zenĂ­ jen nejde posĂ­lat barvy na pĂˇsek; mĹŻĹľeĹˇ dĂˇl nastavovat reĹľimy a presety. AĹľ hardware pĹ™ipojĂ­Ĺˇ, pĹ™idej ho znovu tady nebo pĹ™es Discovery.
+removeDeviceDialogNamedBody|||Device "{name}" will be removed from configuration.|||ZaĹ™Ă­zenĂ­ â€ž{name}â€ś se odebere z konfiguraci.
+deviceDetailsTitle|||Technical details|||TechnickĂ© Ăşdaje
+detailLineInternalId|||Internal ID: {id}|||InternĂ­ ID: {id}
+detailLineType|||Type: {type}|||Typ: {type}
+detailLineLedCount|||LED count: {count}|||PoÄŤet LED: {count}
+detailLineIp|||IP: {ip}|||IP: {ip}
+detailLineUdpPort|||UDP port: {port}|||UDP port: {port}
+detailLineSerialPort|||Port: {port}|||Port: {port}
+detailLineFirmware|||Firmware: {version}|||Firmware: {version}
+deviceConnectionOkLabel|||Connected|||SpojenĂ­ OK
+deviceConnectionOfflineLabel|||Disconnected|||NepĹ™ipojeno
+deviceHaControlledNote|||Controlled via Home Assistant â€” PC colors are not sent to this device.|||OvlĂˇdĂˇnĂ­ pĹ™es Home Assistant â€” barvy z PC se na toto zaĹ™Ă­zenĂ­ neposĂ­lajĂ­.
+menuMoreActions|||More actions|||DalĹˇĂ­ akce
+menuEditLedMapping|||Edit LED mapping|||Upravit mapovĂˇnĂ­ LED
+menuTechnicalDetailsEllipsis|||Technical detailsâ€¦|||TechnickĂ© Ăşdajeâ€¦
+menuIdentifyBlink|||Brief identify (blink)|||KrĂˇtce identifikovat (bliknutĂ­)
+menuRefreshFirmwareInfo|||Refresh firmware info|||Obnovit Ăşdaj o firmwaru
+menuResetSavedWifi|||Reset saved Wiâ€‘Fi on controller|||Reset uloĹľenĂ© Wiâ€‘Fi na kontrolĂ©ru
+menuRemoveDeviceEllipsis|||Remove deviceâ€¦|||Odebrat zaĹ™Ă­zenĂ­â€¦
+deviceSubtitleUsbLed|||USB · {count} LED|||USB · {count} LED
+deviceSubtitleWifiLed|||Wiâ€‘Fi Â· {count} LED|||Wiâ€‘Fi Â· {count} LED
+# Append to l10n_merge_pairs.txt (key|||EN|||CS)
+onboardingUsbSerialLabel|||USB / serial|||USB / sĂ©riovĂ˝
+onboardingUdpWifiLabel|||UDP / Wiâ€‘Fi|||UDP / Wiâ€‘Fi
+colorPickerHue|||Hue|||OdstĂ­n
+colorPickerSaturationValue|||Saturation & brightness|||Sytost a jas
+colorPickerPresets|||Presets|||PĹ™edvolby
+colorPickerDefaultTitle|||Color|||Barva
+guideMusicColorsTitle|||Music & artwork colors|||Hudba a barvy z obalu
+guideCloseTooltip|||Close|||ZavĹ™Ă­t
+guideBrowserOpenFailed|||Could not open the browser.|||OtevĹ™enĂ­ prohlĂ­ĹľeÄŤe se nezdaĹ™ilo.
+guideNeedSpotifyClientId|||Enter Spotify Client ID in Settings â†’ Spotify first (see button above).|||NejdĹ™Ă­v v NastavenĂ­ â†’ Spotify zadej Client ID (viz tlaÄŤĂ­tko vĂ˝Ĺˇe).
+guideOpenSpotifyDeveloper|||Open Spotify Developer|||OtevĹ™Ă­t Spotify Developer
+guideSignInSpotifyBrowser|||Sign in to Spotify in browser|||PĹ™ihlĂˇsit Spotify v prohlĂ­ĹľeÄŤi
+guideIntroBlurb|||Briefly: in Music mode you get PC audio (effects) and optionally one color from track artwork.|||StruÄŤnÄ›: v reĹľimu Hudba jde o zvuk z PC (efekty) a volitelnÄ› jedna barva z obalu skladby.
+guideCard1Title|||1 · Mode and audio|||1 Â· ReĹľim a zvuk
+guideCard1Body|||On the overview enable the Music tile. In Settings â†’ Music pick an input (Stereo Mix, microphone, â€¦) and allow audio capture for AmbiLight in the OS.|||Na pĹ™ehledu zapni dlaĹľdici â€žHudbaâ€ś. V NastavenĂ­ â†’ Hudba vyber vstup (Stereo Mix, mikrofon, â€¦) a v systĂ©mu povol nahrĂˇvĂˇnĂ­ zvuku pro AmbiLight.
+guideCard2Title|||2 · Artwork color|||2 · Barva z obalu
+guideCard2Body|||Either Spotify (below) or on Windows the â€śOS mediaâ€ť section in Settings â†’ Spotify (Apple Music etc. via the OS). When artwork is enabled it takes priority over FFT effects.|||BuÄŹ Spotify (nĂ­Ĺľe), nebo na Windows sekce â€žOS mĂ©diumâ€ś v NastavenĂ­ â†’ Spotify (Apple Music apod. pĹ™es systĂ©m). KdyĹľ je obal zapnutĂ˝, mĂˇ pĹ™ednost pĹ™ed â€žtanÄŤĂ­cĂ­miâ€ś efekty z FFT.
+guideCard3Title|||3 · Spotify|||3 · Spotify
+guideCard3Body|||You need a Client ID from the developer console and redirect http://127.0.0.1:8767/callback in the console. The button below opens the web â€” signing in then launches the browser like â€śSign inâ€ť on the overview.|||PotĹ™ebujeĹˇ Client ID z vĂ˝vojĂˇĹ™skĂ© konzole a v konzoli redirect http://127.0.0.1:8767/callback. TlaÄŤĂ­tkem nĂ­Ĺľe otevĹ™eĹˇ web â€” pĹ™ihlĂˇĹˇenĂ­ k ĂşÄŤtu Spotify pak spustĂ­ prohlĂ­ĹľeÄŤ stejnÄ› jako â€žPĹ™ihlĂˇsitâ€ś na pĹ™ehledu.
+guideCard4Title|||4 · Apple Music|||4 · Apple Music
+guideCard4Body|||There is no â€śsign in to Apple Music on the webâ€ť button here: Apple does not offer the same open OAuth as Spotify for this desktop app. On Windows enable OS media, play Apple Music (app) â€” color comes from the thumbnail the system shares when available.|||Ĺ˝ĂˇdnĂ© tlaÄŤĂ­tko â€žpĹ™ihlĂˇsit Apple Music ve webuâ€ś zde nepĹ™idĂˇme: Apple nemĂˇ pro tuto desktopovou aplikaci stejnĂ© otevĹ™enĂ© OAuth jako Spotify. Na Windows zapni â€žOS mĂ©diumâ€ś, pusĹĄ Apple Music (aplikace) a hraj â€” barva se bere z miniatury, kterou systĂ©m sdĂ­lĂ­ (kdyĹľ ji hrĂˇÄŤ poĹˇle).
+guideCard5Title|||When something fails|||KdyĹľ nÄ›co nejde
+guideCard5Body|||Spotify error after login â†’ try Sign in again. No sound in effects â†’ wrong input or permissions. Still only FFT â†’ artwork integration off or nothing playing / no thumbnail.|||Spotify chyba po pĹ™ihlĂˇĹˇenĂ­ â†’ zkus znovu PĹ™ihlĂˇsit. Ĺ˝ĂˇdnĂ˝ zvuk v efektech â†’ ĹˇpatnĂ˝ vstup nebo oprĂˇvnÄ›nĂ­. PoĹ™Ăˇd jen FFT â†’ vypnutĂˇ integrace obalu nebo nic nehraje / chybĂ­ miniatura.
+spotifySectionTitle|||Spotify|||Spotify
+spotifyOAuthNote|||OAuth tokens are stored on disk via ConfigRepository (sanitized); full token flow and Sign-in buttons are wired separately.|||OAuth tokĂ©ny se do disku uklĂˇdajĂ­ pĹ™es ConfigRepository sanitizovanÄ›; plnĂ˝ tok a tlaÄŤĂ­tka â€žPĹ™ihlĂˇsitâ€ś pĹ™idĂˇ agent A5.
+spotifyIntegrationEnabledTile|||Spotify integration enabled|||Spotify integrace zapnutĂˇ
+spotifyAlbumColorsApi|||Album colors (Spotify API)|||Barvy z alba (Spotify API)
+spotifyClientSecretHintStored|||Leave empty to keep current; clear in settings or enter a new secret|||Ponechte prĂˇzdnĂ© = beze zmÄ›ny; smaĹľte v A5 nebo zadejte novĂ˝
+spotifyClientSecretHintOptional|||Optional|||VolitelnĂ©
+spotifyClearSecretButton|||Clear client secret from draft|||Smazat client secret z draftu
+spotifyAccessTokenTile|||Access token|||Access token
+spotifyRefreshTokenTile|||Refresh token|||Refresh token
+spotifyTokenSet|||Set (hidden)|||Nastaven (skryto)
+spotifyTokenMissing|||Missing|||ChybĂ­
+spotifyOsMediaSection|||Apple Music / YouTube Music (OS)|||Apple Music / YouTube Music (OS)
+spotifyOsMediaBodyWin|||On Windows we read artwork from the current system player (GSMTC). It usually works for Apple Music and often YouTube Music in Edge or Chrome â€” depends on whether the player publishes a thumbnail. Official YouTube Music API is not used here.|||Na Windows ÄŤteme nĂˇhled obalu z aktuĂˇlnĂ­ho systĂ©movĂ©ho pĹ™ehrĂˇvaÄŤe (GSMTC). Funguje typicky pro aplikaci Apple Music a ÄŤasto pro YouTube Music v Edge nebo Chrome â€” zĂˇleĹľĂ­, zda prohlĂ­ĹľeÄŤ nebo hrĂˇÄŤ miniaturu do systĂ©mu poĹˇle. OficiĂˇlnĂ­ API YouTube Music zde nenĂ­.
+spotifyOsMediaBodyOther|||On this OS only Spotify (OAuth) for now. GSMTC / system thumbnail is implemented for Windows.|||Na tomto OS zatĂ­m jen Spotify (OAuth). GSMTC / systĂ©movĂ˝ nĂˇhled je implementovanĂ˝ pro Windows.
+spotifyOsAlbumColorGsmtc|||Album color via OS media (GSMTC)|||Barva z obalu pĹ™es OS mĂ©dia (GSMTC)
+spotifyOsAlbumColorUnavailable|||Album color via OS media (unavailable)|||Barva z obalu pĹ™es OS mĂ©dia (nedostupnĂ©)
+spotifyOsAlbumColorSubtitle|||Used in Music mode when Spotify does not provide a color or it is disabled.|||PouĹľije se v music mĂłdu, pokud Spotify neposkytne barvu nebo je vypnutĂ©.
+spotifyOsDominantThumbnail|||Use dominant color from OS thumbnail|||PouĹľĂ­t dominantnĂ­ barvu z miniatury OS
+discWizardTitle|||Discovery (Wiâ€‘Fi)|||Discovery (D9)
+discDone|||Done|||Hotovo
+discScanning|||Scanningâ€¦|||Skenujiâ€¦
+discScanAgain|||Scan again|||Znovu skenovat
+discIntro|||Broadcast DISCOVER_ESP32 on port 4210. Identify sends a short highlight on the strip.|||Broadcast DISCOVER_ESP32 na port 4210. Identify poĹˇle krĂˇtkĂ© zvĂ˝raznÄ›nĂ­ na strip.
+discNoDevicesSnack|||No devices replied (UDP 4210).|||Ĺ˝ĂˇdnĂ© zaĹ™Ă­zenĂ­ neodpovÄ›dÄ›lo (UDP 4210).
+discEmptyAfterScan|||No devices. Check network and firmware.|||Ĺ˝ĂˇdnĂˇ zaĹ™Ă­zenĂ­. Zkontroluj sĂ­ĹĄ a FW.
+discAddedSnack|||Added: {name}|||PĹ™idĂˇno: {name}
+discResetWifiTitle|||Reset Wiâ€‘Fi?|||Reset Wiâ€‘Fi?
+discResetWifiBody|||Device â€ž{name}â€ś ({ip}) clears saved Wiâ€‘Fi credentials and restarts. You must configure it again.|||ZaĹ™Ă­zenĂ­ â€ž{name}â€ś ({ip}) smaĹľe uloĹľenĂ© Wiâ€‘Fi pĹ™ihlaĹˇovacĂ­ Ăşdaje a restartuje se. Budete ho muset znovu nakonfigurovat.
+discSendResetWifi|||Send RESET_WIFI|||Odeslat RESET_WIFI
+discResetWifiSnackOk|||RESET_WIFI sent.|||RESET_WIFI odeslĂˇn.
+discResetWifiSnackFail|||Send failed.|||OdeslĂˇnĂ­ se nezdaĹ™ilo.
+discAddButton|||Add|||PĹ™idat
+discResetWifiTooltip|||Reset Wiâ€‘Fi (clears saved credentials)|||Reset Wiâ€‘Fi (smaĹľe uloĹľenĂ© pĹ™ihlaĹˇovacĂ­ Ăşdaje)
+discIdentifyTooltip|||Identify|||Identify
+zoneEditorTitle|||Zone / segment editor|||Editor zĂłn / segmentĹŻ (D11)
+zoneEditorAddSegment|||Add segment|||PĹ™idat segment
+zoneEditorSavedSegments|||Saved {count} segments.|||UloĹľeno {count} segmentĹŻ.
+zoneEditorIntro|||Max LED index: {max}. Each segment: LED range, edge, monitor, scan depth, reverse, pixel mapping and music role.|||Max LED index: {max}. KaĹľdĂ˝ segment: LED rozsah, hrana, monitor, hloubka skenu, obrĂˇcenĂ˝ smÄ›r, mapovĂˇnĂ­ pixelĹŻ a role v hudbÄ›.
+zoneEditorEmpty|||No segments â€” use the LED wizard or â€śAdd segmentâ€ť.|||Ĺ˝ĂˇdnĂ© segmenty â€” pouĹľij prĹŻvodce LED nebo â€žPĹ™idat segmentâ€ś.
+zoneEditorSegmentLine|||Segment {index} Â· {edge} Â· LED {start}â€“{end} Â· mon {mon}|||Segment {index} Â· {edge} Â· LED {start}â€“{end} Â· mon {mon}
+zoneEditorDeleteTooltip|||Delete|||Smazat
+zoneDeviceAllDefault|||â€” All / default â€”|||â€” vĹˇechna / vĂ˝chozĂ­ â€”
+zoneRefFromCapture|||Reference size from last frame|||Ref. rozmÄ›ry z poslednĂ­ho snĂ­mku
+calibWizardTitle|||Screen calibration|||Kalibrace obrazovky (D12)
+calibWizardIntro|||Profiles live in `screen_mode.calibration_profiles` (JSON). Full curve wizard â€” future detail.|||Profily jsou v `screen_mode.calibration_profiles` (JSON). PlnĂ˝ wizard kĹ™ivek a nĂˇhled â€” D-detail / A3.
+calibNoProfiles|||No profiles in config.|||Ĺ˝ĂˇdnĂ© profily v configu.
+calibActiveProfileLabel|||Active calibration profile|||AktivnĂ­ kalibraÄŤnĂ­ profil
+calibSaveChoice|||Save selection|||UloĹľit vĂ˝bÄ›r
+calibActiveProfileSnack|||Active profile: {name}|||AktivnĂ­ profil: {name}
+configProfileWizardTitle|||Save screen preset|||UloĹľit screen preset (D14)
+configProfileIntro|||Config file is handled by ConfigRepository; this stores the current screen mode snapshot into user_screen_presets.|||Soubor profilu (`default.json` / jinĂ˝) Ĺ™eĹˇĂ­ ConfigRepository; zde jen snapshot aktuĂˇlnĂ­ho screen mĂłdu do JSON pole user_screen_presets.
+configProfileNameLabel|||Preset name|||NĂˇzev presetu
+configProfileExistingTitle|||Existing presets:|||ExistujĂ­cĂ­ presety:
+configProfileSavedSnack|||Preset â€ž{name}â€ś saved to user_screen_presets.|||Preset â€ž{name}â€ś uloĹľen do user_screen_presets.
+defaultPresetNameDraft|||My preset|||MĹŻj preset
+ledWizTitle|||LED wizard|||PrĹŻvodce LED
+ledWizTitleWithDevice|||LED wizard â€” {name}|||PrĹŻvodce LED â€” {name}
+ledWizMonitorLocked|||Monitor: {idx} (locked)|||Monitor: {idx} (zĂˇmek)
+ledWizAppendBadge|||Mode: append segments|||ReĹľim: pĹ™idat segmenty
+ledWizStepProgress|||Step {current} / {total}|||Krok {current} / {total}
+ledWizAddDeviceFirst|||Add a device first (Discovery or manually).|||NejdĹ™Ă­v pĹ™idejte zaĹ™Ă­zenĂ­ (Discovery nebo ruÄŤnÄ›).
+ledWizDeviceLabel|||Device|||ZaĹ™Ă­zenĂ­
+ledWizStripSides|||Strip sides|||Strany pĂˇsku
+ledWizRefMonitorLabel|||Reference monitor (native list)|||ReferenÄŤnĂ­ monitor (nativnĂ­ seznam)
+ledWizMonitorLine|||Monitor {idx} â€” {w}Ă—{h}{suffix}|||Monitor {idx} â€” {w}Ă—{h}{suffix}
+ledWizPrimarySuffix||| · primary||| Â· primĂˇrnĂ­
+ledWizMonitorManualLabel|||Monitor index (MSS, manual â€” list unavailable)|||Index monitoru (MSS, ruÄŤnÄ› â€” seznam nedostupnĂ˝)
+ledWizAppendSegmentsTitle|||Append to existing segments (multi-monitor)|||PĹ™idat k existujĂ­cĂ­m segmentĹŻm (multi-monitor)
+ledWizAppendSegmentsSubtitle|||Otherwise only this deviceâ€™s segments are cleared.|||Jinak se smaĹľou segmenty jen tohoto zaĹ™Ă­zenĂ­.
+ledWizLedIndexSlider|||LED index {n}|||LED index {n}
+ledWizLedIndexRow|||LED index: {n}|||Index LED: {n}
+ledWizFinishBody|||Configuration complete. Saving sets Screen mode, updates segments and may update device LED count.|||Konfigurace je hotovĂˇ. UloĹľenĂ­m se nastavĂ­ reĹľim Obrazovka, aktualizujĂ­ se segmenty a pĹ™Ă­padnÄ› poÄŤet LED u zaĹ™Ă­zenĂ­.
+ledWizStartCalibration|||Start calibration|||Spustit kalibraci
+ledWizPickOneSideSnack|||Select at least one side.|||Vyberte alespoĹ jednu stranu.
+ledWizSummary|||Summary|||ShrnutĂ­
+ledWizSaveClose|||Save and close|||UloĹľit a zavĹ™Ă­t
+ledWizSavedSnack|||Saved {segments} segments, LED {led}, monitor {mon}.|||UloĹľeno {segments} segmentĹŻ, LED {led}, monitor {mon}.
+ledWizConfigTitle|||Configuration|||Konfigurace
+ledWizConfigBody|||In Settings â†’ Devices set LED count to at least an upper estimate (max 2000). Before calibration the app sends this count on USB. Then pick sides and monitor â€” move the green LED to each physical corner.|||V NastavenĂ­ â†’ ZaĹ™Ă­zenĂ­ nastav â€žPoÄŤet LEDâ€ś alespoĹ na hornĂ­ odhad dĂ©lky pĂˇsku (max. 2000). PĹ™ed kalibracĂ­ aplikace poĹˇle na ESP USB pĹ™Ă­kaz s tĂ­mto poÄŤtem. Pak vyber strany a monitor â€” u kaĹľdĂ©ho bodu posuneĹˇ zelenou LED na fyzickĂ© mĂ­sto.
+ledWizFinishTitle|||Done|||Hotovo
+ledWizFinishBody|||Segments are computed from stored indices.|||Segmenty se dopoÄŤĂ­tajĂ­ z uloĹľenĂ˝ch indexĹŻ.
+ledWizLeftStartTitle|||Left side â€” start|||LevĂˇ strana â€” zaÄŤĂˇtek
+ledWizLeftStartBody|||Move the slider so the green LED is at the start of the left side (usually bottom).|||PosuĹte posuvnĂ­k tak, aby zelenĂˇ LED byla na zaÄŤĂˇtku levĂ© strany (obvykle dole).
+ledWizLeftEndTitle|||Left side â€” end|||LevĂˇ strana â€” konec
+ledWizLeftEndBody|||Move the slider so the green LED is at the end of the left side (usually top).|||PosuĹte posuvnĂ­k tak, aby zelenĂˇ LED byla na konci levĂ© strany (obvykle nahoĹ™e).
+ledWizTopStartTitle|||Top side â€” start|||HornĂ­ strana â€” zaÄŤĂˇtek
+ledWizTopStartBody|||Move the slider so the green LED is at the start of the top edge (left).|||PosuĹte posuvnĂ­k tak, aby zelenĂˇ LED byla na zaÄŤĂˇtku hornĂ­ hrany (vlevo).
+ledWizTopEndTitle|||Top side â€” end|||HornĂ­ strana â€” konec
+ledWizTopEndBody|||Move the slider so the green LED is at the end of the top edge (right).|||PosuĹte posuvnĂ­k tak, aby zelenĂˇ LED byla na konci hornĂ­ hrany (vpravo).
+ledWizRightStartTitle|||Right side â€” start|||PravĂˇ strana â€” zaÄŤĂˇtek
+ledWizRightStartBody|||Move the slider so the green LED is at the start of the right side (usually top).|||PosuĹte posuvnĂ­k tak, aby zelenĂˇ LED byla na zaÄŤĂˇtku pravĂ© strany (nahoĹ™e).
+ledWizRightEndTitle|||Right side â€” end|||PravĂˇ strana â€” konec
+ledWizRightEndBody|||Move the slider so the green LED is at the end of the right side (usually bottom).|||PosuĹte posuvnĂ­k tak, aby zelenĂˇ LED byla na konci pravĂ© strany (dole).
+ledWizBottomStartTitle|||Bottom side â€” start|||SpodnĂ­ strana â€” zaÄŤĂˇtek
+ledWizBottomStartBody|||Move the slider so the green LED is at the start of the bottom edge (right).|||PosuĹte posuvnĂ­k tak, aby zelenĂˇ LED byla na zaÄŤĂˇtku spodnĂ­ hrany (vpravo).
+ledWizBottomEndTitle|||Bottom side â€” end|||SpodnĂ­ strana â€” konec
+ledWizBottomEndBody|||Move the slider so the green LED is at the end of the bottom edge (left).|||PosuĹte posuvnĂ­k tak, aby zelenĂˇ LED byla na konci spodnĂ­ hrany (vlevo).
+fwTitle|||ESP firmware|||Firmware ESP
+fwIntro|||CI can publish a manifest on GitHub Pages. Load the manifest, download .bin files and flash via USB (esptool in PATH) or run OTA over Wiâ€‘Fi (UDP command). Switching to dual OTA layout needs one full USB flash first.|||CI build z repa mĹŻĹľe publikovat manifest na GitHub Pages. Zde naÄŤteĹˇ manifest, stĂˇhneĹˇ .bin a flashneĹˇ pĹ™es USB (vyĹľaduje esptool v PATH) nebo spustĂ­Ĺˇ OTA pĹ™es Wiâ€‘Fi (UDP pĹ™Ă­kaz z firmware). PĹ™echod na tabulku s dvÄ›ma OTA oddĂ­ly vyĹľaduje jednou ĂşplnĂ˝ flash pĹ™es USB.
+fwManifestUrlLabel|||Manifest URL (GitHub Pages)|||URL manifestu (GitHub Pages)
+fwManifestUrlHint|||https://example.github.io/ambilight/firmware/latest/|||https://alfredkrutina.github.io/ambilight/firmware/latest/
+fwManifestHelper|||Default from global settings; /manifest.json is appended if missing.|||VĂ˝chozĂ­ z globĂˇlnĂ­ho nastavenĂ­; bez souboru doplnĂ­me /manifest.json
+fwLoadManifest|||Load manifest|||NaÄŤĂ­st manifest
+fwDownloadBins|||Download binaries|||StĂˇhnout binĂˇrky
+fwVersionChipLine|||Version: {version} · chip: {chip}|||Verze: {version} Â· ÄŤip: {chip}
+fwPartBullet|||â€˘ {file} @ {offset}|||â€˘ {file} @ {offset}
+fwOtaUrlLine|||OTA URL: {url}|||OTA URL: {url}
+fwFlashUsbTitle|||Flash via USB (COM)|||Flash pĹ™es USB (COM)
+fwRefreshPortsTooltip|||Refresh port list|||Obnovit seznam portĹŻ
+fwSerialPortsError|||Cannot load serial ports: {error}|||SĂ©riovĂ© porty nelze naÄŤĂ­st: {error}
+fwSerialPortLabel|||Serial port|||SĂ©riovĂ˝ port
+fwNoComHintDriver|||Try Refresh or check permissions / driver.|||Zkuste â€žObnovitâ€ś nebo oprĂˇvnÄ›nĂ­ / ovladaÄŤ.
+fwNoComEmpty|||No COM â€” connect ESP USB|||Ĺ˝ĂˇdnĂ˝ COM â€” pĹ™ipoj ESP USB
+fwFlashEsptool|||Flash with esptool|||Flashovat pĹ™es esptool
+fwOtaUdpTitle|||OTA over Wiâ€‘Fi (UDP)|||OTA pĹ™es Wiâ€‘Fi (UDP)
+fwDeviceIpLabel|||Device IP|||IP zaĹ™Ă­zenĂ­
+fwOtaHintNeedManifest|||Load the manifest first â€” OTA HTTPS URL is unknown without it.|||NejdĹ™Ă­v vĂ˝Ĺˇe naÄŤti manifest â€” bez nÄ›j nenĂ­ znĂˇmĂˇ HTTPS URL pro OTA_HTTP.
+fwOtaHintMissingUrl|||Manifest has no OTA URL â€” add root ota_http_url or parts with app .bin URLs.|||V manifestu chybĂ­ OTA URL â€” dopiĹˇ root pole ota_http_url nebo parts s URL na aplikaÄŤnĂ­ .bin.
+fwOtaHintWillUse|||OTA will use: {url}|||Pro OTA se pouĹľije: {url}
+fwVerifyUdpPong|||Verify reachability (UDP PONG)|||OvÄ›Ĺ™it dosah (UDP PONG)
+fwSendOtaHttp|||Send OTA_HTTP|||Odeslat OTA_HTTP
+fwStatusCacheFail|||Cannot create cache (path_provider).|||Nelze zaloĹľit cache (path_provider).
+fwStatusEnterManifestUrl|||Enter manifest URL (e.g. â€¦/firmware/latest/).|||Zadej URL manifestu (napĹ™. â€¦/firmware/latest/).
+fwStatusLoadingManifest|||Loading manifestâ€¦|||NaÄŤĂ­tĂˇm manifestâ€¦
+fwStatusManifestOk|||Manifest OK â€” version {version}, chip {chip}, {count} files.|||Manifest OK â€” verze {version}, ÄŤip {chip}, {count} souborĹŻ.
+fwStatusManifestError|||Manifest error: {error}|||Chyba manifestu: {error}
+fwStatusDownloading|||Downloadingâ€¦|||Stahujiâ€¦
+fwStatusDownloadedTo|||Downloaded to: {path}|||StaĹľeno do: {path}
+fwStatusDownloadFailed|||Download failed: {error}|||StaĹľenĂ­ selhalo: {error}
+fwStatusPickCom|||Pick a COM / serial port.|||Vyber COM / sĂ©riovĂ˝ port.
+fwStatusDownloadBinsFirst|||Download binaries first (button above).|||NejdĹ™Ă­v stĂˇhni binĂˇrky (tlaÄŤĂ­tko vĂ˝Ĺˇe).
+fwStatusFlashing|||Flashing via esptoolâ€¦ (stop app stream on the same COM)|||Flashuji pĹ™es esptoolâ€¦ (vypni v aplikaci stream na stejnĂ˝ COM)
+fwStatusFlashOk|||Flash OK.\n{log}|||Flash OK.\n{log}
+fwStatusFlashFail|||Flash failed.\n{log}|||Flash selhal.\n{log}
+fwStatusException|||Exception: {error}|||VĂ˝jimka: {error}
+fwStatusEnterIpProbe|||Enter device IP for probe (UDP PONG).|||Zadej IP zaĹ™Ă­zenĂ­ pro ovÄ›Ĺ™enĂ­ (UDP PONG).
+fwStatusProbing|||Probing device (UDP, max 2 s)â€¦|||OvÄ›Ĺ™uji zaĹ™Ă­zenĂ­ (UDP, max 2 s)â€¦
+fwStatusProbeTimeout|||No reply in time â€” offline, wrong IP/port/firewall, or firmware without DISCOVER reply.|||ZaĹ™Ă­zenĂ­ neodpovÄ›dÄ›lo v ÄŤase â€” offline, ĹˇpatnĂˇ IP/port/firewall, nebo firmware bez DISCOVER odpovÄ›di.
+fwStatusProbeOnline|||Online: {name} · LED {led} · version {version} (ESP32_PONG).|||Online: {name} · LED {led} · verze {version} (ESP32_PONG).
+fwStatusNoOtaUrl|||Manifest has no usable OTA URL (ota_http_url or derived parts[].url).|||Manifest nemĂˇ pouĹľitelnou OTA URL (ota_http_url ani odvozenĂ˝ parts[].url).
+fwStatusEnterIpEsp|||Enter ESP IP (Wiâ€‘Fi).|||Zadej IP ESP (Wiâ€‘Fi).
+fwStatusSendingOta|||Sending OTA_HTTP to {ip}:{port}â€¦|||OdesĂ­lĂˇm OTA_HTTP na {ip}:{port}â€¦
+fwStatusOtaSent|||Command sent. ESP downloads firmware and reboots (check log / LEDs).|||PĹ™Ă­kaz odeslĂˇn. ESP stĂˇhne firmware a restartuje se (kontroluj log / LED).
+fwStatusUdpFailed|||UDP send failed.|||UDP se nepodaĹ™ilo odeslat.
+pcHealthHeaderTitle|||PC Health|||PC Health
+pcHealthHeaderSubtitle|||Strip edge colors from system metrics. Pick PC Health on the overview to drive outputs.|||Barvy okrajĹŻ pĂˇsku podle systĂ©movĂ˝ch metrik. Na pĹ™ehledu zvol reĹľim PC Health, aby se vĂ˝stup posĂ­lal na zaĹ™Ă­zenĂ­.
+pcHealthHintWeb|||System metrics are not read on the web.|||Na webu se systĂ©movĂ© metriky neÄŤtou.
+pcHealthHintMac|||macOS: CPU usage is estimated from load average / cores; disk from df; network from netstat byte totals. CPU temperature without tools like powermetrics may stay 0. NVIDIA GPU only if nvidia-smi is in PATH.|||macOS: CPU zĂˇtÄ›Ĺľ je odhad z load average / poÄŤet jader; disk z df; sĂ­ĹĄ ze souÄŤtu Ibytes v netstat. Teplotu CPU bez rozĹˇĂ­Ĺ™enĂ­ typu powermetrics nelze v bÄ›ĹľnĂ©m ĂşÄŤtu spolehlivÄ› ÄŤĂ­st â€” mĹŻĹľe zĹŻstat 0. NVIDIA GPU jen pokud je v PATH nĂˇstroj nvidia-smi.
+pcHealthHintLinux|||Linux: disk_usage metric is not filled yet in the collector (0). Other values from /proc and thermal zones.|||Linux: vyuĹľitĂ­ disku v metrice disk_usage zatĂ­m nenĂ­ v collectoru naplnÄ›nĂ© (0). OstatnĂ­ z /proc a tepelnĂ© zĂłny.
+pcHealthHintWindows|||Windows: disk uses first fixed disk; CPU temperature from ACPI WMI when available.|||Windows: disk prvnĂ­ pevnĂ˝ disk; teplota CPU z ACPI WMI, pokud systĂ©m poskytuje data.
+pcHealthEnabledTile|||PC Health enabled|||PC Health zapnuto
+pcHealthEnabledSubtitle|||Disabled = black output in this mode.|||Vypnuto = ÄŤernĂ˝ vĂ˝stup v tomto reĹľimu.
+pcHealthUpdateInterval|||Update interval: {ms} ms|||Interval aktualizace: {ms} ms
+pcHealthGlobalBrightness|||Global brightness: {v}|||GlobĂˇlnĂ­ jas: {v}
+pcHealthLivePreviewTitle|||Live value preview|||Ĺ˝ivĂ˝ nĂˇhled hodnot
+pcHealthNotTrackingHint|||Active mode is not PC Health â€” showing last sample or manual measurement.|||AktivnĂ­ reĹľim nenĂ­ PC Health â€” zobrazuje se poslednĂ­ snĂ­mek nebo ruÄŤnĂ­ mÄ›Ĺ™enĂ­.
+pcHealthMeasureNow|||Measure now|||ZmÄ›Ĺ™it teÄŹ
+pcHealthMeasuring|||Measuringâ€¦|||MÄ›Ĺ™Ă­mâ€¦
+pcHealthMetricsTitle|||Metrics ({count})|||Metriky ({count})
+pcHealthRestoreDefaults|||Restore defaults|||VĂ˝chozĂ­
+pcHealthNoMetrics|||No metrics.|||Ĺ˝ĂˇdnĂ© metriky.
+pcHealthStagingDebug|||[staging] PC Health preview + metric editor|||[staging] PC Health: nĂˇhled + editor metrik
+pcHealthColorStripPreview|||Color strip (preview)|||BarevnĂ˝ pruh (nĂˇhled)
+pcHealthDialogNew|||New metric|||NovĂˇ metrika
+pcHealthDialogEdit|||Edit metric|||Upravit metriku
+pcHealthTileEnabled|||Enabled|||Zapnuto
+pcHealthFieldName|||Name|||NĂˇzev
+pcHealthFieldMetric|||Metric|||Metrika
+pcHealthFieldMin|||Min|||Min
+pcHealthFieldMax|||Max|||Max
+pcHealthFieldColorScale|||Color scale|||BarevnĂˇ ĹˇkĂˇla
+pcHealthFieldBrightness|||Brightness|||Jas
+pcHealthBrightnessStatic|||Static|||StatickĂ˝
+pcHealthBrightnessDynamic|||Dynamic (by value)|||DynamickĂ˝ (podle hodnoty)
+pcHealthBrightnessValue|||Brightness: {v}|||Jas: {v}
+pcHealthBrightnessMin|||Brightness min: {v}|||Jas min: {v}
+pcHealthBrightnessMax|||Brightness max: {v}|||Jas max: {v}
+pcHealthZonesTitle|||Zones|||ZĂłny
+pcHealthMetricFallbackName|||Metric|||Metrika
+pcHealthEditTooltip|||Edit|||Upravit
+pcHealthDeleteTooltip|||Delete|||Smazat
+pcMetricCpuUsage|||CPU usage|||CPU zĂˇtÄ›Ĺľ
+pcMetricRamUsage|||RAM|||RAM
+pcMetricNetUsage|||Network (estimate)|||SĂ­ĹĄ (odhad)
+pcMetricCpuTemp|||CPU temperature|||Teplota CPU
+pcMetricGpuUsage|||GPU usage|||GPU zĂˇtÄ›Ĺľ
+pcMetricGpuTemp|||GPU temperature|||Teplota GPU
+pcMetricDiskUsage|||Disk|||Disk
+smartHomeTitle|||Smart home|||ChytrĂˇ domĂˇcnost
+smartHomeIntro|||Home Assistant: direct light.* control via REST. Apple Home (HomeKit): native on macOS. Google Home: no local public API â€” link via Home Assistant (below).|||Home Assistant: pĹ™Ă­mĂ© ovlĂˇdĂˇnĂ­ entit light.* pĹ™es REST. Apple Home (HomeKit): nativnÄ› na macOS. Google Home: ĹľĂˇdnĂ© veĹ™ejnĂ© lokĂˇlnĂ­ API â€” pouĹľij propojenĂ­ pĹ™es Home Assistant (viz nĂ­Ĺľe).
+smartPushColorsTile|||Push colors to smart lights|||PosĂ­lat barvy na chytrĂˇ svÄ›tla
+smartPushColorsSubtitle|||Enable after configuring HA / HomeKit fixtures below.|||Zapni aĹľ po nastavenĂ­ HA / HomeKit fixture nĂ­Ĺľe.
+smartHaSection|||Home Assistant|||Home Assistant
+smartHaUrlLabel|||URL (https://â€¦:8123)|||URL (https://â€¦:8123)
+smartHaTokenLabel|||Long-lived access token|||Long-lived access token
+smartHaTokenHelper|||Stored outside default.json (application support / ha_long_lived_token.txt).|||UklĂˇdĂˇ se mimo default.json (application support / ha_long_lived_token.txt).
+smartHaTrustCertTile|||Trust custom HTTPS certificate|||DĹŻvÄ›Ĺ™ovat vlastnĂ­mu HTTPS certifikĂˇtu
+smartHaTrustCertSubtitle|||Only for local HA with self-signed certs.|||Jen lokĂˇlnĂ­ HA s self-signed certem.
+smartTestConnection|||Test connection|||Test spojenĂ­
+smartAddHaLight|||Add light from HA|||PĹ™idat svÄ›tlo z HA
+smartHaFillUrlToken|||Fill URL and Home Assistant token first.|||NejdĹ™Ă­v nastav URL a token Home Assistant.
+smartHaNoLights|||No light.* entities in HA.|||V HA nejsou ĹľĂˇdnĂ© entity light.*
+smartHaPickLightTitle|||Add light from Home Assistant|||PĹ™idat svÄ›tlo z Home Assistant
+smartHaError|||HA: {error}|||HA: {error}
+smartMaxHzLabel|||Max Hz per light|||Max. Hz na svÄ›tlo
+smartBrightnessCapLabel|||Brightness cap %|||Strop jasu %
+smartHomeKitSection|||Apple Home (HomeKit)|||Apple Home (HomeKit)
+smartHomeKitNonMac|||Native HomeKit is macOS-only. On Windows/Linux add lights to Home Assistant (HomeKit Device / Matter bridge) and control via HA above.|||NativnĂ­ HomeKit je jen na macOS. Na Windows/Linux pĹ™idej svÄ›tla do Home Assistant (HomeKit Device / Matter bridge) a ovlĂˇdej je pĹ™es HA vĂ˝Ĺˇe.
+smartHomeKitLoading|||Loading HomeKitâ€¦|||NaÄŤĂ­tĂˇm HomeKitâ€¦
+smartHomeKitEmpty|||No HomeKit lights (or missing permission).|||Ĺ˝ĂˇdnĂˇ HomeKit svÄ›tla (nebo chybĂ­ oprĂˇvnÄ›nĂ­).
+smartHomeKitCount|||{count} lights.|||{count} svÄ›tel.
+smartRefreshHomeKit|||Refresh HomeKit light list|||Obnovit seznam HomeKit svÄ›tel
+smartGoogleSection|||Google Home|||Google Home
+smartGoogleBody|||Google does not let desktop apps control Google Home lights directly. Reliable path: install Home Assistant, add Hue / Nest / â€¦ there and link HA with Google Assistant.|||Google nepovoluje desktopovĂ© aplikaci pĹ™Ă­mo Ĺ™Ă­dit â€žGoogle Homeâ€ś svÄ›tla. SpolehlivĂˇ cesta: nainstaluj Home Assistant, pĹ™idej tam Hue / Nest / â€¦ a propoj HA s Google Assistant.
+smartGoogleDocButton|||Docs: Google Assistant + HA|||Dokumentace: Google Assistant + HA
+smartMyHaButton|||My Home Assistant|||My Home Assistant
+smartVirtualRoomSection|||Virtual room|||VirtuĂˇlnĂ­ mĂ­stnost
+smartVirtualRoomIntro|||Place the TV, yourself and lights on the plan. The cone shows viewing direction (relative to the TV axis). Wave modulates brightness by distance from TV and time; HA/HomeKit still receive mapped colors each frame.|||UmĂ­sti TV, sebe a svÄ›tla v plĂˇnku. KuĹľel ukazuje smÄ›r pohledu (relativnÄ› k ose k TV). Vlna mÄ›nĂ­ jas podle vzdĂˇlenosti od TV a ÄŤasu â€” signĂˇly na HA/HomeKit jdou kaĹľdĂ˝ snĂ­mek pĹ™es stĂˇvajĂ­cĂ­ mapovĂˇnĂ­ barev.
+smartFixturesTitle|||Configured lights ({count})|||NakonfigurovanĂˇ svÄ›tla ({count})
+smartFixturesEmpty|||None yet â€” add from HA or HomeKit.|||ZatĂ­m ĹľĂˇdnĂˇ â€” pĹ™idej z HA nebo HomeKit.
+smartFixtureRemoveTooltip|||Remove|||Odebrat
+smartFixtureHaLine|||HA: {id}|||HA: {id}
+smartFixtureHkLine|||HomeKit: {id}|||HomeKit: {id}
+smartBindingLabel|||Color mapping|||MapovĂˇnĂ­ barvy
+smartBindingGlobalMean|||Average of all LEDs|||PrĹŻmÄ›r vĹˇech LED
+smartBindingLedRange|||LED range on device|||Rozsah LED na zaĹ™Ă­zenĂ­
+smartBindingScreenEdge|||Screen edge|||Hrana obrazovky
+smartDeviceIdOptional|||device_id (empty = first device)|||device_id (prĂˇzdnĂ© = prvnĂ­ zaĹ™Ă­zenĂ­)
+smartEdgeLabel|||Edge|||Hrana
+smartMonitorIndexBinding|||monitor_index (0=desktop, 1â€¦)|||monitor_index (0=desktop, 1â€¦)
+smartHaStatusTesting|||Testingâ€¦|||Testujiâ€¦
+smartHaStatusOk|||OK: {msg}|||OK: {msg}
+smartHaStatusErr|||Error: {msg}|||Chyba: {msg}
+vrWaveTitle|||Room wave|||Vlna pĹ™es mĂ­stnost
+vrWaveSubtitle|||Brightness modulation by distance from TV and frame time|||Modulace jasu podle vzdĂˇlenosti od TV a ÄŤasu snĂ­mku
+vrWaveStrength|||Wave strength: {pct} %|||SĂ­la vlny: {pct} %
+vrWaveSpeed|||Wave speed|||Rychlost vlny
+vrDistanceSensitivity|||Distance sensitivity|||Citlivost na vzdĂˇlenost
+vrViewingAngle|||Viewing angle offset toward TV: {deg}°|||Ăšchyl pohledu od osy k TV: {deg}Â°
+vrTooltipTv|||TV (drag)|||TV (tĂˇhni)
+vrTooltipYou|||You (drag)|||Ty (tĂˇhni)

@@ -1,0 +1,78 @@
+# Sestaví ESP-IDF firmware (projekt LAMPA) a nasadí statický web na GitHub Pages.
+# Zdroj kódu: led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/ (ne legacy monitor).
+# V repozitáři: Settings → Pages → Build and deployment → Source: „GitHub Actions“ (ne větev gh-pages).
+name: firmware_pages
+
+on:
+  push:
+    branches: [main, master]
+    # Bez paths: — jinak se workflow po většině commitů vůbec nespustí a Pages „nezlobí“.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-firmware
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build firmware (ESP-IDF Docker)
+        run: |
+          set -eux
+          FW='led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware'
+          # Nepoužívat idf.py fullclean: u trackovaných managed_components spouští kontrolu hashe a často spadne v CI.
+          # Čistý build: smazat build + managed_components, komponenty se stáhnou znovu podle idf_component.yml.
+          docker run --rm \
+            -v "${{ github.workspace }}:/project" \
+            -w "/project/${FW}" \
+            espressif/idf:v5.5.1 \
+            bash -lc 'rm -rf build managed_components && idf.py build'
+
+      - name: Assemble site (root = Pages)
+        run: |
+          set -eux
+          ROOT="${{ github.workspace }}"
+          FW='led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware'
+          BUILD="${ROOT}/${FW}/build"
+          SITE="${ROOT}/_site/firmware/latest"
+          mkdir -p "${SITE}"
+          test -f "${BUILD}/bootloader/bootloader.bin"
+          test -f "${BUILD}/partition_table/partition-table.bin"
+          test -f "${BUILD}/ambilight_esp32c6.bin"
+          cp "${BUILD}/bootloader/bootloader.bin" "${SITE}/"
+          cp "${BUILD}/partition_table/partition-table.bin" "${SITE}/"
+          cp "${BUILD}/ambilight_esp32c6.bin" "${SITE}/"
+          VER=$(echo "${{ github.sha }}" | cut -c1-12)
+          BASE="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/firmware/latest"
+          python3 "${ROOT}/tools/gen_firmware_manifest.py" \
+            --build-dir "${BUILD}" \
+            --out "${SITE}/manifest.json" \
+            --base-url "${BASE}" \
+            --version "${VER}" \
+            --chip esp32c3
+          cp "${ROOT}/tools/firmware_index.html" "${ROOT}/_site/index.html"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

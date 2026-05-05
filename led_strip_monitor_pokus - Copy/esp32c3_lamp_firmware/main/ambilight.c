@@ -1,11 +1,15 @@
 #include "driver/gpio.h"
 #include "driver/usb_serial_jtag.h"
 #include "esp_event.h"
+#include "esp_heap_caps.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
+#include "esp_netif.h"
+#include "esp_rom_sys.h"
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
+#include "esp_wifi_types.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "freertos/semphr.h"
@@ -19,15 +23,22 @@
 #include "mqtt_client.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "ota_update.h"
 #include <ctype.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 // ============ CONFIG ============
 #define LED_STRIP_GPIO_PIN 8
-#define LED_STRIP_NUM_LEDS 200
+#define LED_STRIP_NUM_LEDS 2000
+/// Po startu ESP: jedno krátké modré probliknutí všech LED (stejná intenzita B jako dřív u vlny).
+#define BOOT_POST_FLASH_BLUE_BLINK_ON_MS 250
 #define UDP_PORT 4210
+#ifndef MSG_DONTWAIT
+#define MSG_DONTWAIT 0x40
+#endif
 #define AP_SSID "Ambilight_Setup"
 #define SERIAL_TIMEOUT_US (25 * 100000LL) // 2.5 seconds (Faster Auto-Off)
 
@@ -45,6 +56,8 @@ static bool g_is_provisioned =
     false; // Flag to prevent auto-connect loops when unconfigured
 static bool g_ap_disabled_after_connection = false;
 static rgb_t led_colors[LED_STRIP_NUM_LEDS] = {0};
+/// Logická délka pásku z PC (`0xA5 0x5A` + uint16 LE); ořez zápisu do [led_colors].
+static uint16_t g_serial_strip_max = LED_STRIP_NUM_LEDS;
 static SemaphoreHandle_t led_mutex;
 static volatile int g_scan_status = 0; // 0=IDLE, 1=SCANNING, 2=DONE
 static volatile int64_t g_last_data_interaction = 0;
@@ -76,6 +89,35 @@ static char g_device_id[32] = {0}; // Unique ID generated from MAC
 static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
 
+static inline void ambi_log_heap(const char *ctx) {
+  ESP_LOGI(TAG,
+           "[heap] %s: free=%u largest_block=%u min_free=%u "
+           "internal_free=%u internal_min=%u",
+           ctx, (unsigned)esp_get_free_heap_size(),
+           (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT),
+           (unsigned)esp_get_minimum_free_heap_size(),
+           (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+           (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
+}
+
+static void ambi_log_runtime_state(const char *ctx) {
+  EventBits_t bits =
+      s_wifi_event_group ? xEventGroupGetBits(s_wifi_event_group) : 0;
+  const bool serial_recent =
+      (esp_timer_get_time() - g_last_serial_interaction) < SERIAL_TIMEOUT_US;
+  ESP_LOGI(TAG,
+           "[state] %s: wifi=%d prov=%d ap_sta_only=%d mqtt=%d ota=%d "
+           "got_ip=%d last_data_us=%lld serial_on=%d strip_max=%u ctrl_ip=0x%08lx",
+           ctx, (int)g_wifi_enabled, (int)g_is_provisioned,
+           (int)g_ap_disabled_after_connection, (int)g_mqtt_connected,
+           (int)ambilight_ota_in_progress(),
+           (bits & WIFI_CONNECTED_BIT) ? 1 : 0,
+           (long long)g_last_data_interaction, (int)serial_recent,
+           (unsigned)g_serial_strip_max,
+           (unsigned long)g_controller_ip);
+  ambi_log_heap(ctx);
+}
+
 // Forward Decls
 // Forward Decls
 void start_wifi_subsystem();
@@ -92,7 +134,6 @@ esp_err_t erase_wifi_creds();
 void update_leds(uint8_t global_brightness);
 void start_mqtt();
 void stop_mqtt();
-void update_leds(uint8_t global_brightness);
 void clear_tail_leds(int start_idx);
 void start_webserver(void);
 void stop_webserver(void);
@@ -143,10 +184,37 @@ void url_decode(char *dst, const char *src) {
 }
 
 void clear_tail_leds(int start_idx) {
+  ESP_LOGD(TAG, "[led] clear_tail_leds start_idx=%d", start_idx);
   if (start_idx < LED_STRIP_NUM_LEDS) {
     memset(&led_colors[start_idx], 0,
            (LED_STRIP_NUM_LEDS - start_idx) * sizeof(rgb_t));
   }
+}
+
+/// Logický počet LED (`g_serial_strip_max`) v rozsahu [1 … LED_STRIP_NUM_LEDS].
+static int ambilight_visual_led_count(void) {
+  int n = (int)g_serial_strip_max;
+  if (n < 1) {
+    n = 1;
+  }
+  if (n > LED_STRIP_NUM_LEDS) {
+    n = LED_STRIP_NUM_LEDS;
+  }
+  return n;
+}
+
+/// Jednobarevný výstup jen na logický pásek; zbytek fyzického řetězce zhasne (menší zátěž, předvídatelné chování).
+static void led_strip_fill_logical_rgb(uint8_t r, uint8_t g, uint8_t b) {
+  const int n = ambilight_visual_led_count();
+  ESP_LOGD(TAG, "[led] fill_logical_rgb n=%d RGB=(%u,%u,%u)", n,
+           (unsigned)r, (unsigned)g, (unsigned)b);
+  for (int i = 0; i < n; i++) {
+    led_strip_set_pixel(led_strip, i, r, g, b);
+  }
+  for (int i = n; i < LED_STRIP_NUM_LEDS; i++) {
+    led_strip_set_pixel(led_strip, i, 0, 0, 0);
+  }
+  led_strip_refresh(led_strip);
 }
 
 // ============ HTTP SERVER ============
@@ -346,6 +414,8 @@ esp_err_t scan_get_handler(httpd_req_t *req) {
   // ASYNC STATE MACHINE
   httpd_resp_set_type(req, "application/json");
 
+  ESP_LOGI(TAG, "[http] GET /scan status_machine=%d", g_scan_status);
+
   if (g_scan_status == 0) {
     // IDLE -> START SCAN
     wifi_scan_config_t scan_config = {
@@ -359,6 +429,7 @@ esp_err_t scan_get_handler(httpd_req_t *req) {
     esp_err_t ret = esp_wifi_scan_start(&scan_config, false);
     if (ret == ESP_OK) {
       g_scan_status = 1; // SCANNING
+      ESP_LOGI(TAG, "[http] Wi-Fi scan started (async)");
       httpd_resp_send(req, "{\"status\":\"scanning\"}", HTTPD_RESP_USE_STRLEN);
     } else {
       char err_buf[64];
@@ -369,6 +440,7 @@ esp_err_t scan_get_handler(httpd_req_t *req) {
     return ESP_OK;
   } else if (g_scan_status == 1) {
     // SCANNING -> WAIT
+    ESP_LOGD(TAG, "[http] /scan poll: still scanning");
     httpd_resp_send(req, "{\"status\":\"scanning\"}", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
   } else if (g_scan_status == 2) {
@@ -413,19 +485,31 @@ esp_err_t scan_get_handler(httpd_req_t *req) {
 
     // Reset to IDLE so we can scan again later
     g_scan_status = 0;
+    ESP_LOGI(TAG, "[http] /scan complete, returned %u AP(s)", (unsigned)ap_count);
     return ESP_OK;
   }
 
+  ESP_LOGW(TAG, "[http] /scan unexpected fallthrough");
   return ESP_OK;
 }
 
 // ============ NVS HELPERS ============
 esp_err_t save_wifi_creds(const char *ssid, const char *pass, const char *muri,
                           const char *muser, const char *mpass) {
+  ESP_LOGI(TAG,
+           "[nvs] save_wifi_creds ssid=\"%s\" pass_len=%u mqtt_uri=%s "
+           "mqtt_user=%s mqtt_pass=%s",
+           ssid ? ssid : "(null)",
+           (unsigned)(pass ? strlen(pass) : 0), (muri && muri[0]) ? "set" : "empty",
+           (muser && muser[0]) ? "set" : "empty",
+           (mpass && mpass[0]) ? "set" : "empty");
   nvs_handle_t nvs_handle;
   esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvs_handle);
-  if (err != ESP_OK)
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "[nvs] save_wifi_creds open RW failed: %s",
+             esp_err_to_name(err));
     return err;
+  }
 
   nvs_set_str(nvs_handle, "ssid", ssid);
   nvs_set_str(nvs_handle, "pass", pass);
@@ -448,6 +532,7 @@ esp_err_t save_wifi_creds(const char *ssid, const char *pass, const char *muri,
 
   err = nvs_commit(nvs_handle);
   nvs_close(nvs_handle);
+  ESP_LOGI(TAG, "[nvs] save_wifi_creds commit → %s", esp_err_to_name(err));
   return err;
 }
 
@@ -456,8 +541,10 @@ esp_err_t load_wifi_creds(char *ssid, size_t ssid_len, char *pass,
                           char *muser, size_t muser_len, char *mpass,
                           size_t mpass_len) {
   nvs_handle_t nvs_handle;
-  if (nvs_open("storage", NVS_READONLY, &nvs_handle) != ESP_OK)
+  if (nvs_open("storage", NVS_READONLY, &nvs_handle) != ESP_OK) {
+    ESP_LOGW(TAG, "[nvs] load_wifi_creds: nvs_open RO failed");
     return ESP_FAIL;
+  }
 
   size_t required_size;
 
@@ -466,6 +553,7 @@ esp_err_t load_wifi_creds(char *ssid, size_t ssid_len, char *pass,
       required_size <= ssid_len)
     nvs_get_str(nvs_handle, "ssid", ssid, &required_size);
   else {
+    ESP_LOGW(TAG, "[nvs] load_wifi_creds: ssid missing/bad");
     nvs_close(nvs_handle);
     return ESP_FAIL;
   }
@@ -475,6 +563,7 @@ esp_err_t load_wifi_creds(char *ssid, size_t ssid_len, char *pass,
       required_size <= pass_len)
     nvs_get_str(nvs_handle, "pass", pass, &required_size);
   else {
+    ESP_LOGW(TAG, "[nvs] load_wifi_creds: pass missing/bad");
     nvs_close(nvs_handle);
     return ESP_FAIL;
   }
@@ -523,10 +612,15 @@ esp_err_t load_wifi_creds(char *ssid, size_t ssid_len, char *pass,
   }
 
   nvs_close(nvs_handle);
+  ESP_LOGI(TAG,
+           "[nvs] load_wifi_creds OK ssid=\"%s\" mqtt_uri_len=%u mqtt_user=%s",
+           ssid, (unsigned)(muri ? strlen(muri) : 0),
+           (muser && muser[0]) ? "set" : "empty");
   return ESP_OK;
 }
 
 esp_err_t erase_wifi_creds() {
+  ESP_LOGW(TAG, "[nvs] erase_wifi_creds (full storage erase)");
   nvs_handle_t nvs_handle;
   if (nvs_open("storage", NVS_READWRITE, &nvs_handle) != ESP_OK)
     return ESP_FAIL;
@@ -539,18 +633,24 @@ esp_err_t erase_wifi_creds() {
 // ============ HTTP HANDLERS ============
 
 esp_err_t root_get_handler(httpd_req_t *req) {
+  ESP_LOGI(TAG, "[http] GET / (config page) heap_free=%u",
+           (unsigned)esp_get_free_heap_size());
   httpd_resp_send(req, config_page_html, HTTPD_RESP_USE_STRLEN);
   return ESP_OK;
 }
 
 esp_err_t save_post_handler(httpd_req_t *req) {
+  ESP_LOGI(TAG, "[http] POST /save content_len=%d", req->content_len);
   char buf[512];
   int ret, remaining = req->content_len;
   if (remaining >= sizeof(buf))
     remaining = sizeof(buf) - 1;
-  if ((ret = httpd_req_recv(req, buf, remaining)) <= 0)
+  if ((ret = httpd_req_recv(req, buf, remaining)) <= 0) {
+    ESP_LOGE(TAG, "[http] POST /save recv failed ret=%d", ret);
     return ESP_FAIL;
+  }
   buf[ret] = '\0';
+  ESP_LOGD(TAG, "[http] POST /save body_len=%d", ret);
 
   char ssid_enc[33] = {0}, pass_enc[65] = {0}, ssid_dec[33] = {0},
        pass_dec[65] = {0};
@@ -587,6 +687,8 @@ esp_err_t save_post_handler(httpd_req_t *req) {
   url_decode(mpass_dec, mpass_enc);
 
   save_wifi_creds(ssid_dec, pass_dec, muri_dec, muser_dec, mpass_dec);
+  ESP_LOGI(TAG, "[http] credentials saved, reboot in 1s (ssid=\"%s\")",
+           ssid_dec);
 
   // Reset boot count to prevent sticky safe mode
   nvs_handle_t nvs_handle;
@@ -606,6 +708,7 @@ esp_err_t save_post_handler(httpd_req_t *req) {
 // Redirect Handler for Captive Portal (Catch-All)
 // Redirect Handler for Captive Portal (Catch-All)
 esp_err_t redirect_handler(httpd_req_t *req) {
+  ESP_LOGD(TAG, "[http] captive redirect uri=%s", req->uri);
   // Get our IP address dynamically
   char redirect_url[64];
   esp_netif_ip_info_t ip_info;
@@ -635,13 +738,16 @@ esp_err_t redirect_handler(httpd_req_t *req) {
 }
 
 void start_webserver(void) {
-  if (server)
+  if (server) {
+    ESP_LOGW(TAG, "[http] start_webserver: already running");
     return;
+  }
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
   config.max_open_sockets = 5; // Increased for concurrent probes
   config.lru_purge_enable = true;
   config.max_uri_handlers = 16; // Increased for captive portal + scan handlers
 
+  ESP_LOGI(TAG, "[http] starting HTTP server");
   if (httpd_start(&server, &config) == ESP_OK) {
     httpd_uri_t r = {
         .uri = "/", .method = HTTP_GET, .handler = root_get_handler};
@@ -671,11 +777,15 @@ void start_webserver(void) {
     httpd_uri_t catch_all = {
         .uri = "/*", .method = HTTP_GET, .handler = redirect_handler};
     httpd_register_uri_handler(server, &catch_all);
+    ESP_LOGI(TAG, "[http] HTTP server ready (handlers registered)");
+  } else {
+    ESP_LOGE(TAG, "[http] httpd_start failed");
   }
 }
 
 void stop_webserver(void) {
   if (server) {
+    ESP_LOGI(TAG, "[http] stopping HTTP server");
     httpd_stop(server);
     server = NULL;
   }
@@ -685,15 +795,34 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t id,
                           void *data) {
   if (base == WIFI_EVENT && id == WIFI_EVENT_STA_START) {
     g_connection_retries = 0;
+    ESP_LOGI(TAG, "[wifi] STA_START prov=%d → %s", (int)g_is_provisioned,
+             g_is_provisioned ? "esp_wifi_connect()" : "idle (scan)");
     if (g_is_provisioned) {
       esp_wifi_connect();
     } else {
       ESP_LOGI(TAG, "No credentials. Waiting in STA mode (for scanning).");
     }
+  } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_CONNECTED) {
+    const wifi_event_sta_connected_t *c =
+        (const wifi_event_sta_connected_t *)data;
+    if (c) {
+      ESP_LOGI(TAG,
+               "[wifi] STA_CONNECTED channel=%u authmode=%u ssid_len=%u",
+               (unsigned)c->channel, (unsigned)c->authmode,
+               (unsigned)c->ssid_len);
+    } else {
+      ESP_LOGI(TAG, "[wifi] STA_CONNECTED (no event payload)");
+    }
   } else if (base == WIFI_EVENT && id == WIFI_EVENT_SCAN_DONE) {
     g_scan_status = 2; // SCAN DONE
     ESP_LOGI(TAG, "Wi-Fi Scan Complete");
   } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
+    const wifi_event_sta_disconnected_t *disc =
+        (const wifi_event_sta_disconnected_t *)data;
+    if (disc) {
+      ESP_LOGI(TAG, "[wifi] STA_DISCONNECTED reason=%u ssid_len=%u",
+               (unsigned)disc->reason, (unsigned)disc->ssid_len);
+    }
     if (g_suppress_reconnect) {
       ESP_LOGI(TAG, "Timeout Disconnect. Switching to AP Mode (No Reconnect).");
       esp_wifi_set_mode(WIFI_MODE_APSTA);
@@ -746,6 +875,13 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t id,
     }
     xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
   } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
+    const ip_event_got_ip_t *ev = (const ip_event_got_ip_t *)data;
+    if (ev) {
+      ESP_LOGI(TAG,
+               "[ip] STA_GOT_IP ip=" IPSTR " mask=" IPSTR " gw=" IPSTR,
+               IP2STR(&ev->ip_info.ip), IP2STR(&ev->ip_info.netmask),
+               IP2STR(&ev->ip_info.gw));
+    }
     // Connected!
     g_connection_retries = 0;    // Reset retries
     g_has_received_data = false; // Reset data flag (fresh session)
@@ -767,6 +903,8 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t id,
       mdns_hostname_set(hostname);
       mdns_instance_name_set("Ambilight LED Controller");
       ESP_LOGI(TAG, "mDNS Init: %s.local", hostname);
+    } else {
+      ESP_LOGW(TAG, "[mdns] mdns_init failed");
     }
 
     // Start MQTT
@@ -792,14 +930,21 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t id,
       esp_wifi_set_mode(WIFI_MODE_STA);
       g_ap_disabled_after_connection = true;
     }
+  } else if (base == WIFI_EVENT) {
+    ESP_LOGI(TAG, "[wifi] other event id=%ld", (long)id);
+  } else if (base == IP_EVENT) {
+    ESP_LOGI(TAG, "[ip] other event id=%ld", (long)id);
   }
 }
 
 void start_wifi_subsystem() {
-  if (g_wifi_enabled)
+  if (g_wifi_enabled) {
+    ESP_LOGW(TAG, "start_wifi_subsystem: already enabled");
     return;
+  }
 
   ESP_LOGI(TAG, "Starting Wi-Fi Subsystem...");
+  ambi_log_heap("wifi_start_enter");
 
   // === 0. Boot Loop Protection ===
   // Initialize NVS
@@ -853,6 +998,7 @@ void start_wifi_subsystem() {
   // We start in STA mode first to scan for conflicts
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
   ESP_ERROR_CHECK(esp_wifi_start());
+  ESP_LOGI(TAG, "[wifi] STA mode started → blocking SSID conflict scan");
 
   char unique_ssid[33] = AP_SSID;
 
@@ -861,6 +1007,7 @@ void start_wifi_subsystem() {
       .ssid = 0, .bssid = 0, .channel = 0, .show_hidden = false};
   ESP_LOGI(TAG, "Scanning for SSID conflicts...");
   esp_err_t ret = esp_wifi_scan_start(&scan_config, true); // true = BLOCKING
+  ESP_LOGI(TAG, "[wifi] conflict scan ret=%s", esp_err_to_name(ret));
 
   if (ret == ESP_OK) {
     uint16_t ap_count = 0;
@@ -905,6 +1052,8 @@ void start_wifi_subsystem() {
   // Stop temporary scan mode
   esp_wifi_stop();
   g_scan_status = 0; // Reset dirty status from blocking scan
+  ESP_LOGI(TAG, "[wifi] scan phase done, AP SSID=\"%s\"", unique_ssid);
+  ambi_log_heap("wifi_after_scan");
 
   // === 2. Actual Startup ===
   char ssid[33] = {0};
@@ -965,12 +1114,15 @@ void start_wifi_subsystem() {
 
   g_wifi_enabled = true;
   g_ap_disabled_after_connection = false;
+  ESP_LOGI(TAG, "[wifi] subsystem up (PS=OFF)");
+  ambi_log_runtime_state("wifi_start_done");
 }
 
 void stop_wifi_subsystem() {
   if (!g_wifi_enabled)
     return;
   ESP_LOGI(TAG, "Stopping Wi-Fi Subsystem (Serial Active)...");
+  ambi_log_heap("wifi_stop_enter");
   stop_webserver();
   stop_mqtt();
 
@@ -980,14 +1132,28 @@ void stop_wifi_subsystem() {
   vTaskDelay(pdMS_TO_TICKS(500));
 
   esp_wifi_stop(); // Turns off radio
+  ESP_LOGI(TAG, "[wifi] radio stopped");
+  ambi_log_heap("wifi_stop_done");
 }
 
 // ============ TASKS ============
 
 void task_monitor(void *arg) {
+  unsigned tick = 0;
   while (1) {
     int64_t now = esp_timer_get_time();
     bool serial_active = (now - g_last_serial_interaction) < SERIAL_TIMEOUT_US;
+
+    tick++;
+    if ((tick % 30u) == 0u) {
+      ambi_log_runtime_state("monitor_30s");
+    }
+    ESP_LOGD(TAG,
+             "[monitor] tick=%u serial_active=%d wifi=%d ap_sta_only=%d "
+             "mqtt=%d has_data_flag=%d",
+             tick, (int)serial_active, (int)g_wifi_enabled,
+             (int)g_ap_disabled_after_connection, (int)g_mqtt_connected,
+             (int)g_has_received_data);
 
     if (serial_active) {
       // Signal Priority: Serial active.
@@ -1031,7 +1197,8 @@ void task_monitor(void *arg) {
           s_has_restored_home = false; // PC is active
         } else {
           // Timeout Exceeded (>2s)
-          if (!s_has_restored_home && !serial_active && g_mqtt_connected) {
+          if (!s_has_restored_home && !serial_active && g_mqtt_connected &&
+              !ambilight_ota_in_progress()) {
             ESP_LOGI(TAG, "PC Data Stopped. Restoring Home Mode.");
             xSemaphoreTake(led_mutex, portMAX_DELAY);
             if (g_home_power) {
@@ -1039,12 +1206,11 @@ void task_monitor(void *arg) {
               uint8_t r = (uint8_t)(g_home_color.r * factor);
               uint8_t g = (uint8_t)(g_home_color.g * factor);
               uint8_t b = (uint8_t)(g_home_color.b * factor);
-              for (int i = 0; i < LED_STRIP_NUM_LEDS; i++)
-                led_strip_set_pixel(led_strip, i, r, g, b);
+              led_strip_fill_logical_rgb(r, g, b);
             } else {
               led_strip_clear(led_strip);
+              led_strip_refresh(led_strip);
             }
-            led_strip_refresh(led_strip);
             xSemaphoreGive(led_mutex);
             s_has_restored_home = true;
           }
@@ -1059,84 +1225,108 @@ void task_monitor(void *arg) {
 /**
  * @brief JTAG Serial Task (High Performance LED Control)
  *
- * Handles incoming data from USB-JTAG interface.
- * Priority: 10 (High) - Preempts IDLE and Wi-Fi helper tasks, but yields to
- * critical System tasks.
- *
- * Protocol:
- * - 0xAA: Handshake PING (Responds with 0xBB)
- * - 0xFF: Frame Sync (Start of Frame)
- * - 0xFE: End of Frame (Triggers LED Update)
- * - [Idx, R, G, B]: 4-byte Pixel Tuple (Binary Mode)
- *
- * Stability Features:
- * - Stack Size: 8192 bytes (Prevents Stack Overflow during heavy MQTT/JSON
- * usage)
- * - Watchdog Safety: Calls vTaskDelay(1) every batch to yield to IDLE task
- * (feeds WDT).
- * - Mutex Protection: Uses led_mutex to coordinate with Wi-Fi/UDP tasks.
- * - Auto-Home: Updates `g_last_serial_interaction` to prevent 'Restore Home
- * Mode' flickering.
+ * Protocol (v1.11+):
+ * - 0xAA: Handshake PING → 0xBB
+ * - 0xA5 0x5A + uint16 LE: logický počet LED (clamp + clear tail)
+ * - 0xFF … 0xFE: legacy rámec, tuple (idx8, r, g, b) — max 256 LED v jednom rámci
+ * - 0xFC … 0xFE: wide rámec, tuple (idx_lo, idx_hi, r, g, b) — 16bit index
  */
 void task_serial(void *arg) {
-  usb_serial_jtag_driver_config_t c = {.rx_buffer_size = 2048,
-                                       .tx_buffer_size = 1024};
-  usb_serial_jtag_driver_install(&c);
+  ESP_LOGI(TAG, "[serial] task start (USB-JTAG)");
+  usb_serial_jtag_driver_config_t ser_cfg = {.rx_buffer_size = 2048,
+                                            .tx_buffer_size = 1024};
+  esp_err_t ser_err = usb_serial_jtag_driver_install(&ser_cfg);
+  ESP_LOGI(TAG, "[serial] usb_serial_jtag_driver_install → %s",
+           esp_err_to_name(ser_err));
 
-  usb_serial_jtag_driver_install(&c);
-
-  // BUFFER INCREASE: 2048 bytes matches Driver Buffer.
-  // Allows reading full frames (802 bytes) in one loop iteration.
-  // Prevents stutter caused by vTaskDelay(1) splitting frames.
   uint8_t buf[2048];
 
-  // State Machine
-  enum { STATE_IDLE, STATE_DATA } state = STATE_IDLE;
-  uint8_t tuple_buf[4];
+  enum { ST_IDLE = 0, ST_LEGACY = 1, ST_WIDE = 2 } state = ST_IDLE;
+  uint8_t tuple4[4];
+  uint8_t tuple5[5];
   int tuple_pos = 0;
   bool dirty = false;
-
   bool frame_complete = false;
 
+  int a5_stage = 0;
+  uint8_t a5_lo = 0;
+
   while (1) {
-    // Increased timeout (20ms) to bridge gaps caused by Wi-Fi interrupts
     int len = usb_serial_jtag_read_bytes(buf, sizeof(buf), pdMS_TO_TICKS(20));
 
     if (len > 0) {
       g_last_serial_interaction = esp_timer_get_time();
+      ESP_LOGD(TAG, "[serial] rx %d bytes (state=%d a5_stage=%d)", len,
+               (int)state, a5_stage);
 
       for (int i = 0; i < len; i++) {
         uint8_t b = buf[i];
 
-        // UNIVERSAL SYNC: 0xFF is ALWAYS Start of Frame
         if (b == 0xFF) {
-          if (dirty)
-            frame_complete = true; // Recover previous frame
-          state = STATE_DATA;
+          if (dirty && (state == ST_LEGACY || state == ST_WIDE))
+            frame_complete = true;
+          state = ST_LEGACY;
+          tuple_pos = 0;
+          a5_stage = 0;
+          continue;
+        }
+        if (b == 0xFC) {
+          if (dirty && (state == ST_LEGACY || state == ST_WIDE))
+            frame_complete = true;
+          state = ST_WIDE;
+          tuple_pos = 0;
+          a5_stage = 0;
+          continue;
+        }
+        if (b == 0xFE && (state == ST_LEGACY || state == ST_WIDE)) {
+          frame_complete = true;
+          state = ST_IDLE;
           tuple_pos = 0;
           continue;
         }
-        // END OF FRAME: 0xFE
-        if (b == 0xFE && state == STATE_DATA) {
-          frame_complete = true;
-          state = STATE_IDLE;
-          continue;
-        }
 
-        if (state == STATE_IDLE) {
+        if (state == ST_IDLE) {
+          if (a5_stage == 0 && b == 0xA5) {
+            a5_stage = 1;
+            continue;
+          }
+          if (a5_stage == 1) {
+            if (b == 0x5A) {
+              a5_stage = 2;
+            } else {
+              a5_stage = (b == 0xA5) ? 1 : 0;
+            }
+            continue;
+          }
+          if (a5_stage == 2) {
+            a5_lo = b;
+            a5_stage = 3;
+            continue;
+          }
+          if (a5_stage == 3) {
+            a5_stage = 0;
+            uint16_t cnt = a5_lo | ((uint16_t)b << 8);
+            if (cnt == 0)
+              cnt = LED_STRIP_NUM_LEDS;
+            if (cnt > LED_STRIP_NUM_LEDS)
+              cnt = LED_STRIP_NUM_LEDS;
+            g_serial_strip_max = cnt;
+            ESP_LOGI(TAG, "[serial] logical strip length set → %u LED",
+                     (unsigned)g_serial_strip_max);
+            clear_tail_leds((int)cnt);
+            dirty = true;
+            frame_complete = true;
+            continue;
+          }
+
           if (b == 0xAA) {
-            // HANDSHAKE PING -> PONG
             uint8_t pong = 0xBB;
             usb_serial_jtag_write_bytes(&pong, 1, pdMS_TO_TICKS(10));
-
-            // VISUAL DEBUG: Set 1st Pixel GREEN to indicate JTAG Connected
+            ESP_LOGI(TAG, "[serial] PING 0xAA → PONG 0xBB");
             memset(led_colors, 0, sizeof(led_colors));
-            led_colors[0].g = 50; // Green Marker
-
+            led_colors[0].g = 50;
             dirty = true;
-            frame_complete = true; // Force update
-
-            // SYNC HA: JTAG Connected = Power ON
+            frame_complete = true;
             if (g_mqtt_connected) {
               char state_topic[64];
               snprintf(state_topic, sizeof(state_topic),
@@ -1145,51 +1335,155 @@ void task_serial(void *arg) {
                                       0);
             }
           }
-        } else if (state == STATE_DATA) {
-          tuple_buf[tuple_pos++] = b;
+          continue;
+        }
+
+        if (state == ST_LEGACY) {
+          tuple4[tuple_pos++] = b;
           if (tuple_pos == 4) {
-            // [Idx, R, G, B]
-            uint8_t idx = tuple_buf[0];
-            if (idx < LED_STRIP_NUM_LEDS) {
-              led_colors[idx].r = tuple_buf[1];
-              led_colors[idx].g = tuple_buf[2];
-              led_colors[idx].b = tuple_buf[3];
+            uint8_t idx = tuple4[0];
+            /* idx je uint8_t — srovnání s LED_STRIP_NUM_LEDS je pro větší strip vždy pravdivé (-Wtype-limits). */
+            if ((unsigned)idx < g_serial_strip_max) {
+              led_colors[idx].r = tuple4[1];
+              led_colors[idx].g = tuple4[2];
+              led_colors[idx].b = tuple4[3];
               dirty = true;
             }
             tuple_pos = 0;
           }
+          continue;
+        }
+
+        if (state == ST_WIDE) {
+          tuple5[tuple_pos++] = b;
+          if (tuple_pos == 5) {
+            uint16_t idx = tuple5[0] | ((uint16_t)tuple5[1] << 8);
+            if (idx < LED_STRIP_NUM_LEDS && idx < g_serial_strip_max) {
+              led_colors[idx].r = tuple5[2];
+              led_colors[idx].g = tuple5[3];
+              led_colors[idx].b = tuple5[4];
+              dirty = true;
+            }
+            tuple_pos = 0;
+          }
+          continue;
         }
       }
+
       if (frame_complete) {
-        xSemaphoreTake(led_mutex, portMAX_DELAY);
-        // USB SAFETY LIMIT REMOVED: Full Brightness (User Confirmed Protocol
-        // Fix)
-        update_leds(255);
-        xSemaphoreGive(led_mutex);
+        ESP_LOGD(TAG, "[serial] frame_complete → refresh strip");
+        if (!ambilight_ota_in_progress()) {
+          xSemaphoreTake(led_mutex, portMAX_DELAY);
+          update_leds(255);
+          xSemaphoreGive(led_mutex);
+        } else {
+          ESP_LOGD(TAG, "[serial] skip LED refresh (OTA active)");
+        }
         dirty = false;
         frame_complete = false;
-
-        // SMOOTHNESS FIX: Only sleep AFTER a full frame is processed.
-        // This allows reading partial chunks aggressively.
         vTaskDelay(1);
       }
-
-      // REMOVED unconditional sleep here.
-
     } else {
-      // TIMEOUT (Silence) meaning end of batch
-      if (state == STATE_DATA && dirty) {
-        xSemaphoreTake(led_mutex, portMAX_DELAY);
-        update_leds(255);
-        xSemaphoreGive(led_mutex);
+      if ((state == ST_LEGACY || state == ST_WIDE) && dirty) {
+        ESP_LOGD(TAG, "[serial] idle flush legacy/wide partial frame");
+        if (!ambilight_ota_in_progress()) {
+          xSemaphoreTake(led_mutex, portMAX_DELAY);
+          update_leds(255);
+          xSemaphoreGive(led_mutex);
+        }
         dirty = false;
-        state = STATE_IDLE;
+        state = ST_IDLE;
       }
     }
   }
 }
 
+/* ===== UDP tok z PC aplikace (ambilight_desktop / monitor) ====================
+ * Port UDP_PORT. recvfrom → nejdřív textové příkazy, pak binární RGB.
+ *
+ * Formáty od aplikace:
+ *   0x02 | bri | (R,G,B)×N        → zápis od indexu 0, pak clear_tail + refresh
+ *   0x06 | idx_hi idx_lo | (R,G,B)×k → jen zápis do led_colors[], BEZ refresh
+ *   0x08 | bri | total_hi total_lo → clear_tail(logical) + update_leds(bri)
+ *   0x03 | idx_hi idx_lo | R,G,B   → jeden pixel + refresh (kalibrace)
+ *
+ * Proč se data „zahazují“ (paket zpracován bez změny pásku / bez zápisu):
+ *   1) OTA probíhá → veškeré RGB příkazy ignorovány.
+ *   2) Serial priority: byl nedávno rámec po USB-JTAG (SERIAL_TIMEOUT_US) → UDP
+ *      RGB se ignoruje (USB má přednost).
+ *   3) Controller lock: už řídí jiná IP; od té doby max 2 s bez paketu od ní se
+ *      lock uvolní. Jiná IP je dropnutá (anti-flicker).
+ *   4) Throttle 15 ms: sdílený časovač mezi 0x02 a 0x08 — mezi dvěma refresh
+ *      na pásku musí být ≥ ~15 ms (~66 Hz). 0x06 chunky throttlu netrpí.
+ *   5) Špatná délka (0x02 nebo 0x06 mod 3).
+ *   6) Index mimo led_colors / g_serial_strip_max (část pixelů přeskočena).
+ * ========================================================================== */
+
+static uint32_t s_udp_pc_drop_serial;
+static uint32_t s_udp_pc_drop_ota;
+static uint32_t s_udp_pc_drop_lock;
+static uint32_t s_udp_pc_drop_throttle;
+static uint32_t s_udp_pc_drop_badlen;
+static uint32_t s_udp_pc_drop_idx_oob;
+static uint32_t s_udp_pc_accept_02;
+static uint32_t s_udp_pc_accept_03;
+static uint32_t s_udp_pc_accept_06;
+static uint32_t s_udp_pc_accept_08;
+
+static void udp_pc_drop(const char *why, uint32_t *ctr, uint8_t op, int len,
+                        uint32_t ip_net) {
+  (*ctr)++;
+  if (*ctr <= 5u || (*ctr % 50u) == 0u) {
+    ESP_LOGW(TAG,
+             "[udp-pc] ZAHODIT \"%s\" | op=0x%02x len=%d ip=0x%08lx | "
+             "pocet_tohoto_duvodu=%lu",
+             why, op, len, (unsigned long)ip_net, (unsigned long)*ctr);
+  }
+}
+
+static void udp_pc_accept(uint8_t op, int len, uint32_t ip_net,
+                          uint32_t *ctr_accept) {
+  (*ctr_accept)++;
+  if (*ctr_accept <= 8u || (*ctr_accept % 250u) == 0u) {
+    ESP_LOGI(TAG,
+             "[udp-pc] AKCEPTACE op=0x%02x len=%d ip=0x%08lx n=%lu",
+             op, len, (unsigned long)ip_net, (unsigned long)*ctr_accept);
+  }
+}
+
+/// Vyprázdnění fronty LwIP — po blokujícím recv nechat jen poslední datagram (nízká latence).
+static void udp_drain_recv_queue_to_latest(int sock, char *rx_buf, size_t rx_sz,
+                                           struct sockaddr_in *from,
+                                           socklen_t *socklen_io, int *len_io) {
+  if (*len_io <= 0 || rx_sz < 2) {
+    return;
+  }
+  int guard = 0;
+  for (;;) {
+    if (++guard > 128) {
+      break;
+    }
+    struct sockaddr_in tmp;
+    socklen_t sl = sizeof(tmp);
+    int n = recvfrom(sock, rx_buf, rx_sz - 1, MSG_DONTWAIT,
+                     (struct sockaddr *)&tmp, &sl);
+    if (n < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        break;
+      }
+      break;
+    }
+    if (n > 0) {
+      *len_io = n;
+      *from = tmp;
+      *socklen_io = sl;
+      rx_buf[n] = '\0';
+    }
+  }
+}
+
 void task_udp(void *arg) {
+  ESP_LOGI(TAG, "[udp] task start port=%d", UDP_PORT);
   char rx_buffer[1500];
   struct sockaddr_in dest_addr;
   dest_addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -1198,14 +1492,22 @@ void task_udp(void *arg) {
 
   while (1) {
     if (!g_wifi_enabled) {
+      ESP_LOGD(TAG, "[udp] wifi off → sleep 1s");
       vTaskDelay(pdMS_TO_TICKS(1000));
       continue;
     }
 
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
     if (sock < 0) {
+      ESP_LOGW(TAG, "[udp] socket() failed errno=%d", errno);
       vTaskDelay(pdMS_TO_TICKS(100));
       continue;
+    }
+    ESP_LOGD(TAG, "[udp] socket fd=%d", sock);
+
+    int reuse = 1;
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) != 0) {
+      ESP_LOGW(TAG, "UDP SO_REUSEADDR: errno=%d", errno);
     }
 
     // Timeout for recv so we can check g_wifi_enabled
@@ -1215,19 +1517,31 @@ void task_udp(void *arg) {
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
     if (bind(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) < 0) {
+      ESP_LOGW(TAG, "[udp] bind port %d failed errno=%d", UDP_PORT, errno);
       close(sock);
       vTaskDelay(pdMS_TO_TICKS(1000));
       continue;
     }
+    ESP_LOGI(TAG, "[udp] listening on UDP %d", UDP_PORT);
 
     // Timeout tracking for Home Mode Recovery
     bool was_pc_mode = false;
 
     while (g_wifi_enabled) { // Inner loop checks flag
+      static uint32_t s_udp_rx_total;
       struct sockaddr_in source_addr;
       socklen_t socklen = sizeof(source_addr);
       int len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0,
                          (struct sockaddr *)&source_addr, &socklen);
+
+      if (len < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+        ESP_LOGW(TAG, "[udp] recvfrom errno=%d", errno);
+      }
+
+      if (len > 0) {
+        udp_drain_recv_queue_to_latest(sock, rx_buffer, sizeof(rx_buffer),
+                                       &source_addr, &socklen, &len);
+      }
 
       // Check if we need to restore HOME MODE (Silence detected)
       if (len <= 0) {
@@ -1249,25 +1563,48 @@ void task_udp(void *arg) {
             snprintf(state_topic, sizeof(state_topic),
                      "alfred/devices/%s/color/state", g_device_id);
             char c_str[32];
-            sprintf(c_str, "%d,%d,%d", g_home_color.r, g_home_color.g,
-                    g_home_color.b);
+            snprintf(c_str, sizeof(c_str), "%d,%d,%d", g_home_color.r,
+                     g_home_color.g, g_home_color.b);
             esp_mqtt_client_publish(mqtt_client, state_topic, c_str, 0, 1, 0);
           }
 
           bool serial_active = (esp_timer_get_time() -
                                 g_last_serial_interaction) < SERIAL_TIMEOUT_US;
-          if (g_mqtt_connected && g_home_power && !serial_active) {
+          if (g_mqtt_connected && g_home_power && !serial_active &&
+              !ambilight_ota_in_progress()) {
             xSemaphoreTake(led_mutex, portMAX_DELAY);
-            for (int i = 0; i < LED_STRIP_NUM_LEDS; i++)
-              led_strip_set_pixel(led_strip, i, g_home_color.r, g_home_color.g,
-                                  g_home_color.b);
-            led_strip_refresh(led_strip);
+            led_strip_fill_logical_rgb(g_home_color.r, g_home_color.g,
+                                     g_home_color.b);
             xSemaphoreGive(led_mutex);
           }
         }
       }
 
       if (len > 0) {
+        s_udp_rx_total++;
+        if ((s_udp_rx_total % 400u) == 0u) {
+          ESP_LOGI(TAG, "[udp] rx_total=%lu last_len=%d from=%s",
+                   (unsigned long)s_udp_rx_total, len,
+                   inet_ntoa(source_addr.sin_addr));
+          ESP_LOGI(TAG,
+                   "[udp-pc] SOUHRN dropů: serial=%lu ota=%lu lock=%lu "
+                   "thr=%lu badlen=%lu idx_oob=%lu | OK: 0x02=%lu 0x06=%lu "
+                   "0x08=%lu 0x03=%lu",
+                   (unsigned long)s_udp_pc_drop_serial,
+                   (unsigned long)s_udp_pc_drop_ota,
+                   (unsigned long)s_udp_pc_drop_lock,
+                   (unsigned long)s_udp_pc_drop_throttle,
+                   (unsigned long)s_udp_pc_drop_badlen,
+                   (unsigned long)s_udp_pc_drop_idx_oob,
+                   (unsigned long)s_udp_pc_accept_02,
+                   (unsigned long)s_udp_pc_accept_06,
+                   (unsigned long)s_udp_pc_accept_08,
+                   (unsigned long)s_udp_pc_accept_03);
+        }
+        ESP_LOGD(TAG, "[udp] packet len=%d from=%s first_byte=0x%02x", len,
+                 inet_ntoa(source_addr.sin_addr),
+                 len > 0 ? (unsigned)(uint8_t)rx_buffer[0] : 0);
+
         if (!was_pc_mode) {
           // FEEDBACK: Notify HomeKit we are active (Ambilight is effectively
           // Power ON)
@@ -1280,32 +1617,47 @@ void task_udp(void *arg) {
         }
         was_pc_mode = true;
         rx_buffer[len] = 0;
+        /* Znovu vyprázdnit frontu jen pro okamžitý barevný rámec (0x02 / 0x08). */
+        if (len >= 2 && ((uint8_t)rx_buffer[0] == 0x02 ||
+                         ((uint8_t)rx_buffer[0] == 0x08 && len >= 4))) {
+          udp_drain_recv_queue_to_latest(sock, rx_buffer, sizeof(rx_buffer),
+                                         &source_addr, &socklen, &len);
+          if (len > 0 && len < (int)sizeof(rx_buffer)) {
+            rx_buffer[len] = '\0';
+          }
+        }
 
-        if (strncmp(rx_buffer, "DISCOVER_ESP32", 14) == 0) {
+        if (len >= 14 && strncmp(rx_buffer, "DISCOVER_ESP32", 14) == 0) {
           uint8_t mac[6];
           esp_wifi_get_mac(WIFI_IF_STA, mac);
-          char resp[128];
+          /* Fixed stack buffer; snprintf bounds; inet_ntoa(struct in_addr) — not .s_addr */
+          char resp[96];
           ESP_LOGI(TAG, "Discovery Broadcast Received from %s",
-                   inet_ntoa(source_addr.sin_addr.s_addr));
-          sprintf(resp, "ESP32_PONG|%02x%02x%02x|Ambilight_%02x|%d|2.0", mac[3],
-                  mac[4], mac[5], mac[5], LED_STRIP_NUM_LEDS);
-          int sent =
-              sendto(sock, resp, strlen(resp), 0,
-                     (struct sockaddr *)&source_addr, sizeof(source_addr));
+                   inet_ntoa(source_addr.sin_addr));
+          /* ledCount = logická délka z USB 0xA5 0x5A (g_serial_strip_max) */
+          int plen =
+              snprintf(resp, sizeof(resp),
+                       "ESP32_PONG|%02x%02x%02x|Ambilight_%02x|%u|2.0",
+                       (unsigned)mac[3], (unsigned)mac[4], (unsigned)mac[5],
+                       (unsigned)mac[5], (unsigned)g_serial_strip_max);
+          if (plen <= 0 || (size_t)plen >= sizeof(resp)) {
+            ESP_LOGW(TAG, "Discovery PONG snprintf invalid/truncated plen=%d", plen);
+            continue;
+          }
+          int sent = sendto(sock, resp, (size_t)plen, 0,
+                            (struct sockaddr *)&source_addr, socklen);
           if (sent < 0)
             ESP_LOGE(TAG, "Failed to send PONG: %d", errno);
           else
-            ESP_LOGI(TAG, "Sent PONG: %s", resp);
+            ESP_LOGI(TAG, "Sent PONG (%d B): %s", sent, resp);
           continue;
         }
 
-        if (strncmp(rx_buffer, "IDENTIFY", 8) == 0) {
+        if (len >= 8 && strncmp(rx_buffer, "IDENTIFY", 8) == 0) {
           ESP_LOGI(TAG, "Identify Request!");
           // Flash Blue for 1s
           xSemaphoreTake(led_mutex, portMAX_DELAY);
-          for (int i = 0; i < LED_STRIP_NUM_LEDS; i++)
-            led_strip_set_pixel(led_strip, i, 0, 0, 255); // Blue
-          led_strip_refresh(led_strip);
+          led_strip_fill_logical_rgb(0, 0, 255);
           xSemaphoreGive(led_mutex);
 
           vTaskDelay(pdMS_TO_TICKS(1000));
@@ -1316,7 +1668,7 @@ void task_udp(void *arg) {
           continue;
         }
 
-        if (strncmp(rx_buffer, "RESET_WIFI", 10) == 0) {
+        if (len >= 10 && strncmp(rx_buffer, "RESET_WIFI", 10) == 0) {
           ESP_LOGW(TAG, "RESET_WIFI Requested!");
 
           // Visual Feedback: Red Flash (Rapid)
@@ -1340,19 +1692,42 @@ void task_udp(void *arg) {
           continue;
         }
 
+        if (len > 9 && strncmp(rx_buffer, "OTA_HTTP ", 9) == 0 &&
+            (size_t)strlen(rx_buffer) == (size_t)len) {
+          const char *u = rx_buffer + 9;
+          while (*u == ' ' || *u == '\t') {
+            u++;
+          }
+          ESP_LOGI(TAG, "OTA_HTTP (UDP) z %s",
+                   inet_ntoa(source_addr.sin_addr));
+          ambilight_start_ota(u);
+          continue;
+        }
+
         if (len >= 6 && (uint8_t)rx_buffer[0] ==
                             0x03) { // Single Pixel [0x03, IdxH, IdxL, R, G, B]
+          const uint32_t ip_pc = source_addr.sin_addr.s_addr;
+          if (ambilight_ota_in_progress()) {
+            udp_pc_drop("OTA_beží", &s_udp_pc_drop_ota, 0x03, len, ip_pc);
+            continue;
+          }
           // SOURCE LOCK CHECK
           if ((esp_timer_get_time() - g_last_serial_interaction) <
-              SERIAL_TIMEOUT_US)
+              SERIAL_TIMEOUT_US) {
+            udp_pc_drop("serial_ma_prednost_USB", &s_udp_pc_drop_serial, 0x03,
+                        len, ip_pc);
             continue;
+          }
+
+          /* Stejně jako 0x06 / 0x02 — průvodce 0x03 musí držet PC režim (watchdog last_data). */
+          g_last_data_interaction = esp_timer_get_time();
 
           uint16_t idx = ((uint8_t)rx_buffer[1] << 8) | (uint8_t)rx_buffer[2];
           uint8_t r = rx_buffer[3];
           uint8_t g = rx_buffer[4];
           uint8_t b_val = rx_buffer[5];
 
-          if (idx < LED_STRIP_NUM_LEDS) {
+          if (idx < LED_STRIP_NUM_LEDS && idx < g_serial_strip_max) {
             xSemaphoreTake(led_mutex, portMAX_DELAY);
             led_colors[idx].r = r;
             led_colors[idx].g = g;
@@ -1361,16 +1736,139 @@ void task_udp(void *arg) {
             // visibility
             update_leds(255);
             xSemaphoreGive(led_mutex);
+            udp_pc_accept(0x03, len, ip_pc, &s_udp_pc_accept_03);
+          } else {
+            udp_pc_drop("idx_mimo_strip", &s_udp_pc_drop_idx_oob, 0x03, len,
+                        ip_pc);
           }
+          continue;
+        }
+
+        /* Chunkovaný zápis bez refresh (PC → lampa): [0x06, idx_hi, idx_lo, R,G,B,…] */
+        if (len >= 6 && (uint8_t)rx_buffer[0] == 0x06) {
+          if (ambilight_ota_in_progress()) {
+            udp_pc_drop("OTA_beží", &s_udp_pc_drop_ota, 0x06, len,
+                        source_addr.sin_addr.s_addr);
+            continue;
+          }
+          if ((esp_timer_get_time() - g_last_serial_interaction) <
+              SERIAL_TIMEOUT_US) {
+            udp_pc_drop("serial_ma_prednost_USB", &s_udp_pc_drop_serial, 0x06,
+                        len, source_addr.sin_addr.s_addr);
+            continue;
+          }
+          int64_t now_us = esp_timer_get_time();
+          uint32_t sender_ip = source_addr.sin_addr.s_addr;
+          if (now_us - g_last_controller_time > 2000000) {
+            g_controller_ip = 0;
+          }
+          if (g_controller_ip != 0 && g_controller_ip != sender_ip) {
+            udp_pc_drop("controller_lock_jina_IP", &s_udp_pc_drop_lock, 0x06,
+                        len, sender_ip);
+            continue;
+          }
+          g_controller_ip = sender_ip;
+          g_last_controller_time = now_us;
+          g_last_data_interaction = esp_timer_get_time();
+
+          if (((len - 3) % 3) != 0) {
+            udp_pc_drop("spatna_delka_mod3", &s_udp_pc_drop_badlen, 0x06, len,
+                        sender_ip);
+            continue;
+          }
+          uint16_t idx0 =
+              ((uint8_t)rx_buffer[1] << 8) | (uint8_t)rx_buffer[2];
+          int num = (len - 3) / 3;
+          uint8_t *ptr = (uint8_t *)rx_buffer + 3;
+          xSemaphoreTake(led_mutex, portMAX_DELAY);
+          for (int i = 0; i < num; i++) {
+            uint32_t ix = (uint32_t)idx0 + (uint32_t)i;
+            if (ix >= LED_STRIP_NUM_LEDS || ix >= g_serial_strip_max) {
+              ptr += 3;
+              continue;
+            }
+            led_colors[ix].r = *ptr++;
+            led_colors[ix].g = *ptr++;
+            led_colors[ix].b = *ptr++;
+          }
+          xSemaphoreGive(led_mutex);
+          udp_pc_accept(0x06, len, sender_ip, &s_udp_pc_accept_06);
+          continue;
+        }
+
+        /* Flush po sérii 0x06: [0x08, bri, total_hi, total_lo] → clear_tail + update_leds */
+        if (len >= 4 && (uint8_t)rx_buffer[0] == 0x08) {
+          if (ambilight_ota_in_progress()) {
+            udp_pc_drop("OTA_beží", &s_udp_pc_drop_ota, 0x08, len,
+                        source_addr.sin_addr.s_addr);
+            continue;
+          }
+          if ((esp_timer_get_time() - g_last_serial_interaction) <
+              SERIAL_TIMEOUT_US) {
+            udp_pc_drop("serial_ma_prednost_USB", &s_udp_pc_drop_serial, 0x08,
+                        len, source_addr.sin_addr.s_addr);
+            continue;
+          }
+          int64_t now_us = esp_timer_get_time();
+          uint32_t sender_ip = source_addr.sin_addr.s_addr;
+          if (now_us - g_last_controller_time > 2000000) {
+            g_controller_ip = 0;
+          }
+          if (g_controller_ip != 0 && g_controller_ip != sender_ip) {
+            udp_pc_drop("controller_lock_jina_IP", &s_udp_pc_drop_lock, 0x08,
+                        len, sender_ip);
+            continue;
+          }
+          g_controller_ip = sender_ip;
+          g_last_controller_time = now_us;
+          g_last_data_interaction = esp_timer_get_time();
+
+          if (!g_has_received_data) {
+            g_has_received_data = true;
+            nvs_handle_t nvs_handle;
+            if (nvs_open("storage", NVS_READWRITE, &nvs_handle) == ESP_OK) {
+              int32_t zero = 0;
+              nvs_set_i32(nvs_handle, "boot_count", zero);
+              nvs_commit(nvs_handle);
+              nvs_close(nvs_handle);
+              ESP_LOGI(TAG, "Valid Data Received. Boot Count Reset to 0.");
+            }
+          }
+
+          uint8_t bri = (uint8_t)rx_buffer[1];
+          uint16_t total =
+              ((uint8_t)rx_buffer[2] << 8) | (uint8_t)rx_buffer[3];
+          ESP_LOGD(TAG, "[udp] 0x08 flush bri=%u total=%u", (unsigned)bri,
+                   (unsigned)total);
+          if (total > LED_STRIP_NUM_LEDS) {
+            total = LED_STRIP_NUM_LEDS;
+          }
+          if (total > g_serial_strip_max) {
+            total = g_serial_strip_max;
+          }
+
+          xSemaphoreTake(led_mutex, portMAX_DELAY);
+          clear_tail_leds((int)total);
+          update_leds(bri);
+          xSemaphoreGive(led_mutex);
+          udp_pc_accept(0x08, len, sender_ip, &s_udp_pc_accept_08);
           continue;
         }
 
         if (len >= 4 && (uint8_t)rx_buffer[0] ==
                             0x02) { // Binary Frame [0x02, Bri, R, G, B...]
+          if (ambilight_ota_in_progress()) {
+            udp_pc_drop("OTA_beží", &s_udp_pc_drop_ota, 0x02, len,
+                        source_addr.sin_addr.s_addr);
+            continue;
+          }
           // SOURCE LOCK CHECK
           if ((esp_timer_get_time() - g_last_serial_interaction) <
-              SERIAL_TIMEOUT_US)
+              SERIAL_TIMEOUT_US) {
+            udp_pc_drop("serial_ma_prednost_USB", &s_udp_pc_drop_serial, 0x02,
+                        len, source_addr.sin_addr.s_addr);
             continue;
+          }
 
           // Source Locking Logic (Anti-Flicker)
           int64_t now_us = esp_timer_get_time();
@@ -1383,11 +1881,8 @@ void task_udp(void *arg) {
 
           // 2. Enforce Lock
           if (g_controller_ip != 0 && g_controller_ip != sender_ip) {
-            static int drop_log = 0;
-            if (drop_log++ % 100 == 0) {
-              ESP_LOGW(TAG,
-                       "Dropped packet from unauthorized source (Locked).");
-            }
+            udp_pc_drop("controller_lock_jina_IP", &s_udp_pc_drop_lock, 0x02,
+                        len, sender_ip);
             continue;
           }
 
@@ -1397,27 +1892,12 @@ void task_udp(void *arg) {
 
           g_last_data_interaction = esp_timer_get_time(); // Refresh Timeout
 
-          // ANTI-FLICKER: Sequence Number Check
-          // Packet Format: [0x02, Bri, Seq, R, G, B...] (New Format) vs [0x02,
-          // Bri, R, G, B...] (Old) We can heuristically detect if byte 2 is a
-          // sequence number if we assume old format rarely changes. BETTER:
-          // Just assume unsequenced for now, but enforces strict timing.
-
-          // Simple Jitter Fix: If packet is older than last one (reordered),
-          // drop it. Since we don't have seq num in current protocol, we rely
-          // on arrival time. But UDP arrival time IS the order we see it.
-
-          // The issue is likely partial updates or buffer tearing?
-          // UDP ensures full message or nothing.
-
-          // Real Issue: Direct immediate update causes tearing if update rate >
-          // strip refresh rate. Fix: Enforce Min Frame Time (e.g. 15ms ~
-          // 60fps).
-          static int64_t last_frame_time = 0;
-          if (now_us - last_frame_time < 15000) {
-            continue; // Limit to ~66 FPS to prevent LED latching issues
+          /* PC protokol (ambilight_desktop): [0x02, bri][RGB]×N — bez seq bajtu. */
+          if (((len - 2) % 3) != 0) {
+            udp_pc_drop("spatna_delka_mod3", &s_udp_pc_drop_badlen, 0x02, len,
+                        sender_ip);
+            continue;
           }
-          last_frame_time = now_us;
 
           // Boot Loop Protection Reset
           // If we receive valid data, the system is working. Reset crash
@@ -1448,6 +1928,8 @@ void task_udp(void *arg) {
           int num = (len - 2) / 3;
           if (num > LED_STRIP_NUM_LEDS)
             num = LED_STRIP_NUM_LEDS;
+          if (num > g_serial_strip_max)
+            num = g_serial_strip_max;
 
           xSemaphoreTake(led_mutex, portMAX_DELAY);
           uint8_t *ptr = (uint8_t *)(rx_buffer + 2);
@@ -1459,9 +1941,11 @@ void task_udp(void *arg) {
           clear_tail_leds(num);
           update_leds(bri);
           xSemaphoreGive(led_mutex);
+          udp_pc_accept(0x02, len, sender_ip, &s_udp_pc_accept_02);
         }
       }
     }
+    ESP_LOGI(TAG, "[udp] closing socket (wifi stopped or outer loop)");
     close(sock);
   }
 }
@@ -1469,6 +1953,7 @@ void task_udp(void *arg) {
 // ============ DNS SERVER (CAPTIVE PORTAL) ============
 // Basic DNS Hijack: Answer ALL queries with our SoftAP IP
 void task_dns_server(void *arg) {
+  ESP_LOGI(TAG, "[dns] task start (UDP 53 captive)");
   char rx_buffer[512];
   struct sockaddr_in dest_addr;
   dest_addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -1483,6 +1968,7 @@ void task_dns_server(void *arg) {
 
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
     if (sock < 0) {
+      ESP_LOGW(TAG, "[dns] socket errno=%d", errno);
       vTaskDelay(pdMS_TO_TICKS(100));
       continue;
     }
@@ -1493,12 +1979,13 @@ void task_dns_server(void *arg) {
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
     if (bind(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) < 0) {
+      ESP_LOGW(TAG, "[dns] bind errno=%d", errno);
       close(sock);
       vTaskDelay(pdMS_TO_TICKS(1000));
       continue;
     }
 
-    ESP_LOGI(TAG, "DNS Server Started");
+    ESP_LOGI(TAG, "[dns] listening");
 
     while (g_wifi_enabled) {
       struct sockaddr_in source_addr;
@@ -1508,6 +1995,13 @@ void task_dns_server(void *arg) {
                          (struct sockaddr *)&source_addr, &socklen);
 
       if (len > 0) {
+        static uint32_t dns_q;
+        dns_q++;
+        if ((dns_q % 64u) == 1u) {
+          ESP_LOGD(TAG, "[dns] query #%lu len=%d from=%s",
+                   (unsigned long)dns_q, len,
+                   inet_ntoa(source_addr.sin_addr));
+        }
         // Get IP dynamically
         esp_netif_ip_info_t ip_info;
         esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
@@ -1540,8 +2034,15 @@ void task_dns_server(void *arg) {
         // QNAME is [len, label, len, label, 0x00]
         int ptr = 12;
         while (ptr < len && rx_buffer[ptr] != 0) {
-          int label_len = rx_buffer[ptr];
+          int label_len = (unsigned char)rx_buffer[ptr];
+          if (label_len <= 0 || ptr + 1 + label_len > len) {
+            ptr = len;
+            break;
+          }
           ptr += label_len + 1;
+        }
+        if (ptr >= len) {
+          continue;
         }
         ptr++;    // Skip 0x00 null terminator
         ptr += 4; // Skip QTYPE (2) and QCLASS (2)
@@ -1579,6 +2080,8 @@ void task_dns_server(void *arg) {
 }
 
 void led_init(void) {
+  ESP_LOGI(TAG, "[led] led_init gpio=%d leds=%d model=WS2812 GRB DMA=on",
+           LED_STRIP_GPIO_PIN, LED_STRIP_NUM_LEDS);
   led_strip_config_t strip_config = {
       .strip_gpio_num = LED_STRIP_GPIO_PIN,
       .max_leds = LED_STRIP_NUM_LEDS,
@@ -1595,9 +2098,18 @@ void led_init(void) {
       led_strip_new_spi_device(&strip_config, &spi_config, &led_strip));
   led_strip_clear(led_strip);
   led_strip_refresh(led_strip);
+  ESP_LOGI(TAG, "[led] strip driver ready");
+  ambi_log_heap("led_init_done");
 }
 
 void update_leds(uint8_t global_brightness) {
+  static uint32_t s_update_leds_calls;
+  s_update_leds_calls++;
+  if ((s_update_leds_calls % 180u) == 0u) {
+    ESP_LOGD(TAG, "[led] update_leds calls=%lu bri=%u",
+             (unsigned long)s_update_leds_calls,
+             (unsigned)global_brightness);
+  }
   float scale = global_brightness / 255.0;
   for (int i = 0; i < LED_STRIP_NUM_LEDS; i++) {
     led_strip_set_pixel(led_strip, i, led_colors[i].r * scale,
@@ -1619,19 +2131,28 @@ void disable_onboard_leds() {
 }
 
 void app_main(void) {
+  esp_log_level_set(TAG, ESP_LOG_DEBUG);
+  esp_log_level_set("LampOTA", ESP_LOG_DEBUG);
+
   esp_err_t ret = nvs_flash_init();
   if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
       ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    ESP_LOGW(TAG, "[boot] nvs_flash_init → erase + reinit (%s)",
+             esp_err_to_name(ret));
     nvs_flash_erase();
     nvs_flash_init();
   }
 
   ESP_LOGW(TAG, "Reset Reason: %d", esp_reset_reason()); // Log why we rebooted
-  ESP_LOGE(TAG, "=== FIRMWARE v1.10: MAX BRIGHTNESS (255) ===");
+  ESP_LOGE(TAG,
+           "=== LAMP FW: OTA (UDP OTA_HTTP / MQTT …/ota) + serial v1.11+ ===");
 
   disable_onboard_leds(); // Turn off onboard LEDs
 
   led_mutex = xSemaphoreCreateMutex();
+  ESP_LOGI(TAG, "[boot] mutex init heap:");
+  ambi_log_heap("app_main_pre_led");
+
   led_init();
 
   // Init Wi-Fi Driver once
@@ -1653,20 +2174,22 @@ void app_main(void) {
   // If no Serial comes in 10s, Monitor will enable it.
   // If Serial works, Monitor will keep it off.
 
-  // Boot Anim
-  // Boot Anim (Dark Blue)
-  for (int i = 0; i < 30; i++) {
-    led_strip_set_pixel(led_strip, i, 0, 0, 50);
+  // Boot: modré probliknutí všech LED najednou (místo postupné modré vlny)
+  {
+    const int n = LED_STRIP_NUM_LEDS;
+    ESP_LOGI(TAG, "Boot: modré probliknutí všech %d LED (~%d ms)", n,
+             BOOT_POST_FLASH_BLUE_BLINK_ON_MS);
+    for (int i = 0; i < n; i++) {
+      led_strip_set_pixel(led_strip, i, 0, 0, 50);
+    }
     led_strip_refresh(led_strip);
-    vTaskDelay(pdMS_TO_TICKS(10));
+    vTaskDelay(pdMS_TO_TICKS(BOOT_POST_FLASH_BLUE_BLINK_ON_MS));
+    taskYIELD();
   }
   led_strip_clear(led_strip);
   led_strip_refresh(led_strip);
 
-  led_strip_clear(led_strip);
-  led_strip_refresh(led_strip);
-
-  ESP_LOGI(TAG, "Boot Anim Complete. Starting High Priority Tasks...");
+  ESP_LOGI(TAG, "Boot LED signál hotový. Spouštím úlohy...");
 
   // Start Tasks NOW (After LED mutex is safe)
   // 1. Serial (Priority 10) - High enough for data, but yields to Wi-Fi/IDLE
@@ -1682,6 +2205,7 @@ void app_main(void) {
   start_wifi_subsystem();
 
   ESP_LOGI(TAG, "System Ready. Serial & Wi-Fi Active.");
+  ambi_log_runtime_state("app_main_ready");
 }
 
 // ======================================================
@@ -1763,10 +2287,23 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
                             "{\"status\":\"online\"}", 0, 1, 0);
 
   } else if (event->event_id == MQTT_EVENT_DISCONNECTED) {
-    ESP_LOGI(TAG, "MQTT Disconnected");
+    ESP_LOGI(TAG, "[mqtt] DISCONNECTED");
     g_mqtt_connected = false;
+  } else if (event->event_id == MQTT_EVENT_SUBSCRIBED) {
+    ESP_LOGI(TAG, "[mqtt] SUBSCRIBED msg_id=%d", event->msg_id);
+  } else if (event->event_id == MQTT_EVENT_UNSUBSCRIBED) {
+    ESP_LOGI(TAG, "[mqtt] UNSUBSCRIBED msg_id=%d", event->msg_id);
+  } else if (event->event_id == MQTT_EVENT_PUBLISHED) {
+    ESP_LOGD(TAG, "[mqtt] PUBLISHED msg_id=%d", event->msg_id);
+  } else if (event->event_id == MQTT_EVENT_BEFORE_CONNECT) {
+    ESP_LOGI(TAG, "[mqtt] BEFORE_CONNECT");
+  } else if (event->event_id == MQTT_EVENT_DELETED) {
+    ESP_LOGI(TAG, "[mqtt] DELETED msg_id=%d", event->msg_id);
+  } else if (event->event_id == MQTT_EVENT_ERROR) {
+    ESP_LOGE(TAG, "[mqtt] ERROR");
   } else if (event->event_id == MQTT_EVENT_DATA) {
-    ESP_LOGI(TAG, "MQTT Data: %.*s", event->topic_len, event->topic);
+    ESP_LOGI(TAG, "[mqtt] DATA topic=%.*s data_len=%d",
+             event->topic_len, event->topic, event->data_len);
 
     // Extract Topic
     char topic[128];
@@ -1782,6 +2319,18 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
       return;
     memcpy(payload, event->data, event->data_len);
     payload[event->data_len] = 0;
+
+    // OTA z aplikace (MQTT): alfred/devices/<ID>/ota — payload = celá http(s):// URL
+    if (strstr(topic, "/ota") && !strstr(topic, "/state")) {
+      char *p = payload;
+      while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') {
+        p++;
+      }
+      ESP_LOGI(TAG, "MQTT OTA příkaz (topic=%s)", topic);
+      ambilight_start_ota(p);
+      free(payload);
+      return;
+    }
 
     // 1. POWER COMMAND (alfred/devices/<ID>/power)
     if (strstr(topic, "/power") && !strstr(topic, "/state")) {
@@ -1810,7 +2359,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
       snprintf(state_topic, sizeof(state_topic),
                "alfred/devices/%s/brightness/state", g_device_id);
       char b_str[8];
-      sprintf(b_str, "%d", g_home_bri);
+      snprintf(b_str, sizeof(b_str), "%d", g_home_bri);
       esp_mqtt_client_publish(mqtt_client, state_topic, b_str, 0, 1, 0);
     }
     // 3. COLOR COMMAND
@@ -1825,8 +2374,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
       snprintf(state_topic, sizeof(state_topic),
                "alfred/devices/%s/color/state", g_device_id);
       char c_str[32];
-      sprintf(c_str, "%d,%d,%d", g_home_color.r, g_home_color.g,
-              g_home_color.b);
+      snprintf(c_str, sizeof(c_str), "%d,%d,%d", g_home_color.r,
+               g_home_color.g, g_home_color.b);
       esp_mqtt_client_publish(mqtt_client, state_topic, c_str, 0, 1, 0);
     }
 
@@ -1839,6 +2388,10 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
       return;
     }
 
+    if (ambilight_ota_in_progress()) {
+      return;
+    }
+
     // IMMEDIATE UPDATE
     if ((esp_timer_get_time() - g_last_data_interaction) > 5000000) {
       xSemaphoreTake(led_mutex, portMAX_DELAY);
@@ -1847,14 +2400,16 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
         uint8_t r = (uint8_t)(g_home_color.r * factor);
         uint8_t g = (uint8_t)(g_home_color.g * factor);
         uint8_t b = (uint8_t)(g_home_color.b * factor);
-        for (int i = 0; i < LED_STRIP_NUM_LEDS; i++)
-          led_strip_set_pixel(led_strip, i, r, g, b);
+        led_strip_fill_logical_rgb(r, g, b);
       } else {
         led_strip_clear(led_strip);
+        led_strip_refresh(led_strip);
       }
-      led_strip_refresh(led_strip);
       xSemaphoreGive(led_mutex);
     }
+  } else {
+    ESP_LOGI(TAG, "[mqtt] other event_id=%d msg_id=%d",
+             (int)event->event_id, event->msg_id);
   }
 }
 void start_mqtt() {

@@ -1,0 +1,16 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # Styl / výkon — neblokují distribuci; kritické zůstávají (unused_*, dead_code, …).
+    prefer_const_constructors: ignore
+    prefer_const_declarations: ignore
+    dangling_library_doc_comments: ignore
+    unnecessary_import: ignore
+    deprecated_member_use: ignore
+    no_leading_underscores_for_local_identifiers: ignore
+    no_wildcard_variable_uses: ignore
+
+linter:
+  rules:
+    prefer_single_quotes: true

@@ -1,0 +1,5 @@
+// 1) Zkopíruj tento soubor jako LocalSigning.xcconfig (stejná složka).
+// 2) Nahraď __EDIT_ME__ skutečným Team ID z Xcode (Signing & Capabilities), např. 7GZUCQLRN9.
+//    security find-identity -v -p codesigning — tým je v závorce za certifikátem.
+// 3) Spusť jednou: bash tool/macos_provision_profiles_once.sh
+DEVELOPMENT_TEAM = __EDIT_ME__

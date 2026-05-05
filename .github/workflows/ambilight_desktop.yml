@@ -1,0 +1,84 @@
+# AmbiLight Desktop — matice: analyze + test na všech OS; navíc desktop build (CMake) pro validaci runnerů.
+# Lokální ekvivalent: viz ambilight_desktop/README_RUN.md a context/DESKTOP_TARGETS.md
+
+name: ambilight_desktop
+
+on:
+  push:
+    paths:
+      - "ambilight_desktop/**"
+      - ".github/workflows/ambilight_desktop.yml"
+      - "README.md"
+  pull_request:
+    paths:
+      - "ambilight_desktop/**"
+      - ".github/workflows/ambilight_desktop.yml"
+      - "README.md"
+
+jobs:
+  desktop-ci:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        working-directory: ambilight_desktop
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev \
+            libayatana-appindicator3-dev \
+            libsecret-1-dev \
+            libudev-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      # Musí zůstat čisté (viz ambilight_desktop/analysis_options.yaml — skutečné bugy zůstávají).
+      - name: Flutter analyze
+        run: flutter analyze
+
+      - name: Flutter test
+        run: flutter test
+
+      # Debug = rychlá kontrola; release = tree-shaking / optimalizace (Linux + Windows — hlavní cíle).
+      - name: Flutter build linux
+        if: runner.os == 'Linux'
+        run: |
+          flutter build linux --debug
+          flutter build linux --release
+
+      - name: Flutter build windows
+        if: runner.os == 'Windows'
+        run: |
+          flutter build windows --debug
+          flutter build windows --release --dart-define=GIT_SHA=${{ github.sha }} --dart-define=AMBI_CHANNEL=ci
+
+      - name: Upload Windows release artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ambilight-desktop-windows-release-x64
+          path: ambilight_desktop/build/windows/x64/runner/Release/
+          if-no-files-found: warn
+
+      - name: Flutter build macos
+        if: runner.os == 'macOS'
+        run: |
+          flutter build macos --debug
+          flutter build macos --release
