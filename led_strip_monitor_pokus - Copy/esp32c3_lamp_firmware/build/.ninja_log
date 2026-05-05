@@ -1024,3 +1024,21 @@
 16484	16725	7996729466209174	D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/.bin_timestamp	505ec836c7ab5047
 16726	16805	7996729466269191	esp-idf/esptool_py/CMakeFiles/app_check_size	44b0f2b0328feff3
 16726	16805	7996729466269191	D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/esptool_py/CMakeFiles/app_check_size	44b0f2b0328feff3
+76	179	7996729935495537	esp-idf/esptool_py/CMakeFiles/app_check_size	44b0f2b0328feff3
+76	179	7996729935495537	D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/esptool_py/CMakeFiles/app_check_size	44b0f2b0328feff3
+69	235	7996729935415526	bootloader-prefix/src/bootloader-stamp/bootloader-build	33a2798cc9639f15
+69	235	7996729935415526	bootloader/bootloader.elf	33a2798cc9639f15
+69	235	7996729935415526	bootloader/bootloader.bin	33a2798cc9639f15
+69	235	7996729935415526	bootloader/bootloader.map	33a2798cc9639f15
+69	235	7996729935415526	D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/bootloader-prefix/src/bootloader-stamp/bootloader-build	33a2798cc9639f15
+69	235	7996729935415526	D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/bootloader/bootloader.elf	33a2798cc9639f15
+69	235	7996729935415526	D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/bootloader/bootloader.bin	33a2798cc9639f15
+69	235	7996729935415526	D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/bootloader/bootloader.map	33a2798cc9639f15
+235	277	7996729937080699	bootloader-prefix/src/bootloader-stamp/bootloader-install	90ee80ebe020f60a
+235	277	7996729937080699	D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/bootloader-prefix/src/bootloader-stamp/bootloader-install	90ee80ebe020f60a
+278	378	7996729938456360	CMakeFiles/bootloader-complete	8867ef04914eebfe
+278	378	7996729938456360	bootloader-prefix/src/bootloader-stamp/bootloader-done	8867ef04914eebfe
+278	378	7996729938456360	D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/CMakeFiles/bootloader-complete	8867ef04914eebfe
+278	378	7996729938456360	D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/bootloader-prefix/src/bootloader-stamp/bootloader-done	8867ef04914eebfe
+378	6446	7996729938506369	CMakeFiles/flash	92fb78a58acc8a60
+378	6446	7996729938506369	D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/CMakeFiles/flash	92fb78a58acc8a60

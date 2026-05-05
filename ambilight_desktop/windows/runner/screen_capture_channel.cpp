@@ -55,6 +55,20 @@ std::deque<CaptureJob> g_capture_queue;
 bool g_capture_worker_shutdown = false;
 std::thread g_capture_worker;
 
+// Jedno worker vlákno — bez mutexu. Po řadě DXGI WAIT_TIMEOUT bez nového snímku DWM často „mlčí“
+// i přes změny na obrazovce; GDI pojistka obnoví pixely (viz ExecuteCaptureJob).
+static int g_dxgi_timeout_streak = 0;
+static uint64_t g_last_successful_capture_tick64 = 0;
+
+bool ResolveCaptureRect(int mss_style_index, RECT& out_rect, int& out_resolved_index);
+bool RectToRgba(const RECT& src_rect, std::vector<uint8_t>& out_rgba, int& out_w, int& out_h);
+void DownscaleRgbaForAmbilight(const std::vector<uint8_t>& src_rgba,
+                                int src_w,
+                                int src_h,
+                                std::vector<uint8_t>& out_rgba,
+                                int& out_w,
+                                int& out_h);
+
 void PostCapturePayloadToUi(HWND hwnd, std::unique_ptr<CaptureDonePayload> payload) {
   if (!hwnd || !::IsWindow(hwnd)) {
     if (payload->result) {
@@ -80,6 +94,7 @@ void ExecuteCaptureJob(CaptureJob job) {
   HWND hwnd = job.reply_hwnd;
   const int monitor_index = job.monitor_index;
   const std::string& capture_backend = job.capture_backend;
+  const uint64_t tick_now = ::GetTickCount64();
 
   RECT rc{};
   int resolved = monitor_index;
@@ -98,15 +113,35 @@ void ExecuteCaptureJob(CaptureJob job) {
     got = dxgi_ok;
     if (dxgi_ok) {
       path_tag = "dxgi";
+      g_dxgi_timeout_streak = 0;
     } else if (dxgi_wait_timeout) {
       path_tag = "dxgi_no_frame";
+      g_dxgi_timeout_streak++;
+    } else {
+      g_dxgi_timeout_streak = 0;
     }
   }
-  if (!got && ok && !(want_dxgi && dxgi_wait_timeout)) {
+
+  // DXGI s timeoutem 0 ms často nevrátí nový frame (statická plocha / některé fullscreény) — bez GDI
+  // zůstane Dart minuty na starém snímku. Pojistka: GDI po N timeoutech nebo po >400 ms bez úspěchu.
+  constexpr int kGdiAfterDxgiTimeouts = 6;
+  constexpr uint64_t kStaleNoSuccessMs = 400;
+  const bool stale_wall = g_last_successful_capture_tick64 != 0 &&
+                          (tick_now - g_last_successful_capture_tick64) > kStaleNoSuccessMs;
+  const bool force_gdi_insurance =
+      want_dxgi && dxgi_wait_timeout && ok && !got &&
+      (g_dxgi_timeout_streak >= kGdiAfterDxgiTimeouts || stale_wall);
+
+  if (!got && ok && (!(want_dxgi && dxgi_wait_timeout) || force_gdi_insurance)) {
     const bool gdi_ok = RectToRgba(rc, rgba, w, h);
     got = gdi_ok;
     if (gdi_ok) {
-      path_tag = want_dxgi && !dxgi_ok ? "gdi_fallback" : "gdi";
+      if (force_gdi_insurance) {
+        path_tag = "gdi_insurance";
+        g_dxgi_timeout_streak = 0;
+      } else {
+        path_tag = want_dxgi && !dxgi_ok ? "gdi_fallback" : "gdi";
+      }
     }
   }
   if (!got && path_tag == "pending") {
@@ -122,6 +157,9 @@ void ExecuteCaptureJob(CaptureJob job) {
     w = dw;
     h = dh;
     got = !rgba.empty() && w > 0 && h > 0;
+    if (got) {
+      g_last_successful_capture_tick64 = ::GetTickCount64();
+    }
   }
 
   {
@@ -133,7 +171,7 @@ void ExecuteCaptureJob(CaptureJob job) {
       capture_diag_last_tick = now;
       std::string msg = std::string("[ambilight] CAPTURE path=") + path_tag +
                         " requested=" + capture_backend + " final_ok=" + (got ? "1" : "0");
-      if (want_dxgi && !dxgi_ok && dxgi_wait_timeout && ok) {
+      if (want_dxgi && !dxgi_ok && dxgi_wait_timeout && ok && !got) {
         msg += " dxgi_noop=1";
       }
       msg += " worker=1\n";
@@ -143,7 +181,7 @@ void ExecuteCaptureJob(CaptureJob job) {
 
   auto payload = std::make_unique<CaptureDonePayload>();
   payload->result = std::move(job.result);
-  if (want_dxgi && !dxgi_ok && dxgi_wait_timeout && ok) {
+  if (!got && want_dxgi && !dxgi_ok && dxgi_wait_timeout && ok) {
     payload->no_update = true;
   } else if (got) {
     payload->rgba = std::move(rgba);
@@ -182,6 +220,8 @@ void EnsureCaptureWorkerStarted() {
     return;
   }
   g_capture_worker_shutdown = false;
+  g_dxgi_timeout_streak = 0;
+  g_last_successful_capture_tick64 = 0;
   g_capture_worker = std::thread(CaptureWorkerLoop);
 }
 
