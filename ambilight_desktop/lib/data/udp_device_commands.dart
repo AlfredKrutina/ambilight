@@ -117,7 +117,7 @@ abstract final class UdpDeviceCommands {
     String ip,
     int port,
     int mode, {
-    Duration timeout = const Duration(milliseconds: 450),
+    Duration timeout = const Duration(milliseconds: 900),
     String? logContext,
   }) async {
     final m = mode.clamp(0, 2);
@@ -141,15 +141,21 @@ abstract final class UdpDeviceCommands {
       sub = socket.listen((event) {
         try {
           if (event != RawSocketEvent.read) return;
-          final dg = socket!.receive();
-          if (dg == null) return;
-          if (dg.address.address != addr.address) return;
-          final d = dg.data;
-          if (d.length == 2 &&
-              d[0] == UdpAmbilightProtocol.firmwareTemporalModeOpcode &&
-              d[1] == m) {
+          for (;;) {
+            final dg = socket!.receive();
+            if (dg == null) break;
+            final d = dg.data;
+            if (d.length != 2) continue;
+            if (d[0] != UdpAmbilightProtocol.firmwareTemporalModeOpcode || d[1] != m) {
+              continue;
+            }
+            /* Na některých Windows buildích != [InternetAddress] selže i pro stejný host. */
+            final sameHost =
+                dg.address == addr || dg.address.address == addr.address;
+            if (!sameHost) continue;
             acked = true;
             if (!completer.isCompleted) completer.complete();
+            break;
           }
         } catch (e, st) {
           _log.fine('sendTemporalModeWithAck listen: $e', e, st);

@@ -45,8 +45,18 @@ Future<bool> tryShowAmbilightTrayPopup(
     final overlayState = Overlay.maybeOf(context, rootOverlay: true);
     if (overlayState == null) return false;
 
-    final overlayRo = overlayState.context.findRenderObject();
-    if (overlayRo is! RenderBox || !overlayRo.hasSize) return false;
+    // Na Windows při okně skrytém do traye může mít overlay 0×0 — pak dříve padalo na nativní menu bez tématu.
+    final overlayCtx = overlayState.context;
+    final overlayRo = overlayCtx.findRenderObject();
+    final Rect overlayRect;
+    if (overlayRo is RenderBox && overlayRo.hasSize) {
+      final topLeft = overlayRo.localToGlobal(Offset.zero);
+      final oSize = overlayRo.size;
+      overlayRect = Rect.fromLTWH(topLeft.dx, topLeft.dy, oSize.width, oSize.height);
+    } else {
+      final sz = MediaQuery.sizeOf(context);
+      overlayRect = Rect.fromLTWH(0, 0, sz.width, sz.height);
+    }
 
     final AmbilightAppController c;
     try {
@@ -63,10 +73,6 @@ Future<bool> tryShowAmbilightTrayPopup(
     );
     final scheme = menuTheme.colorScheme;
 
-    final topLeft = overlayRo.localToGlobal(Offset.zero);
-    final oSize = overlayRo.size;
-    final overlayRect =
-        Rect.fromLTWH(topLeft.dx, topLeft.dy, oSize.width, oSize.height);
     final mqFallback = MediaQuery.sizeOf(context);
 
     RelativeRect position;
@@ -103,6 +109,7 @@ Future<bool> tryShowAmbilightTrayPopup(
     try {
       await showMenu<void>(
         context: context,
+        useRootNavigator: true,
         position: position,
         color: scheme.surfaceContainerHigh,
         elevation: 12,

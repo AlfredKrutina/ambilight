@@ -1499,7 +1499,23 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get setupWizardAppearanceSubtitle =>
-      'Světlý nebo tmavý režim — uloží se hned do profilu.';
+      'Vyber paletu vzhledu — uloží se hned do profilu.';
+
+  @override
+  String get setupWizardThemeOptionLightSubtitle =>
+      'Světlé plochy s tyrkysovými akcenty.';
+
+  @override
+  String get setupWizardThemeOptionDarkBlueSubtitle =>
+      'Zvýraznění cyan a fialová na tmavě modré — klasický vzhled AmbiLight.';
+
+  @override
+  String get setupWizardThemeOptionSnowrunnerSubtitle =>
+      'Neutrální tmavě šedé rozhraní s teplým oranžovým akcentem.';
+
+  @override
+  String get setupWizardThemeOptionCoffeeSubtitle =>
+      'Teplé krémové a hnědé tóny.';
 
   @override
   String get setupWizardExpertiseSimpleExplain =>

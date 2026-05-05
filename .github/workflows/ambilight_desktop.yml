@@ -77,8 +77,13 @@ jobs:
           path: ambilight_desktop/build/windows/x64/runner/Release/
           if-no-files-found: warn
 
+      # Bez týmu na runneru často padá nebo visí codesign u Release (Automatic + entitlements).
+      # Viz např. https://stackoverflow.com/questions/79689222/flutter-build-macos-release-hangs-on-codesign-when-it-runs-on-github-actions
       - name: Flutter build macos
         if: runner.os == 'macOS'
+        env:
+          CODE_SIGNING_ALLOWED: "NO"
+          CODE_SIGN_IDENTITY: "-"
         run: |
           flutter build macos --debug
           flutter build macos --release

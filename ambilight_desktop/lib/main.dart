@@ -136,10 +136,13 @@ class AmbiLightRoot extends StatelessWidget {
         uiLang: c.config.globalSettings.uiLanguage,
       ),
       builder: (context, shell, _) {
-        final reducedMotion = shell.performanceMode || !shell.uiAnimations;
+        // Režim výkonu nesmí vypínat [TickerMode] ani globálně [MediaQuery.disableAnimations] —
+        // dříve to rozbíjelo navigaci, dialogy a systémová okna (tickery = 0 v celém stromu).
+        final uiAnimationsDisabled = !shell.uiAnimations;
+        final themeReducedMotion = shell.performanceMode || uiAnimationsDisabled;
         final appPalette = AmbiLightTheme.themeForKey(
           shell.uiTheme,
-          reducedMotion: reducedMotion,
+          reducedMotion: themeReducedMotion,
         );
         return Consumer<ScanOverlayController>(
           builder: (context, scan, _) {
@@ -158,16 +161,19 @@ class AmbiLightRoot extends StatelessWidget {
                 theme: appPalette,
                 darkTheme: appPalette,
                 themeMode: ThemeMode.light,
-                themeAnimationDuration: reducedMotion ? Duration.zero : kThemeAnimationDuration,
-                themeAnimationCurve: reducedMotion ? Curves.linear : Curves.ease,
-                scrollBehavior:
-                    reducedMotion ? const _NoGlowScrollBehavior() : const MaterialScrollBehavior(),
+                themeAnimationDuration:
+                    uiAnimationsDisabled ? Duration.zero : kThemeAnimationDuration,
+                themeAnimationCurve:
+                    uiAnimationsDisabled ? Curves.linear : Curves.ease,
+                scrollBehavior: uiAnimationsDisabled
+                    ? const _NoGlowScrollBehavior()
+                    : const MaterialScrollBehavior(),
                 builder: (context, child) {
                   AppLocaleBridge.syncFrom(context);
                   final mq = MediaQuery.of(context);
-                  final userAnimOff = reducedMotion;
                   final mqMerged = mq.copyWith(
-                      disableAnimations: mq.disableAnimations || userAnimOff);
+                    disableAnimations: mq.disableAnimations || uiAnimationsDisabled,
+                  );
 
                   Widget inner = child ?? const SizedBox.shrink();
                   if (scan.visualizeEnabled) {
@@ -274,7 +280,7 @@ class AmbiLightRoot extends StatelessWidget {
                     ],
                   );
                   inner = TickerMode(
-                    enabled: !reducedMotion,
+                    enabled: !uiAnimationsDisabled,
                     child: inner,
                   );
                   final mqChild = MediaQuery(data: mqMerged, child: inner);

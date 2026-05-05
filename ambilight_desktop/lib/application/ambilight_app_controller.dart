@@ -360,7 +360,17 @@ class AmbilightAppController extends ChangeNotifier {
     if (packedFirstUdp) {
       _runPackedFirstEagerScreenDistribute(r.seq, r.packed);
     } else {
-      _asyncScreenColors = unpackDeviceColors(_config, r.packed);
+      if (!packedRgbMapCoversWifiAndSerialOutputs(_config, r.packed)) {
+        _asyncScreenColors = null;
+        if (kDebugMode || ambilightVerboseLogsEnabled) {
+          _log.warning(
+            'screen isolate: packed neobsahuje všechna výstupní zařízení → sync výpadek '
+            '(packed=[${r.packed.keys.join(",")}])',
+          );
+        }
+      } else {
+        _asyncScreenColors = unpackDeviceColors(_config, r.packed);
+      }
       if (ambilightScreenEagerDistributeEnabled) {
         _eagerDistributeScreenIfDue(r.seq);
       }
@@ -446,7 +456,17 @@ class AmbilightAppController extends ChangeNotifier {
     _musicFlatAppliedSeq = r.seq;
     _musicFlatLastAckSeq = r.seq;
     _musicFlatSubmitSince = null;
-    _asyncMusicColors = unpackDeviceColors(_config, r.packed);
+    if (!packedRgbMapCoversWifiAndSerialOutputs(_config, r.packed)) {
+      _asyncMusicColors = null;
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning(
+          'music flat isolate: packed neobsahuje všechna výstupní zařízení → sync výpadek '
+          '(packed=[${r.packed.keys.join(",")}])',
+        );
+      }
+    } else {
+      _asyncMusicColors = unpackDeviceColors(_config, r.packed);
+    }
   }
 
   void _onMusicFlatStripIsolateSkip(int seq) {
@@ -514,7 +534,17 @@ class AmbilightAppController extends ChangeNotifier {
     _lightPcAppliedSeq = r.seq;
     _lightPcLastAckSeq = r.seq;
     _lightPcSubmitSince = null;
-    _asyncLightPcColors = unpackDeviceColors(_config, r.packed);
+    if (!packedRgbMapCoversWifiAndSerialOutputs(_config, r.packed)) {
+      _asyncLightPcColors = null;
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning(
+          'light/pc isolate: packed neobsahuje všechna výstupní zařízení → sync výpadek '
+          '(packed=[${r.packed.keys.join(",")}])',
+        );
+      }
+    } else {
+      _asyncLightPcColors = unpackDeviceColors(_config, r.packed);
+    }
   }
 
   void _onLightPcEngineIsolateSkip(int seq) {
@@ -703,7 +733,8 @@ class AmbilightAppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// `performanceMode` z nastavení platí pro UI/jank; při [_shellOcclusionBoost] se výstup na LED neškrtí.
+  /// Omezení smyčky kvůli výkonu (snímání / sériová fronta); při [_shellOcclusionBoost] se výstup na LED neškrtí.
+  /// Pozn.: globální [TickerMode] už **není** vázaný na výkonový režim — jen na vypnutí animací UI v [main.dart].
   bool get _effectiveThrottlePerformance =>
       _config.globalSettings.performanceMode && !_shellOcclusionBoost;
 
@@ -2563,6 +2594,14 @@ class AmbilightAppController extends ChangeNotifier {
   /// Wi‑Fi UDP **před** synchronním [unpackDeviceColors] (ten alokuje tuple mapu na hlavním vlákně).
   void _runPackedFirstEagerScreenDistribute(int seq, Map<String, Uint8List> packed) {
     if (!_eagerScreenIsolateOutputAllowed(seq)) return;
+    if (!packedRgbMapCoversWifiAndSerialOutputs(_config, packed)) {
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning(
+          'eager packed-first: nekompletní packed → přeskočeno (packed=[${packed.keys.join(",")}])',
+        );
+      }
+      return;
+    }
     final bri = brightnessForMode(_config);
     try {
       _flushUdpWifiStripsFromPackedMap(packed, bri);

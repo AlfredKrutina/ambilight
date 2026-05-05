@@ -17,7 +17,7 @@ void main() {
       expect(p.fwTemporalSmoothingMode, isNull);
     });
 
-    test('parses FW 2.1 temporal mode field', () {
+    test('parses legacy PONG: protocol 2.1 + temporal (6 fields)', () {
       final p = parseEsp32PongDatagram(
         '10.0.0.2',
         'ESP32_PONG|aabbcc|Ambilight_dd|300|2.1|1',
@@ -25,6 +25,18 @@ void main() {
       expect(p, isNotNull);
       expect(p!.version, '2.1');
       expect(p.fwTemporalSmoothingMode, 1);
+    });
+
+    test('parses new PONG: image FW version + proto 2.1 + temporal (7 fields)', () {
+      final p = parseEsp32PongDatagram(
+        '192.168.4.1',
+        'ESP32_PONG|aabbcc|Ambilight_dd|2000|1.12.0|2.1|0',
+      );
+      expect(p, isNotNull);
+      expect(p!.ip, '192.168.4.1');
+      expect(p.ledCount, 2000);
+      expect(p.version, '1.12.0');
+      expect(p.fwTemporalSmoothingMode, 0);
     });
 
     test('rejects short string', () {

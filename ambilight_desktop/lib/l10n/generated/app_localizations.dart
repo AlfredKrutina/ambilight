@@ -2718,8 +2718,32 @@ abstract class AppLocalizations {
   /// No description provided for @setupWizardAppearanceSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Light or dark — saved to your profile right away.'**
+  /// **'Pick a palette — it is saved to your profile right away.'**
   String get setupWizardAppearanceSubtitle;
+
+  /// No description provided for @setupWizardThemeOptionLightSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Bright surfaces with teal accents.'**
+  String get setupWizardThemeOptionLightSubtitle;
+
+  /// No description provided for @setupWizardThemeOptionDarkBlueSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cyan and violet highlights on a deep blue base — classic AmbiLight look.'**
+  String get setupWizardThemeOptionDarkBlueSubtitle;
+
+  /// No description provided for @setupWizardThemeOptionSnowrunnerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Neutral dark gray UI with a warm orange accent.'**
+  String get setupWizardThemeOptionSnowrunnerSubtitle;
+
+  /// No description provided for @setupWizardThemeOptionCoffeeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Warm cream and brown tones.'**
+  String get setupWizardThemeOptionCoffeeSubtitle;
 
   /// No description provided for @setupWizardExpertiseSimpleExplain.
   ///

@@ -7,7 +7,7 @@ Kompatibilita FW ↔ desktop (matice, limity, checklist): [**FW_APP_PROTOCOL_COM
 | Příkaz / formát | Směr | Bajty / řetězec | Poznámka |
 |-----------------|-------|-----------------|----------|
 | Discovery | PC → ESP | UTF-8 `DISCOVER_ESP32` (14 B) | broadcast nebo unicast |
-| PONG | ESP → PC | UTF-8 `ESP32_PONG\|MAC\|Name\|ledCount\|ver` | **lamp FW:** `ledCount` = logická délka `g_serial_strip_max` (USB `0xA5 0x5A`), ne jen compile-time max |
+| PONG | ESP → PC | UTF-8 `ESP32_PONG\|MAC\|Name\|ledCount\|FW_VER\|2.1\|temporal` (legacy bez `FW_VER`) | **lamp FW:** `ledCount` = `g_serial_strip_max`; `FW_VER` = `esp_app_desc.version` |
 | Identify | PC → ESP | UTF-8 `IDENTIFY` (8 B) | modrá 1 s, pak obnovení stavu |
 | Reset Wi‑Fi | PC → ESP | UTF-8 `RESET_WIFI` (10 B) | červené bliknutí, erase credentials, reboot |
 | OTA z URL | PC → ESP | UTF-8 `OTA_HTTP ` + URL | Desktop: URL 12…1300 znaků; jeden datagram ≤ `UdpDeviceCommands.maxSafeUtf8PayloadBytes` (1400 B UTF‑8). HTTPS OTA (`ota_update.c`), reboot; dvě `ota_*` partition |

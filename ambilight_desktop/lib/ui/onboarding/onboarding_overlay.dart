@@ -229,11 +229,11 @@ class _SetupWizardState extends State<SetupWizard> with TickerProviderStateMixin
     if (mounted) setState(() {});
   }
 
-  Future<void> _applyTheme(bool dark) async {
+  Future<void> _applyUiTheme(String themeKey) async {
     final c = context.read<AmbilightAppController>();
-    final theme = dark ? 'dark_blue' : 'light';
+    final norm = normalizeAmbilightUiTheme(themeKey);
     await c.applyConfigAndPersist(
-      c.config.copyWith(globalSettings: c.config.globalSettings.copyWith(theme: theme)),
+      c.config.copyWith(globalSettings: c.config.globalSettings.copyWith(theme: norm)),
     );
     if (mounted) setState(() {});
   }
@@ -605,17 +605,31 @@ class _SetupWizardState extends State<SetupWizard> with TickerProviderStateMixin
             const SizedBox(height: 18),
             _choiceTile(
               selected: themeKey == 'light',
-              onTap: () => unawaited(_applyTheme(false)),
+              onTap: () => unawaited(_applyUiTheme('light')),
               icon: Icons.light_mode_rounded,
-              title: l10n.onboardWizardThemeLightTitle,
-              subtitle: l10n.onboardWizardThemeLightSubtitle,
+              title: l10n.themeLight,
+              subtitle: l10n.setupWizardThemeOptionLightSubtitle,
             ),
             _choiceTile(
-              selected: themeKey != 'light',
-              onTap: () => unawaited(_applyTheme(true)),
+              selected: themeKey == 'dark_blue',
+              onTap: () => unawaited(_applyUiTheme('dark_blue')),
               icon: Icons.dark_mode_rounded,
-              title: l10n.onboardWizardThemeDarkTitle,
-              subtitle: l10n.onboardWizardThemeDarkSubtitle,
+              title: l10n.themeDarkBlue,
+              subtitle: l10n.setupWizardThemeOptionDarkBlueSubtitle,
+            ),
+            _choiceTile(
+              selected: themeKey == 'snowrunner',
+              onTap: () => unawaited(_applyUiTheme('snowrunner')),
+              icon: Icons.landscape_outlined,
+              title: l10n.themeSnowrunner,
+              subtitle: l10n.setupWizardThemeOptionSnowrunnerSubtitle,
+            ),
+            _choiceTile(
+              selected: themeKey == 'coffee',
+              onTap: () => unawaited(_applyUiTheme('coffee')),
+              icon: Icons.local_cafe_rounded,
+              title: l10n.themeCoffee,
+              subtitle: l10n.setupWizardThemeOptionCoffeeSubtitle,
             ),
           ],
         );

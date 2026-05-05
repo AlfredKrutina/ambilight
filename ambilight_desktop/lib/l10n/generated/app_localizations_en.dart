@@ -1499,7 +1499,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get setupWizardAppearanceSubtitle =>
-      'Light or dark — saved to your profile right away.';
+      'Pick a palette — it is saved to your profile right away.';
+
+  @override
+  String get setupWizardThemeOptionLightSubtitle =>
+      'Bright surfaces with teal accents.';
+
+  @override
+  String get setupWizardThemeOptionDarkBlueSubtitle =>
+      'Cyan and violet highlights on a deep blue base — classic AmbiLight look.';
+
+  @override
+  String get setupWizardThemeOptionSnowrunnerSubtitle =>
+      'Neutral dark gray UI with a warm orange accent.';
+
+  @override
+  String get setupWizardThemeOptionCoffeeSubtitle =>
+      'Warm cream and brown tones.';
 
   @override
   String get setupWizardExpertiseSimpleExplain =>

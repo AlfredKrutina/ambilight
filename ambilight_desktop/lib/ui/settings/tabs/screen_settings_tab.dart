@@ -211,6 +211,7 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<int>(
+                  isExpanded: true,
                   decoration: InputDecoration(
                     labelText: _monitorsAreSynthetic
                         ? l10n.fieldMonitorIndexLabel
@@ -222,7 +223,11 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                     for (final m in list)
                       DropdownMenuItem<int>(
                         value: m.mssStyleIndex,
-                        child: Text(_monitorDropdownLabel(context, m)),
+                        child: Text(
+                          _monitorDropdownLabel(context, m),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                   ],
                   onChanged: (v) {
@@ -270,6 +275,7 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
       return <Widget>[
         const SizedBox(height: 10),
         DropdownButtonFormField<String>(
+          isExpanded: true,
           decoration: InputDecoration(
             labelText: l10n.screenWindowsCaptureBackendLabel,
             helperText: l10n.screenWindowsCaptureBackendHint,
@@ -542,6 +548,7 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                 onChanged: (v) => _patch(s.copyWith(minBrightness: v.round())),
               ),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 decoration: InputDecoration(
                   labelText: l10n.fieldScreenColorPreset,
                   helperText: l10n.helperScreenColorPreset,
@@ -549,7 +556,12 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                 ),
                 value: presetDropdownValue,
                 items: presetDropdownItems
-                    .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
+                    .map(
+                      (e) => DropdownMenuItem<String>(
+                        value: e,
+                        child: Text(e, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    )
                     .toList(),
                 onChanged: (v) {
                   if (v == null) return;
@@ -558,6 +570,7 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 decoration: InputDecoration(
                   labelText: l10n.fieldActiveCalibrationProfile,
                   helperText: l10n.helperCalibrationProfileKeys,
@@ -565,7 +578,12 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                 ),
                 value: calProfileValue,
                 items: calProfileItems
-                    .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
+                    .map(
+                      (e) => DropdownMenuItem<String>(
+                        value: e,
+                        child: Text(e, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    )
                     .toList(),
                 onChanged: (v) {
                   if (v == null) return;
