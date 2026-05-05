@@ -5,11 +5,17 @@ name: ambilight_desktop
 
 on:
   push:
+    branches:
+      - main
+      - mac-app
     paths:
       - "ambilight_desktop/**"
       - ".github/workflows/ambilight_desktop.yml"
       - "README.md"
   pull_request:
+    branches:
+      - main
+      - mac-app
     paths:
       - "ambilight_desktop/**"
       - ".github/workflows/ambilight_desktop.yml"

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <title>AmbiLight — downloads</title>
+  <style>
+    :root {
+      --bg: #0c0f14;
+      --bg2: #121826;
+      --card: #161d2a;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e8ecf4;
+      --muted: #9aa3b5;
+      --accent: #5b8cff;
+      --accent2: #7cf2c6;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 600px at 15% -10%, rgba(91, 140, 255, 0.28), transparent 55%),
+        radial-gradient(900px 500px at 90% 0%, rgba(124, 242, 198, 0.18), transparent 50%),
+        linear-gradient(180deg, var(--bg), var(--bg2));
+      min-height: 100vh;
+      line-height: 1.55;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 48px 20px 72px; }
+    header { margin-bottom: 36px; }
+    .badge {
+      display: inline-block;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+    }
+    h1 {
+      font-size: clamp(2rem, 4vw, 2.75rem);
+      line-height: 1.1;
+      margin: 0 0 12px;
+      font-weight: 750;
+      letter-spacing: -0.02em;
+    }
+    .lede { color: var(--muted); font-size: 1.1rem; max-width: 62ch; margin: 0; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 28px;
+    }
+    .card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 20px 18px;
+      box-shadow: var(--shadow);
+    }
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+      letter-spacing: -0.01em;
+    }
+    .card p { margin: 0 0 14px; color: var(--muted); font-size: 0.95rem; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(91, 140, 255, 0.45);
+      background: rgba(91, 140, 255, 0.12);
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .btn:hover { text-decoration: none; background: rgba(91, 140, 255, 0.2); }
+    .btn.secondary {
+      border-color: rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .btn.secondary:hover { background: rgba(255, 255, 255, 0.07); }
+    .meta { font-size: 12px; color: var(--muted); margin-top: 10px; }
+    section { margin-top: 40px; }
+    section h3 {
+      margin: 0 0 12px;
+      font-size: 1.15rem;
+      letter-spacing: -0.01em;
+    }
+    .fineprint {
+      margin-top: 10px;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 0.15em 0.4em;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    footer {
+      margin-top: 56px;
+      padding-top: 22px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .hint { color: var(--accent2); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="badge">Open source · ESP32 · Flutter desktop</div>
+      <h1>AmbiLight</h1>
+      <p class="lede">
+        Screen-aware ambient lighting with a cross-platform desktop client and lamp firmware.
+        This site hosts <span class="hint">CI-built packages</span> (Windows &amp; Linux) plus the latest
+        <strong>ESP-IDF</strong> binaries for OTA/USB workflows.
+      </p>
+    </header>
+
+    <section aria-labelledby="downloads-heading">
+      <h3 id="downloads-heading">Desktop application</h3>
+      <p class="fineprint" style="margin-top:0">
+        Builds are produced by GitHub Actions from the default branch. Extract the archive and run the app bundle inside.
+        macOS is not published here (signing &amp; notarization); build locally with Flutter — see the repository runbook.
+      </p>
+      <div class="grid">
+        <div class="card">
+          <h2>Windows (x64)</h2>
+          <p>Portable build of the Flutter runner <code>Release</code> folder (ZIP).</p>
+          <a class="btn" href="downloads/ambilight-desktop-windows-x64.zip">Download ZIP</a>
+          <div class="meta">Requires 64-bit Windows 10/11.</div>
+        </div>
+        <div class="card">
+          <h2>Linux (x64)</h2>
+          <p>Tarball of the Flutter Linux <code>bundle/</code> directory.</p>
+          <a class="btn" href="downloads/ambilight-desktop-linux-x64.tar.gz">Download .tar.gz</a>
+          <div class="meta">GTK3 / system libs per Flutter Linux docs.</div>
+        </div>
+        <div class="card">
+          <h2>macOS</h2>
+          <p>Build from source on Apple silicon or Intel. The <code>mac-app</code> branch tracks Mac-friendly entitlements.</p>
+          <a class="btn secondary" href="https://github.com/AlfredKrutina/ambilight/tree/mac-app">Repository branch</a>
+          <div class="meta">Also read <code>ambilight_desktop/README_RUN.md</code> for permissions.</div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="fw-heading">
+      <h3 id="fw-heading">Lamp firmware (ESP32)</h3>
+      <p class="fineprint" style="margin-top:0">
+        Latest CI artifacts: manifest for in-app downloads / OTA, plus bootloader, partition table, and application image.
+      </p>
+      <div class="card" style="max-width:720px;">
+        <h2>Firmware bundle</h2>
+        <p>
+          Manifest URL:
+          <a href="firmware/latest/manifest.json"><code>firmware/latest/manifest.json</code></a>
+          — binaries live alongside it for USB flashing or HTTPS OTA (<code>OTA_HTTP &lt;url&gt;</code>) / MQTT topic documented in the repo.
+        </p>
+        <a class="btn secondary" href="https://github.com/AlfredKrutina/ambilight/blob/main/README.md">Protocol &amp; README</a>
+      </div>
+    </section>
+
+    <footer>
+      Source &amp; issues:
+      <a href="https://github.com/AlfredKrutina/ambilight">github.com/AlfredKrutina/ambilight</a>
+      · Pages deploy runs from <code>main</code> via GitHub Actions (repository Settings → Pages → GitHub Actions).
+    </footer>
+  </div>
+</body>
+</html>

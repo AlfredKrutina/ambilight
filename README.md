@@ -1,5 +1,7 @@
 # AmbiLight
 
+**Downloads & firmware site (GitHub Pages):** [https://alfredkrutina.github.io/ambilight/](https://alfredkrutina.github.io/ambilight/) — CI-hosted **Windows** and **Linux** desktop archives plus **ESP32** lamp binaries (`manifest.json`). Enable **Settings → Pages → GitHub Actions** once per repository if deploy jobs fail with a Pages 404.
+
 **AmbiLight** is a desktop-driven ambient lighting system: the PC samples the screen, audio, or other color sources, then streams RGB data to one or more LED controllers (typically **ESP32-C3** firmware over **USB serial** or **Wi‑Fi UDP**). This repository is a **monorepo** that holds the cross-platform **Flutter desktop client**, planning documents, and a large **reference tree** (legacy Python UI, ESP-IDF projects, and bundled third-party sources).
 
 The primary application you build and run is under **`ambilight_desktop/`**.
@@ -78,7 +80,7 @@ More detail (Linux packages for CI, macOS entitlements, icon regeneration, Power
 
 ## Continuous integration
 
-GitHub Actions workflow **[`.github/workflows/ambilight_desktop.yml`](.github/workflows/ambilight_desktop.yml)** runs on **Ubuntu**, **Windows**, and **macOS**:
+GitHub Actions workflow **[`.github/workflows/ambilight_desktop.yml`](.github/workflows/ambilight_desktop.yml)** runs on **Ubuntu**, **Windows**, and **macOS** for pushes and PRs targeting **`main`** or **`mac-app`**:
 
 - `flutter pub get`
 - `flutter analyze`
@@ -89,7 +91,7 @@ Triggers are limited to changes under `ambilight_desktop/`, the workflow file, a
 
 ### Firmware (ESP-IDF) and GitHub Pages
 
-Workflow **[`.github/workflows/firmware-pages.yml`](.github/workflows/firmware-pages.yml)** builds **`led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/`** (ESP-IDF **v5.5.x** per `sdkconfig`, image **`espressif/idf:v5.5.1`**) and deploys **`firmware/latest/manifest.json`** plus bootloader, partition table, and **`ambilight_esp32c6.bin`** via **GitHub Actions → GitHub Pages** (`upload-pages-artifact` + `deploy-pages`).
+Workflow **[`.github/workflows/firmware-pages.yml`](.github/workflows/firmware-pages.yml)** builds **`led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/`** (ESP-IDF **v5.5.x** per `sdkconfig`, image **`espressif/idf:v5.5.1`**) **and** release bundles of the Flutter app (**Windows** ZIP + **Linux** tarball), then deploys a landing page (**[`tools/site_index.html`](tools/site_index.html)** → site root) with **`firmware/latest/manifest.json`**, bootloader, partition table, and **`ambilight_esp32c6.bin`** under **`firmware/latest/`**, plus **`downloads/`** archives, via **GitHub Actions → GitHub Pages** (`upload-pages-artifact` + `deploy-pages`). Runs on **`main`** only so the public URL stays canonical.
 
 **One-time setup in this repository:** **Settings → Pages → Build and deployment → Source:** choose **GitHub Actions** (not “Deploy from a branch”). If Source stays on **“Deploy from a branch”** or Pages is disabled, the **`deploy`** job fails with **`HttpError: Not Found (404)`** when creating the deployment — the build job can still succeed. Fix: **Repository → Settings → Pages** (`https://github.com/<owner>/<repo>/settings/pages`), set **Source** to **GitHub Actions**, save, then **re-run** the failed workflow or push again.
 

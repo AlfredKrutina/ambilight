@@ -1,12 +1,10 @@
-# Sestaví ESP-IDF firmware (projekt LAMPA) a nasadí statický web na GitHub Pages.
-# Zdroj kódu: led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/ (ne legacy monitor).
-# V repozitáři: Settings → Pages → Build and deployment → Source: „GitHub Actions“ (ne větev gh-pages).
+# ESP-IDF firmware + Flutter desktop bundles → static site on GitHub Pages.
+# Repo: Settings → Pages → Source: „GitHub Actions“.
 name: firmware_pages
 
 on:
   push:
     branches: [main, master]
-    # Bez paths: — jinak se workflow po většině commitů vůbec nespustí a Pages „nezlobí“.
   workflow_dispatch:
 
 permissions:
@@ -19,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  firmware:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -29,45 +27,128 @@ jobs:
         run: |
           set -eux
           FW='led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware'
-          # Nepoužívat idf.py fullclean: u trackovaných managed_components spouští kontrolu hashe a často spadne v CI.
-          # Čistý build: smazat build + managed_components, komponenty se stáhnou znovu podle idf_component.yml.
           docker run --rm \
             -v "${{ github.workspace }}:/project" \
             -w "/project/${FW}" \
             espressif/idf:v5.5.1 \
             bash -lc 'rm -rf build managed_components && idf.py build'
 
-      - name: Assemble site (root = Pages)
+      - name: Stage firmware for artifact
         run: |
           set -eux
           ROOT="${{ github.workspace }}"
           FW='led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware'
           BUILD="${ROOT}/${FW}/build"
-          SITE="${ROOT}/_site/firmware/latest"
-          mkdir -p "${SITE}"
+          OUT="${ROOT}/fw_site/firmware/latest"
+          mkdir -p "${OUT}"
           test -f "${BUILD}/bootloader/bootloader.bin"
           test -f "${BUILD}/partition_table/partition-table.bin"
           test -f "${BUILD}/ambilight_esp32c6.bin"
-          cp "${BUILD}/bootloader/bootloader.bin" "${SITE}/"
-          cp "${BUILD}/partition_table/partition-table.bin" "${SITE}/"
-          cp "${BUILD}/ambilight_esp32c6.bin" "${SITE}/"
+          cp "${BUILD}/bootloader/bootloader.bin" "${OUT}/"
+          cp "${BUILD}/partition_table/partition-table.bin" "${OUT}/"
+          cp "${BUILD}/ambilight_esp32c6.bin" "${OUT}/"
           VER=$(echo "${{ github.sha }}" | cut -c1-12)
           BASE="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/firmware/latest"
           python3 "${ROOT}/tools/gen_firmware_manifest.py" \
             --build-dir "${BUILD}" \
-            --out "${SITE}/manifest.json" \
+            --out "${OUT}/manifest.json" \
             --base-url "${BASE}" \
             --version "${VER}" \
             --chip esp32c3
-          cp "${ROOT}/tools/firmware_index.html" "${ROOT}/_site/index.html"
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware-site
+          path: fw_site
+
+  desktop_windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ambilight_desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build windows --release --dart-define=GIT_SHA=${{ github.sha }} --dart-define=AMBI_CHANNEL=ci-pages
+      - name: Zip Release bundle
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:GITHUB_WORKSPACE "ambilight-desktop-windows-x64.zip"
+          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath $zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-windows-zip
+          path: ambilight-desktop-windows-x64.zip
+
+  desktop_linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ambilight_desktop
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev \
+            libayatana-appindicator3-dev \
+            libsecret-1-dev \
+            libudev-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build linux --release --dart-define=GIT_SHA=${{ github.sha }} --dart-define=AMBI_CHANNEL=ci-pages
+      - name: Tar bundle
+        run: tar czf "${GITHUB_WORKSPACE}/ambilight-desktop-linux-x64.tar.gz" -C build/linux/x64/release bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-linux-tar
+          path: ambilight-desktop-linux-x64.tar.gz
+
+  site:
+    needs: [firmware, desktop_windows, desktop_linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: firmware-site
+          path: _import_fw
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-windows-zip
+          path: _import_win
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-linux-tar
+          path: _import_linux
+
+      - name: Assemble _site
+        run: |
+          set -eux
+          mkdir -p _site/downloads
+          cp -r _import_fw/firmware _site/
+          cp _import_win/ambilight-desktop-windows-x64.zip _site/downloads/
+          cp _import_linux/ambilight-desktop-linux-x64.tar.gz _site/downloads/
+          cp tools/site_index.html _site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
   deploy:
-    needs: build
+    needs: site
     runs-on: ubuntu-latest
     environment:
       name: github-pages
