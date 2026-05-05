@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../../application/ambilight_app_controller.dart';
 import '../../../core/device_bindings_debug.dart';
 import '../../../core/models/config_models.dart';
+import '../../../data/udp_device_commands.dart';
+import '../../../services/led_discovery_service.dart';
 import '../../layout_breakpoints.dart';
 import '../../widgets/config_device_list_tile.dart';
+import '../../wizards/led_strip_wizard_dialog.dart';
 import '../../../l10n/context_ext.dart';
 import '../../../l10n/generated/app_localizations.dart';
 
@@ -107,6 +111,86 @@ class DevicesTab extends StatelessWidget {
                                 style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                               ),
                             ),
+                            IconButton(
+                              tooltip: l10n.segmentsLabel,
+                              onPressed: () => LedStripWizardDialog.show(context, deviceId: d.id),
+                              icon: const Icon(Icons.border_outer),
+                            ),
+                            if (d.type == 'wifi' && d.ipAddress.trim().isNotEmpty)
+                              PopupMenuButton<String>(
+                                tooltip: l10n.discIdentifyTooltip,
+                                icon: const Icon(Icons.more_vert),
+                                onSelected: (v) async {
+                                  final messenger = ScaffoldMessenger.maybeOf(context);
+                                  final ctrl = context.read<AmbilightAppController>();
+                                  if (v == 'id') {
+                                    await UdpDeviceCommands.sendIdentify(d.ipAddress, d.udpPort);
+                                    return;
+                                  }
+                                  if (v == 'wifi') {
+                                    final go = await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: Text(ctx.l10n.resetWifiTitle),
+                                        content: Text(ctx.l10n.resetWifiContent(d.name)),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.cancel)),
+                                          FilledButton(
+                                            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+                                            onPressed: () => Navigator.pop(ctx, true),
+                                            child: Text(ctx.l10n.sendResetWifi),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (go != true || !context.mounted) return;
+                                    final ok = await UdpDeviceCommands.sendResetWifi(
+                                      d.ipAddress,
+                                      d.udpPort,
+                                      logContext: d.name,
+                                    );
+                                    if (!context.mounted || messenger == null) return;
+                                    messenger.showSnackBar(
+                                      SnackBar(content: Text(ok ? l10n.resetWifiSent : l10n.resetWifiFailed)),
+                                    );
+                                    return;
+                                  }
+                                  if (v == 'fw') {
+                                    final pong = await LedDiscoveryService.queryPong(d.ipAddress, udpPort: d.udpPort);
+                                    if (!context.mounted || messenger == null) return;
+                                    if (pong == null) {
+                                      messenger.showSnackBar(SnackBar(content: Text(l10n.pongMissing)));
+                                      return;
+                                    }
+                                    final devList = ctrl.config.globalSettings.devices;
+                                    final idx = devList.indexWhere((x) => x.id == d.id);
+                                    if (idx < 0) return;
+                                    final dev = devList[idx];
+                                    final devs = [...devList];
+                                    devs[idx] = dev.copyWith(
+                                      firmwareVersion: pong.version,
+                                      fwTemporalSmoothingMode:
+                                          pong.fwTemporalSmoothingMode ?? dev.fwTemporalSmoothingMode,
+                                    );
+                                    traceDeviceBindings('DevicesTab: refresh fw ${dev.id} → ${pong.version}');
+                                    await ctrl.applyConfigAndPersist(
+                                      ctrl.config.copyWith(
+                                        globalSettings: ctrl.config.globalSettings.copyWith(devices: devs),
+                                      ),
+                                    );
+                                    if (context.mounted) {
+                                      messenger.showSnackBar(
+                                        SnackBar(content: Text(l10n.firmwareLabel(pong.version))),
+                                      );
+                                    }
+                                  }
+                                },
+                                itemBuilder: (ctx) => [
+                                  PopupMenuItem(value: 'id', child: Text(l10n.menuIdentifyBlink)),
+                                  PopupMenuItem(value: 'fw', child: Text(l10n.menuRefreshFirmwareInfo)),
+                                  PopupMenuItem(value: 'wifi', child: Text(l10n.discResetWifiTooltip)),
+                                ],
+                              ),
                             IconButton(
                               tooltip: l10n.devicesRemoveTooltip,
                               onPressed: () async {
@@ -211,6 +295,58 @@ class DevicesTab extends StatelessWidget {
                             next[i] = d.copyWith(controlViaHa: v);
                             onDevicesChanged(next);
                           },
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(l10n.deviceFwTemporalSectionTitle,
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          l10n.deviceFwTemporalHint,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                height: 1.35,
+                              ),
+                        ),
+                        const SizedBox(height: 8),
+                        SegmentedButton<int>(
+                          segments: [
+                            ButtonSegment(value: 0, label: Text(l10n.deviceFwTemporalOff)),
+                            ButtonSegment(value: 1, label: Text(l10n.deviceFwTemporalSmooth)),
+                            ButtonSegment(value: 2, label: Text(l10n.deviceFwTemporalSnap)),
+                          ],
+                          selected: {d.fwTemporalSmoothingMode.clamp(0, 2)},
+                          onSelectionChanged: (set) {
+                            final v = set.first;
+                            final next = List<DeviceSettings>.from(devices);
+                            next[i] = d.copyWith(fwTemporalSmoothingMode: v);
+                            onDevicesChanged(next);
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: FilledButton.tonalIcon(
+                            onPressed: () async {
+                              final ctrl = context.read<AmbilightAppController>();
+                              final ok = await ctrl.sendFirmwareTemporalModeForDevice(
+                                d.id,
+                                d.fwTemporalSmoothingMode,
+                              );
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    ok ? l10n.deviceFwTemporalSnackOk : l10n.deviceFwTemporalSnackFail,
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.send_outlined),
+                            label: Text(l10n.deviceFwTemporalApply),
+                          ),
                         ),
                         ExpansionTile(
                           initiallyExpanded: d.type == 'serial' ||

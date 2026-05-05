@@ -203,6 +203,76 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String get desktopUpdateSectionTitle => 'Aktualizace aplikace';
+
+  @override
+  String get desktopUpdateSectionHint =>
+      'Kontrola probíhá přes manifest na HTTPS. Stažený balíček se před instalací ověří SHA-256.';
+
+  @override
+  String get desktopUpdateManifestUrlLabel => 'URL manifestu';
+
+  @override
+  String get desktopUpdateCheckButton => 'Zkontrolovat aktualizace';
+
+  @override
+  String get desktopUpdateUpToDate =>
+      'Máš nejnovější verzi pro tento kanál aktualizací.';
+
+  @override
+  String desktopUpdateCheckFailed(Object detail) {
+    return 'Kontrola aktualizací selhala: $detail';
+  }
+
+  @override
+  String desktopUpdateChannelMismatch(
+      Object manifestChannel, Object appChannel) {
+    return 'Nesedí kanál vydání (manifest: $manifestChannel, aplikace: $appChannel).';
+  }
+
+  @override
+  String desktopUpdateAvailable(Object remote, Object current) {
+    return 'Je k dispozici nová verze: $remote (nainstalováno: $current).';
+  }
+
+  @override
+  String get desktopUpdateReleaseNotesLink => 'Poznámky k vydání';
+
+  @override
+  String get desktopUpdateDownloadAndInstall =>
+      'Stáhnout a nainstalovat (restart)';
+
+  @override
+  String get desktopUpdateOpenDownloadPage => 'Otevřít stránku se stažením';
+
+  @override
+  String get desktopUpdateConfirmTitle => 'Nainstalovat aktualizaci?';
+
+  @override
+  String get desktopUpdateConfirmBody =>
+      'Aplikace se ukončí; krátký skript rozbalí aktualizaci, přepíše soubory v této instalaci a znovu spustí AmbiLight. Ulož si ostatní práci.';
+
+  @override
+  String get desktopUpdateConfirmInstall => 'Nainstalovat';
+
+  @override
+  String get desktopUpdateDownloadFailed =>
+      'Stažení nebo kontrola integrity selhala.';
+
+  @override
+  String get desktopUpdateUpdaterStartFailed =>
+      'Nepodařilo se spustit aktualizátor.';
+
+  @override
+  String get desktopUpdateRestarting =>
+      'Ukládám a končím… aktualizátor aplikaci znovu spustí.';
+
+  @override
+  String desktopUpdateErrorDetail(Object detail) {
+    return '$detail';
+  }
+
+  @override
   String get semanticsCloseScanOverlay => 'Zavřít náhled oblasti snímání';
 
   @override
@@ -492,6 +562,126 @@ class AppLocalizationsCs extends AppLocalizations {
   String get tabFirmware => 'Firmware';
 
   @override
+  String get settingsTabGlobalTooltip =>
+      'Jazyk, téma, výkon, výchozí režim a záloha JSON konfigurace.';
+
+  @override
+  String get settingsTabLightTooltip =>
+      'Statické barvy, efekty, zóny a časování režimu Světlo.';
+
+  @override
+  String get settingsTabScreenTooltip =>
+      'Snímání monitoru, segmenty, gamma, interpolace a pokročilé kalibrace.';
+
+  @override
+  String get settingsTabMusicTooltip =>
+      'Vstup zvuku, FFT, melodie, presety a mapování barev na pásek.';
+
+  @override
+  String get settingsTabPcHealthTooltip =>
+      'Senzory PC (CPU, GPU, …) a jejich mapování na barvy výstupu.';
+
+  @override
+  String get settingsTabSpotifyTooltip =>
+      'OAuth Spotify a barvy z obalu — doplňuje režim Hudba.';
+
+  @override
+  String get settingsTabSmartHomeTooltip =>
+      'Home Assistant, HomeKit a virtuální místnost pro další lampy.';
+
+  @override
+  String get settingsTabFirmwareTooltip =>
+      'Manifest OTA, flash přes USB (esptool) a příkazy přes UDP.';
+
+  @override
+  String get settingsPageHelpTooltip =>
+      'Záložky jsou seskupené v menu vlevo na širokém okně; při úzkém okně je horní lišta průběžná. Změny se krátce po úpravě uloží na disk (viz nápověda nahoře).';
+
+  @override
+  String get settingsPerformanceHelpTooltip =>
+      'Omezí snímání monitoru a související smyčky kvůli CPU. Světelný režim bez snímání zůstává rychlejší.';
+
+  @override
+  String get musicLockPaletteHelpTooltip =>
+      'Zachytí aktuální barvy na pásku a drží je — užitečné při ladění bez permanentního výstupu.';
+
+  @override
+  String get screenUltraSatHelpTooltip =>
+      'Agresivně zesytí extrémně přepálené barvy ze snímání — v kombinaci se slidery níže.';
+
+  @override
+  String get smartPushColorsHelpTooltip =>
+      'Když je zapnuto, aplikace mapuje stejné barvy jako na pásek také na entity Home Assistant / HomeKit podle „mapování barvy“ u každé lampy.';
+
+  @override
+  String get homeSectionModeHelpTooltip =>
+      'Aktivní režim řídí, odkud engine bere barvy (statické efekty / monitor / audio / senzory).';
+
+  @override
+  String get homeSectionIntegrationsHelpTooltip =>
+      'Stručný stav Spotify, Home Assistant a manifestu firmware — detailní nastavení je v příslušných záložkách.';
+
+  @override
+  String get homeSectionDevicesHelpTooltip =>
+      'Stav připojení známých pásků; přidání nebo úprava je na stránce Zařízení.';
+
+  @override
+  String get modeLightTooltip =>
+      'Barvy a efekty bez snímání monitoru — zóny a přechody z Globálního nastavení.';
+
+  @override
+  String get modeScreenTooltip =>
+      'Ambilight z okrajů vybraného monitoru podle segmentů a geometrie.';
+
+  @override
+  String get modeMusicTooltip =>
+      'Barvy z FFT / melodie z mikrofonu nebo loopbacku; Spotify a OS média volitelně.';
+
+  @override
+  String get modePcHealthTooltip =>
+      'Teploty a zátěž PC převedené na barvy podle metrik v nastavení.';
+
+  @override
+  String get integrationMusicCardTooltip =>
+      'OAuth Spotify a náhledová nastavení vlivu na režim Hudba.';
+
+  @override
+  String get integrationHaCardTooltip =>
+      'Synchronizace barev na entity Home Assistant nebo HomeKit (macOS).';
+
+  @override
+  String get integrationFirmwareCardTooltip =>
+      'URL manifestu pro OTA a stažení binárek — nemění pásek přímo.';
+
+  @override
+  String get devicesActionDiscoverTooltip =>
+      'Vyhledá ESP v síti přes UDP a přidá je do seznamu zařízení.';
+
+  @override
+  String get devicesActionZonesTooltip =>
+      'Editor LED segmentů podle hran monitoru a pořadí diod.';
+
+  @override
+  String get devicesActionSegGeomTooltip =>
+      'Orientace pásku kolem obrazovky (pořadí hran) před kalibrací.';
+
+  @override
+  String get devicesActionCalibrationTooltip =>
+      'Průvodce přiřazením fyzických rohů pásku ke snímanému obrazu.';
+
+  @override
+  String get devicesActionPresetTooltip =>
+      'Uloží aktuální nastavení obrazovky jako pojmenovaný preset.';
+
+  @override
+  String get devicesActionAddWifiTooltip =>
+      'Ruční přidání Wi‑Fi zařízení podle IP a UDP portu.';
+
+  @override
+  String get devicesActionFindComTooltip =>
+      'Projde sériové porty a najde odpověď firmware připojeného přes USB.';
+
+  @override
   String get globalSectionTitle => 'Globální';
 
   @override
@@ -599,14 +789,13 @@ class AppLocalizationsCs extends AppLocalizations {
   String get trayMusicPresetsSection => 'Hudba — presety';
 
   @override
-  String get trayMusicUnlockColors => 'Odemknout barvy (hudba)';
+  String get trayMusicUnlockColors => 'Odmrazit pásek (hudba)';
 
   @override
-  String get trayMusicCancelLockPending =>
-      'Zrušit zamykání barev (čeká na snímek)';
+  String get trayMusicCancelLockPending => 'Zrušit zmrazení (čeká na snímek)';
 
   @override
-  String get trayMusicLockColorsShort => 'Zamknout barvy (hudba)';
+  String get trayMusicLockColorsShort => 'Zmrazit výstup na pásku (hudba)';
 
   @override
   String get traySettingsEllipsis => 'Nastavení…';
@@ -930,6 +1119,96 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String get segGeomWizardTitle => 'Průvodce umístěním segmentů';
+
+  @override
+  String get segGeomWizardIntro =>
+      'Vyber segment, otoč na které hraně monitoru se vzorkuje, posuň pásmo podél hrany nebo převrať pořadí LED. Otočení hrany znovu nastaví pásmo na celý okraj (indexy LED zůstanou).';
+
+  @override
+  String get segGeomWizardEmpty =>
+      'Zatím nemáš žádné segmenty. Nejdřív spusť průvodce mapováním LED, pak tu doladíš geometrii.';
+
+  @override
+  String get segGeomWizardSegmentPicker => 'Segment';
+
+  @override
+  String segGeomWizardSegmentLabel(int index) {
+    return 'Segment $index';
+  }
+
+  @override
+  String segGeomWizardLedRange(int start, int end) {
+    return 'LED $start–$end';
+  }
+
+  @override
+  String get segGeomWizardRotateCwTooltip =>
+      'Otočit hranu po směru hodin (horní → pravá → spodní → levá)';
+
+  @override
+  String get segGeomWizardRotateCcwTooltip => 'Otočit hranu proti směru hodin';
+
+  @override
+  String get segGeomWizardReverse => 'Obrátit pořadí LED na pásku';
+
+  @override
+  String get segGeomWizardWholeEdge => 'Vzorkovat celý okraj';
+
+  @override
+  String get segGeomWizardWholeEdgeSubtitle =>
+      'Vypni a omez pásmo slidery níže.';
+
+  @override
+  String get segGeomWizardBandTitle => 'Pásmo podél hrany (referenční pixely)';
+
+  @override
+  String get segGeomWizardPresetFull => 'Celý okraj';
+
+  @override
+  String get segGeomWizardPresetStartHalf => 'První polovina';
+
+  @override
+  String get segGeomWizardPresetEndHalf => 'Druhá polovina';
+
+  @override
+  String get segGeomWizardPresetCenterThird => 'Prostřední třetina';
+
+  @override
+  String get segGeomWizardRefFromCapture =>
+      'Sladit referenci s posledním snímkem';
+
+  @override
+  String get segGeomWizardPreviewCaption => 'Oblast vzorkování (přibližně)';
+
+  @override
+  String get segGeomWizardGradientSubtitle =>
+      'Živý gradient odpovídá barvám vzorkovaným podél hrany (u horní/spodní zleva doprava, u levé/pravé shora dolů). Seřídíš ho s páskem přes Obrátit pořadí nebo otočení hrany.';
+
+  @override
+  String get segGeomWizardGradientUnavailable =>
+      'Živý náhled není k dispozici — zkontroluj index monitoru u segmentu, zapni výstup a použij režim Obrazovka, aby proudily snímky.';
+
+  @override
+  String get segGeomWizardPreviewLive => 'Náhled z rozměrů živého snímku';
+
+  @override
+  String get segGeomWizardPreviewRef =>
+      'Náhled z referenční velikosti segmentu';
+
+  @override
+  String get segGeomWizardOpenMapping => 'Průvodce mapováním LED…';
+
+  @override
+  String get segGeomWizardSaved => 'Geometrie segmentů uložena.';
+
+  @override
+  String get segGeomWizardMonitorTitle => 'Index monitoru';
+
+  @override
+  String get segGeomWizardLaunchButton => 'Umístění segmentů';
+
+  @override
   String get refDimsFromCapture => 'Ref. dimensions from last capture';
 
   @override
@@ -1181,6 +1460,92 @@ class AppLocalizationsCs extends AppLocalizations {
   String virtualRoomFacing(Object deg) {
     return 'Úchyl pohledu od osy k TV: $deg°';
   }
+
+  @override
+  String get virtualRoomEffectLabel => 'Efekt na chytrá světla';
+
+  @override
+  String get virtualRoomEffectNone => 'Vypnuto';
+
+  @override
+  String get virtualRoomEffectWave => 'Vlna';
+
+  @override
+  String get virtualRoomEffectBreath => 'Dýchání';
+
+  @override
+  String get virtualRoomEffectChase => 'Běh';
+
+  @override
+  String get virtualRoomEffectSparkle => 'Jiskření';
+
+  @override
+  String get virtualRoomEffectHintNone =>
+      'Jen barvy a jas z enginu — žádná další modulace.';
+
+  @override
+  String get virtualRoomEffectHintWave =>
+      'Plynulá vlna místností; geometrie určuje, jak vzdálenost mění fázi.';
+
+  @override
+  String get virtualRoomEffectHintBreath =>
+      'Všechna světla společně pulzují — když nechceš prostorový vzor.';
+
+  @override
+  String get virtualRoomEffectHintChase =>
+      'Světla se rozsvěcují v pořadí podle zvolené osy (řazení podle projekce).';
+
+  @override
+  String get virtualRoomEffectHintSparkle =>
+      'Každé světlo má mírně jinou fázi pro živý třpyt.';
+
+  @override
+  String get virtualRoomGeometryLabel => 'Osa vlny / běhu';
+
+  @override
+  String get virtualRoomGeometryRadial => 'Radiálně od TV';
+
+  @override
+  String get virtualRoomGeometryAlongView => 'Kolmě na pohled (vlevo–vpravo)';
+
+  @override
+  String get virtualRoomGeometryHorizontal => 'Vodorovně (osa X od TV)';
+
+  @override
+  String get virtualRoomGeometryVertical => 'Svisle (osa Y od TV)';
+
+  @override
+  String get virtualRoomGeometryCustom => 'Vlastní úhel od TV';
+
+  @override
+  String virtualRoomCustomAngle(Object deg) {
+    return 'Úhel osy: $deg°';
+  }
+
+  @override
+  String get virtualRoomBrightnessModLabel => 'Modulace aplikovat na';
+
+  @override
+  String get virtualRoomBrightnessBoth => 'Barvu i jas';
+
+  @override
+  String get virtualRoomBrightnessRgb => 'Jen barvu';
+
+  @override
+  String get virtualRoomBrightnessBri => 'Jen jas';
+
+  @override
+  String get virtualRoomPreviewToggle => 'Animovaný náhled';
+
+  @override
+  String get virtualRoomPreviewSubtitle =>
+      'Ikony žárovek používají stejnou matematiku jako výstup do HA / HomeKit.';
+
+  @override
+  String get virtualRoomDragTv => 'TV (táhni)';
+
+  @override
+  String get virtualRoomDragUser => 'Ty (táhni)';
 
   @override
   String get scanOverlaySettingsTitle => 'Náhled skenu (D-detail)';
@@ -1438,7 +1803,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get onboardWizardOpenMapping => 'Otevřít průvodce mapováním';
 
   @override
-  String get onboardWizardMappingSkip => 'Teď přeskočit';
+  String get onboardWizardMappingSkip => 'PŘESKOČIT';
 
   @override
   String get onboardWizardStepIntegrationsTitle => 'Integrace';
@@ -1474,6 +1839,163 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get onboardWizardFinish => 'Začít používat';
+
+  @override
+  String get setupWizardLanguageHeader => 'Choose your language / Zvolte jazyk';
+
+  @override
+  String get setupWizardLanguageSubtitle =>
+      'Použije se hned — změníš kdykoli v Nastavení → Globální.';
+
+  @override
+  String get setupWizardLanguageEnglishTitle => 'English';
+
+  @override
+  String get setupWizardLanguageEnglishSubtitle => 'Výchozí jazyk rozhraní.';
+
+  @override
+  String get setupWizardLanguageCzechTitle => 'Čeština';
+
+  @override
+  String get setupWizardLanguageCzechSubtitle => 'České řetězce v aplikaci.';
+
+  @override
+  String get setupWizardAppearanceHeader => 'Jak má vypadat?';
+
+  @override
+  String get setupWizardAppearanceSubtitle =>
+      'Vyber paletu vzhledu — uloží se hned do profilu.';
+
+  @override
+  String get setupWizardThemeOptionLightSubtitle =>
+      'Světlé plochy s tyrkysovými akcenty.';
+
+  @override
+  String get setupWizardThemeOptionDarkBlueSubtitle =>
+      'Zvýraznění cyan a fialová na tmavě modré — klasický vzhled AmbiLight.';
+
+  @override
+  String get setupWizardThemeOptionSnowrunnerSubtitle =>
+      'Neutrální tmavě šedé rozhraní s teplým oranžovým akcentem.';
+
+  @override
+  String get setupWizardThemeOptionCoffeeSubtitle =>
+      'Teplé krémové a hnědé tóny.';
+
+  @override
+  String get setupWizardExpertiseSimpleExplain =>
+      'Pokročilé položky (gamma, vyhlazování a jemné IP/offsety) zůstanou skryté pro přehlednější práci. Na Pokročilý přepneš kdykoli v Globálním nastavení.';
+
+  @override
+  String get setupWizardUsbListTitle => 'USB — sériové porty';
+
+  @override
+  String get setupWizardUsbEmpty =>
+      'Žádný COM port. Připoj kontrolér a klepni na obnovit.';
+
+  @override
+  String get setupWizardUsbConnect => 'Připojit';
+
+  @override
+  String get setupWizardUsbWebHint =>
+      'USB/sériové nastavení je ve desktopové verzi pro Windows.';
+
+  @override
+  String get setupWizardComDtrRtsHint =>
+      'Test používá stejné nastavení linek DTR/RTS jako běžné připojení (ESP32‑C3 USB‑JTAG nebo klasický USB‑UART bridge).';
+
+  @override
+  String get setupWizardDeviceWifiSection => 'Wi‑Fi / síť';
+
+  @override
+  String get setupWizardDeviceSerialSection => 'USB / sériový port';
+
+  @override
+  String get setupWizardDeviceWifiIntro =>
+      'Na lokální síti pošleme UDP broadcast (port 4210). Nalezené kontroléry se zobrazí níže — klepnutím na Přidat ho uložíš do profilu.';
+
+  @override
+  String get setupWizardDeviceSerialIntro =>
+      'Vyber COM port, na kterém máš ESP32 nebo USB‑UART adaptér (např. COM3). Test ověří, že jde o AmbiLight kontrolér, než ho přidáš.';
+
+  @override
+  String get setupWizardDeviceWifiDesktopOnly =>
+      'Vyhledávání přes Wi‑Fi je v desktopové verzi pro Windows.';
+
+  @override
+  String get setupWizardDeviceTestConnection => 'Test';
+
+  @override
+  String get setupWizardDeviceAdd => 'Přidat';
+
+  @override
+  String get setupWizardDeviceScanningLabel => 'Skenuji síť…';
+
+  @override
+  String get setupWizardDeviceIdentifiedShort => 'Nalezen AmbiLight kontrolér.';
+
+  @override
+  String get setupWizardDeviceTestFailedShort =>
+      'Na tomto portu není AmbiLight kontrolér.';
+
+  @override
+  String setupWizardDeviceControllerId(Object macSuffix) {
+    return 'ID: $macSuffix';
+  }
+
+  @override
+  String setupWizardDeviceWifiScanFailed(Object message) {
+    return 'Skenování selhalo: $message';
+  }
+
+  @override
+  String get setupWizardMappingEdgesTitle =>
+      'LED pod hranou obrazovky (aktuální mapování)';
+
+  @override
+  String get setupWizardMappingRainbowHint =>
+      'Duhová kontrola jde syntetickou cestou výstupu z obrazovky, aby šlo vidět reakci pásku.';
+
+  @override
+  String get setupWizardWhatsNextTitle => 'Co dál?';
+
+  @override
+  String get setupWizardWhatsNextSubtitle =>
+      'Volitelné funkce, až budeš chtít víc než barvy z obrazovky.';
+
+  @override
+  String get setupWizardCardSpotifyTitle => 'Integrace Spotify';
+
+  @override
+  String get setupWizardCardSpotifyBody => 'Synchronizace barev s hudbou.';
+
+  @override
+  String get setupWizardCardHaTitle => 'Home Assistant';
+
+  @override
+  String get setupWizardCardHaBody =>
+      'Ovládání přes tvůj chytrý domov (URL + dlouho platný token).';
+
+  @override
+  String get setupWizardCardPcHealthTitle => 'PC Health';
+
+  @override
+  String get setupWizardCardPcHealthBody => 'Teploty CPU/GPU přes barvy.';
+
+  @override
+  String get setupWizardFinalHeadline => 'Hotovo.';
+
+  @override
+  String get setupWizardFinalSubtitle =>
+      'Výstup zapni v horní liště, až bude hardware připravený.';
+
+  @override
+  String get setupWizardLetsGlow => 'LET\'S GLOW';
+
+  @override
+  String setupWizardStepCounter(Object current, Object total) {
+    return '$current / $total';
+  }
 
   @override
   String get devicesPageSubtitle =>
@@ -1519,7 +2041,28 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get backupIntroBody =>
-      'JSON stejný jako u Python verze (`config/default.json`). Import přepíše běžící nastavení a uloží ho.';
+      'JSON jako u Python verze (`config/default.json`). Bezpečný export vynechá tokeny Home Assistant a Spotify (stejně jako profil na disku). „Export včetně tajných údajů“ udělá plnou kopii včetně tokenů.';
+
+  @override
+  String get backupExportWithSecrets => 'Export včetně tajných údajů…';
+
+  @override
+  String get backupExportWithSecretsConfirm => 'Přesto exportovat';
+
+  @override
+  String get backupSecretsExportTitle => 'Zahrnout do zálohy tokeny a Spotify?';
+
+  @override
+  String get backupSecretsExportBody =>
+      'Soubor bude obsahovat dlouhodobý token Home Assistant (pokud je nastavený), Spotify access/refresh tokeny z tohoto PC, případně Spotify client secret a stejná pole jako v Nastavení. Kdo soubor má, může ovládat tvé HA nebo Spotify — ukládej jen na bezpečné místo a nesdílej ho.';
+
+  @override
+  String get backupSecretsSaveDialogTitle =>
+      'Uložit konfiguraci včetně tajných údajů';
+
+  @override
+  String get backupImportRestoresTokensHint =>
+      'Import při uložených hodnotách zapíše `ha_long_lived_token` a Spotify tokeny ze souboru (stejně jako po přihlášení).';
 
   @override
   String get exportDialogTitle => 'Export konfigurace AmbiLight';
@@ -1841,7 +2384,12 @@ class AppLocalizationsCs extends AppLocalizations {
   String get musicInputDeviceLabel => 'Vstupní zvukové zařízení';
 
   @override
-  String get musicDefaultInputDevice => 'Výchozí (první vhodné)';
+  String get musicDefaultInputDevice =>
+      'Automaticky: mix ze systému (loopback)';
+
+  @override
+  String get musicSystemLoopbackHint =>
+      'Bez vybraného zařízení a s vypnutým „Preferovat mikrofon“ jde vizualizovat zvuk ze systému. Na Windows 10+ aplikace použije WASAPI loopback na výchozím přehrávacím zařízení (prohlížeč, hry, Spotify — ne nutně fyzický mikrofon). Ze seznamu lze dál zvolit Stereo Mix, VB-Audio Cable apod. macOS: BlackHole (existential.audio/blackhole), Multi-Output Device v Audio MIDI Setup, pak vstup „BlackHole“ nebo Aggregate.';
 
   @override
   String get musicRefreshDeviceListTooltip => 'Obnovit seznam';
@@ -1857,19 +2405,19 @@ class AppLocalizationsCs extends AppLocalizations {
   String get musicGuideMusicArtwork => 'Nápověda: hudba a obaly';
 
   @override
-  String get musicLockPaletteTitle => 'Zamknout výstup barev na pásek (hudba)';
+  String get musicLockPaletteTitle => 'Zmrazit světla na pásku (hudba)';
 
   @override
   String get musicLockPaletteFrozen =>
-      'Posílá se zmrazená paleta (stejné jako položka v tray).';
+      'Zmrazeno: pořád se posílá naposledy zachycený snímek RGB na LED — pásek stojí, hudba uvnitř dál běží.';
 
   @override
   String get musicLockPalettePending =>
-      'Čeká na další snímek, pak se paleta zmrazí.';
+      'Další tick uloží aktuální rozložení LED na pásku a pak už se nemění.';
 
   @override
   String get musicLockPaletteIdle =>
-      'Jen v music módu má smysl; přepnutím režimu se zámek zruší.';
+      'Zmrazí celý fyzický výstup na pásku (ne jen zdroj barev). Jen v music módu; přepnutím režimu se zámek zruší.';
 
   @override
   String get musicPreferMicTitle => 'Preferovat mikrofon';
@@ -1975,7 +2523,18 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get musicActivePresetField => 'active_preset';
+  String get musicSpectrumRotationTitle => 'Rotace spektra (čas)';
+
+  @override
+  String get musicSpectrumRotationSubtitle =>
+      'Vypnuto = „Rotující spektrum“ zůstane statické jako obyčejné spektrum; krok gradientu při beatu (pokud je zapnutý) funguje dál.';
+
+  @override
+  String get musicActivePresetField => 'Preset hudby';
+
+  @override
+  String get helperMusicActivePreset =>
+      'Rychlé presety, vestavěné názvy a uložené user_music_presets.';
 
   @override
   String get musicFixedColorPickerTitle => 'Pevná barva (hudba)';
@@ -1987,6 +2546,154 @@ class AppLocalizationsCs extends AppLocalizations {
   String musicRgbTriple(Object r, Object g, Object b) {
     return 'RGB $r · $g · $b';
   }
+
+  @override
+  String get musicSpectrumPaletteHeader => 'Barvy spektrálních pásem';
+
+  @override
+  String get musicSpectrumPaletteHint =>
+      'Sedm zastávek od sub-basu po brilliance. Spektrum, VU+spektrum a Chytrá hudba po této cestě míchají barvy, když je zdroj „Spektrum zvuku“.';
+
+  @override
+  String get musicSpectrumBandSubBass => 'Sub-bas';
+
+  @override
+  String get musicSpectrumBandBass => 'Bas';
+
+  @override
+  String get musicSpectrumBandLowMid => 'Nízké středy';
+
+  @override
+  String get musicSpectrumBandMid => 'Středy';
+
+  @override
+  String get musicSpectrumBandHighMid => 'Vysoké středy';
+
+  @override
+  String get musicSpectrumBandPresence => 'Presence';
+
+  @override
+  String get musicSpectrumBandBrilliance => 'Brilliance';
+
+  @override
+  String get musicSpectrumResetBands => 'Obnovit výchozí barvy spektra';
+
+  @override
+  String musicSpectrumPickerTitle(String band) {
+    return 'Spektrum: $band';
+  }
+
+  @override
+  String get musicBeatSyncLabel => 'Beat sync (vizuál)';
+
+  @override
+  String get musicBeatSyncHint =>
+      'Použije beat příznaky z analýzy. Posun gradientu posune spektrum; pulz krátce zvýší jas.';
+
+  @override
+  String get musicBeatSyncOff => 'Vypnuto';
+
+  @override
+  String get musicBeatSyncGradientStep => 'Posun gradientu při beatu';
+
+  @override
+  String get musicBeatSyncColorPulse => 'Pulz barvy při beatu';
+
+  @override
+  String get musicMelodySpectrumTintTitle => 'Melodie + spektrální paleta';
+
+  @override
+  String get musicMelodySpectrumTintSubtitle =>
+      'Při zdroji „Spektrum zvuku“ míchá barvu melodie (HSV) směrem k paletě pásem (síla níže).';
+
+  @override
+  String musicMelodySpectrumTintAmount(int p) {
+    return 'Síla tónování: $p %';
+  }
+
+  @override
+  String get musicPerBandSensitivityTitle => 'Citlivost po pásmech (pokročilé)';
+
+  @override
+  String get musicPerBandSensitivitySubtitle =>
+      'Zapnuto = vlastní 0–100 pro každé FFT pásmo; vypnuto = skupiny bas / střed / výška jako dřív.';
+
+  @override
+  String get musicUserPresetsTitle => 'Uložené presety hudby (JSON)';
+
+  @override
+  String get musicUserPresetsHint =>
+      'Ulož aktuální nastavení hudby pod jménem, zkopíruj JSON všech presetů nebo slouč importem. Výběr jména v „Preset hudby“ preset načte.';
+
+  @override
+  String get musicUserPresetsNameLabel => 'Název presetu';
+
+  @override
+  String get musicUserPresetsSave => 'Uložit aktuální jako preset';
+
+  @override
+  String get musicUserPresetsSavedOk => 'Preset uložen.';
+
+  @override
+  String get musicUserPresetsDelete => 'Smazat';
+
+  @override
+  String get musicUserPresetsExport => 'Zkopírovat JSON presetů';
+
+  @override
+  String get musicUserPresetsImport => 'Importovat JSON…';
+
+  @override
+  String get musicUserPresetsCopied => 'JSON presetů zkopírován do schránky.';
+
+  @override
+  String get musicUserPresetsMerged =>
+      'Importované presety sloučeny do seznamu.';
+
+  @override
+  String get musicUserPresetsBadJson => 'JSON presetů nelze načíst.';
+
+  @override
+  String get musicAgcMeterTitle => 'AGC (automatické zesílení)';
+
+  @override
+  String musicAgcMeterPeak(String v) {
+    return 'Sledovaná špička: $v';
+  }
+
+  @override
+  String musicAgcMeterGain(String v) {
+    return 'Aplikovaný gain: $v';
+  }
+
+  @override
+  String get musicGuideMacosAudio => 'Průvodce: macOS loopback';
+
+  @override
+  String get musicMacosLoopbackGuideTitle =>
+      'macOS — systémové audio do Ambilight';
+
+  @override
+  String get musicMacosLoopbackGuideIntro =>
+      'Na rozdíl od Windows WASAPI loopback na výchozím přehrávacím zařízení macOS nemá vestavěné „co slyšíš“ pro každou aplikaci.';
+
+  @override
+  String get musicMacosLoopbackGuideSteps =>
+      '1) Nainstaluj BlackHole (2ch) z existential.audio/blackhole.\n2) Audio MIDI Setup → Multi-Output Device se sluchátky/repro a BlackHole; nastav ho jako systémový výstup pro poslech s kopií do BlackHole.\n3) V Ambilight → Hudba vyber vstup „BlackHole“ (nebo aggregate).';
+
+  @override
+  String get musicMacosLoopbackGuideNote =>
+      'Latence a názvy zařízení závisí na aggregate. Jen barvy ze Spotify řeší také integrace Spotify v aplikaci.';
+
+  @override
+  String get musicMacosLoopbackGuideClose => 'Zavřít';
+
+  @override
+  String get musicMacosLoopbackGuideBlackHole => 'Stránka BlackHole';
+
+  @override
+  String get musicMacosLoopbackGuideOpenFailed =>
+      'Otevření odkazu se nezdařilo.';
 
   @override
   String get musicEffectSmartMusic => 'Chytrá hudba';
@@ -3001,11 +3708,84 @@ class AppLocalizationsCs extends AppLocalizations {
       'Příkaz OTA neprojde kontrolou na straně zařízení.';
 
   @override
+  String get fwProgressUsbTitle => 'Flash přes USB';
+
+  @override
+  String get fwProgressUsbSubtitle =>
+      'Probíhá zápis přes esptool — na stejném COM nesmí současně běžet stream z aplikace.';
+
+  @override
+  String get fwProgressOtaTitle => 'OTA aktualizace';
+
+  @override
+  String get fwProgressOtaSending => 'Odesílám příkaz OTA_HTTP na lampu…';
+
+  @override
+  String get fwProgressOtaAwaitNotify => 'Čekám na potvrzení z lampy…';
+
+  @override
+  String fwProgressOtaSuccessNotify(String version) {
+    return 'OTA dokončena — firmware $version. Na pásku proběhla krátká fialová animace.';
+  }
+
+  @override
+  String get fwProgressOtaDevicePhase =>
+      'Zařízení stahuje a instaluje firmware — sleduj LED na pásku. Panel můžeš zavřít; aktualizace na lampě pokračuje.';
+
+  @override
+  String get fwProgressFlashCancelled =>
+      'Flash byl zrušen uživatelem (esptool ukončen).';
+
+  @override
   String get fwFillFromDevices => 'Doplnit ze Zařízení';
 
   @override
   String get fwFillFromDevicesTooltip =>
       'Zkopíruje IP a UDP port z prvního Wi‑Fi zařízení v seznamu (záložka Zařízení).';
+
+  @override
+  String get fwDebugToolsTitle => 'Ladicí nástroje (lampa)';
+
+  @override
+  String get fwDebugReject88Body =>
+      'Odmítnout DHCP adresy v 192.168.88.0/24 (3. oktet .88). Uloženo v lampě (NVS dbg_rej88). Stejný přepínač je na konfigurační stránce SoftAP a přes UDP DEBUG_REJ88 0|1|?.';
+
+  @override
+  String get fwDebugReject88Query => 'Dotázat lampu';
+
+  @override
+  String get fwDebugReject88Enable => 'Zapnout odmítání';
+
+  @override
+  String get fwDebugReject88Disable => 'Vypnout odmítání';
+
+  @override
+  String get fwDebugReject88Unknown =>
+      'neznámé (bez odpovědi nebo starý firmware)';
+
+  @override
+  String get fwDebugReject88On => 'zapnuto';
+
+  @override
+  String get fwDebugReject88Off => 'vypnuto';
+
+  @override
+  String fwDebugReject88Current(String state) {
+    return 'Na lampě: $state';
+  }
+
+  @override
+  String get fwDebugReject88SetOk => 'Nastavení zapsáno (NVS v lampě).';
+
+  @override
+  String get fwDebugReject88SetFail =>
+      'UDP příkaz selhal (offline, špatná IP/port nebo firmware bez DEBUG_REJ88).';
+
+  @override
+  String get fwStatusProbeRejectOn => ' · odmítnout 192.168.88.x: zapnuto';
+
+  @override
+  String get fwStatusProbeRejectOff => ' · odmítnout 192.168.88.x: vypnuto';
 
   @override
   String get fwStatusNoWifiDevice =>
@@ -3231,7 +4011,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get smartVirtualRoomIntro =>
-      'Umísti TV, sebe a světla v plánku. Kužel ukazuje směr pohledu (relativně k ose k TV). Vlna mění jas podle vzdálenosti od TV a času — signály na HA/HomeKit jdou každý snímek přes stávající mapování barev.';
+      'Umísti TV, sebe a světla v plánku. Kužel vychází z ikony uživatele (poloprůhledná vrstva nahoře) a ukazuje směr pohledu k TV plus úhel ze slidery. Efekty podle toho modulují jas — signály na HA/HomeKit jdou každý snímek přes stávající mapování barev.';
 
   @override
   String smartFixturesTitle(Object count) {
@@ -3265,6 +4045,12 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get smartBindingScreenEdge => 'Hrana obrazovky';
+
+  @override
+  String get smartBindingLedStartField => 'LED začátek (index)';
+
+  @override
+  String get smartBindingLedEndField => 'LED konec (index)';
 
   @override
   String get smartDeviceIdOptional => 'device_id (prázdné = první zařízení)';
@@ -3316,4 +4102,38 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get vrTooltipYou => 'Ty (táhni)';
+
+  @override
+  String get deviceFwTemporalSectionTitle => 'Časové vyhlazování na lampě (FW)';
+
+  @override
+  String get deviceFwTemporalOff => 'Vypnuto';
+
+  @override
+  String get deviceFwTemporalSmooth => 'Plynulé';
+
+  @override
+  String get deviceFwTemporalSnap => 'Bez přidané latence';
+
+  @override
+  String get deviceFwTemporalApply => 'Odeslat na zařízení';
+
+  @override
+  String get deviceFwTemporalSnackOk => 'Režim vyhlazování na lampě uložen.';
+
+  @override
+  String get deviceFwTemporalSnackFail =>
+      'Příkaz se nepodařilo potvrdit (timeout nebo starý FW).';
+
+  @override
+  String get deviceFwTemporalHint =>
+      'Oddělené od interpolace obrazovky níže — ne kombinovat obě na maximum.';
+
+  @override
+  String get settingsPcSmoothingFootnote =>
+      'Interpolace zde běží jen na PC před UDP/sérií. Velikost UDP chunků při buildu: dart-define AMBI_UDP_OPCODE06_CHUNK_PIXELS (viz UdpAmbilightProtocol).';
+
+  @override
+  String get settingsGlobalPcUdpChunkHint =>
+      'Volitelné ladění při buildu: --dart-define=AMBI_UDP_OPCODE06_CHUNK_PIXELS=… (32–498) mění velikost datagramů 0x06 u dlouhého pásku.';
 }

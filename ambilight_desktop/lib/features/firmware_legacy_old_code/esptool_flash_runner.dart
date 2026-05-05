@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -170,6 +171,44 @@ abstract final class EsptoolFlashRunner {
     } catch (_) {}
   }
 
+  /// Spustí jeden zápis přes esptool; při [shouldCancel]==true ukončí podproces.
+  static Future<(int exitCode, String output, bool killedByCancel)> _runEsptoolOnce({
+    required String executable,
+    required List<String> arguments,
+    required bool runInShell,
+    required Map<String, String> environment,
+    bool Function()? shouldCancel,
+  }) async {
+    final proc = await Process.start(
+      executable,
+      arguments,
+      runInShell: runInShell,
+      environment: environment,
+    );
+    final stdoutFuture = proc.stdout.transform(utf8.decoder).join();
+    final stderrFuture = proc.stderr.transform(utf8.decoder).join();
+    var killedByCancel = false;
+    while (true) {
+      if (shouldCancel?.call() == true) {
+        killedByCancel = true;
+        try {
+          proc.kill();
+        } catch (_) {}
+      }
+      try {
+        await proc.exitCode.timeout(const Duration(milliseconds: 220));
+        break;
+      } on TimeoutException {
+        continue;
+      }
+    }
+    final code = await proc.exitCode;
+    final so = await stdoutFuture.catchError((_) => '');
+    final se = await stderrFuture.catchError((_) => '');
+    final merged = '$so\n$se'.trim();
+    return (code, merged.isEmpty ? '(žádný výstup)' : merged, killedByCancel);
+  }
+
   /// Zapíše všechny [manifest.parts] z adresáře [downloadedDir] (soubory podle názvu).
   ///
   /// Při přerušení uloží průběh; stejný manifest + COM + baud + cache složka — znovu spusť do 24 h
@@ -180,6 +219,7 @@ abstract final class EsptoolFlashRunner {
     required String comPort,
     int baud = 460800,
     Duration resumeSessionMaxAge = kResumeSessionMaxAge,
+    bool Function()? shouldCancel,
   }) async {
     final (prefix, err) = await _resolvePrefix();
     if (prefix.isEmpty) {
@@ -245,17 +285,23 @@ abstract final class EsptoolFlashRunner {
       ];
 
       logBuf.writeln('→ esptool … write_flash ${part.offset} ${part.file}');
-      final r = await Process.run(
-        exe,
-        args,
+      if (shouldCancel?.call() == true) {
+        return (false, '${logBuf}Zrušeno uživatelem před spuštěním oddílu.\n');
+      }
+      final (exitCode, chunkOut, killed) = await _runEsptoolOnce(
+        executable: exe,
+        arguments: args,
         runInShell: Platform.isWindows,
         environment: {...Platform.environment},
+        shouldCancel: shouldCancel,
       );
-      final chunkOut = '${r.stdout}\n${r.stderr}'.trim();
       if (chunkOut.isNotEmpty) {
         logBuf.writeln(chunkOut);
       }
-      if (r.exitCode != 0) {
+      if (killed || shouldCancel?.call() == true) {
+        return (false, '${logBuf}Přerušeno uživatelem (esptool ukončen).\n');
+      }
+      if (exitCode != 0) {
         return (false, logBuf.toString());
       }
       completed = {...completed, offKey};

@@ -10,7 +10,7 @@ import 'guides/music_spotify_integration_guide.dart';
 import 'layout_breakpoints.dart';
 import 'responsive_body.dart';
 
-typedef _HomeDev = ({String id, String name, String type, int ledCount, bool ok});
+typedef _HomeDev = ({String id, String name, String type, int ledCount});
 
 typedef _HomePick = ({
   bool enabled,
@@ -42,7 +42,7 @@ _HomePick _homePick(AmbilightAppController c, SpotifyService sp) => (
       firmwareManifestDisplay: effectiveFirmwareManifestUrl(c.config.globalSettings.firmwareManifestUrl),
       devices: [
         for (final d in c.config.globalSettings.devices)
-          (id: d.id, name: d.name, type: d.type, ledCount: d.ledCount, ok: c.connectionSnapshot[d.id] ?? false),
+          (id: d.id, name: d.name, type: d.type, ledCount: d.ledCount),
       ],
     );
 
@@ -50,6 +50,22 @@ String _deviceStripSubtitle(BuildContext context, String type, int ledCount) {
   final l10n = context.l10n;
   final kind = type == 'wifi' ? l10n.kindWifi : l10n.kindUsb;
   return l10n.deviceLedSubtitle(kind, ledCount);
+}
+
+String _modeTileTooltip(BuildContext context, String id) {
+  final l = context.l10n;
+  switch (id) {
+    case 'light':
+      return l.modeLightTooltip;
+    case 'screen':
+      return l.modeScreenTooltip;
+    case 'music':
+      return l.modeMusicTooltip;
+    case 'pchealth':
+      return l.modePcHealthTooltip;
+    default:
+      return '';
+  }
 }
 
 class HomePage extends StatelessWidget {
@@ -155,6 +171,7 @@ class HomePage extends StatelessWidget {
             child: AmbiSectionHeader(
               title: context.l10n.homeModeTitle,
               subtitle: context.l10n.homeModeSubtitle,
+              helpTooltip: context.l10n.homeSectionModeHelpTooltip,
             ),
           ),
         ),
@@ -184,6 +201,7 @@ class HomePage extends StatelessWidget {
                                   showSelectionCheckIcon: false,
                                   onTap: () => ctrl.setStartMode(m.id),
                                   minHeight: 96,
+                                  tooltip: _modeTileTooltip(context, m.id),
                                 ),
                                 Positioned(
                                   top: 6,
@@ -236,6 +254,7 @@ class HomePage extends StatelessWidget {
             child: AmbiSectionHeader(
               title: context.l10n.homeIntegrationsTitle,
               subtitle: context.l10n.homeIntegrationsSubtitle,
+              helpTooltip: context.l10n.homeSectionIntegrationsHelpTooltip,
             ),
           ),
         ),
@@ -256,41 +275,49 @@ class HomePage extends StatelessWidget {
             child: AmbiSectionHeader(
               title: context.l10n.homeDevicesTitle,
               subtitle: context.l10n.homeDevicesSubtitle,
+              helpTooltip: context.l10n.homeSectionDevicesHelpTooltip,
             ),
           ),
         ),
                   SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 132,
-                      child: v.devices.isEmpty
-                          ? Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: AmbiGlassPanel(
-                                padding: const EdgeInsets.all(20),
-                                child: Center(
-                        child: Text(
-                          context.l10n.homeDevicesEmpty,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
+                    child: ValueListenableBuilder<Map<String, bool>>(
+                      valueListenable: ctrl.connectionSnapshotNotifier,
+                      builder: (context, snap, _) {
+                        return SizedBox(
+                          height: 132,
+                          child: v.devices.isEmpty
+                              ? Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  child: AmbiGlassPanel(
+                                    padding: const EdgeInsets.all(20),
+                                    child: Center(
+                                      child: Text(
+                                        context.l10n.homeDevicesEmpty,
+                                        textAlign: TextAlign.center,
+                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  itemCount: v.devices.length,
+                                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                                  itemBuilder: (context, i) {
+                                    final d = v.devices[i];
+                                    return _DeviceStripCard(
+                                      name: d.name,
+                                      type: d.type,
+                                      ledCount: d.ledCount,
+                                      connected: snap[d.id] == true,
+                                    );
+                                  },
                                 ),
-                              ),
-                            )
-                          : ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              itemCount: v.devices.length,
-                              separatorBuilder: (_, __) => const SizedBox(width: 12),
-                              itemBuilder: (context, i) {
-                                final d = v.devices[i];
-                                return _DeviceStripCard(
-                                  name: d.name,
-                                  type: d.type,
-                                  ledCount: d.ledCount,
-                                  connected: d.ok,
-                                );
-                              },
-                            ),
+                        );
+                      },
                     ),
                   ),
                   const SliverToBoxAdapter(child: SizedBox(height: 28)),
@@ -573,7 +600,9 @@ class _IntegrationMusicCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final connected = v.spotifyConnected;
     final clientId = v.spotifyClientId;
-    return AmbiGlassPanel(
+    return Tooltip(
+      message: context.l10n.integrationMusicCardTooltip,
+      child: AmbiGlassPanel(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -644,6 +673,7 @@ class _IntegrationMusicCard extends StatelessWidget {
           ),
         ],
       ),
+      ),
     );
   }
 }
@@ -666,7 +696,9 @@ class _IntegrationHaCard extends StatelessWidget {
             : context.l10n.haStatusOnNeedUrl;
     final detail = ok ? context.l10n.haDetailOk : context.l10n.haDetailNeedUrl;
 
-    return AmbiGlassPanel(
+    return Tooltip(
+      message: context.l10n.integrationHaCardTooltip,
+      child: AmbiGlassPanel(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -701,6 +733,7 @@ class _IntegrationHaCard extends StatelessWidget {
           ),
         ],
       ),
+      ),
     );
   }
 }
@@ -714,7 +747,9 @@ class _IntegrationFirmwareCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AmbiGlassPanel(
+    return Tooltip(
+      message: context.l10n.integrationFirmwareCardTooltip,
+      child: AmbiGlassPanel(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -743,6 +778,7 @@ class _IntegrationFirmwareCard extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
         ],
+      ),
       ),
     );
   }

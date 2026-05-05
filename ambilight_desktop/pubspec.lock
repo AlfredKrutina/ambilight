@@ -89,6 +89,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.9"
+  desktop_audio_capture:
+    dependency: "direct main"
+    description:
+      name: desktop_audio_capture
+      sha256: fb7ee0e4068fc1b14984ae7bb059e72d14c1daa1ce1580d1106eda876241493c
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.2"
   dylib:
     dependency: transitive
     description:
@@ -494,7 +502,7 @@ packages:
     source: hosted
     version: "6.1.5+1"
   pub_semver:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: pub_semver
       sha256: "5bfcf68ca79ef689f8990d1160781b4bad40a3bd5e5218ad4076ddb7f4081585"

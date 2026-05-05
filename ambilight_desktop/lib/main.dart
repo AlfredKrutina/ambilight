@@ -23,7 +23,7 @@ import 'ui/tray/tray_menu_host.dart';
 import 'l10n/app_locale_bridge.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'l10n/locale_resolution.dart';
-import 'ui/onboarding/ambilight_onboarding_flow.dart';
+import 'ui/onboarding/onboarding_overlay.dart';
 
 /// Zóna z okamžiku [WidgetsFlutterBinding.ensureInitialized]. Po `await` v bootstrapu může být
 /// [Zone.current] jiná (window_manager apod.) — [runApp] musí běžet v této zóně,
@@ -128,14 +128,22 @@ class AmbiLightRoot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Selector<AmbilightAppController,
-        ({String uiTheme, bool uiAnimations, String uiLang})>(
+        ({String uiTheme, bool uiAnimations, bool performanceMode, String uiLang})>(
       selector: (_, c) => (
         uiTheme: normalizeAmbilightUiTheme(c.config.globalSettings.theme),
         uiAnimations: c.config.globalSettings.uiAnimationsEnabled,
+        performanceMode: c.config.globalSettings.performanceMode,
         uiLang: c.config.globalSettings.uiLanguage,
       ),
       builder: (context, shell, _) {
-        final appPalette = AmbiLightTheme.themeForKey(shell.uiTheme);
+        // Režim výkonu nesmí vypínat [TickerMode] ani globálně [MediaQuery.disableAnimations] —
+        // dříve to rozbíjelo navigaci, dialogy a systémová okna (tickery = 0 v celém stromu).
+        final uiAnimationsDisabled = !shell.uiAnimations;
+        final themeReducedMotion = shell.performanceMode || uiAnimationsDisabled;
+        final appPalette = AmbiLightTheme.themeForKey(
+          shell.uiTheme,
+          reducedMotion: themeReducedMotion,
+        );
         return Consumer<ScanOverlayController>(
           builder: (context, scan, _) {
             return TrayMenuHost(
@@ -153,12 +161,19 @@ class AmbiLightRoot extends StatelessWidget {
                 theme: appPalette,
                 darkTheme: appPalette,
                 themeMode: ThemeMode.light,
+                themeAnimationDuration:
+                    uiAnimationsDisabled ? Duration.zero : kThemeAnimationDuration,
+                themeAnimationCurve:
+                    uiAnimationsDisabled ? Curves.linear : Curves.ease,
+                scrollBehavior: uiAnimationsDisabled
+                    ? const _NoGlowScrollBehavior()
+                    : const MaterialScrollBehavior(),
                 builder: (context, child) {
                   AppLocaleBridge.syncFrom(context);
                   final mq = MediaQuery.of(context);
-                  final userAnimOff = !shell.uiAnimations;
                   final mqMerged = mq.copyWith(
-                      disableAnimations: mq.disableAnimations || userAnimOff);
+                    disableAnimations: mq.disableAnimations || uiAnimationsDisabled,
+                  );
 
                   Widget inner = child ?? const SizedBox.shrink();
                   if (scan.visualizeEnabled) {
@@ -264,6 +279,10 @@ class AmbiLightRoot extends StatelessWidget {
                       ),
                     ],
                   );
+                  inner = TickerMode(
+                    enabled: !uiAnimationsDisabled,
+                    child: inner,
+                  );
                   final mqChild = MediaQuery(data: mqMerged, child: inner);
                   return Selector<AmbilightAppController, bool>(
                     selector: (_, c) =>
@@ -281,5 +300,18 @@ class AmbiLightRoot extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class _NoGlowScrollBehavior extends MaterialScrollBehavior {
+  const _NoGlowScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
   }
 }

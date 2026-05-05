@@ -11,6 +11,9 @@ import '../data/udp_socket_bind.dart';
 final _log = Logger('LedDiscovery');
 
 /// Odvozené directed broadcast (/24) pro běžné Wi‑Fi — doplňuje 255.255.255.255 (Win/Linux někdy jen jedno z toho).
+///
+/// V režimu **ESP SoftAP** (typicky 192.168.4.1/24) Windows často opožďuje nebo vynechá rozhraní
+/// v [NetworkInterface.list]; proto navíc `192.168.4.255` a unicast `192.168.4.1:udpPort`.
 Future<void> _sendDiscoveryBroadcasts(RawDatagramSocket sock, int udpPort, Uint8List payload) async {
   void trySend(InternetAddress host, String label) {
     try {
@@ -23,25 +26,34 @@ Future<void> _sendDiscoveryBroadcasts(RawDatagramSocket sock, int udpPort, Uint8
     }
   }
 
+  final seenSubnetBcast = <String>{};
+
   trySend(InternetAddress('255.255.255.255'), 'global-broadcast');
+  seenSubnetBcast.add('255.255.255.255');
   await Future<void>.delayed(const Duration(milliseconds: 20));
 
   try {
     final ifs = await NetworkInterface.list(includeLinkLocal: false, type: InternetAddressType.IPv4);
-    final seen = <String>{'255.255.255.255'};
     for (final ni in ifs) {
       for (final a in ni.addresses) {
         if (a.type != InternetAddressType.IPv4 || a.isLoopback) continue;
         final raw = a.rawAddress;
         if (raw.length != 4) continue;
         final bcastStr = '${raw[0]}.${raw[1]}.${raw[2]}.255';
-        if (!seen.add(bcastStr)) continue;
+        if (!seenSubnetBcast.add(bcastStr)) continue;
         trySend(InternetAddress(bcastStr), 'subnet-${ni.name}');
       }
     }
   } catch (e) {
     _log.fine('directed broadcast list: $e');
   }
+
+  // Výchozí ESP-IDF SoftAP (/24 na 192.168.4.x) — doplnění když list rozhraní ještě neobsahuje hotspot.
+  if (seenSubnetBcast.add('192.168.4.255')) {
+    trySend(InternetAddress('192.168.4.255'), 'esp-softap-default-broadcast');
+  }
+  // Unicast na IP AP (spolehlivější než jen broadcast při „Public“ Wi‑Fi profilu na Windows).
+  trySend(InternetAddress('192.168.4.1'), 'esp-softap-default-unicast');
 }
 
 /// One ESP32 answering `DISCOVER_ESP32` (see `ambilight.c`).
@@ -52,6 +64,8 @@ class DiscoveredLedController {
     required this.name,
     required this.ledCount,
     required this.version,
+    this.fwTemporalSmoothingMode,
+    this.fwDebugRejectSubnet19216888,
   });
 
   final String ip;
@@ -59,23 +73,58 @@ class DiscoveredLedController {
   final String name;
   final int ledCount;
   final String version;
+  /// Z nového `ESP32_PONG|…|FW_VER|2.1|<0–2>`; u starého FW (`…|2.1|mode` bez FW pole) je `null`.
+  final int? fwTemporalSmoothingMode;
+  /// Z 8‑polového PONG (`…|2.2|0|0|0|1`); u starších odpovědí `null`.
+  final bool? fwDebugRejectSubnet19216888;
 
   @override
   String toString() => '$name ($ip) leds=$ledCount';
 }
 
-/// Parsování odpovědi z `ambilight.c` (`sprintf` … `ESP32_PONG|…`).
+/// Parsování odpovědi z `ambilight.c` (`ESP32_PONG|…`).
+///
+/// Nový tvar (7+ polí): `…|ledCount|FW_VER|2.1|temporal` — [version] = FW z image.
+/// Legacy (5–6 polí): `…|ledCount|2.0` nebo `…|ledCount|2.1|temporal` — [version] bylo pole protokolu.
+/// 8 polí: `…|led|2.2|0|0|temporal|rej88` — ladící přepínač odmítnutí 192.168.88.0/24.
 DiscoveredLedController? parseEsp32PongDatagram(String sourceIp, String utf8Text) {
   final text = utf8Text.trim();
   if (!text.startsWith('ESP32_PONG')) return null;
   final parts = text.split('|');
   if (parts.length < 5) return null;
+
+  final String versionStr;
+  final int? temporal;
+  bool? reject88;
+  if (parts.length >= 8) {
+    versionStr = parts[4].trim();
+    temporal = int.tryParse(parts[6].trim());
+    final r = int.tryParse(parts[7].trim());
+    if (r == 0) {
+      reject88 = false;
+    } else if (r == 1) {
+      reject88 = true;
+    } else {
+      reject88 = null;
+    }
+  } else if (parts.length >= 7) {
+    versionStr = parts[4].trim();
+    temporal = int.tryParse(parts[6].trim());
+    reject88 = null;
+  } else {
+    versionStr = parts[4].trim();
+    temporal = parts.length >= 6 ? int.tryParse(parts[5].trim()) : null;
+    reject88 = null;
+  }
+
   return DiscoveredLedController(
     ip: sourceIp,
     macSuffix: parts[1],
     name: parts[2],
     ledCount: int.tryParse(parts[3]) ?? 0,
-    version: parts[4].trim(),
+    version: versionStr,
+    fwTemporalSmoothingMode: temporal != null && temporal >= 0 && temporal <= 2 ? temporal : null,
+    fwDebugRejectSubnet19216888: reject88,
   );
 }
 

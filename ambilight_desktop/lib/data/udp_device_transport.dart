@@ -457,6 +457,23 @@ class UdpDeviceTransport extends DeviceTransport {
   }
 
   @override
+  void sendPcReleaseHandoff() {
+    final sock = _socket;
+    final addr = _addr;
+    if (!_ready || sock == null || addr == null) return;
+    final pkt = Uint8List.fromList([UdpAmbilightProtocol.pcReleaseHandoff]);
+    try {
+      for (var i = 0; i < 8; i++) {
+        if (sock.send(pkt, addr, _udpPort) == pkt.length) {
+          return;
+        }
+      }
+    } catch (e, st) {
+      _log.fine('sendPcReleaseHandoff: $e', e, st);
+    }
+  }
+
+  @override
   void sendPixel(int index, int r, int g, int b) {
     final sock = _socket;
     final addr = _addr;
@@ -496,5 +513,17 @@ class UdpDeviceTransport extends DeviceTransport {
     final port = _udpPort;
     if (ip.isEmpty) return false;
     return UdpDeviceCommands.sendResetWifi(ip, port, logContext: device.name);
+  }
+
+  @override
+  Future<bool> sendFirmwareTemporalMode(int mode) async {
+    final ip = device.ipAddress.trim();
+    if (ip.isEmpty) return false;
+    return UdpDeviceCommands.sendTemporalModeWithAck(
+      ip,
+      _udpPort,
+      mode,
+      logContext: device.name,
+    );
   }
 }

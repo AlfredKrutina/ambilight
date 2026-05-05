@@ -1,7 +1,7 @@
 name: ambilight_desktop
 description: Cross-platform AmbiLight desktop client (Flutter). Firmware-compatible with esp32c3 ambilight.c.
 publish_to: "none"
-version: 1.0.2+1
+version: 1.0.3+1
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -15,6 +15,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   collection: ^1.18.0
   crypto: ^3.0.6
+  pub_semver: ^2.2.0
   file_picker: ^8.1.7
   flutter_libserialport: ^0.6.0
   http: ^1.3.0
@@ -33,6 +34,7 @@ dependencies:
   window_manager: ^0.5.0
   package_info_plus: ^8.1.2
   uni_platform: 0.1.3
+  desktop_audio_capture: ^0.0.2
 
 dev_dependencies:
   flutter_test:

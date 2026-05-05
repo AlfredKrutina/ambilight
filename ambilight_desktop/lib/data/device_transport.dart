@@ -30,6 +30,12 @@ abstract class DeviceTransport {
   /// USB sériové ESP: `0xA5 0x5A` + počet LED (logická délka pásku). Wi‑Fi / jiné: výchozí no-op.
   void announceLogicalStripLength(int ledCount) {}
 
+  /// PC přestává řídit pásek — lampa může okamžitě přejít na MQTT / Home Assistant (FW `0xF0`).
+  void sendPcReleaseHandoff() {}
+
+  /// FW časové vyhlazování (`0xF1` + mode 0…2, NVS). UDP čeká na ACK; sériové zapíše a vrátí úspěch zápisu.
+  Future<bool> sendFirmwareTemporalMode(int mode) async => false;
+
   /// Po debouncované změně [DeviceSettings] bez přebudování transportu (např. `led_count`).
   void syncDeviceSnapshot(DeviceSettings next) {}
 

@@ -6,7 +6,7 @@ abstract final class AmbiLightTheme {
   static const Color _violet = Color(0xFFA78BFA);
   static const Color _coral = Color(0xFFF472B6);
 
-  static ThemeData light() {
+  static ThemeData light({bool reducedMotion = false}) {
     final colors = ColorScheme.fromSeed(
       seedColor: const Color(0xFF0D9488),
       brightness: Brightness.light,
@@ -20,11 +20,11 @@ abstract final class AmbiLightTheme {
       surfaceContainerHigh: const Color(0xFFE2E8F0),
       surfaceContainerHighest: const Color(0xFFCBD5E1),
     );
-    return _build(colors);
+    return _build(colors, reducedMotion: reducedMotion);
   }
 
   /// Dřívější výchozí „tmavý“ vzhled — cyan / fialové akcenty na modré ploše.
-  static ThemeData darkBlue() {
+  static ThemeData darkBlue({bool reducedMotion = false}) {
     const surface = Color(0xFF0B0F14);
     final colors = ColorScheme.fromSeed(
       seedColor: _cyan,
@@ -52,11 +52,11 @@ abstract final class AmbiLightTheme {
       surfaceContainer: const Color(0xFF121826),
       surfaceContainerLow: const Color(0xFF0F141C),
     );
-    return _build(colors);
+    return _build(colors, reducedMotion: reducedMotion);
   }
 
   /// Neutrální tmavý (orientačně „SnowRunner“) — šedé plochy, rezavý akcent bez neonové cyan.
-  static ThemeData snowrunner() {
+  static ThemeData snowrunner({bool reducedMotion = false}) {
     const surface = Color(0xFF171718);
     final colors = ColorScheme.fromSeed(
       seedColor: const Color(0xFFC2410C),
@@ -82,11 +82,11 @@ abstract final class AmbiLightTheme {
       surfaceContainer: const Color(0xFF1A1A1D),
       surfaceContainerLow: const Color(0xFF141416),
     );
-    return _build(colors);
+    return _build(colors, reducedMotion: reducedMotion);
   }
 
   /// Coffee / kavárna — krémově-hnědé pozadí, tlumený „tmavší light“ (ne čistě bílý).
-  static ThemeData coffee() {
+  static ThemeData coffee({bool reducedMotion = false}) {
     const surface = Color(0xFFDDD2C6);
     const onSurface = Color(0xFF2A211C);
     final colors = ColorScheme(
@@ -125,24 +125,24 @@ abstract final class AmbiLightTheme {
       onInverseSurface: const Color(0xFFF5EBE3),
       inversePrimary: const Color(0xFFD4BC9E),
     );
-    return _build(colors);
+    return _build(colors, reducedMotion: reducedMotion);
   }
 
-  static ThemeData themeForKey(String canonicalKey) {
+  static ThemeData themeForKey(String canonicalKey, {bool reducedMotion = false}) {
     switch (canonicalKey) {
       case 'light':
-        return light();
+        return light(reducedMotion: reducedMotion);
       case 'coffee':
-        return coffee();
+        return coffee(reducedMotion: reducedMotion);
       case 'snowrunner':
-        return snowrunner();
+        return snowrunner(reducedMotion: reducedMotion);
       case 'dark_blue':
       default:
-        return darkBlue();
+        return darkBlue(reducedMotion: reducedMotion);
     }
   }
 
-  static ThemeData _build(ColorScheme colors) {
+  static ThemeData _build(ColorScheme colors, {required bool reducedMotion}) {
     final isDark = colors.brightness == Brightness.dark;
     return ThemeData(
       colorScheme: colors,
@@ -150,12 +150,22 @@ abstract final class AmbiLightTheme {
       brightness: colors.brightness,
       scaffoldBackgroundColor: colors.surface,
       visualDensity: VisualDensity.standard,
-      splashFactory: InkRipple.splashFactory,
-      pageTransitionsTheme: const PageTransitionsTheme(
+      splashFactory: reducedMotion ? NoSplash.splashFactory : InkRipple.splashFactory,
+      splashColor: reducedMotion ? Colors.transparent : null,
+      highlightColor: reducedMotion ? Colors.transparent : null,
+      hoverColor: reducedMotion ? Colors.transparent : null,
+      focusColor: reducedMotion ? Colors.transparent : null,
+      pageTransitionsTheme: PageTransitionsTheme(
         builders: {
-          TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.macOS: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.windows: reducedMotion
+              ? const _NoMotionPageTransitionsBuilder()
+              : const FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.macOS: reducedMotion
+              ? const _NoMotionPageTransitionsBuilder()
+              : const FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.linux: reducedMotion
+              ? const _NoMotionPageTransitionsBuilder()
+              : const FadeForwardsPageTransitionsBuilder(),
         },
       ),
       appBarTheme: AppBarTheme(
@@ -218,14 +228,34 @@ abstract final class AmbiLightTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       tooltipTheme: TooltipThemeData(
-        waitDuration: const Duration(milliseconds: 450),
-        showDuration: const Duration(seconds: 4),
+        waitDuration: const Duration(milliseconds: 400),
+        showDuration: const Duration(seconds: 5),
         decoration: BoxDecoration(
           color: colors.inverseSurface.withValues(alpha: 0.94),
           borderRadius: BorderRadius.circular(10),
         ),
         textStyle: TextStyle(color: colors.onInverseSurface, fontSize: 12.5),
       ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: colors.surfaceContainerHigh,
+        surfaceTintColor: Colors.transparent,
+        textStyle: TextStyle(color: colors.onSurface, fontSize: 14),
+      ),
     );
+  }
+}
+
+class _NoMotionPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _NoMotionPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child;
   }
 }

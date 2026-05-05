@@ -89,6 +89,8 @@ class DeviceSettings {
     this.defaultMonitor = 1,
     this.controlViaHa = false,
     this.firmwareVersion = '',
+    /// FW časové vyhlazování (0=vyp, 1=plynulé, 2=snap) — odesílá se `0xF1`; lampa ukládá NVS.
+    this.fwTemporalSmoothingMode = 0,
   });
 
   final String id;
@@ -104,6 +106,7 @@ class DeviceSettings {
   final bool controlViaHa;
   /// Z `ESP32_PONG` (poslední pole), pokud známe.
   final String firmwareVersion;
+  final int fwTemporalSmoothingMode;
 
   DeviceSettings copyWith({
     String? id,
@@ -117,6 +120,7 @@ class DeviceSettings {
     int? defaultMonitor,
     bool? controlViaHa,
     String? firmwareVersion,
+    int? fwTemporalSmoothingMode,
   }) {
     return DeviceSettings(
       id: id ?? this.id,
@@ -130,6 +134,8 @@ class DeviceSettings {
       defaultMonitor: defaultMonitor ?? this.defaultMonitor,
       controlViaHa: controlViaHa ?? this.controlViaHa,
       firmwareVersion: firmwareVersion ?? this.firmwareVersion,
+      fwTemporalSmoothingMode:
+          (fwTemporalSmoothingMode ?? this.fwTemporalSmoothingMode).clamp(0, 2),
     );
   }
 
@@ -145,6 +151,7 @@ class DeviceSettings {
         'default_monitor': defaultMonitor,
         'control_via_ha': controlViaHa,
         'firmware_version': firmwareVersion,
+        'fw_temporal_mode': fwTemporalSmoothingMode,
       };
 
   factory DeviceSettings.fromJson(Map<String, dynamic> j) {
@@ -160,6 +167,7 @@ class DeviceSettings {
       defaultMonitor: asInt(j['default_monitor'], 1),
       controlViaHa: asBool(j['control_via_ha'], false),
       firmwareVersion: asString(j['firmware_version'], ''),
+      fwTemporalSmoothingMode: asInt(j['fw_temporal_mode'], 0).clamp(0, 2),
     );
   }
 }
@@ -214,8 +222,11 @@ class GlobalSettings {
   final bool onboardingCompleted;
   /// `system` | `en` | `cs`
   final String uiLanguage;
-  /// `simple` | `advanced`
+  /// `simple` | `advanced` — v JSON i jako [app_control_level].
   final String uiControlLevel;
+
+  /// Alias pro [uiControlLevel] (stejný údaj; preferovaný klíč v JSON je `app_control_level`).
+  String get appControlLevel => uiControlLevel;
 
   GlobalSettings copyWith({
     String? serialPort,
@@ -282,6 +293,7 @@ class GlobalSettings {
         'firmware_manifest_url': firmwareManifestUrl,
         'onboarding_completed': onboardingCompleted,
         'ui_language': uiLanguage,
+        'app_control_level': uiControlLevel,
         'ui_control_level': uiControlLevel,
       };
 
@@ -327,7 +339,10 @@ class GlobalSettings {
       onboardingCompleted: asBool(j['onboarding_completed'], true),
       uiLanguage: normalizeAmbilightUiLanguage(asString(j['ui_language'], 'system')),
       uiControlLevel: normalizeAmbilightUiControlLevel(
-        asString(j['ui_control_level'], 'advanced'),
+        asString(
+          j['app_control_level'] ?? j['ui_control_level'],
+          'advanced',
+        ),
       ),
     );
   }
@@ -895,6 +910,29 @@ String normalizeMusicColorSource(String raw) {
   }
 }
 
+/// `off` | `gradient_step` | `color_pulse` — synchronizace spektra s beat detekcí.
+String normalizeMusicBeatSyncMode(String raw) {
+  final t = raw.trim().toLowerCase().replaceAll('-', '_');
+  switch (t) {
+    case 'gradient_step':
+    case 'color_pulse':
+      return t;
+    default:
+      return 'off';
+  }
+}
+
+List<int> _musicBandSensitivitiesFromJson(dynamic raw, int bass, int mid, int high) {
+  final fallback = <int>[bass, bass, mid, mid, high, high, high];
+  if (raw is! List) return List<int>.from(fallback);
+  final out = <int>[];
+  for (var i = 0; i < 7; i++) {
+    final d = i < 2 ? bass : (i < 4 ? mid : high);
+    out.add(i < raw.length ? asInt(raw[i], d).clamp(0, 100) : d);
+  }
+  return out;
+}
+
 class MusicModeSettings {
   const MusicModeSettings({
     this.audioDeviceIndex,
@@ -910,6 +948,11 @@ class MusicModeSettings {
     this.midSensitivity = 50,
     this.highSensitivity = 50,
     this.globalSensitivity = 50,
+    this.perBandSensitivityEnabled = false,
+    this.bandSensitivities = const [50, 50, 50, 50, 50, 50, 50],
+    this.beatSyncMode = 'off',
+    this.melodySpectrumTintEnabled = false,
+    this.melodySpectrumTint = 0.35,
     this.subBassColor = const [255, 0, 0],
     this.bassColor = const [255, 50, 0],
     this.lowMidColor = const [255, 100, 0],
@@ -922,6 +965,7 @@ class MusicModeSettings {
     this.autoHigh = false,
     this.smoothingMs = 70,
     this.minBrightness = 0,
+    this.spectrumRotationEnabled = true,
     this.rotationSpeed = 20,
     this.activePreset = 'Custom',
   });
@@ -939,6 +983,15 @@ class MusicModeSettings {
   final int midSensitivity;
   final int highSensitivity;
   final int globalSensitivity;
+  /// Pokud true, [bandSensitivities] řídí sedm FFT pásem; jinak se používají bas / střed / výška.
+  final bool perBandSensitivityEnabled;
+  /// Citlivost 0–100 pro pásla: sub_bass, bass, low_mid, mid, high_mid, presence, brilliance.
+  final List<int> bandSensitivities;
+  /// Beat synchronizace vizuálu (`off`, `gradient_step`, `color_pulse`).
+  final String beatSyncMode;
+  final bool melodySpectrumTintEnabled;
+  /// 0–1 směs HSV melodie s paletou při spektrálním zdroji.
+  final double melodySpectrumTint;
   final List<int> subBassColor;
   final List<int> bassColor;
   final List<int> lowMidColor;
@@ -951,6 +1004,8 @@ class MusicModeSettings {
   final bool autoHigh;
   final int smoothingMs;
   final int minBrightness;
+  /// U efektu „rotující spektrum“ zapíná časový posun gradientu (čas × rychlost).
+  final bool spectrumRotationEnabled;
   final int rotationSpeed;
   final String activePreset;
 
@@ -968,6 +1023,11 @@ class MusicModeSettings {
         'mid_sensitivity': midSensitivity,
         'high_sensitivity': highSensitivity,
         'global_sensitivity': globalSensitivity,
+        'per_band_sensitivity': perBandSensitivityEnabled,
+        'band_sensitivities': bandSensitivities,
+        'beat_sync_mode': normalizeMusicBeatSyncMode(beatSyncMode),
+        'melody_spectrum_tint_enabled': melodySpectrumTintEnabled,
+        'melody_spectrum_tint': melodySpectrumTint,
         'sub_bass_color': subBassColor,
         'bass_color': bassColor,
         'low_mid_color': lowMidColor,
@@ -980,6 +1040,7 @@ class MusicModeSettings {
         'auto_high': autoHigh,
         'smoothing_ms': smoothingMs,
         'min_brightness': minBrightness,
+        'spectrum_rotation_enabled': spectrumRotationEnabled,
         'rotation_speed': rotationSpeed,
         'active_preset': activePreset,
       };
@@ -1003,6 +1064,16 @@ class MusicModeSettings {
       midSensitivity: asInt(j['mid_sensitivity'], 50),
       highSensitivity: asInt(j['high_sensitivity'], 50),
       globalSensitivity: asInt(j['global_sensitivity'], 50),
+      perBandSensitivityEnabled: asBool(j['per_band_sensitivity'], false),
+      bandSensitivities: _musicBandSensitivitiesFromJson(
+        j['band_sensitivities'],
+        asInt(j['bass_sensitivity'], 50),
+        asInt(j['mid_sensitivity'], 50),
+        asInt(j['high_sensitivity'], 50),
+      ),
+      beatSyncMode: normalizeMusicBeatSyncMode(asString(j['beat_sync_mode'], 'off')),
+      melodySpectrumTintEnabled: asBool(j['melody_spectrum_tint_enabled'], false),
+      melodySpectrumTint: asDouble(j['melody_spectrum_tint'], 0.35).clamp(0.0, 1.0),
       subBassColor: asRgb(j['sub_bass_color'], const [255, 0, 0]),
       bassColor: asRgb(j['bass_color'], const [255, 50, 0]),
       lowMidColor: asRgb(j['low_mid_color'], const [255, 100, 0]),
@@ -1015,6 +1086,7 @@ class MusicModeSettings {
       autoHigh: asBool(j['auto_high'], false),
       smoothingMs: asInt(j['smoothing_ms'], 70),
       minBrightness: asInt(j['min_brightness'], 0),
+      spectrumRotationEnabled: asBool(j['spectrum_rotation_enabled'], true),
       rotationSpeed: asInt(j['rotation_speed'], 20),
       activePreset: asString(j['active_preset'], 'Custom'),
     );
@@ -1036,6 +1108,11 @@ class MusicModeSettings {
         midSensitivity: m.midSensitivity,
         highSensitivity: m.highSensitivity,
         globalSensitivity: m.globalSensitivity,
+        perBandSensitivityEnabled: m.perBandSensitivityEnabled,
+        bandSensitivities: m.bandSensitivities,
+        beatSyncMode: m.beatSyncMode,
+        melodySpectrumTintEnabled: m.melodySpectrumTintEnabled,
+        melodySpectrumTint: m.melodySpectrumTint,
         subBassColor: bass,
         bassColor: bass,
         lowMidColor: [for (var i = 0; i < 3; i++) ((bass[i] + mid[i]) / 2).round()],
@@ -1048,6 +1125,7 @@ class MusicModeSettings {
         autoHigh: m.autoHigh,
         smoothingMs: m.smoothingMs,
         minBrightness: m.minBrightness,
+        spectrumRotationEnabled: m.spectrumRotationEnabled,
         rotationSpeed: m.rotationSpeed,
         activePreset: m.activePreset,
       );
@@ -1069,6 +1147,11 @@ class MusicModeSettings {
         midSensitivity: midSensitivity,
         highSensitivity: highSensitivity,
         globalSensitivity: globalSensitivity,
+        perBandSensitivityEnabled: perBandSensitivityEnabled,
+        bandSensitivities: bandSensitivities,
+        beatSyncMode: beatSyncMode,
+        melodySpectrumTintEnabled: melodySpectrumTintEnabled,
+        melodySpectrumTint: melodySpectrumTint,
         subBassColor: subBassColor,
         bassColor: bassColor,
         lowMidColor: lowMidColor,
@@ -1081,6 +1164,7 @@ class MusicModeSettings {
         autoHigh: autoHigh,
         smoothingMs: smoothingMs,
         minBrightness: minBrightness,
+        spectrumRotationEnabled: spectrumRotationEnabled,
         rotationSpeed: rotationSpeed,
         activePreset: activePreset,
       );
@@ -1099,6 +1183,11 @@ class MusicModeSettings {
         midSensitivity: midSensitivity,
         highSensitivity: highSensitivity,
         globalSensitivity: globalSensitivity,
+        perBandSensitivityEnabled: perBandSensitivityEnabled,
+        bandSensitivities: bandSensitivities,
+        beatSyncMode: beatSyncMode,
+        melodySpectrumTintEnabled: melodySpectrumTintEnabled,
+        melodySpectrumTint: melodySpectrumTint,
         subBassColor: subBassColor,
         bassColor: bassColor,
         lowMidColor: lowMidColor,
@@ -1111,6 +1200,7 @@ class MusicModeSettings {
         autoHigh: autoHigh,
         smoothingMs: smoothingMs,
         minBrightness: minBrightness,
+        spectrumRotationEnabled: spectrumRotationEnabled,
         rotationSpeed: rotationSpeed,
         activePreset: activePreset,
       );
@@ -1120,36 +1210,48 @@ class MusicModeSettings {
     required int mid,
     required int high,
     String? activePreset,
-  }) =>
-      MusicModeSettings(
-        audioDeviceIndex: audioDeviceIndex,
-        micEnabled: micEnabled,
-        colorSource: colorSource,
-        fixedColor: fixedColor,
-        brightness: brightness,
-        beatDetectionEnabled: beatDetectionEnabled,
-        beatThreshold: beatThreshold,
-        effect: effect,
-        sensitivity: sensitivity,
-        bassSensitivity: bass.clamp(0, 100),
-        midSensitivity: mid.clamp(0, 100),
-        highSensitivity: high.clamp(0, 100),
-        globalSensitivity: globalSensitivity,
-        subBassColor: subBassColor,
-        bassColor: bassColor,
-        lowMidColor: lowMidColor,
-        midColor: midColor,
-        highMidColor: highMidColor,
-        presenceColor: presenceColor,
-        brillianceColor: brillianceColor,
-        autoGain: autoGain,
-        autoMid: autoMid,
-        autoHigh: autoHigh,
-        smoothingMs: smoothingMs,
-        minBrightness: minBrightness,
-        rotationSpeed: rotationSpeed,
-        activePreset: activePreset ?? this.activePreset,
-      );
+    String? effect,
+  }) {
+    final bb = bass.clamp(0, 100);
+    final mm = mid.clamp(0, 100);
+    final hh = high.clamp(0, 100);
+    final spread = <int>[bb, bb, mm, mm, hh, hh, hh];
+    return MusicModeSettings(
+      audioDeviceIndex: audioDeviceIndex,
+      micEnabled: micEnabled,
+      colorSource: colorSource,
+      fixedColor: fixedColor,
+      brightness: brightness,
+      beatDetectionEnabled: beatDetectionEnabled,
+      beatThreshold: beatThreshold,
+      effect: effect ?? this.effect,
+      sensitivity: sensitivity,
+      bassSensitivity: bb,
+      midSensitivity: mm,
+      highSensitivity: hh,
+      globalSensitivity: globalSensitivity,
+      perBandSensitivityEnabled: perBandSensitivityEnabled,
+      bandSensitivities: spread,
+      beatSyncMode: beatSyncMode,
+      melodySpectrumTintEnabled: melodySpectrumTintEnabled,
+      melodySpectrumTint: melodySpectrumTint,
+      subBassColor: subBassColor,
+      bassColor: bassColor,
+      lowMidColor: lowMidColor,
+      midColor: midColor,
+      highMidColor: highMidColor,
+      presenceColor: presenceColor,
+      brillianceColor: brillianceColor,
+      autoGain: autoGain,
+      autoMid: autoMid,
+      autoHigh: autoHigh,
+      smoothingMs: smoothingMs,
+      minBrightness: minBrightness,
+      spectrumRotationEnabled: spectrumRotationEnabled,
+      rotationSpeed: rotationSpeed,
+      activePreset: activePreset ?? this.activePreset,
+    );
+  }
 
   MusicModeSettings copyWith({
     int? audioDeviceIndex,
@@ -1166,6 +1268,11 @@ class MusicModeSettings {
     int? midSensitivity,
     int? highSensitivity,
     int? globalSensitivity,
+    bool? perBandSensitivityEnabled,
+    List<int>? bandSensitivities,
+    String? beatSyncMode,
+    bool? melodySpectrumTintEnabled,
+    double? melodySpectrumTint,
     List<int>? subBassColor,
     List<int>? bassColor,
     List<int>? lowMidColor,
@@ -1178,6 +1285,7 @@ class MusicModeSettings {
     bool? autoHigh,
     int? smoothingMs,
     int? minBrightness,
+    bool? spectrumRotationEnabled,
     int? rotationSpeed,
     String? activePreset,
   }) =>
@@ -1195,6 +1303,11 @@ class MusicModeSettings {
         midSensitivity: midSensitivity ?? this.midSensitivity,
         highSensitivity: highSensitivity ?? this.highSensitivity,
         globalSensitivity: globalSensitivity ?? this.globalSensitivity,
+        perBandSensitivityEnabled: perBandSensitivityEnabled ?? this.perBandSensitivityEnabled,
+        bandSensitivities: bandSensitivities ?? this.bandSensitivities,
+        beatSyncMode: beatSyncMode != null ? normalizeMusicBeatSyncMode(beatSyncMode) : this.beatSyncMode,
+        melodySpectrumTintEnabled: melodySpectrumTintEnabled ?? this.melodySpectrumTintEnabled,
+        melodySpectrumTint: melodySpectrumTint ?? this.melodySpectrumTint,
         subBassColor: subBassColor ?? this.subBassColor,
         bassColor: bassColor ?? this.bassColor,
         lowMidColor: lowMidColor ?? this.lowMidColor,
@@ -1207,6 +1320,7 @@ class MusicModeSettings {
         autoHigh: autoHigh ?? this.autoHigh,
         smoothingMs: smoothingMs ?? this.smoothingMs,
         minBrightness: minBrightness ?? this.minBrightness,
+        spectrumRotationEnabled: spectrumRotationEnabled ?? this.spectrumRotationEnabled,
         rotationSpeed: rotationSpeed ?? this.rotationSpeed,
         activePreset: activePreset ?? this.activePreset,
       );

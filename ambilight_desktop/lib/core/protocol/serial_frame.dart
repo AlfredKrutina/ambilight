@@ -22,6 +22,17 @@ class SerialAmbilightProtocol {
   static const int ping = 0xAA;
   static const int pong = 0xBB;
 
+  /// PC ukončuje výstup / přepíná vypnuto — ESP přejde na MQTT / Home Assistant (FW `ambilight_pc_release_handoff`).
+  static const int pcReleaseHandoff = 0xF0;
+
+  /// FW časové vyhlazování (NVS) — viz [UdpAmbilightProtocol.firmwareTemporalModeOpcode].
+  static const int firmwareTemporalModeOpcode = 0xF1;
+
+  static Uint8List buildFirmwareTemporalModeFrame(int mode) {
+    final m = mode.clamp(0, 2);
+    return Uint8List.fromList([firmwareTemporalModeOpcode, m]);
+  }
+
   static const int _frameStartLegacy = 0xFF;
   static const int _frameStartWide = 0xFC;
   static const int _frameEnd = 0xFE;

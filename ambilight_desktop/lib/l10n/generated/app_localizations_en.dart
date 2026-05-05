@@ -203,6 +203,75 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get desktopUpdateSectionTitle => 'App updates';
+
+  @override
+  String get desktopUpdateSectionHint =>
+      'Uses the release manifest over HTTPS. Downloaded packages are verified with SHA-256 before install.';
+
+  @override
+  String get desktopUpdateManifestUrlLabel => 'Manifest URL';
+
+  @override
+  String get desktopUpdateCheckButton => 'Check for updates';
+
+  @override
+  String get desktopUpdateUpToDate =>
+      'You are on the latest version for this update channel.';
+
+  @override
+  String desktopUpdateCheckFailed(Object detail) {
+    return 'Could not check for updates: $detail';
+  }
+
+  @override
+  String desktopUpdateChannelMismatch(
+      Object manifestChannel, Object appChannel) {
+    return 'Release channel mismatch (manifest: $manifestChannel, this app: $appChannel).';
+  }
+
+  @override
+  String desktopUpdateAvailable(Object remote, Object current) {
+    return 'Update available: $remote (installed: $current).';
+  }
+
+  @override
+  String get desktopUpdateReleaseNotesLink => 'Release notes';
+
+  @override
+  String get desktopUpdateDownloadAndInstall =>
+      'Download and install (restart)';
+
+  @override
+  String get desktopUpdateOpenDownloadPage => 'Open download page';
+
+  @override
+  String get desktopUpdateConfirmTitle => 'Install update?';
+
+  @override
+  String get desktopUpdateConfirmBody =>
+      'The app will quit; a short script will unpack the update, replace files in this install folder, and restart AmbiLight. Save other work first.';
+
+  @override
+  String get desktopUpdateConfirmInstall => 'Install';
+
+  @override
+  String get desktopUpdateDownloadFailed =>
+      'Download or integrity check failed.';
+
+  @override
+  String get desktopUpdateUpdaterStartFailed => 'Could not start the updater.';
+
+  @override
+  String get desktopUpdateRestarting =>
+      'Saving and exiting… the updater will restart the app.';
+
+  @override
+  String desktopUpdateErrorDetail(Object detail) {
+    return '$detail';
+  }
+
+  @override
   String get semanticsCloseScanOverlay => 'Close capture region preview';
 
   @override
@@ -491,6 +560,126 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tabFirmware => 'Firmware';
 
   @override
+  String get settingsTabGlobalTooltip =>
+      'Language, theme, performance, default mode and JSON backup/import.';
+
+  @override
+  String get settingsTabLightTooltip =>
+      'Static colors, effects, zones and timing for Light mode.';
+
+  @override
+  String get settingsTabScreenTooltip =>
+      'Monitor capture, segments, gamma, interpolation and calibration.';
+
+  @override
+  String get settingsTabMusicTooltip =>
+      'Audio input, FFT, melody, presets and mapping colors to the strip.';
+
+  @override
+  String get settingsTabPcHealthTooltip =>
+      'PC sensors (CPU, GPU, …) mapped to output colors.';
+
+  @override
+  String get settingsTabSpotifyTooltip =>
+      'Spotify OAuth and artwork colors — complements Music mode.';
+
+  @override
+  String get settingsTabSmartHomeTooltip =>
+      'Home Assistant, HomeKit and virtual room for extra lamps.';
+
+  @override
+  String get settingsTabFirmwareTooltip =>
+      'OTA manifest, USB flashing (esptool) and UDP commands.';
+
+  @override
+  String get settingsPageHelpTooltip =>
+      'On wide windows use the left grouped menu; on narrow layouts tabs scroll horizontally. Changes save shortly after edits (see the banner hint above).';
+
+  @override
+  String get settingsPerformanceHelpTooltip =>
+      'Caps monitor capture and related loops to reduce CPU. Light mode without capture stays faster.';
+
+  @override
+  String get musicLockPaletteHelpTooltip =>
+      'Captures current strip colors and holds them — handy while tuning without continuous output.';
+
+  @override
+  String get screenUltraSatHelpTooltip =>
+      'Aggressively boosts extremely saturated colors from capture — use with the sliders below.';
+
+  @override
+  String get smartPushColorsHelpTooltip =>
+      'When on, the app sends the same mapped colors as the strip to HA / HomeKit fixtures per each lamp’s binding.';
+
+  @override
+  String get homeSectionModeHelpTooltip =>
+      'The active mode chooses where colors come from (static effects / monitor / audio / sensors).';
+
+  @override
+  String get homeSectionIntegrationsHelpTooltip =>
+      'Quick Spotify, Home Assistant and firmware manifest status — full controls live in Settings tabs.';
+
+  @override
+  String get homeSectionDevicesHelpTooltip =>
+      'Connection status for known strips; add or edit devices on the Devices page.';
+
+  @override
+  String get modeLightTooltip =>
+      'Colors and effects without monitor capture — zones from Settings.';
+
+  @override
+  String get modeScreenTooltip =>
+      'Ambilight from the edges of the chosen monitor using segments and geometry.';
+
+  @override
+  String get modeMusicTooltip =>
+      'FFT / melody from microphone or loopback; Spotify and OS media optional.';
+
+  @override
+  String get modePcHealthTooltip =>
+      'PC temperatures and load mapped to colors via configured metrics.';
+
+  @override
+  String get integrationMusicCardTooltip =>
+      'Spotify OAuth and overview settings affecting Music mode.';
+
+  @override
+  String get integrationHaCardTooltip =>
+      'Mirror strip colors to Home Assistant or HomeKit (macOS) entities.';
+
+  @override
+  String get integrationFirmwareCardTooltip =>
+      'Manifest URL for OTA and downloading binaries — does not flash by itself.';
+
+  @override
+  String get devicesActionDiscoverTooltip =>
+      'UDP discovery finds ESP devices on the network and adds them.';
+
+  @override
+  String get devicesActionZonesTooltip =>
+      'LED segment editor tied to monitor edges and LED order.';
+
+  @override
+  String get devicesActionSegGeomTooltip =>
+      'Strip orientation around the screen before calibration.';
+
+  @override
+  String get devicesActionCalibrationTooltip =>
+      'Wizard mapping physical corners to captured geometry.';
+
+  @override
+  String get devicesActionPresetTooltip =>
+      'Save current screen settings as a named preset.';
+
+  @override
+  String get devicesActionAddWifiTooltip =>
+      'Manually add a Wi‑Fi device by IP and UDP port.';
+
+  @override
+  String get devicesActionFindComTooltip =>
+      'Scans serial ports for firmware handshake over USB.';
+
+  @override
   String get globalSectionTitle => 'Global';
 
   @override
@@ -598,14 +787,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get trayMusicPresetsSection => 'Music — presets';
 
   @override
-  String get trayMusicUnlockColors => 'Unlock colors (music)';
+  String get trayMusicUnlockColors => 'Unfreeze strip (music)';
 
   @override
-  String get trayMusicCancelLockPending =>
-      'Cancel color lock (waiting for frame)';
+  String get trayMusicCancelLockPending => 'Cancel freeze (waiting for frame)';
 
   @override
-  String get trayMusicLockColorsShort => 'Lock colors (music)';
+  String get trayMusicLockColorsShort => 'Freeze strip output (music)';
 
   @override
   String get traySettingsEllipsis => 'Settings…';
@@ -928,6 +1116,95 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get segGeomWizardTitle => 'Segment placement wizard';
+
+  @override
+  String get segGeomWizardIntro =>
+      'Choose a segment, rotate which screen edge it samples, slide the band along that edge, or flip LED order. Rotating the edge resets the capture band to the full edge (LED indices stay the same).';
+
+  @override
+  String get segGeomWizardEmpty =>
+      'No segments are configured yet. Run the LED mapping wizard first, then fine‑tune placement here.';
+
+  @override
+  String get segGeomWizardSegmentPicker => 'Segment';
+
+  @override
+  String segGeomWizardSegmentLabel(int index) {
+    return 'Segment $index';
+  }
+
+  @override
+  String segGeomWizardLedRange(int start, int end) {
+    return 'LEDs $start–$end';
+  }
+
+  @override
+  String get segGeomWizardRotateCwTooltip =>
+      'Rotate edge clockwise (top → right → bottom → left)';
+
+  @override
+  String get segGeomWizardRotateCcwTooltip => 'Rotate edge counter‑clockwise';
+
+  @override
+  String get segGeomWizardReverse => 'Reverse LED order along strip';
+
+  @override
+  String get segGeomWizardWholeEdge => 'Sample the entire edge';
+
+  @override
+  String get segGeomWizardWholeEdgeSubtitle =>
+      'Turn off to limit sampling to part of the edge with the sliders below.';
+
+  @override
+  String get segGeomWizardBandTitle => 'Band along edge (reference pixels)';
+
+  @override
+  String get segGeomWizardPresetFull => 'Full edge';
+
+  @override
+  String get segGeomWizardPresetStartHalf => 'First half';
+
+  @override
+  String get segGeomWizardPresetEndHalf => 'Second half';
+
+  @override
+  String get segGeomWizardPresetCenterThird => 'Center third';
+
+  @override
+  String get segGeomWizardRefFromCapture =>
+      'Match reference size to last capture';
+
+  @override
+  String get segGeomWizardPreviewCaption => 'Sampling region (approximation)';
+
+  @override
+  String get segGeomWizardGradientSubtitle =>
+      'Live gradient matches colors sent along this edge (screen left→right on top/bottom; top→bottom on left/right). Align it with your strip using Reverse or edge rotation.';
+
+  @override
+  String get segGeomWizardGradientUnavailable =>
+      'No live preview — check segment monitor index, turn output on, and use Screen mode so captures reach this dialog.';
+
+  @override
+  String get segGeomWizardPreviewLive => 'Preview uses live capture dimensions';
+
+  @override
+  String get segGeomWizardPreviewRef => 'Preview uses segment reference size';
+
+  @override
+  String get segGeomWizardOpenMapping => 'LED mapping wizard…';
+
+  @override
+  String get segGeomWizardSaved => 'Segment geometry saved.';
+
+  @override
+  String get segGeomWizardMonitorTitle => 'Monitor index';
+
+  @override
+  String get segGeomWizardLaunchButton => 'Segment placement';
+
+  @override
   String get refDimsFromCapture => 'Ref. dimensions from last capture';
 
   @override
@@ -1179,6 +1456,93 @@ class AppLocalizationsEn extends AppLocalizations {
   String virtualRoomFacing(Object deg) {
     return 'View angle offset toward TV: $deg°';
   }
+
+  @override
+  String get virtualRoomEffectLabel => 'Effect on smart lights';
+
+  @override
+  String get virtualRoomEffectNone => 'Off';
+
+  @override
+  String get virtualRoomEffectWave => 'Wave';
+
+  @override
+  String get virtualRoomEffectBreath => 'Breath';
+
+  @override
+  String get virtualRoomEffectChase => 'Chase';
+
+  @override
+  String get virtualRoomEffectSparkle => 'Sparkle';
+
+  @override
+  String get virtualRoomEffectHintNone =>
+      'Colors and brightness from the engine only — no extra modulation.';
+
+  @override
+  String get virtualRoomEffectHintWave =>
+      'Smooth wave through the room; geometry sets how distance affects phase.';
+
+  @override
+  String get virtualRoomEffectHintBreath =>
+      'All lights pulse together — good when you do not want a spatial pattern.';
+
+  @override
+  String get virtualRoomEffectHintChase =>
+      'Lights brighten in order along the chosen axis (sorted left-to-right on that axis).';
+
+  @override
+  String get virtualRoomEffectHintSparkle =>
+      'Each light drifts with a slightly different phase for a lively shimmer.';
+
+  @override
+  String get virtualRoomGeometryLabel => 'Wave / chase axis';
+
+  @override
+  String get virtualRoomGeometryRadial => 'Radial from TV';
+
+  @override
+  String get virtualRoomGeometryAlongView =>
+      'Across your view (perpendicular to gaze)';
+
+  @override
+  String get virtualRoomGeometryHorizontal => 'Horizontal (toward TV on X)';
+
+  @override
+  String get virtualRoomGeometryVertical => 'Vertical (toward TV on Y)';
+
+  @override
+  String get virtualRoomGeometryCustom => 'Custom angle from TV';
+
+  @override
+  String virtualRoomCustomAngle(Object deg) {
+    return 'Axis angle: $deg°';
+  }
+
+  @override
+  String get virtualRoomBrightnessModLabel => 'Apply modulation to';
+
+  @override
+  String get virtualRoomBrightnessBoth => 'Color and brightness';
+
+  @override
+  String get virtualRoomBrightnessRgb => 'Color only';
+
+  @override
+  String get virtualRoomBrightnessBri => 'Brightness only';
+
+  @override
+  String get virtualRoomPreviewToggle => 'Animated preview';
+
+  @override
+  String get virtualRoomPreviewSubtitle =>
+      'Bulb icons use the same math as Home Assistant / HomeKit output.';
+
+  @override
+  String get virtualRoomDragTv => 'TV (drag)';
+
+  @override
+  String get virtualRoomDragUser => 'You (drag)';
 
   @override
   String get scanOverlaySettingsTitle => 'Scan overlay (detail)';
@@ -1437,7 +1801,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardWizardOpenMapping => 'Open mapping wizard';
 
   @override
-  String get onboardWizardMappingSkip => 'Skip for now';
+  String get onboardWizardMappingSkip => 'SKIP FOR NOW';
 
   @override
   String get onboardWizardStepIntegrationsTitle => 'Integrations';
@@ -1473,6 +1837,165 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardWizardFinish => 'Get started';
+
+  @override
+  String get setupWizardLanguageHeader => 'Choose your language / Zvolte jazyk';
+
+  @override
+  String get setupWizardLanguageSubtitle =>
+      'Applied immediately — change anytime under Settings → Global.';
+
+  @override
+  String get setupWizardLanguageEnglishTitle => 'English';
+
+  @override
+  String get setupWizardLanguageEnglishSubtitle =>
+      'Default language for the UI.';
+
+  @override
+  String get setupWizardLanguageCzechTitle => 'Čeština';
+
+  @override
+  String get setupWizardLanguageCzechSubtitle => 'Czech interface.';
+
+  @override
+  String get setupWizardAppearanceHeader => 'How should we look?';
+
+  @override
+  String get setupWizardAppearanceSubtitle =>
+      'Pick a palette — it is saved to your profile right away.';
+
+  @override
+  String get setupWizardThemeOptionLightSubtitle =>
+      'Bright surfaces with teal accents.';
+
+  @override
+  String get setupWizardThemeOptionDarkBlueSubtitle =>
+      'Cyan and violet highlights on a deep blue base — classic AmbiLight look.';
+
+  @override
+  String get setupWizardThemeOptionSnowrunnerSubtitle =>
+      'Neutral dark gray UI with a warm orange accent.';
+
+  @override
+  String get setupWizardThemeOptionCoffeeSubtitle =>
+      'Warm cream and brown tones.';
+
+  @override
+  String get setupWizardExpertiseSimpleExplain =>
+      'Advanced settings (Gamma, smoothing, and fine IP/offset fields) stay hidden for a cleaner experience. You can switch to Advanced anytime in Global settings.';
+
+  @override
+  String get setupWizardUsbListTitle => 'USB — serial ports';
+
+  @override
+  String get setupWizardUsbEmpty =>
+      'No COM ports detected. Plug in the controller and tap refresh.';
+
+  @override
+  String get setupWizardUsbConnect => 'Connect';
+
+  @override
+  String get setupWizardUsbWebHint =>
+      'Serial/USB setup is available in the Windows desktop build.';
+
+  @override
+  String get setupWizardComDtrRtsHint =>
+      'Test uses the same DTR/RTS line setup as a normal connect (ESP32‑C3 USB‑JTAG or classic USB‑UART bridge).';
+
+  @override
+  String get setupWizardDeviceWifiSection => 'Wi‑Fi / network';
+
+  @override
+  String get setupWizardDeviceSerialSection => 'USB / serial';
+
+  @override
+  String get setupWizardDeviceWifiIntro =>
+      'We broadcast on your LAN (UDP 4210). Controllers that answer appear below — tap Add to save one to your profile.';
+
+  @override
+  String get setupWizardDeviceSerialIntro =>
+      'Choose the COM port your ESP32 or USB‑serial adapter uses (for example COM3). Test verifies an AmbiLight controller before you add it.';
+
+  @override
+  String get setupWizardDeviceWifiDesktopOnly =>
+      'Wi‑Fi discovery is available in the Windows desktop build.';
+
+  @override
+  String get setupWizardDeviceTestConnection => 'Test';
+
+  @override
+  String get setupWizardDeviceAdd => 'Add';
+
+  @override
+  String get setupWizardDeviceScanningLabel => 'Scanning your network…';
+
+  @override
+  String get setupWizardDeviceIdentifiedShort =>
+      'AmbiLight controller detected.';
+
+  @override
+  String get setupWizardDeviceTestFailedShort =>
+      'Not an AmbiLight controller on this port.';
+
+  @override
+  String setupWizardDeviceControllerId(Object macSuffix) {
+    return 'ID: $macSuffix';
+  }
+
+  @override
+  String setupWizardDeviceWifiScanFailed(Object message) {
+    return 'Scan failed: $message';
+  }
+
+  @override
+  String get setupWizardMappingEdgesTitle =>
+      'LEDs per screen edge (current mapping)';
+
+  @override
+  String get setupWizardMappingRainbowHint =>
+      'Rainbow uses the synthetic screen-output path so you can see the strip respond.';
+
+  @override
+  String get setupWizardWhatsNextTitle => 'What\'s next?';
+
+  @override
+  String get setupWizardWhatsNextSubtitle =>
+      'Optional features when you want more than ambient screen colors.';
+
+  @override
+  String get setupWizardCardSpotifyTitle => 'Spotify integration';
+
+  @override
+  String get setupWizardCardSpotifyBody => 'Sync lights with your music.';
+
+  @override
+  String get setupWizardCardHaTitle => 'Home Assistant';
+
+  @override
+  String get setupWizardCardHaBody =>
+      'Control via your smart home dashboard (URL + long‑lived token).';
+
+  @override
+  String get setupWizardCardPcHealthTitle => 'PC Health';
+
+  @override
+  String get setupWizardCardPcHealthBody => 'Monitor CPU/GPU temps via colors.';
+
+  @override
+  String get setupWizardFinalHeadline => 'You\'re set.';
+
+  @override
+  String get setupWizardFinalSubtitle =>
+      'Turn on Output in the app header when your hardware is ready.';
+
+  @override
+  String get setupWizardLetsGlow => 'LET\'S GLOW';
+
+  @override
+  String setupWizardStepCounter(Object current, Object total) {
+    return '$current / $total';
+  }
 
   @override
   String get devicesPageSubtitle =>
@@ -1518,7 +2041,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backupIntroBody =>
-      'JSON compatible with the Python client (`config/default.json`). Import replaces current settings and persists them.';
+      'JSON compatible with the Python client (`config/default.json`). Safe export omits Home Assistant and Spotify secrets (same as the app’s on-disk profile). Use “Export with secrets” for a full clone including tokens.';
+
+  @override
+  String get backupExportWithSecrets => 'Export with secrets…';
+
+  @override
+  String get backupExportWithSecretsConfirm => 'Export anyway';
+
+  @override
+  String get backupSecretsExportTitle => 'Include secrets in the backup?';
+
+  @override
+  String get backupSecretsExportBody =>
+      'The file will contain your Home Assistant long-lived token (if set), Spotify OAuth access/refresh tokens from this PC, Spotify client secret if entered, and the same fields as in Settings. Anyone with the file can control your HA or Spotify session — store it only in a safe place and never share it.';
+
+  @override
+  String get backupSecretsSaveDialogTitle =>
+      'Save configuration including secrets';
+
+  @override
+  String get backupImportRestoresTokensHint =>
+      'Import applies `ha_long_lived_token` and Spotify tokens from the file when present (written to the same sidecar storage as a normal login).';
 
   @override
   String get exportDialogTitle => 'Export AmbiLight configuration';
@@ -1841,7 +2385,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get musicInputDeviceLabel => 'Audio input device';
 
   @override
-  String get musicDefaultInputDevice => 'Default (first suitable)';
+  String get musicDefaultInputDevice => 'Automatic: system mix (loopback)';
+
+  @override
+  String get musicSystemLoopbackHint =>
+      'With no device selected and “Prefer microphone” off, AmbiLight drives the visualizer from system-side audio. On Windows 10+, the app uses WASAPI loopback on the default playback device (browser, games, Spotify — not just a physical mic). You can still pick Stereo Mix, VB-Audio Cable, etc. from the list. macOS: install BlackHole from existential.audio/blackhole, create a Multi-Output Device in Audio MIDI Setup, then pick “BlackHole” (or Aggregate) here.';
 
   @override
   String get musicRefreshDeviceListTooltip => 'Refresh device list';
@@ -1857,19 +2405,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get musicGuideMusicArtwork => 'Guide: music & artwork';
 
   @override
-  String get musicLockPaletteTitle => 'Lock color output to strip (music)';
+  String get musicLockPaletteTitle => 'Freeze strip lights (music)';
 
   @override
   String get musicLockPaletteFrozen =>
-      'Sending frozen palette (same as tray item).';
+      'Frozen: the last captured LED pattern is resent every tick — lights stay still while audio keeps updating internally.';
 
   @override
   String get musicLockPalettePending =>
-      'Waiting for next frame, then palette freezes.';
+      'Next tick captures the current strip output, then LEDs hold that pattern.';
 
   @override
   String get musicLockPaletteIdle =>
-      'Only meaningful in music mode; switching modes clears the lock.';
+      'Freezes the physical LED output (whole-strip RGB snapshot), not just color-source logic. Cleared when leaving music mode.';
 
   @override
   String get musicPreferMicTitle => 'Prefer microphone';
@@ -1975,7 +2523,18 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get musicActivePresetField => 'active_preset';
+  String get musicSpectrumRotationTitle => 'Spectrum rotation (time)';
+
+  @override
+  String get musicSpectrumRotationSubtitle =>
+      'When off, “Rotating spectrum” stays fixed like plain spectrum; beat-sync gradient step still applies if enabled.';
+
+  @override
+  String get musicActivePresetField => 'Music preset';
+
+  @override
+  String get helperMusicActivePreset =>
+      'Quick presets, built-in names, and entries from saved user_music_presets.';
 
   @override
   String get musicFixedColorPickerTitle => 'Fixed color (music)';
@@ -1987,6 +2546,153 @@ class AppLocalizationsEn extends AppLocalizations {
   String musicRgbTriple(Object r, Object g, Object b) {
     return 'RGB $r · $g · $b';
   }
+
+  @override
+  String get musicSpectrumPaletteHeader => 'Spectrum band colors';
+
+  @override
+  String get musicSpectrumPaletteHint =>
+      'Seven stops from sub-bass to brilliance. Spectrum, VU+spectrum and Smart Music blend along this path when \"Spectrum from audio\" is selected.';
+
+  @override
+  String get musicSpectrumBandSubBass => 'Sub-bass';
+
+  @override
+  String get musicSpectrumBandBass => 'Bass';
+
+  @override
+  String get musicSpectrumBandLowMid => 'Low-mid';
+
+  @override
+  String get musicSpectrumBandMid => 'Mid';
+
+  @override
+  String get musicSpectrumBandHighMid => 'High-mid';
+
+  @override
+  String get musicSpectrumBandPresence => 'Presence';
+
+  @override
+  String get musicSpectrumBandBrilliance => 'Brilliance';
+
+  @override
+  String get musicSpectrumResetBands => 'Reset spectrum colors';
+
+  @override
+  String musicSpectrumPickerTitle(String band) {
+    return 'Spectrum: $band';
+  }
+
+  @override
+  String get musicBeatSyncLabel => 'Beat sync (visual)';
+
+  @override
+  String get musicBeatSyncHint =>
+      'Uses beat flags from the analyzer. Gradient step shifts spectrum; color pulse briefly boosts brightness.';
+
+  @override
+  String get musicBeatSyncOff => 'Off';
+
+  @override
+  String get musicBeatSyncGradientStep => 'Gradient step on beat';
+
+  @override
+  String get musicBeatSyncColorPulse => 'Color pulse on beat';
+
+  @override
+  String get musicMelodySpectrumTintTitle => 'Melody + spectrum palette';
+
+  @override
+  String get musicMelodySpectrumTintSubtitle =>
+      'When the color source is spectrum, blend melody HSV toward the band palette (tint strength below).';
+
+  @override
+  String musicMelodySpectrumTintAmount(int p) {
+    return 'Tint strength: $p%';
+  }
+
+  @override
+  String get musicPerBandSensitivityTitle => 'Per-band sensitivity (advanced)';
+
+  @override
+  String get musicPerBandSensitivitySubtitle =>
+      'When enabled, each FFT band has its own 0–100 gain; otherwise bass / mid / high groups apply as before.';
+
+  @override
+  String get musicUserPresetsTitle => 'Saved music presets (JSON)';
+
+  @override
+  String get musicUserPresetsHint =>
+      'Save the current music settings under a name, export all user presets, or merge from a JSON file. Selecting a name in “Music preset” loads it.';
+
+  @override
+  String get musicUserPresetsNameLabel => 'Preset name';
+
+  @override
+  String get musicUserPresetsSave => 'Save current as preset';
+
+  @override
+  String get musicUserPresetsSavedOk => 'Preset saved.';
+
+  @override
+  String get musicUserPresetsDelete => 'Remove';
+
+  @override
+  String get musicUserPresetsExport => 'Copy presets JSON';
+
+  @override
+  String get musicUserPresetsImport => 'Import JSON…';
+
+  @override
+  String get musicUserPresetsCopied => 'Presets JSON copied to clipboard.';
+
+  @override
+  String get musicUserPresetsMerged =>
+      'Imported presets merged into user list.';
+
+  @override
+  String get musicUserPresetsBadJson => 'Could not read presets JSON.';
+
+  @override
+  String get musicAgcMeterTitle => 'AGC (auto gain)';
+
+  @override
+  String musicAgcMeterPeak(String v) {
+    return 'Tracked peak: $v';
+  }
+
+  @override
+  String musicAgcMeterGain(String v) {
+    return 'Applied gain: $v';
+  }
+
+  @override
+  String get musicGuideMacosAudio => 'Guide: macOS loopback';
+
+  @override
+  String get musicMacosLoopbackGuideTitle =>
+      'macOS — system audio to Ambilight';
+
+  @override
+  String get musicMacosLoopbackGuideIntro =>
+      'Unlike Windows WASAPI loopback on the default playback device, macOS does not expose a built-in “what you hear” capture device to all apps.';
+
+  @override
+  String get musicMacosLoopbackGuideSteps =>
+      '1) Install BlackHole (2ch) from existential.audio/blackhole.\n2) Open Audio MIDI Setup → create a Multi-Output Device that includes your speakers/headphones and BlackHole; set it as the system output for listening while routing a copy to BlackHole.\n3) In Ambilight → Music, pick “BlackHole” (or your aggregate) as the input device.';
+
+  @override
+  String get musicMacosLoopbackGuideNote =>
+      'Latency and device names depend on your aggregate. For Spotify-only colors you can also use the in-app Spotify integration.';
+
+  @override
+  String get musicMacosLoopbackGuideClose => 'Close';
+
+  @override
+  String get musicMacosLoopbackGuideBlackHole => 'Open BlackHole page';
+
+  @override
+  String get musicMacosLoopbackGuideOpenFailed => 'Could not open the link.';
 
   @override
   String get musicEffectSmartMusic => 'Smart Music';
@@ -2997,11 +3703,83 @@ class AppLocalizationsEn extends AppLocalizations {
       'OTA command does not pass device-side checks.';
 
   @override
+  String get fwProgressUsbTitle => 'USB flash';
+
+  @override
+  String get fwProgressUsbSubtitle =>
+      'Writing via esptool — stop the app stream on the same COM port while flashing.';
+
+  @override
+  String get fwProgressOtaTitle => 'OTA update';
+
+  @override
+  String get fwProgressOtaSending => 'Sending OTA_HTTP to the device…';
+
+  @override
+  String get fwProgressOtaAwaitNotify => 'Waiting for lamp confirmation…';
+
+  @override
+  String fwProgressOtaSuccessNotify(String version) {
+    return 'Update complete — firmware $version. The strip should briefly pulse purple.';
+  }
+
+  @override
+  String get fwProgressOtaDevicePhase =>
+      'The device is downloading and installing firmware — watch the strip LEDs. You can close this panel; the lamp keeps updating.';
+
+  @override
+  String get fwProgressFlashCancelled =>
+      'Flash cancelled (esptool was stopped).';
+
+  @override
   String get fwFillFromDevices => 'Fill from Devices';
 
   @override
   String get fwFillFromDevicesTooltip =>
       'Copy IP and UDP port from the first Wi-Fi device in your list (Devices tab).';
+
+  @override
+  String get fwDebugToolsTitle => 'Debugging tools (lamp)';
+
+  @override
+  String get fwDebugReject88Body =>
+      'Reject DHCP addresses in 192.168.88.0/24 (third octet .88). Stored on the device (NVS key dbg_rej88). Same toggle exists on the lamp’s SoftAP setup page and via UDP DEBUG_REJ88 0|1|?.';
+
+  @override
+  String get fwDebugReject88Query => 'Query lamp';
+
+  @override
+  String get fwDebugReject88Enable => 'Enable reject';
+
+  @override
+  String get fwDebugReject88Disable => 'Disable reject';
+
+  @override
+  String get fwDebugReject88Unknown => 'unknown (no reply or old firmware)';
+
+  @override
+  String get fwDebugReject88On => 'on';
+
+  @override
+  String get fwDebugReject88Off => 'off';
+
+  @override
+  String fwDebugReject88Current(String state) {
+    return 'On device: $state';
+  }
+
+  @override
+  String get fwDebugReject88SetOk => 'Setting applied (NVS on lamp).';
+
+  @override
+  String get fwDebugReject88SetFail =>
+      'UDP command failed (offline, wrong IP/port, or firmware without DEBUG_REJ88).';
+
+  @override
+  String get fwStatusProbeRejectOn => ' · reject 192.168.88.x: on';
+
+  @override
+  String get fwStatusProbeRejectOff => ' · reject 192.168.88.x: off';
 
   @override
   String get fwStatusNoWifiDevice =>
@@ -3226,7 +4004,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get smartVirtualRoomIntro =>
-      'Place the TV, yourself and lights on the plan. The cone shows viewing direction (relative to the TV axis). Wave modulates brightness by distance from TV and time; HA/HomeKit still receive mapped colors each frame.';
+      'Place the TV, yourself and lights on the plan. The cone starts at your icon (semi-transparent overlay) and shows viewing direction toward the TV plus the angle slider. Effects modulate brightness using this layout; HA/HomeKit still receive mapped colors each frame.';
 
   @override
   String smartFixturesTitle(Object count) {
@@ -3260,6 +4038,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get smartBindingScreenEdge => 'Screen edge';
+
+  @override
+  String get smartBindingLedStartField => 'LED start (index)';
+
+  @override
+  String get smartBindingLedEndField => 'LED end (index)';
 
   @override
   String get smartDeviceIdOptional => 'device_id (empty = first device)';
@@ -3311,4 +4095,38 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get vrTooltipYou => 'You (drag)';
+
+  @override
+  String get deviceFwTemporalSectionTitle => 'Firmware temporal smoothing';
+
+  @override
+  String get deviceFwTemporalOff => 'Off';
+
+  @override
+  String get deviceFwTemporalSmooth => 'Smooth';
+
+  @override
+  String get deviceFwTemporalSnap => 'Zero-lag snap';
+
+  @override
+  String get deviceFwTemporalApply => 'Send to device';
+
+  @override
+  String get deviceFwTemporalSnackOk => 'Firmware smoothing mode updated.';
+
+  @override
+  String get deviceFwTemporalSnackFail =>
+      'Could not confirm the command (timeout or old firmware).';
+
+  @override
+  String get deviceFwTemporalHint =>
+      'Separate from screen interpolation below. Avoid maxing out both firmware smooth and strong PC interpolation.';
+
+  @override
+  String get settingsPcSmoothingFootnote =>
+      'Interpolation here runs on the PC before UDP/serial only. For Wi-Fi chunk size at build time see dart-define AMBI_UDP_OPCODE06_CHUNK_PIXELS (UdpAmbilightProtocol).';
+
+  @override
+  String get settingsGlobalPcUdpChunkHint =>
+      'Optional build-time tuning: --dart-define=AMBI_UDP_OPCODE06_CHUNK_PIXELS=… (32–498) affects UDP packet size when the strip needs 0x06 chunks.';
 }

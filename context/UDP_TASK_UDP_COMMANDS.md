@@ -7,10 +7,11 @@ Kompatibilita FW ↔ desktop (matice, limity, checklist): [**FW_APP_PROTOCOL_COM
 | Příkaz / formát | Směr | Bajty / řetězec | Poznámka |
 |-----------------|-------|-----------------|----------|
 | Discovery | PC → ESP | UTF-8 `DISCOVER_ESP32` (14 B) | broadcast nebo unicast |
-| PONG | ESP → PC | UTF-8 `ESP32_PONG\|MAC\|Name\|ledCount\|ver` | **lamp FW:** `ledCount` = logická délka `g_serial_strip_max` (USB `0xA5 0x5A`), ne jen compile-time max |
+| PONG | ESP → PC | UTF-8 `ESP32_PONG\|MAC\|Name\|ledCount\|FW_VER\|2.1\|temporal` (legacy bez `FW_VER`) | **lamp FW:** `ledCount` = `g_serial_strip_max`; `FW_VER` = `esp_app_desc.version` |
 | Identify | PC → ESP | UTF-8 `IDENTIFY` (8 B) | modrá 1 s, pak obnovení stavu |
 | Reset Wi‑Fi | PC → ESP | UTF-8 `RESET_WIFI` (10 B) | červené bliknutí, erase credentials, reboot |
 | OTA z URL | PC → ESP | UTF-8 `OTA_HTTP ` + URL | Desktop: URL 12…1300 znaků; jeden datagram ≤ `UdpDeviceCommands.maxSafeUtf8PayloadBytes` (1400 B UTF‑8). HTTPS OTA (`ota_update.c`), reboot; dvě `ota_*` partition |
+| OTA úspěch (UDP) | ESP → PC | UTF-8 `AMBILIGHT OTA_OK ` + verze | Po úspěšné instalaci: krátká fialová animace na pásku, pak jeden datagram na **zdrojovou IP:port** odesílatele `OTA_HTTP` (stejný socket musí na PC dál poslouchat — `UdpDeviceCommands.sendOtaHttpUrlAwaitOtaOk`). MQTT OTA tuto zprávu neposílá. |
 | RGB rámec | PC → ESP | `[0x02, bri_u8, r,g,b,…]` | Po `(udp_len - 2)` musí jít o násobek 3; **lamp FW** jinak rámec zahodí. Rate limit ~15–16 ms mezi rámců |
 | RGB chunky | PC → ESP | `[0x06, idx_hi, idx_lo, r,g,b,…]` | jen zápis do bufferu LED; `(len-3)` násobek 3; max ~498 LED / datagram (`ambilight_desktop`) |
 | RGB flush | PC → ESP | `[0x08, bri, total_hi, total_lo]` (4 B) | po sérii `0x06`: `clear_tail` + `update_leds`; sdílený ~15 ms limit s `0x02` |

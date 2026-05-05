@@ -107,6 +107,46 @@
       "sha": {}
     }
   },
+  "desktopUpdateSectionTitle": "App updates",
+  "desktopUpdateSectionHint": "Uses the release manifest over HTTPS. Downloaded packages are verified with SHA-256 before install.",
+  "desktopUpdateManifestUrlLabel": "Manifest URL",
+  "desktopUpdateCheckButton": "Check for updates",
+  "desktopUpdateUpToDate": "You are on the latest version for this update channel.",
+  "desktopUpdateCheckFailed": "Could not check for updates: {detail}",
+  "@desktopUpdateCheckFailed": {
+    "placeholders": {
+      "detail": {}
+    }
+  },
+  "desktopUpdateChannelMismatch": "Release channel mismatch (manifest: {manifestChannel}, this app: {appChannel}).",
+  "@desktopUpdateChannelMismatch": {
+    "placeholders": {
+      "manifestChannel": {},
+      "appChannel": {}
+    }
+  },
+  "desktopUpdateAvailable": "Update available: {remote} (installed: {current}).",
+  "@desktopUpdateAvailable": {
+    "placeholders": {
+      "remote": {},
+      "current": {}
+    }
+  },
+  "desktopUpdateReleaseNotesLink": "Release notes",
+  "desktopUpdateDownloadAndInstall": "Download and install (restart)",
+  "desktopUpdateOpenDownloadPage": "Open download page",
+  "desktopUpdateConfirmTitle": "Install update?",
+  "desktopUpdateConfirmBody": "The app will quit; a short script will unpack the update, replace files in this install folder, and restart AmbiLight. Save other work first.",
+  "desktopUpdateConfirmInstall": "Install",
+  "desktopUpdateDownloadFailed": "Download or integrity check failed.",
+  "desktopUpdateUpdaterStartFailed": "Could not start the updater.",
+  "desktopUpdateRestarting": "Saving and exiting… the updater will restart the app.",
+  "desktopUpdateErrorDetail": "{detail}",
+  "@desktopUpdateErrorDetail": {
+    "placeholders": {
+      "detail": {}
+    }
+  },
   "semanticsCloseScanOverlay": "Close capture region preview",
   "scanZonesChip": "Zone preview",
   "bootstrapFailed": "App failed to start: {detail}",
@@ -251,6 +291,36 @@
   "tabSpotify": "Spotify",
   "tabSmartHome": "Smart Home",
   "tabFirmware": "Firmware",
+  "settingsTabGlobalTooltip": "Language, theme, performance, default mode and JSON backup/import.",
+  "settingsTabLightTooltip": "Static colors, effects, zones and timing for Light mode.",
+  "settingsTabScreenTooltip": "Monitor capture, segments, gamma, interpolation and calibration.",
+  "settingsTabMusicTooltip": "Audio input, FFT, melody, presets and mapping colors to the strip.",
+  "settingsTabPcHealthTooltip": "PC sensors (CPU, GPU, …) mapped to output colors.",
+  "settingsTabSpotifyTooltip": "Spotify OAuth and artwork colors — complements Music mode.",
+  "settingsTabSmartHomeTooltip": "Home Assistant, HomeKit and virtual room for extra lamps.",
+  "settingsTabFirmwareTooltip": "OTA manifest, USB flashing (esptool) and UDP commands.",
+  "settingsPageHelpTooltip": "On wide windows use the left grouped menu; on narrow layouts tabs scroll horizontally. Changes save shortly after edits (see the banner hint above).",
+  "settingsPerformanceHelpTooltip": "Caps monitor capture and related loops to reduce CPU. Light mode without capture stays faster.",
+  "musicLockPaletteHelpTooltip": "Captures current strip colors and holds them — handy while tuning without continuous output.",
+  "screenUltraSatHelpTooltip": "Aggressively boosts extremely saturated colors from capture — use with the sliders below.",
+  "smartPushColorsHelpTooltip": "When on, the app sends the same mapped colors as the strip to HA / HomeKit fixtures per each lamp’s binding.",
+  "homeSectionModeHelpTooltip": "The active mode chooses where colors come from (static effects / monitor / audio / sensors).",
+  "homeSectionIntegrationsHelpTooltip": "Quick Spotify, Home Assistant and firmware manifest status — full controls live in Settings tabs.",
+  "homeSectionDevicesHelpTooltip": "Connection status for known strips; add or edit devices on the Devices page.",
+  "modeLightTooltip": "Colors and effects without monitor capture — zones from Settings.",
+  "modeScreenTooltip": "Ambilight from the edges of the chosen monitor using segments and geometry.",
+  "modeMusicTooltip": "FFT / melody from microphone or loopback; Spotify and OS media optional.",
+  "modePcHealthTooltip": "PC temperatures and load mapped to colors via configured metrics.",
+  "integrationMusicCardTooltip": "Spotify OAuth and overview settings affecting Music mode.",
+  "integrationHaCardTooltip": "Mirror strip colors to Home Assistant or HomeKit (macOS) entities.",
+  "integrationFirmwareCardTooltip": "Manifest URL for OTA and downloading binaries — does not flash by itself.",
+  "devicesActionDiscoverTooltip": "UDP discovery finds ESP devices on the network and adds them.",
+  "devicesActionZonesTooltip": "LED segment editor tied to monitor edges and LED order.",
+  "devicesActionSegGeomTooltip": "Strip orientation around the screen before calibration.",
+  "devicesActionCalibrationTooltip": "Wizard mapping physical corners to captured geometry.",
+  "devicesActionPresetTooltip": "Save current screen settings as a named preset.",
+  "devicesActionAddWifiTooltip": "Manually add a Wi‑Fi device by IP and UDP port.",
+  "devicesActionFindComTooltip": "Scans serial ports for firmware handshake over USB.",
   "globalSectionTitle": "Global",
   "globalSectionSubtitle": "Startup behavior, appearance and performance. Import/export below.",
   "startModeLabel": "Default mode on startup",
@@ -293,9 +363,9 @@
   },
   "trayScreenPresetsSection": "Screen — presets",
   "trayMusicPresetsSection": "Music — presets",
-  "trayMusicUnlockColors": "Unlock colors (music)",
-  "trayMusicCancelLockPending": "Cancel color lock (waiting for frame)",
-  "trayMusicLockColorsShort": "Lock colors (music)",
+  "trayMusicUnlockColors": "Unfreeze strip (music)",
+  "trayMusicCancelLockPending": "Cancel freeze (waiting for frame)",
+  "trayMusicLockColorsShort": "Freeze strip output (music)",
   "traySettingsEllipsis": "Settings…",
   "trayQuit": "Quit",
   "startMinimizedTitle": "Start minimized",
@@ -466,6 +536,49 @@
       "monitor": {}
     }
   },
+  "segGeomWizardTitle": "Segment placement wizard",
+  "segGeomWizardIntro": "Choose a segment, rotate which screen edge it samples, slide the band along that edge, or flip LED order. Rotating the edge resets the capture band to the full edge (LED indices stay the same).",
+  "segGeomWizardEmpty": "No segments are configured yet. Run the LED mapping wizard first, then fine‑tune placement here.",
+  "segGeomWizardSegmentPicker": "Segment",
+  "segGeomWizardSegmentLabel": "Segment {index}",
+  "@segGeomWizardSegmentLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "segGeomWizardLedRange": "LEDs {start}–{end}",
+  "@segGeomWizardLedRange": {
+    "placeholders": {
+      "start": {
+        "type": "int"
+      },
+      "end": {
+        "type": "int"
+      }
+    }
+  },
+  "segGeomWizardRotateCwTooltip": "Rotate edge clockwise (top → right → bottom → left)",
+  "segGeomWizardRotateCcwTooltip": "Rotate edge counter‑clockwise",
+  "segGeomWizardReverse": "Reverse LED order along strip",
+  "segGeomWizardWholeEdge": "Sample the entire edge",
+  "segGeomWizardWholeEdgeSubtitle": "Turn off to limit sampling to part of the edge with the sliders below.",
+  "segGeomWizardBandTitle": "Band along edge (reference pixels)",
+  "segGeomWizardPresetFull": "Full edge",
+  "segGeomWizardPresetStartHalf": "First half",
+  "segGeomWizardPresetEndHalf": "Second half",
+  "segGeomWizardPresetCenterThird": "Center third",
+  "segGeomWizardRefFromCapture": "Match reference size to last capture",
+  "segGeomWizardPreviewCaption": "Sampling region (approximation)",
+  "segGeomWizardGradientSubtitle": "Live gradient matches colors sent along this edge (screen left→right on top/bottom; top→bottom on left/right). Align it with your strip using Reverse or edge rotation.",
+  "segGeomWizardGradientUnavailable": "No live preview — check segment monitor index, turn output on, and use Screen mode so captures reach this dialog.",
+  "segGeomWizardPreviewLive": "Preview uses live capture dimensions",
+  "segGeomWizardPreviewRef": "Preview uses segment reference size",
+  "segGeomWizardOpenMapping": "LED mapping wizard…",
+  "segGeomWizardSaved": "Segment geometry saved.",
+  "segGeomWizardMonitorTitle": "Monitor index",
+  "segGeomWizardLaunchButton": "Segment placement",
   "refDimsFromCapture": "Ref. dimensions from last capture",
   "dropdownAllDefault": "— all / default —",
   "guideMusicTitle": "Music & Spotify",
@@ -581,6 +694,37 @@
       "deg": {}
     }
   },
+  "virtualRoomEffectLabel": "Effect on smart lights",
+  "virtualRoomEffectNone": "Off",
+  "virtualRoomEffectWave": "Wave",
+  "virtualRoomEffectBreath": "Breath",
+  "virtualRoomEffectChase": "Chase",
+  "virtualRoomEffectSparkle": "Sparkle",
+  "virtualRoomEffectHintNone": "Colors and brightness from the engine only — no extra modulation.",
+  "virtualRoomEffectHintWave": "Smooth wave through the room; geometry sets how distance affects phase.",
+  "virtualRoomEffectHintBreath": "All lights pulse together — good when you do not want a spatial pattern.",
+  "virtualRoomEffectHintChase": "Lights brighten in order along the chosen axis (sorted left-to-right on that axis).",
+  "virtualRoomEffectHintSparkle": "Each light drifts with a slightly different phase for a lively shimmer.",
+  "virtualRoomGeometryLabel": "Wave / chase axis",
+  "virtualRoomGeometryRadial": "Radial from TV",
+  "virtualRoomGeometryAlongView": "Across your view (perpendicular to gaze)",
+  "virtualRoomGeometryHorizontal": "Horizontal (toward TV on X)",
+  "virtualRoomGeometryVertical": "Vertical (toward TV on Y)",
+  "virtualRoomGeometryCustom": "Custom angle from TV",
+  "virtualRoomCustomAngle": "Axis angle: {deg}°",
+  "@virtualRoomCustomAngle": {
+    "placeholders": {
+      "deg": {}
+    }
+  },
+  "virtualRoomBrightnessModLabel": "Apply modulation to",
+  "virtualRoomBrightnessBoth": "Color and brightness",
+  "virtualRoomBrightnessRgb": "Color only",
+  "virtualRoomBrightnessBri": "Brightness only",
+  "virtualRoomPreviewToggle": "Animated preview",
+  "virtualRoomPreviewSubtitle": "Bulb icons use the same math as Home Assistant / HomeKit output.",
+  "virtualRoomDragTv": "TV (drag)",
+  "virtualRoomDragUser": "You (drag)",
   "scanOverlaySettingsTitle": "Scan overlay (detail)",
   "scanOverlaySettingsIntro": "Preview capture zones on the monitor while tuning screen mode.",
   "scanOverlayPreviewTitle": "Show zone preview while tuning",
@@ -664,7 +808,7 @@
   "onboardWizardStepMappingTitle": "Map LEDs to your screen",
   "onboardWizardStepMappingSubtitle": "Walk the strip once so corners match your monitor. Skip if you want to do this later.",
   "onboardWizardOpenMapping": "Open mapping wizard",
-  "onboardWizardMappingSkip": "Skip for now",
+  "onboardWizardMappingSkip": "SKIP FOR NOW",
   "onboardWizardStepIntegrationsTitle": "Integrations",
   "onboardWizardStepIntegrationsSubtitle": "Optional extras — enable them when you need them.",
   "onboardWizardHaCardTitle": "Home Assistant",
@@ -675,6 +819,66 @@
   "onboardWizardPcHealthCardBody": "Temperatures and load drive ambient colors — great for idle dashboards.",
   "onboardWizardPreviewHint": "Rainbow preview uses the same test path as Settings → Screen (synthetic colors).",
   "onboardWizardFinish": "Get started",
+  "setupWizardLanguageHeader": "Choose your language / Zvolte jazyk",
+  "setupWizardLanguageSubtitle": "Applied immediately — change anytime under Settings → Global.",
+  "setupWizardLanguageEnglishTitle": "English",
+  "setupWizardLanguageEnglishSubtitle": "Default language for the UI.",
+  "setupWizardLanguageCzechTitle": "Čeština",
+  "setupWizardLanguageCzechSubtitle": "Czech interface.",
+  "setupWizardAppearanceHeader": "How should we look?",
+  "setupWizardAppearanceSubtitle": "Pick a palette — it is saved to your profile right away.",
+  "setupWizardThemeOptionLightSubtitle": "Bright surfaces with teal accents.",
+  "setupWizardThemeOptionDarkBlueSubtitle": "Cyan and violet highlights on a deep blue base — classic AmbiLight look.",
+  "setupWizardThemeOptionSnowrunnerSubtitle": "Neutral dark gray UI with a warm orange accent.",
+  "setupWizardThemeOptionCoffeeSubtitle": "Warm cream and brown tones.",
+  "setupWizardExpertiseSimpleExplain": "Advanced settings (Gamma, smoothing, and fine IP/offset fields) stay hidden for a cleaner experience. You can switch to Advanced anytime in Global settings.",
+  "setupWizardUsbListTitle": "USB — serial ports",
+  "setupWizardUsbEmpty": "No COM ports detected. Plug in the controller and tap refresh.",
+  "setupWizardUsbConnect": "Connect",
+  "setupWizardUsbWebHint": "Serial/USB setup is available in the Windows desktop build.",
+  "setupWizardComDtrRtsHint": "Test uses the same DTR/RTS line setup as a normal connect (ESP32‑C3 USB‑JTAG or classic USB‑UART bridge).",
+  "setupWizardDeviceWifiSection": "Wi‑Fi / network",
+  "setupWizardDeviceSerialSection": "USB / serial",
+  "setupWizardDeviceWifiIntro": "We broadcast on your LAN (UDP 4210). Controllers that answer appear below — tap Add to save one to your profile.",
+  "setupWizardDeviceSerialIntro": "Choose the COM port your ESP32 or USB‑serial adapter uses (for example COM3). Test verifies an AmbiLight controller before you add it.",
+  "setupWizardDeviceWifiDesktopOnly": "Wi‑Fi discovery is available in the Windows desktop build.",
+  "setupWizardDeviceTestConnection": "Test",
+  "setupWizardDeviceAdd": "Add",
+  "setupWizardDeviceScanningLabel": "Scanning your network…",
+  "setupWizardDeviceIdentifiedShort": "AmbiLight controller detected.",
+  "setupWizardDeviceTestFailedShort": "Not an AmbiLight controller on this port.",
+  "setupWizardDeviceControllerId": "ID: {macSuffix}",
+  "@setupWizardDeviceControllerId": {
+    "placeholders": {
+      "macSuffix": {}
+    }
+  },
+  "setupWizardDeviceWifiScanFailed": "Scan failed: {message}",
+  "@setupWizardDeviceWifiScanFailed": {
+    "placeholders": {
+      "message": {}
+    }
+  },
+  "setupWizardMappingEdgesTitle": "LEDs per screen edge (current mapping)",
+  "setupWizardMappingRainbowHint": "Rainbow uses the synthetic screen-output path so you can see the strip respond.",
+  "setupWizardWhatsNextTitle": "What's next?",
+  "setupWizardWhatsNextSubtitle": "Optional features when you want more than ambient screen colors.",
+  "setupWizardCardSpotifyTitle": "Spotify integration",
+  "setupWizardCardSpotifyBody": "Sync lights with your music.",
+  "setupWizardCardHaTitle": "Home Assistant",
+  "setupWizardCardHaBody": "Control via your smart home dashboard (URL + long‑lived token).",
+  "setupWizardCardPcHealthTitle": "PC Health",
+  "setupWizardCardPcHealthBody": "Monitor CPU/GPU temps via colors.",
+  "setupWizardFinalHeadline": "You're set.",
+  "setupWizardFinalSubtitle": "Turn on Output in the app header when your hardware is ready.",
+  "setupWizardLetsGlow": "LET'S GLOW",
+  "setupWizardStepCounter": "{current} / {total}",
+  "@setupWizardStepCounter": {
+    "placeholders": {
+      "current": {},
+      "total": {}
+    }
+  },
   "devicesPageSubtitle": "Network discovery, segment editing and calibration. Tap a device row for LED mapping.",
   "fieldDeviceName": "Name",
   "fieldIpAddress": "IP address",
@@ -706,7 +910,13 @@
       "error": {}
     }
   },
-  "backupIntroBody": "JSON compatible with the Python client (`config/default.json`). Import replaces current settings and persists them.",
+  "backupIntroBody": "JSON compatible with the Python client (`config/default.json`). Safe export omits Home Assistant and Spotify secrets (same as the app’s on-disk profile). Use “Export with secrets” for a full clone including tokens.",
+  "backupExportWithSecrets": "Export with secrets…",
+  "backupExportWithSecretsConfirm": "Export anyway",
+  "backupSecretsExportTitle": "Include secrets in the backup?",
+  "backupSecretsExportBody": "The file will contain your Home Assistant long-lived token (if set), Spotify OAuth access/refresh tokens from this PC, Spotify client secret if entered, and the same fields as in Settings. Anyone with the file can control your HA or Spotify session — store it only in a safe place and never share it.",
+  "backupSecretsSaveDialogTitle": "Save configuration including secrets",
+  "backupImportRestoresTokensHint": "Import applies `ha_long_lived_token` and Spotify tokens from the file when present (written to the same sidecar storage as a normal login).",
   "exportDialogTitle": "Export AmbiLight configuration",
   "devicesConfiguredTitle": "Configured devices",
   "devicesEmptyStateBody": "None yet — you can set up modes and presets first. Add USB or Wi‑Fi above to drive a strip.",
@@ -801,15 +1011,16 @@
   "lightZoneEffectBlink": "Blink",
   "musicDeviceError": "Device: {error}",
   "musicInputDeviceLabel": "Audio input device",
-  "musicDefaultInputDevice": "Default (first suitable)",
+  "musicDefaultInputDevice": "Automatic: system mix (loopback)",
+  "musicSystemLoopbackHint": "With no device selected and “Prefer microphone” off, AmbiLight drives the visualizer from system-side audio. On Windows 10+, the app uses WASAPI loopback on the default playback device (browser, games, Spotify — not just a physical mic). You can still pick Stereo Mix, VB-Audio Cable, etc. from the list. macOS: install BlackHole from existential.audio/blackhole, create a Multi-Output Device in Audio MIDI Setup, then pick “BlackHole” (or Aggregate) here.",
   "musicRefreshDeviceListTooltip": "Refresh device list",
   "musicSettingsHeader": "Music",
   "musicSettingsSubtitle": "Audio source, effects and color preview. Music mode must be active on the overview for output to reach strips.",
   "musicGuideMusicArtwork": "Guide: music & artwork",
-  "musicLockPaletteTitle": "Lock color output to strip (music)",
-  "musicLockPaletteFrozen": "Sending frozen palette (same as tray item).",
-  "musicLockPalettePending": "Waiting for next frame, then palette freezes.",
-  "musicLockPaletteIdle": "Only meaningful in music mode; switching modes clears the lock.",
+  "musicLockPaletteTitle": "Freeze strip lights (music)",
+  "musicLockPaletteFrozen": "Frozen: the last captured LED pattern is resent every tick — lights stay still while audio keeps updating internally.",
+  "musicLockPalettePending": "Next tick captures the current strip output, then LEDs hold that pattern.",
+  "musicLockPaletteIdle": "Freezes the physical LED output (whole-strip RGB snapshot), not just color-source logic. Cleared when leaving music mode.",
   "musicPreferMicTitle": "Prefer microphone",
   "musicPreferMicSubtitle": "If no device is selected, a suitable input outside the speaker loop is preferred.",
   "musicColorSourceLabel": "Color source",
@@ -836,10 +1047,84 @@
   "musicSmoothingMs": "Temporal smoothing: {v} ms",
   "musicMinBrightnessValue": "min_brightness (music): {v}",
   "musicRotationSpeedValue": "rotation_speed: {v}",
-  "musicActivePresetField": "active_preset",
+  "musicSpectrumRotationTitle": "Spectrum rotation (time)",
+  "musicSpectrumRotationSubtitle": "When off, “Rotating spectrum” stays fixed like plain spectrum; beat-sync gradient step still applies if enabled.",
+  "musicActivePresetField": "Music preset",
+  "helperMusicActivePreset": "Quick presets, built-in names, and entries from saved user_music_presets.",
   "musicFixedColorPickerTitle": "Fixed color (music)",
   "musicEditColorButton": "Edit color",
   "musicRgbTriple": "RGB {r} · {g} · {b}",
+  "musicSpectrumPaletteHeader": "Spectrum band colors",
+  "musicSpectrumPaletteHint": "Seven stops from sub-bass to brilliance. Spectrum, VU+spectrum and Smart Music blend along this path when \"Spectrum from audio\" is selected.",
+  "musicSpectrumBandSubBass": "Sub-bass",
+  "musicSpectrumBandBass": "Bass",
+  "musicSpectrumBandLowMid": "Low-mid",
+  "musicSpectrumBandMid": "Mid",
+  "musicSpectrumBandHighMid": "High-mid",
+  "musicSpectrumBandPresence": "Presence",
+  "musicSpectrumBandBrilliance": "Brilliance",
+  "musicSpectrumResetBands": "Reset spectrum colors",
+  "musicSpectrumPickerTitle": "Spectrum: {band}",
+  "@musicSpectrumPickerTitle": {
+    "placeholders": {
+      "band": {
+        "type": "String"
+      }
+    }
+  },
+  "musicBeatSyncLabel": "Beat sync (visual)",
+  "musicBeatSyncHint": "Uses beat flags from the analyzer. Gradient step shifts spectrum; color pulse briefly boosts brightness.",
+  "musicBeatSyncOff": "Off",
+  "musicBeatSyncGradientStep": "Gradient step on beat",
+  "musicBeatSyncColorPulse": "Color pulse on beat",
+  "musicMelodySpectrumTintTitle": "Melody + spectrum palette",
+  "musicMelodySpectrumTintSubtitle": "When the color source is spectrum, blend melody HSV toward the band palette (tint strength below).",
+  "musicMelodySpectrumTintAmount": "Tint strength: {p}%",
+  "@musicMelodySpectrumTintAmount": {
+    "placeholders": {
+      "p": {
+        "type": "int"
+      }
+    }
+  },
+  "musicPerBandSensitivityTitle": "Per-band sensitivity (advanced)",
+  "musicPerBandSensitivitySubtitle": "When enabled, each FFT band has its own 0–100 gain; otherwise bass / mid / high groups apply as before.",
+  "musicUserPresetsTitle": "Saved music presets (JSON)",
+  "musicUserPresetsHint": "Save the current music settings under a name, export all user presets, or merge from a JSON file. Selecting a name in “Music preset” loads it.",
+  "musicUserPresetsNameLabel": "Preset name",
+  "musicUserPresetsSave": "Save current as preset",
+  "musicUserPresetsSavedOk": "Preset saved.",
+  "musicUserPresetsDelete": "Remove",
+  "musicUserPresetsExport": "Copy presets JSON",
+  "musicUserPresetsImport": "Import JSON…",
+  "musicUserPresetsCopied": "Presets JSON copied to clipboard.",
+  "musicUserPresetsMerged": "Imported presets merged into user list.",
+  "musicUserPresetsBadJson": "Could not read presets JSON.",
+  "musicAgcMeterTitle": "AGC (auto gain)",
+  "musicAgcMeterPeak": "Tracked peak: {v}",
+  "@musicAgcMeterPeak": {
+    "placeholders": {
+      "v": {
+        "type": "String"
+      }
+    }
+  },
+  "musicAgcMeterGain": "Applied gain: {v}",
+  "@musicAgcMeterGain": {
+    "placeholders": {
+      "v": {
+        "type": "String"
+      }
+    }
+  },
+  "musicGuideMacosAudio": "Guide: macOS loopback",
+  "musicMacosLoopbackGuideTitle": "macOS — system audio to Ambilight",
+  "musicMacosLoopbackGuideIntro": "Unlike Windows WASAPI loopback on the default playback device, macOS does not expose a built-in “what you hear” capture device to all apps.",
+  "musicMacosLoopbackGuideSteps": "1) Install BlackHole (2ch) from existential.audio/blackhole.\n2) Open Audio MIDI Setup → create a Multi-Output Device that includes your speakers/headphones and BlackHole; set it as the system output for listening while routing a copy to BlackHole.\n3) In Ambilight → Music, pick “BlackHole” (or your aggregate) as the input device.",
+  "musicMacosLoopbackGuideNote": "Latency and device names depend on your aggregate. For Spotify-only colors you can also use the in-app Spotify integration.",
+  "musicMacosLoopbackGuideClose": "Close",
+  "musicMacosLoopbackGuideBlackHole": "Open BlackHole page",
+  "musicMacosLoopbackGuideOpenFailed": "Could not open the link.",
   "musicEffectSmartMusic": "Smart Music",
   "musicEffectEnergy": "Energy",
   "musicEffectSpectrum": "Spectrum",
@@ -1424,8 +1709,43 @@
   "fwStatusOtaInvalidChars": "OTA URL contains characters the device rejects (control codes, etc.).",
   "fwStatusOtaBadScheme": "OTA URL must start with https:// or http:// (same rule as the device).",
   "fwStatusOtaPayloadInvalid": "OTA command does not pass device-side checks.",
+  "fwProgressUsbTitle": "USB flash",
+  "fwProgressUsbSubtitle": "Writing via esptool — stop the app stream on the same COM port while flashing.",
+  "fwProgressOtaTitle": "OTA update",
+  "fwProgressOtaSending": "Sending OTA_HTTP to the device…",
+  "fwProgressOtaAwaitNotify": "Waiting for lamp confirmation…",
+  "fwProgressOtaSuccessNotify": "Update complete — firmware {version}. The strip should briefly pulse purple.",
+  "@fwProgressOtaSuccessNotify": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "fwProgressOtaDevicePhase": "The device is downloading and installing firmware — watch the strip LEDs. You can close this panel; the lamp keeps updating.",
+  "fwProgressFlashCancelled": "Flash cancelled (esptool was stopped).",
   "fwFillFromDevices": "Fill from Devices",
   "fwFillFromDevicesTooltip": "Copy IP and UDP port from the first Wi-Fi device in your list (Devices tab).",
+  "fwDebugToolsTitle": "Debugging tools (lamp)",
+  "fwDebugReject88Body": "Reject DHCP addresses in 192.168.88.0/24 (third octet .88). Stored on the device (NVS key dbg_rej88). Same toggle exists on the lamp’s SoftAP setup page and via UDP DEBUG_REJ88 0|1|?.",
+  "fwDebugReject88Query": "Query lamp",
+  "fwDebugReject88Enable": "Enable reject",
+  "fwDebugReject88Disable": "Disable reject",
+  "fwDebugReject88Unknown": "unknown (no reply or old firmware)",
+  "fwDebugReject88On": "on",
+  "fwDebugReject88Off": "off",
+  "fwDebugReject88Current": "On device: {state}",
+  "@fwDebugReject88Current": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "fwDebugReject88SetOk": "Setting applied (NVS on lamp).",
+  "fwDebugReject88SetFail": "UDP command failed (offline, wrong IP/port, or firmware without DEBUG_REJ88).",
+  "fwStatusProbeRejectOn": " · reject 192.168.88.x: on",
+  "fwStatusProbeRejectOff": " · reject 192.168.88.x: off",
   "fwStatusNoWifiDevice": "No Wi-Fi device with an IP in your list — add one under Devices.",
   "fwStatusFilledFromDevice": "Filled from “{name}”: {ip}:{port}.",
   "pcHealthHeaderTitle": "PC Health",
@@ -1490,7 +1810,7 @@
   "smartGoogleDocButton": "Docs: Google Assistant + HA",
   "smartMyHaButton": "My Home Assistant",
   "smartVirtualRoomSection": "Virtual room",
-  "smartVirtualRoomIntro": "Place the TV, yourself and lights on the plan. The cone shows viewing direction (relative to the TV axis). Wave modulates brightness by distance from TV and time; HA/HomeKit still receive mapped colors each frame.",
+  "smartVirtualRoomIntro": "Place the TV, yourself and lights on the plan. The cone starts at your icon (semi-transparent overlay) and shows viewing direction toward the TV plus the angle slider. Effects modulate brightness using this layout; HA/HomeKit still receive mapped colors each frame.",
   "smartFixturesTitle": "Configured lights ({count})",
   "smartFixturesEmpty": "None yet — add from HA or HomeKit.",
   "smartFixtureRemoveTooltip": "Remove",
@@ -1500,6 +1820,8 @@
   "smartBindingGlobalMean": "Average of all LEDs",
   "smartBindingLedRange": "LED range on device",
   "smartBindingScreenEdge": "Screen edge",
+  "smartBindingLedStartField": "LED start (index)",
+  "smartBindingLedEndField": "LED end (index)",
   "smartDeviceIdOptional": "device_id (empty = first device)",
   "smartEdgeLabel": "Edge",
   "smartMonitorIndexBinding": "monitor_index (0=desktop, 1…)",
@@ -1748,5 +2070,15 @@
     "placeholders": {
       "deg": {}
     }
-  }
+  },
+  "deviceFwTemporalSectionTitle": "Firmware temporal smoothing",
+  "deviceFwTemporalOff": "Off",
+  "deviceFwTemporalSmooth": "Smooth",
+  "deviceFwTemporalSnap": "Zero-lag snap",
+  "deviceFwTemporalApply": "Send to device",
+  "deviceFwTemporalSnackOk": "Firmware smoothing mode updated.",
+  "deviceFwTemporalSnackFail": "Could not confirm the command (timeout or old firmware).",
+  "deviceFwTemporalHint": "Separate from screen interpolation below. Avoid maxing out both firmware smooth and strong PC interpolation.",
+  "settingsPcSmoothingFootnote": "Interpolation here runs on the PC before UDP/serial only. For Wi-Fi chunk size at build time see dart-define AMBI_UDP_OPCODE06_CHUNK_PIXELS (UdpAmbilightProtocol).",
+  "settingsGlobalPcUdpChunkHint": "Optional build-time tuning: --dart-define=AMBI_UDP_OPCODE06_CHUNK_PIXELS=… (32–498) affects UDP packet size when the strip needs 0x06 chunks."
 }

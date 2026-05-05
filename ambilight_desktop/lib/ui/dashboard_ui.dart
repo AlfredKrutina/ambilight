@@ -69,6 +69,56 @@ class AmbiGlassPanel extends StatelessWidget {
   }
 }
 
+/// Ikona „i“ — tooltip při najetí; volitelně delší text v dialogu po kliknutí.
+class AmbiHelpIcon extends StatelessWidget {
+  const AmbiHelpIcon({
+    super.key,
+    required this.message,
+    this.details,
+  });
+
+  final String message;
+  final String? details;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final icon = Icon(Icons.info_outline, size: 18, color: scheme.onSurfaceVariant);
+    final hasDetails = details != null && details!.trim().isNotEmpty;
+    if (hasDetails) {
+      return IconButton(
+        icon: icon,
+        tooltip: message,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+        visualDensity: VisualDensity.compact,
+        onPressed: () {
+          final l10n = AppLocalizations.of(context);
+          showDialog<void>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(l10n.help),
+              content: SingleChildScrollView(
+                child: Text(details!, style: Theme.of(ctx).textTheme.bodyMedium),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.close)),
+              ],
+            ),
+          );
+        },
+      );
+    }
+    return Tooltip(
+      message: message,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 4, top: 1),
+        child: icon,
+      ),
+    );
+  }
+}
+
 /// Jednotný nadpis stránky (Přehled, Zařízení, O aplikaci).
 class AmbiPageHeader extends StatelessWidget {
   const AmbiPageHeader({
@@ -76,21 +126,34 @@ class AmbiPageHeader extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.bottomSpacing = 16,
+    this.helpTooltip,
+    this.helpDetails,
   });
 
   final String title;
   final String? subtitle;
   final double bottomSpacing;
+  final String? helpTooltip;
+  final String? helpDetails;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final hasHelp = helpTooltip != null && helpTooltip!.trim().isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ),
+            if (hasHelp) AmbiHelpIcon(message: helpTooltip!, details: helpDetails),
+          ],
         ),
         if (subtitle != null && subtitle!.isNotEmpty) ...[
           const SizedBox(height: 6),
@@ -112,21 +175,34 @@ class AmbiSectionHeader extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.bottomSpacing = 8,
+    this.helpTooltip,
+    this.helpDetails,
   });
 
   final String title;
   final String? subtitle;
   final double bottomSpacing;
+  final String? helpTooltip;
+  final String? helpDetails;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final hasHelp = helpTooltip != null && helpTooltip!.trim().isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            if (hasHelp) AmbiHelpIcon(message: helpTooltip!, details: helpDetails),
+          ],
         ),
         if (subtitle != null && subtitle!.isNotEmpty) ...[
           const SizedBox(height: 4),
@@ -154,6 +230,7 @@ class AmbiGradientTile extends StatelessWidget {
     this.showSelectionCheckIcon = true,
     required this.onTap,
     this.minHeight = 100,
+    this.tooltip,
   });
 
   final Gradient gradient;
@@ -165,6 +242,7 @@ class AmbiGradientTile extends StatelessWidget {
   final bool showSelectionCheckIcon;
   final VoidCallback onTap;
   final double minHeight;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -173,7 +251,7 @@ class AmbiGradientTile extends StatelessWidget {
       semanticsLabel.write(', ${subtitle!}');
     }
     if (selected) semanticsLabel.write(AppLocalizations.of(context).semanticsSelected);
-    return Semantics(
+    Widget tile = Semantics(
       button: true,
       selected: selected,
       label: semanticsLabel.toString(),
@@ -262,6 +340,11 @@ class AmbiGradientTile extends StatelessWidget {
         ),
       ),
     );
+    final tip = tooltip;
+    if (tip != null && tip.trim().isNotEmpty) {
+      tile = Tooltip(message: tip, child: tile);
+    }
+    return tile;
   }
 }
 
@@ -273,17 +356,19 @@ class AmbiSidebarTile extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.tooltip,
   });
 
   final IconData icon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Padding(
+    Widget row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       child: Material(
         color: selected ? scheme.primary.withValues(alpha: 0.22) : Colors.transparent,
@@ -326,6 +411,11 @@ class AmbiSidebarTile extends StatelessWidget {
         ),
       ),
     );
+    final tip = tooltip;
+    if (tip != null && tip.trim().isNotEmpty) {
+      row = Tooltip(message: tip, child: row);
+    }
+    return row;
   }
 }
 

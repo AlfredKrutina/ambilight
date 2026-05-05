@@ -2,13 +2,12 @@
 
 #include <Windows.h>
 #include <cstring>
+#include <thread>
 
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Media.Control.h>
 #include <winrt/Windows.Security.Cryptography.h>
 #include <winrt/Windows.Storage.Streams.h>
-
-#include <mutex>
 
 #include <winrt/base.h>
 
@@ -27,37 +26,16 @@ void WCopy(wchar_t* dst, int cch, hstring const& s) {
   wcsncpy_s(dst, static_cast<size_t>(cch), s.c_str(), _TRUNCATE);
 }
 
-void EnsureApartment() {
-  static std::once_flag once;
-  std::call_once(once, [] {
-    try {
-      init_apartment(apartment_type::multi_threaded);
-    } catch (hresult_error const&) {
-      // COM už inicializované jiným apartmentem — pokračovat.
-    }
-  });
-}
-
-}  // namespace
-
-extern "C" void AmbilightThumbBlob_Free(AmbilightThumbBlob* b) {
-  if (!b) {
-    return;
-  }
-  if (b->data) {
-    free(b->data);
-    b->data = nullptr;
-  }
-  b->len = 0;
-}
-
-extern "C" int AmbilightNowPlaying_FetchThumbnail(AmbilightThumbBlob* out_thumb,
-                                                    wchar_t* title,
-                                                    int title_cch,
-                                                    wchar_t* artist,
-                                                    int artist_cch,
-                                                    wchar_t* aumid,
-                                                    int aumid_cch) {
+/// Samotné WinRT volání — musí běžet na vlákně s MTA ([init_apartment] multi_threaded).
+/// Flutter `wWinMain` volá `CoInitializeEx(..., COINIT_APARTMENTTHREADED)` → platformní kanál je STA;
+/// `IAsyncOperation::get()` z cppwinrt na STA v debug buildu assertuje `!is_sta_thread()`.
+static int FetchThumbnailOnMtaThread(AmbilightThumbBlob* out_thumb,
+                                     wchar_t* title,
+                                     int title_cch,
+                                     wchar_t* artist,
+                                     int artist_cch,
+                                     wchar_t* aumid,
+                                     int aumid_cch) {
   if (!out_thumb) {
     return -1;
   }
@@ -72,8 +50,6 @@ extern "C" int AmbilightNowPlaying_FetchThumbnail(AmbilightThumbBlob* out_thumb,
   if (aumid && aumid_cch > 0) {
     aumid[0] = L'\0';
   }
-
-  EnsureApartment();
 
   try {
     auto const mgr = GlobalSystemMediaTransportControlsSessionManager::RequestAsync().get();
@@ -132,4 +108,61 @@ extern "C" int AmbilightNowPlaying_FetchThumbnail(AmbilightThumbBlob* out_thumb,
     AmbilightThumbBlob_Free(out_thumb);
     return -1;
   }
+}
+
+}  // namespace
+
+extern "C" void AmbilightThumbBlob_Free(AmbilightThumbBlob* b) {
+  if (!b) {
+    return;
+  }
+  if (b->data) {
+    free(b->data);
+    b->data = nullptr;
+  }
+  b->len = 0;
+}
+
+extern "C" int AmbilightNowPlaying_FetchThumbnail(AmbilightThumbBlob* out_thumb,
+                                                    wchar_t* title,
+                                                    int title_cch,
+                                                    wchar_t* artist,
+                                                    int artist_cch,
+                                                    wchar_t* aumid,
+                                                    int aumid_cch) {
+  if (!out_thumb) {
+    return -1;
+  }
+  out_thumb->data = nullptr;
+  out_thumb->len = 0;
+  if (title && title_cch > 0) {
+    title[0] = L'\0';
+  }
+  if (artist && artist_cch > 0) {
+    artist[0] = L'\0';
+  }
+  if (aumid && aumid_cch > 0) {
+    aumid[0] = L'\0';
+  }
+
+  int rc = -1;
+  std::thread worker([=, &rc]() {
+    try {
+      init_apartment(apartment_type::multi_threaded);
+    } catch (...) {
+      return;
+    }
+    try {
+      rc = FetchThumbnailOnMtaThread(out_thumb, title, title_cch, artist, artist_cch, aumid, aumid_cch);
+    } catch (...) {
+      AmbilightThumbBlob_Free(out_thumb);
+      rc = -1;
+    }
+    try {
+      uninit_apartment();
+    } catch (...) {
+    }
+  });
+  worker.join();
+  return rc;
 }

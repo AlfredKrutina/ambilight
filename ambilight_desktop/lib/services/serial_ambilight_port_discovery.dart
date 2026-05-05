@@ -34,9 +34,13 @@ class SerialAmbilightPortDiscovery {
   ///
   /// [skipPortNames] — porty, které už aplikace drží otevřené (jiné serial zařízení). Na Windows
   /// druhé `openReadWrite` na stejný COM často spadne procesem / CRT assert.
+  ///
+  /// [onPortProgress] — `index` 0…`total-1` pro aktuální port (včetně přeskočených); mezi porty se
+  /// volá `Future.delayed(Duration.zero)` aby Flutter stihl frame.
   static Future<String?> findAmbilightPort({
     int baudRate = 115200,
     Set<String>? skipPortNames,
+    void Function(int index, int total)? onPortProgress,
   }) async {
     List<String> names;
     try {
@@ -45,10 +49,14 @@ class SerialAmbilightPortDiscovery {
       _log.fine('availablePorts: $e', e, st);
       return null;
     }
+    final total = names.length;
     final skip = skipPortNames == null || skipPortNames.isEmpty
         ? null
         : skipPortNames.map((e) => e.trim().toUpperCase()).where((e) => e.isNotEmpty).toSet();
-    for (final name in names) {
+    for (var i = 0; i < names.length; i++) {
+      final name = names[i];
+      onPortProgress?.call(i, total);
+      await Future<void>.delayed(Duration.zero);
       final skipKey = name.trim().toUpperCase();
       if (skip != null && skip.contains(skipKey)) {
         _log.fine('skip $name: port je v seznamu obsazených (aktivní serial v konfiguraci)');
@@ -97,6 +105,35 @@ class SerialAmbilightPortDiscovery {
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }
     return null;
+  }
+
+  /// Otevře [name], aplikuje [SerialDeviceTransport.applyAmbilightPortPolicyAfterOpen] (DTR/RTS / ESP USB‑JTAG),
+  /// provede ping handshake — vhodné pro ruční výběr COM v průvodci nastavením.
+  static Future<bool> tryHandshakeOnPort(
+    String name, {
+    int baudRate = 115200,
+  }) {
+    return SerialNativeGate.synchronized(() async {
+      SerialPort? port;
+      try {
+        port = SerialPort(name);
+        if (!port.openReadWrite()) {
+          final err = SerialPort.lastError;
+          _log.fine('tryHandshakeOnPort $name: open failed $err');
+          return false;
+        }
+        SerialDeviceTransport.applyAmbilightPortPolicyAfterOpen(port, baudRate);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        return await _handshake(port);
+      } catch (e, st) {
+        _log.fine('tryHandshakeOnPort $name: $e', e, st);
+        return false;
+      } finally {
+        if (port != null) {
+          await disposeSerialPortNativeOnce(port);
+        }
+      }
+    });
   }
 
   static Future<bool> _handshake(SerialPort port) async {

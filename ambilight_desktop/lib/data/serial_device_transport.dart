@@ -620,6 +620,48 @@ class SerialDeviceTransport extends DeviceTransport {
   }
 
   @override
+  void sendPcReleaseHandoff() {
+    if (!_connected) return;
+    final port = _port;
+    if (port == null) return;
+    try {
+      if (!port.isOpen) return;
+    } catch (e, st) {
+      _log.fine('sendPcReleaseHandoff isOpen: $e', e, st);
+      return;
+    }
+    try {
+      port.write(Uint8List.fromList([SerialAmbilightProtocol.pcReleaseHandoff]), timeout: 200);
+      port.drain();
+    } catch (e, st) {
+      _log.fine('sendPcReleaseHandoff: $e', e, st);
+    }
+  }
+
+  @override
+  Future<bool> sendFirmwareTemporalMode(int mode) async {
+    if (!_connected) return false;
+    final port = _port;
+    if (port == null || _closingPort) return false;
+    final pkt = SerialAmbilightProtocol.buildFirmwareTemporalModeFrame(mode);
+    try {
+      if (!port.isOpen) return false;
+    } catch (e, st) {
+      _log.fine('sendFirmwareTemporalMode isOpen: $e', e, st);
+      return false;
+    }
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      port.write(pkt, timeout: 200);
+      port.drain();
+      return true;
+    } catch (e, st) {
+      _log.fine('sendFirmwareTemporalMode: $e', e, st);
+      return false;
+    }
+  }
+
+  @override
   void sendPixel(int index, int r, int g, int b) {
     if (!isConnected) return;
     if (index < 0) return;

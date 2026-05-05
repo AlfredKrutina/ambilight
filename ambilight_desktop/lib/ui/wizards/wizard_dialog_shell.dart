@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/context_ext.dart';
 import '../layout_breakpoints.dart';
 
 /// Společný obal průvodců (G2 — scrollovatelný obsah, max šířka dle breakpointů).
@@ -36,7 +37,7 @@ class WizardDialogShell extends StatelessWidget {
                     child: Text(title, style: Theme.of(context).textTheme.titleLarge),
                   ),
                   IconButton(
-                    tooltip: 'Zavřít',
+                    tooltip: context.l10n.close,
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.close),
                   ),

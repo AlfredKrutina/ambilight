@@ -1,0 +1,119 @@
+# Vydání Windows buildu + desktop-manifest.json (stažení z releases/latest/download/desktop-manifest.json).
+# Tag: desktop-v1.0.4  →  verze v manifestu 1.0.4
+name: desktop_release
+
+on:
+  push:
+    tags:
+      - "desktop-v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ambilight_desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Verify pubspec version matches tag
+        shell: pwsh
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          $want = $env:TAG -replace '^desktop-v',''
+          $line = (Get-Content -LiteralPath pubspec.yaml | Where-Object { $_ -match '^\s*version:\s*' } | Select-Object -First 1)
+          if (-not $line) { throw "pubspec.yaml: missing version line" }
+          if ($line -notmatch 'version:\s*(\S+)') { throw "pubspec.yaml: cannot parse version" }
+          $pub = $Matches[1].Split('+')[0].Trim()
+          if ($pub -ne $want) {
+            throw "pubspec version '$pub' does not match tag '$env:TAG' (expected SemVer '$want' after desktop-v prefix)."
+          }
+          Write-Host "OK: pubspec version $pub matches tag."
+
+      - name: Build Windows release
+        run: >-
+          flutter build windows --release
+          --dart-define=GIT_SHA=${{ github.sha }}
+          --dart-define=AMBI_CHANNEL=stable
+
+      # Musí obsahovat i podsložku data/ (flutter_assets, icudtl.dat) — ne jen .exe a .dll v kořeni.
+      - name: Zip Release (včetně data/) + SHA256
+        id: pack
+        shell: pwsh
+        run: |
+          $rel = Join-Path (Get-Location) 'build/windows/x64/runner/Release'
+          $zip = Join-Path $env:GITHUB_WORKSPACE 'ambilight_desktop_windows_x64.zip'
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Push-Location $rel
+          try {
+            Compress-Archive -Path * -DestinationPath $zip -CompressionLevel Optimal -Force
+          } finally {
+            Pop-Location
+          }
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash.ToLower()
+          "hash=$hash" >> $env:GITHUB_OUTPUT
+          Write-Host "ZIP SHA256=$hash"
+
+      - name: Write desktop-manifest.json
+        shell: pwsh
+        env:
+          TAG: ${{ github.ref_name }}
+          ZIP_HASH: ${{ steps.pack.outputs.hash }}
+        run: |
+          $ver = $env:TAG -replace '^desktop-v',''
+          $repo = "${{ github.repository }}"
+          $base = "https://github.com/$repo/releases/download/$($env:TAG)"
+          $zipUrl = "$base/ambilight_desktop_windows_x64.zip"
+          $notes = "https://github.com/$repo/releases/tag/$($env:TAG)"
+          $manifest = @{
+            version = $ver
+            channel = "stable"
+            release_notes_url = $notes
+            release_page_url = $notes
+            assets = @{
+              windows_x64 = @{
+                url = $zipUrl
+                sha256 = $env:ZIP_HASH
+                kind = "zip"
+              }
+              macos = @{
+                url = $notes
+                sha256 = ""
+                kind = "browser"
+              }
+              linux_x64 = @{
+                url = $notes
+                sha256 = ""
+                kind = "browser"
+              }
+            }
+          } | ConvertTo-Json -Depth 6
+          $manifestPath = Join-Path $env:GITHUB_WORKSPACE 'desktop-manifest.json'
+          [System.IO.File]::WriteAllText($manifestPath, $manifest, [System.Text.UTF8Encoding]::new($false))
+          Get-Content $manifestPath
+
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            ${{ github.workspace }}/ambilight_desktop_windows_x64.zip
+            ${{ github.workspace }}/desktop-manifest.json

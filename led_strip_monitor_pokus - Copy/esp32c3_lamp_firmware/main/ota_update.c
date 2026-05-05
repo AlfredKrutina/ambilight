@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "ambilight_ota_feedback.h"
 #include "esp_app_format.h"
 #include "esp_crt_bundle.h"
 #include "esp_http_client.h"
@@ -17,6 +18,12 @@ static const char *TAG_OTA = "LampOTA";
 static volatile bool s_ota_busy;
 
 bool ambilight_ota_in_progress(void) { return s_ota_busy; }
+
+typedef struct {
+  char *url;
+  struct sockaddr_in notify;
+  bool notify_valid;
+} ota_bundle_t;
 
 /// Zakáže řídicí znaky a mezery-only URL (HTTP klient / stabilita).
 static bool ota_url_chars_valid(const char *u) {
@@ -37,7 +44,13 @@ static bool ota_url_chars_valid(const char *u) {
 }
 
 static void ota_task(void *pv) {
-  char *url = (char *)pv;
+  ota_bundle_t *bundle = (ota_bundle_t *)pv;
+  char *url = bundle->url;
+  struct sockaddr_in notify = bundle->notify;
+  const bool notify_valid = bundle->notify_valid;
+  free(bundle);
+  bundle = NULL;
+
   esp_http_client_config_t http_cfg = {
       .url = url,
       .timeout_ms = 180000,
@@ -56,15 +69,17 @@ static void ota_task(void *pv) {
   free(url);
   s_ota_busy = false;
   if (ret == ESP_OK) {
-    ESP_LOGI(TAG_OTA, "OTA hotovo, restart");
-    vTaskDelay(pdMS_TO_TICKS(500));
+    ESP_LOGI(TAG_OTA, "OTA hotovo, zpětná vazba + restart");
+    ambilight_ota_success_client_feedback(notify_valid ? &notify : NULL);
+    vTaskDelay(pdMS_TO_TICKS(200));
     esp_restart();
   }
   ESP_LOGE(TAG_OTA, "OTA selhalo: %s", esp_err_to_name(ret));
   vTaskDelete(NULL);
 }
 
-void ambilight_start_ota(const char *url_in) {
+void ambilight_start_ota(const char *url_in,
+                           const struct sockaddr_in *notify_udp_reply_target_or_null) {
   ESP_LOGI(TAG_OTA, "ambilight_start_ota voláno");
   if (url_in == NULL) {
     ESP_LOGW(TAG_OTA, "url_in=NULL");
@@ -89,18 +104,32 @@ void ambilight_start_ota(const char *url_in) {
     ESP_LOGW(TAG_OTA, "Neplatné znaky v URL");
     return;
   }
-  char *url = (char *)malloc(n + 1);
-  if (url == NULL) {
-    ESP_LOGE(TAG_OTA, "malloc selhal (n=%u)", (unsigned)n);
+  ota_bundle_t *b = (ota_bundle_t *)malloc(sizeof(ota_bundle_t));
+  if (b == NULL) {
+    ESP_LOGE(TAG_OTA, "malloc(bundle) selhal");
     return;
   }
-  memcpy(url, url_in, n + 1);
+  memset(b, 0, sizeof(*b));
+  b->url = (char *)malloc(n + 1);
+  if (b->url == NULL) {
+    ESP_LOGE(TAG_OTA, "malloc(url) selhal (n=%u)", (unsigned)n);
+    free(b);
+    return;
+  }
+  memcpy(b->url, url_in, n + 1);
+  if (notify_udp_reply_target_or_null != NULL &&
+      notify_udp_reply_target_or_null->sin_port != 0 &&
+      notify_udp_reply_target_or_null->sin_addr.s_addr != 0) {
+    b->notify = *notify_udp_reply_target_or_null;
+    b->notify_valid = true;
+  }
   s_ota_busy = true;
   ESP_LOGI(TAG_OTA, "startuji task lamp_ota (stack 12288, prio 5)");
-  const BaseType_t ok = xTaskCreate(ota_task, "lamp_ota", 12288, url, 5, NULL);
+  const BaseType_t ok = xTaskCreate(ota_task, "lamp_ota", 12288, b, 5, NULL);
   if (ok != pdPASS) {
     s_ota_busy = false;
-    free(url);
+    free(b->url);
+    free(b);
     ESP_LOGE(TAG_OTA, "xTaskCreate selhalo");
   }
 }

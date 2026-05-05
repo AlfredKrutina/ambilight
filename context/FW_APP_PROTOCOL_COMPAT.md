@@ -11,10 +11,10 @@
 | UDP chunky | `0x06`, idx_hi, idx_lo, N×(R,G,B); max N=498 | `buildRgbChunkOpcode06` | jen zápis do `led_colors`, **bez** refresh (levné); lock stejně jako `0x02` |
 | UDP flush | `0x08`, `bri`, total_hi, total_lo (4 B) | `buildFlushOpcode08` | `clear_tail_leds(total)` + `update_leds(bri)`; sdílený ~15 ms throttle s `0x02` |
 | UDP pixel | `0x03`, idx_hi, idx_lo, R,G,B (BE index) | `buildSinglePixel` (kalibrace / wizard) | FW volá `update_leds(255)` na celý pásek |
-| UDP discover | UTF-8 `DISCOVER_ESP32` | `LedDiscoveryService`, port 4210 | odpověď `ESP32_PONG|mac|name|ledCount|version`; **ledCount = `g_serial_strip_max`** |
+| UDP discover | UTF-8 `DISCOVER_ESP32` | `LedDiscoveryService`, port 4210 | odpověď `ESP32_PONG|mac|name|ledCount|FW_VER|2.1|temporal` (legacy 5–6 polí bez `FW_VER`); **ledCount = `g_serial_strip_max`** |
 | UDP identify | `IDENTIFY` | `UdpDeviceCommands` | modrá 1 s |
 | UDP reset | `RESET_WIFI` | `UdpDeviceCommands` | NVS erase + reboot |
-| UDP OTA | `OTA_HTTP <url>` | `UdpDeviceCommands` (stejné kontroly znaků jako FW + bez NUL v UTF‑8) | `ambilight_start_ota`; FW také vyžaduje `strlen(payload)==len` datagramu |
+| UDP OTA | `OTA_HTTP <url>` | `UdpDeviceCommands` / `sendOtaHttpUrlAwaitOtaOk` (stejné kontroly znaků jako FW + bez NUL v UTF‑8) | `ambilight_start_ota(url, notify_addr?)`; FW také vyžaduje `strlen(payload)==len` datagramu; po úspěchu volitelně `AMBILIGHT OTA_OK <ver>` zpět na klienta |
 | Serial | `0xAA→0xBB`, `0xA5 0x5A` + u16 LE, `0xFF…0xFE`, `0xFC…0xFE` | `serial_frame.dart` | `task_serial` |
 
 ## Omezení a chování

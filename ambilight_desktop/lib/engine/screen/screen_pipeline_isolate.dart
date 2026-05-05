@@ -220,6 +220,22 @@ Map<String, List<(int, int, int)>> rainbowSynthDeviceColors(AppConfig config, do
   return out;
 }
 
+/// Worker [packed] musí mít klíč pro každé zařízení s přímým výstupem (ne HA-only).
+/// Jinak [unpackDeviceColors] nechá mapu v černé a [_distributeSync] svítí samé nuly.
+bool packedRgbMapCoversWifiAndSerialOutputs(
+  AppConfig config,
+  Map<String, Uint8List> packed,
+) {
+  for (final d in config.globalSettings.devices) {
+    if (d.controlViaHa) continue;
+    final p = packed[d.id];
+    if (p == null || p.isEmpty || p.length % 3 != 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
 Map<String, List<(int, int, int)>> unpackDeviceColors(
   AppConfig config,
   Map<String, Uint8List> packed,

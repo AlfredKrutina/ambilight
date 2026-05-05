@@ -17,6 +17,8 @@ import '../../../features/screen_overlay/screen_scan_settings_tab.dart';
 import '../settings_common.dart';
 import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
+import '../../wizards/segment_geometry_wizard_dialog.dart';
+import '../../wizards/zone_editor_wizard_dialog.dart';
 import '../../widgets/config_drag_slider.dart';
 import '../../../l10n/context_ext.dart';
 
@@ -211,6 +213,7 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<int>(
+                  isExpanded: true,
                   decoration: InputDecoration(
                     labelText: _monitorsAreSynthetic
                         ? l10n.fieldMonitorIndexLabel
@@ -222,7 +225,11 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                     for (final m in list)
                       DropdownMenuItem<int>(
                         value: m.mssStyleIndex,
-                        child: Text(_monitorDropdownLabel(context, m)),
+                        child: Text(
+                          _monitorDropdownLabel(context, m),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                   ],
                   onChanged: (v) {
@@ -270,6 +277,7 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
       return <Widget>[
         const SizedBox(height: 10),
         DropdownButtonFormField<String>(
+          isExpanded: true,
           decoration: InputDecoration(
             labelText: l10n.screenWindowsCaptureBackendLabel,
             helperText: l10n.screenWindowsCaptureBackendHint,
@@ -346,16 +354,6 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
       );
     }
 
-    Widget sectionLabel(String title) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(
-          title,
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
-      );
-    }
-
     final baseCard = <Widget>[
       AmbiSectionHeader(
         title: l10n.screenSectionTitle,
@@ -429,13 +427,9 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
             children: [
               Text(l10n.screenImageOutputTitle, style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 10),
-              if (!_advanced) ...[
-                monitorPicker(),
-                ...windowsCaptureBackendWidgets(),
-                const Divider(height: 20),
-              ],
-              sectionLabel(l10n.screenBrightnessValue(s.brightness)),
-              const SizedBox(height: 2),
+              if (!_advanced) monitorPicker(),
+              ...windowsCaptureBackendWidgets(),
+              Text(l10n.screenBrightnessValue(s.brightness), style: Theme.of(context).textTheme.labelLarge),
               ConfigDragSlider(
                 value: s.brightness.toDouble(),
                 min: 0,
@@ -444,8 +438,7 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                 label: '${s.brightness}',
                 onChanged: (v) => _patch(s.copyWith(brightness: v.round())),
               ),
-              sectionLabel(l10n.screenInterpolationMs(s.interpolationMs)),
-              const SizedBox(height: 2),
+              Text(l10n.screenInterpolationMs(s.interpolationMs), style: Theme.of(context).textTheme.labelLarge),
               ConfigDragSlider(
                 value: s.interpolationMs.toDouble(),
                 min: 0,
@@ -453,6 +446,70 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                 divisions: 50,
                 label: '${s.interpolationMs}',
                 onChanged: (v) => _patch(s.copyWith(interpolationMs: v.round())),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                l10n.settingsPcSmoothingFootnote,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(l10n.screenPresetLabel, style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: l10n.fieldScreenColorPreset,
+                  helperText: l10n.helperScreenColorPreset,
+                  border: const OutlineInputBorder(),
+                ),
+                value: presetDropdownValue,
+                items: presetDropdownItems
+                    .map(
+                      (e) => DropdownMenuItem<String>(
+                        value: e,
+                        child: Text(e, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) {
+                  if (v == null) return;
+                  _patch(s.copyWith(activePreset: v));
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: l10n.fieldActiveCalibrationProfile,
+                  helperText: l10n.helperCalibrationProfileKeys,
+                  border: const OutlineInputBorder(),
+                ),
+                value: calProfileValue,
+                items: calProfileItems
+                    .map(
+                      (e) => DropdownMenuItem<String>(
+                        value: e,
+                        child: Text(e, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) {
+                  if (v == null) return;
+                  _patch(s.copyWith(activeCalibrationProfile: v));
+                },
               ),
             ],
           ),
@@ -503,9 +560,8 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(l10n.screenColorsDetailTitle, style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 10),
-              sectionLabel(l10n.screenGammaValue(s.gamma.toStringAsFixed(2))),
-              const SizedBox(height: 2),
+              const SizedBox(height: 8),
+              Text(l10n.screenGammaValue(s.gamma.toStringAsFixed(2)), style: Theme.of(context).textTheme.labelLarge),
               ConfigDragSlider(
                 value: s.gamma,
                 min: 0.5,
@@ -514,9 +570,8 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                 label: s.gamma.toStringAsFixed(2),
                 onChanged: (v) => _patch(s.copyWith(gamma: v)),
               ),
-              const Divider(height: 20),
-              sectionLabel(l10n.screenSaturationBoostValue(s.saturationBoost.toStringAsFixed(2))),
-              const SizedBox(height: 2),
+              Text(l10n.screenSaturationBoostValue(s.saturationBoost.toStringAsFixed(2)),
+                  style: Theme.of(context).textTheme.labelLarge),
               ConfigDragSlider(
                 value: s.saturationBoost,
                 min: 0.5,
@@ -527,32 +582,27 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(l10n.screenUltraSaturation),
-                subtitle: Text(
-                  l10n.screenUltraAmountValue(s.ultraSaturationAmount.toStringAsFixed(2)),
-                  style: Theme.of(context).textTheme.bodySmall,
+                title: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: Text(l10n.screenUltraSaturation)),
+                    AmbiHelpIcon(message: l10n.screenUltraSatHelpTooltip),
+                  ],
                 ),
                 value: s.ultraSaturation,
                 onChanged: (v) => _patch(s.copyWith(ultraSaturation: v)),
               ),
-              const SizedBox(height: 4),
-              Opacity(
-                opacity: s.ultraSaturation ? 1 : 0.55,
-                child: IgnorePointer(
-                  ignoring: !s.ultraSaturation,
-                  child: ConfigDragSlider(
-                    value: s.ultraSaturationAmount,
-                    min: 1.0,
-                    max: 5.0,
-                    divisions: 40,
-                    label: s.ultraSaturationAmount.toStringAsFixed(2),
-                    onChanged: (v) => _patch(s.copyWith(ultraSaturationAmount: v)),
-                  ),
-                ),
+              Text(l10n.screenUltraAmountValue(s.ultraSaturationAmount.toStringAsFixed(2)),
+                  style: Theme.of(context).textTheme.labelLarge),
+              ConfigDragSlider(
+                value: s.ultraSaturationAmount,
+                min: 1.0,
+                max: 5.0,
+                divisions: 40,
+                label: s.ultraSaturationAmount.toStringAsFixed(2),
+                onChanged: (v) => _patch(s.copyWith(ultraSaturationAmount: v)),
               ),
-              const Divider(height: 20),
-              sectionLabel(l10n.screenMinBrightnessLed(s.minBrightness)),
-              const SizedBox(height: 2),
+              Text(l10n.screenMinBrightnessLed(s.minBrightness), style: Theme.of(context).textTheme.labelLarge),
               ConfigDragSlider(
                 value: s.minBrightness.toDouble(),
                 min: 0,
@@ -560,50 +610,6 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                 divisions: 25,
                 label: '${s.minBrightness}',
                 onChanged: (v) => _patch(s.copyWith(minBrightness: v.round())),
-              ),
-            ],
-          ),
-        ),
-      ),
-      Card(
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              sectionLabel(l10n.fieldScreenColorPreset),
-              DropdownButtonFormField<String>(
-                decoration: InputDecoration(
-                  labelText: l10n.fieldScreenColorPreset,
-                  helperText: l10n.helperScreenColorPreset,
-                  border: const OutlineInputBorder(),
-                ),
-                value: presetDropdownValue,
-                items: presetDropdownItems
-                    .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
-                    .toList(),
-                onChanged: (v) {
-                  if (v == null) return;
-                  _patch(s.copyWith(activePreset: v));
-                },
-              ),
-              const SizedBox(height: 12),
-              sectionLabel(l10n.fieldActiveCalibrationProfile),
-              DropdownButtonFormField<String>(
-                decoration: InputDecoration(
-                  labelText: l10n.fieldActiveCalibrationProfile,
-                  helperText: l10n.helperCalibrationProfileKeys,
-                  border: const OutlineInputBorder(),
-                ),
-                value: calProfileValue,
-                items: calProfileItems
-                    .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
-                    .toList(),
-                onChanged: (v) {
-                  if (v == null) return;
-                  _patch(s.copyWith(activeCalibrationProfile: v));
-                },
               ),
             ],
           ),
@@ -718,6 +724,25 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
         contentPadding: EdgeInsets.zero,
         title: Text(l10n.segmentsTileTitle),
         subtitle: Text(l10n.segmentsZoneEditorSubtitle(s.segments.length)),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => ZoneEditorWizardDialog.show(context),
+              icon: const Icon(Icons.border_outer),
+              label: Text(l10n.zoneEditorTitle),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => SegmentGeometryWizardDialog.show(context),
+              icon: const Icon(Icons.screen_rotation_alt_outlined),
+              label: Text(l10n.segGeomWizardLaunchButton),
+            ),
+          ],
+        ),
       ),
       ScreenScanOverlaySection(
         draft: widget.draft,

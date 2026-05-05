@@ -446,6 +446,115 @@ abstract class AppLocalizations {
   /// **'Git: {sha}'**
   String gitLine(Object sha);
 
+  /// No description provided for @desktopUpdateSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'App updates'**
+  String get desktopUpdateSectionTitle;
+
+  /// No description provided for @desktopUpdateSectionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Uses the release manifest over HTTPS. Downloaded packages are verified with SHA-256 before install.'**
+  String get desktopUpdateSectionHint;
+
+  /// No description provided for @desktopUpdateManifestUrlLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Manifest URL'**
+  String get desktopUpdateManifestUrlLabel;
+
+  /// No description provided for @desktopUpdateCheckButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for updates'**
+  String get desktopUpdateCheckButton;
+
+  /// No description provided for @desktopUpdateUpToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'You are on the latest version for this update channel.'**
+  String get desktopUpdateUpToDate;
+
+  /// No description provided for @desktopUpdateCheckFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not check for updates: {detail}'**
+  String desktopUpdateCheckFailed(Object detail);
+
+  /// No description provided for @desktopUpdateChannelMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Release channel mismatch (manifest: {manifestChannel}, this app: {appChannel}).'**
+  String desktopUpdateChannelMismatch(
+      Object manifestChannel, Object appChannel);
+
+  /// No description provided for @desktopUpdateAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Update available: {remote} (installed: {current}).'**
+  String desktopUpdateAvailable(Object remote, Object current);
+
+  /// No description provided for @desktopUpdateReleaseNotesLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Release notes'**
+  String get desktopUpdateReleaseNotesLink;
+
+  /// No description provided for @desktopUpdateDownloadAndInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Download and install (restart)'**
+  String get desktopUpdateDownloadAndInstall;
+
+  /// No description provided for @desktopUpdateOpenDownloadPage.
+  ///
+  /// In en, this message translates to:
+  /// **'Open download page'**
+  String get desktopUpdateOpenDownloadPage;
+
+  /// No description provided for @desktopUpdateConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Install update?'**
+  String get desktopUpdateConfirmTitle;
+
+  /// No description provided for @desktopUpdateConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The app will quit; a short script will unpack the update, replace files in this install folder, and restart AmbiLight. Save other work first.'**
+  String get desktopUpdateConfirmBody;
+
+  /// No description provided for @desktopUpdateConfirmInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Install'**
+  String get desktopUpdateConfirmInstall;
+
+  /// No description provided for @desktopUpdateDownloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download or integrity check failed.'**
+  String get desktopUpdateDownloadFailed;
+
+  /// No description provided for @desktopUpdateUpdaterStartFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not start the updater.'**
+  String get desktopUpdateUpdaterStartFailed;
+
+  /// No description provided for @desktopUpdateRestarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving and exiting… the updater will restart the app.'**
+  String get desktopUpdateRestarting;
+
+  /// No description provided for @desktopUpdateErrorDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'{detail}'**
+  String desktopUpdateErrorDetail(Object detail);
+
   /// No description provided for @semanticsCloseScanOverlay.
   ///
   /// In en, this message translates to:
@@ -938,6 +1047,186 @@ abstract class AppLocalizations {
   /// **'Firmware'**
   String get tabFirmware;
 
+  /// No description provided for @settingsTabGlobalTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Language, theme, performance, default mode and JSON backup/import.'**
+  String get settingsTabGlobalTooltip;
+
+  /// No description provided for @settingsTabLightTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Static colors, effects, zones and timing for Light mode.'**
+  String get settingsTabLightTooltip;
+
+  /// No description provided for @settingsTabScreenTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Monitor capture, segments, gamma, interpolation and calibration.'**
+  String get settingsTabScreenTooltip;
+
+  /// No description provided for @settingsTabMusicTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio input, FFT, melody, presets and mapping colors to the strip.'**
+  String get settingsTabMusicTooltip;
+
+  /// No description provided for @settingsTabPcHealthTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'PC sensors (CPU, GPU, …) mapped to output colors.'**
+  String get settingsTabPcHealthTooltip;
+
+  /// No description provided for @settingsTabSpotifyTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Spotify OAuth and artwork colors — complements Music mode.'**
+  String get settingsTabSpotifyTooltip;
+
+  /// No description provided for @settingsTabSmartHomeTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Home Assistant, HomeKit and virtual room for extra lamps.'**
+  String get settingsTabSmartHomeTooltip;
+
+  /// No description provided for @settingsTabFirmwareTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'OTA manifest, USB flashing (esptool) and UDP commands.'**
+  String get settingsTabFirmwareTooltip;
+
+  /// No description provided for @settingsPageHelpTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'On wide windows use the left grouped menu; on narrow layouts tabs scroll horizontally. Changes save shortly after edits (see the banner hint above).'**
+  String get settingsPageHelpTooltip;
+
+  /// No description provided for @settingsPerformanceHelpTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Caps monitor capture and related loops to reduce CPU. Light mode without capture stays faster.'**
+  String get settingsPerformanceHelpTooltip;
+
+  /// No description provided for @musicLockPaletteHelpTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Captures current strip colors and holds them — handy while tuning without continuous output.'**
+  String get musicLockPaletteHelpTooltip;
+
+  /// No description provided for @screenUltraSatHelpTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Aggressively boosts extremely saturated colors from capture — use with the sliders below.'**
+  String get screenUltraSatHelpTooltip;
+
+  /// No description provided for @smartPushColorsHelpTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'When on, the app sends the same mapped colors as the strip to HA / HomeKit fixtures per each lamp’s binding.'**
+  String get smartPushColorsHelpTooltip;
+
+  /// No description provided for @homeSectionModeHelpTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'The active mode chooses where colors come from (static effects / monitor / audio / sensors).'**
+  String get homeSectionModeHelpTooltip;
+
+  /// No description provided for @homeSectionIntegrationsHelpTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Spotify, Home Assistant and firmware manifest status — full controls live in Settings tabs.'**
+  String get homeSectionIntegrationsHelpTooltip;
+
+  /// No description provided for @homeSectionDevicesHelpTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection status for known strips; add or edit devices on the Devices page.'**
+  String get homeSectionDevicesHelpTooltip;
+
+  /// No description provided for @modeLightTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Colors and effects without monitor capture — zones from Settings.'**
+  String get modeLightTooltip;
+
+  /// No description provided for @modeScreenTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Ambilight from the edges of the chosen monitor using segments and geometry.'**
+  String get modeScreenTooltip;
+
+  /// No description provided for @modeMusicTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'FFT / melody from microphone or loopback; Spotify and OS media optional.'**
+  String get modeMusicTooltip;
+
+  /// No description provided for @modePcHealthTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'PC temperatures and load mapped to colors via configured metrics.'**
+  String get modePcHealthTooltip;
+
+  /// No description provided for @integrationMusicCardTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Spotify OAuth and overview settings affecting Music mode.'**
+  String get integrationMusicCardTooltip;
+
+  /// No description provided for @integrationHaCardTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Mirror strip colors to Home Assistant or HomeKit (macOS) entities.'**
+  String get integrationHaCardTooltip;
+
+  /// No description provided for @integrationFirmwareCardTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Manifest URL for OTA and downloading binaries — does not flash by itself.'**
+  String get integrationFirmwareCardTooltip;
+
+  /// No description provided for @devicesActionDiscoverTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'UDP discovery finds ESP devices on the network and adds them.'**
+  String get devicesActionDiscoverTooltip;
+
+  /// No description provided for @devicesActionZonesTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'LED segment editor tied to monitor edges and LED order.'**
+  String get devicesActionZonesTooltip;
+
+  /// No description provided for @devicesActionSegGeomTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Strip orientation around the screen before calibration.'**
+  String get devicesActionSegGeomTooltip;
+
+  /// No description provided for @devicesActionCalibrationTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Wizard mapping physical corners to captured geometry.'**
+  String get devicesActionCalibrationTooltip;
+
+  /// No description provided for @devicesActionPresetTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Save current screen settings as a named preset.'**
+  String get devicesActionPresetTooltip;
+
+  /// No description provided for @devicesActionAddWifiTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Manually add a Wi‑Fi device by IP and UDP port.'**
+  String get devicesActionAddWifiTooltip;
+
+  /// No description provided for @devicesActionFindComTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Scans serial ports for firmware handshake over USB.'**
+  String get devicesActionFindComTooltip;
+
   /// No description provided for @globalSectionTitle.
   ///
   /// In en, this message translates to:
@@ -1133,19 +1422,19 @@ abstract class AppLocalizations {
   /// No description provided for @trayMusicUnlockColors.
   ///
   /// In en, this message translates to:
-  /// **'Unlock colors (music)'**
+  /// **'Unfreeze strip (music)'**
   String get trayMusicUnlockColors;
 
   /// No description provided for @trayMusicCancelLockPending.
   ///
   /// In en, this message translates to:
-  /// **'Cancel color lock (waiting for frame)'**
+  /// **'Cancel freeze (waiting for frame)'**
   String get trayMusicCancelLockPending;
 
   /// No description provided for @trayMusicLockColorsShort.
   ///
   /// In en, this message translates to:
-  /// **'Lock colors (music)'**
+  /// **'Freeze strip output (music)'**
   String get trayMusicLockColorsShort;
 
   /// No description provided for @traySettingsEllipsis.
@@ -1683,6 +1972,162 @@ abstract class AppLocalizations {
   String zoneEditorSegmentTitle(Object index, Object edge, Object ledStart,
       Object ledEnd, Object monitor);
 
+  /// No description provided for @segGeomWizardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Segment placement wizard'**
+  String get segGeomWizardTitle;
+
+  /// No description provided for @segGeomWizardIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a segment, rotate which screen edge it samples, slide the band along that edge, or flip LED order. Rotating the edge resets the capture band to the full edge (LED indices stay the same).'**
+  String get segGeomWizardIntro;
+
+  /// No description provided for @segGeomWizardEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No segments are configured yet. Run the LED mapping wizard first, then fine‑tune placement here.'**
+  String get segGeomWizardEmpty;
+
+  /// No description provided for @segGeomWizardSegmentPicker.
+  ///
+  /// In en, this message translates to:
+  /// **'Segment'**
+  String get segGeomWizardSegmentPicker;
+
+  /// No description provided for @segGeomWizardSegmentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Segment {index}'**
+  String segGeomWizardSegmentLabel(int index);
+
+  /// No description provided for @segGeomWizardLedRange.
+  ///
+  /// In en, this message translates to:
+  /// **'LEDs {start}–{end}'**
+  String segGeomWizardLedRange(int start, int end);
+
+  /// No description provided for @segGeomWizardRotateCwTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Rotate edge clockwise (top → right → bottom → left)'**
+  String get segGeomWizardRotateCwTooltip;
+
+  /// No description provided for @segGeomWizardRotateCcwTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Rotate edge counter‑clockwise'**
+  String get segGeomWizardRotateCcwTooltip;
+
+  /// No description provided for @segGeomWizardReverse.
+  ///
+  /// In en, this message translates to:
+  /// **'Reverse LED order along strip'**
+  String get segGeomWizardReverse;
+
+  /// No description provided for @segGeomWizardWholeEdge.
+  ///
+  /// In en, this message translates to:
+  /// **'Sample the entire edge'**
+  String get segGeomWizardWholeEdge;
+
+  /// No description provided for @segGeomWizardWholeEdgeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn off to limit sampling to part of the edge with the sliders below.'**
+  String get segGeomWizardWholeEdgeSubtitle;
+
+  /// No description provided for @segGeomWizardBandTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Band along edge (reference pixels)'**
+  String get segGeomWizardBandTitle;
+
+  /// No description provided for @segGeomWizardPresetFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Full edge'**
+  String get segGeomWizardPresetFull;
+
+  /// No description provided for @segGeomWizardPresetStartHalf.
+  ///
+  /// In en, this message translates to:
+  /// **'First half'**
+  String get segGeomWizardPresetStartHalf;
+
+  /// No description provided for @segGeomWizardPresetEndHalf.
+  ///
+  /// In en, this message translates to:
+  /// **'Second half'**
+  String get segGeomWizardPresetEndHalf;
+
+  /// No description provided for @segGeomWizardPresetCenterThird.
+  ///
+  /// In en, this message translates to:
+  /// **'Center third'**
+  String get segGeomWizardPresetCenterThird;
+
+  /// No description provided for @segGeomWizardRefFromCapture.
+  ///
+  /// In en, this message translates to:
+  /// **'Match reference size to last capture'**
+  String get segGeomWizardRefFromCapture;
+
+  /// No description provided for @segGeomWizardPreviewCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Sampling region (approximation)'**
+  String get segGeomWizardPreviewCaption;
+
+  /// No description provided for @segGeomWizardGradientSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Live gradient matches colors sent along this edge (screen left→right on top/bottom; top→bottom on left/right). Align it with your strip using Reverse or edge rotation.'**
+  String get segGeomWizardGradientSubtitle;
+
+  /// No description provided for @segGeomWizardGradientUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No live preview — check segment monitor index, turn output on, and use Screen mode so captures reach this dialog.'**
+  String get segGeomWizardGradientUnavailable;
+
+  /// No description provided for @segGeomWizardPreviewLive.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview uses live capture dimensions'**
+  String get segGeomWizardPreviewLive;
+
+  /// No description provided for @segGeomWizardPreviewRef.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview uses segment reference size'**
+  String get segGeomWizardPreviewRef;
+
+  /// No description provided for @segGeomWizardOpenMapping.
+  ///
+  /// In en, this message translates to:
+  /// **'LED mapping wizard…'**
+  String get segGeomWizardOpenMapping;
+
+  /// No description provided for @segGeomWizardSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Segment geometry saved.'**
+  String get segGeomWizardSaved;
+
+  /// No description provided for @segGeomWizardMonitorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Monitor index'**
+  String get segGeomWizardMonitorTitle;
+
+  /// No description provided for @segGeomWizardLaunchButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Segment placement'**
+  String get segGeomWizardLaunchButton;
+
   /// No description provided for @refDimsFromCapture.
   ///
   /// In en, this message translates to:
@@ -2138,6 +2583,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'View angle offset toward TV: {deg}°'**
   String virtualRoomFacing(Object deg);
+
+  /// No description provided for @virtualRoomEffectLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Effect on smart lights'**
+  String get virtualRoomEffectLabel;
+
+  /// No description provided for @virtualRoomEffectNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get virtualRoomEffectNone;
+
+  /// No description provided for @virtualRoomEffectWave.
+  ///
+  /// In en, this message translates to:
+  /// **'Wave'**
+  String get virtualRoomEffectWave;
+
+  /// No description provided for @virtualRoomEffectBreath.
+  ///
+  /// In en, this message translates to:
+  /// **'Breath'**
+  String get virtualRoomEffectBreath;
+
+  /// No description provided for @virtualRoomEffectChase.
+  ///
+  /// In en, this message translates to:
+  /// **'Chase'**
+  String get virtualRoomEffectChase;
+
+  /// No description provided for @virtualRoomEffectSparkle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sparkle'**
+  String get virtualRoomEffectSparkle;
+
+  /// No description provided for @virtualRoomEffectHintNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Colors and brightness from the engine only — no extra modulation.'**
+  String get virtualRoomEffectHintNone;
+
+  /// No description provided for @virtualRoomEffectHintWave.
+  ///
+  /// In en, this message translates to:
+  /// **'Smooth wave through the room; geometry sets how distance affects phase.'**
+  String get virtualRoomEffectHintWave;
+
+  /// No description provided for @virtualRoomEffectHintBreath.
+  ///
+  /// In en, this message translates to:
+  /// **'All lights pulse together — good when you do not want a spatial pattern.'**
+  String get virtualRoomEffectHintBreath;
+
+  /// No description provided for @virtualRoomEffectHintChase.
+  ///
+  /// In en, this message translates to:
+  /// **'Lights brighten in order along the chosen axis (sorted left-to-right on that axis).'**
+  String get virtualRoomEffectHintChase;
+
+  /// No description provided for @virtualRoomEffectHintSparkle.
+  ///
+  /// In en, this message translates to:
+  /// **'Each light drifts with a slightly different phase for a lively shimmer.'**
+  String get virtualRoomEffectHintSparkle;
+
+  /// No description provided for @virtualRoomGeometryLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Wave / chase axis'**
+  String get virtualRoomGeometryLabel;
+
+  /// No description provided for @virtualRoomGeometryRadial.
+  ///
+  /// In en, this message translates to:
+  /// **'Radial from TV'**
+  String get virtualRoomGeometryRadial;
+
+  /// No description provided for @virtualRoomGeometryAlongView.
+  ///
+  /// In en, this message translates to:
+  /// **'Across your view (perpendicular to gaze)'**
+  String get virtualRoomGeometryAlongView;
+
+  /// No description provided for @virtualRoomGeometryHorizontal.
+  ///
+  /// In en, this message translates to:
+  /// **'Horizontal (toward TV on X)'**
+  String get virtualRoomGeometryHorizontal;
+
+  /// No description provided for @virtualRoomGeometryVertical.
+  ///
+  /// In en, this message translates to:
+  /// **'Vertical (toward TV on Y)'**
+  String get virtualRoomGeometryVertical;
+
+  /// No description provided for @virtualRoomGeometryCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom angle from TV'**
+  String get virtualRoomGeometryCustom;
+
+  /// No description provided for @virtualRoomCustomAngle.
+  ///
+  /// In en, this message translates to:
+  /// **'Axis angle: {deg}°'**
+  String virtualRoomCustomAngle(Object deg);
+
+  /// No description provided for @virtualRoomBrightnessModLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply modulation to'**
+  String get virtualRoomBrightnessModLabel;
+
+  /// No description provided for @virtualRoomBrightnessBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'Color and brightness'**
+  String get virtualRoomBrightnessBoth;
+
+  /// No description provided for @virtualRoomBrightnessRgb.
+  ///
+  /// In en, this message translates to:
+  /// **'Color only'**
+  String get virtualRoomBrightnessRgb;
+
+  /// No description provided for @virtualRoomBrightnessBri.
+  ///
+  /// In en, this message translates to:
+  /// **'Brightness only'**
+  String get virtualRoomBrightnessBri;
+
+  /// No description provided for @virtualRoomPreviewToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Animated preview'**
+  String get virtualRoomPreviewToggle;
+
+  /// No description provided for @virtualRoomPreviewSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Bulb icons use the same math as Home Assistant / HomeKit output.'**
+  String get virtualRoomPreviewSubtitle;
+
+  /// No description provided for @virtualRoomDragTv.
+  ///
+  /// In en, this message translates to:
+  /// **'TV (drag)'**
+  String get virtualRoomDragTv;
+
+  /// No description provided for @virtualRoomDragUser.
+  ///
+  /// In en, this message translates to:
+  /// **'You (drag)'**
+  String get virtualRoomDragUser;
 
   /// No description provided for @scanOverlaySettingsTitle.
   ///
@@ -2610,7 +3211,7 @@ abstract class AppLocalizations {
   /// No description provided for @onboardWizardMappingSkip.
   ///
   /// In en, this message translates to:
-  /// **'Skip for now'**
+  /// **'SKIP FOR NOW'**
   String get onboardWizardMappingSkip;
 
   /// No description provided for @onboardWizardStepIntegrationsTitle.
@@ -2672,6 +3273,270 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Get started'**
   String get onboardWizardFinish;
+
+  /// No description provided for @setupWizardLanguageHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your language / Zvolte jazyk'**
+  String get setupWizardLanguageHeader;
+
+  /// No description provided for @setupWizardLanguageSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Applied immediately — change anytime under Settings → Global.'**
+  String get setupWizardLanguageSubtitle;
+
+  /// No description provided for @setupWizardLanguageEnglishTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get setupWizardLanguageEnglishTitle;
+
+  /// No description provided for @setupWizardLanguageEnglishSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Default language for the UI.'**
+  String get setupWizardLanguageEnglishSubtitle;
+
+  /// No description provided for @setupWizardLanguageCzechTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Čeština'**
+  String get setupWizardLanguageCzechTitle;
+
+  /// No description provided for @setupWizardLanguageCzechSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Czech interface.'**
+  String get setupWizardLanguageCzechSubtitle;
+
+  /// No description provided for @setupWizardAppearanceHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'How should we look?'**
+  String get setupWizardAppearanceHeader;
+
+  /// No description provided for @setupWizardAppearanceSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a palette — it is saved to your profile right away.'**
+  String get setupWizardAppearanceSubtitle;
+
+  /// No description provided for @setupWizardThemeOptionLightSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Bright surfaces with teal accents.'**
+  String get setupWizardThemeOptionLightSubtitle;
+
+  /// No description provided for @setupWizardThemeOptionDarkBlueSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cyan and violet highlights on a deep blue base — classic AmbiLight look.'**
+  String get setupWizardThemeOptionDarkBlueSubtitle;
+
+  /// No description provided for @setupWizardThemeOptionSnowrunnerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Neutral dark gray UI with a warm orange accent.'**
+  String get setupWizardThemeOptionSnowrunnerSubtitle;
+
+  /// No description provided for @setupWizardThemeOptionCoffeeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Warm cream and brown tones.'**
+  String get setupWizardThemeOptionCoffeeSubtitle;
+
+  /// No description provided for @setupWizardExpertiseSimpleExplain.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced settings (Gamma, smoothing, and fine IP/offset fields) stay hidden for a cleaner experience. You can switch to Advanced anytime in Global settings.'**
+  String get setupWizardExpertiseSimpleExplain;
+
+  /// No description provided for @setupWizardUsbListTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'USB — serial ports'**
+  String get setupWizardUsbListTitle;
+
+  /// No description provided for @setupWizardUsbEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No COM ports detected. Plug in the controller and tap refresh.'**
+  String get setupWizardUsbEmpty;
+
+  /// No description provided for @setupWizardUsbConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect'**
+  String get setupWizardUsbConnect;
+
+  /// No description provided for @setupWizardUsbWebHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Serial/USB setup is available in the Windows desktop build.'**
+  String get setupWizardUsbWebHint;
+
+  /// No description provided for @setupWizardComDtrRtsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Test uses the same DTR/RTS line setup as a normal connect (ESP32‑C3 USB‑JTAG or classic USB‑UART bridge).'**
+  String get setupWizardComDtrRtsHint;
+
+  /// No description provided for @setupWizardDeviceWifiSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Wi‑Fi / network'**
+  String get setupWizardDeviceWifiSection;
+
+  /// No description provided for @setupWizardDeviceSerialSection.
+  ///
+  /// In en, this message translates to:
+  /// **'USB / serial'**
+  String get setupWizardDeviceSerialSection;
+
+  /// No description provided for @setupWizardDeviceWifiIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'We broadcast on your LAN (UDP 4210). Controllers that answer appear below — tap Add to save one to your profile.'**
+  String get setupWizardDeviceWifiIntro;
+
+  /// No description provided for @setupWizardDeviceSerialIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the COM port your ESP32 or USB‑serial adapter uses (for example COM3). Test verifies an AmbiLight controller before you add it.'**
+  String get setupWizardDeviceSerialIntro;
+
+  /// No description provided for @setupWizardDeviceWifiDesktopOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Wi‑Fi discovery is available in the Windows desktop build.'**
+  String get setupWizardDeviceWifiDesktopOnly;
+
+  /// No description provided for @setupWizardDeviceTestConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Test'**
+  String get setupWizardDeviceTestConnection;
+
+  /// No description provided for @setupWizardDeviceAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get setupWizardDeviceAdd;
+
+  /// No description provided for @setupWizardDeviceScanningLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning your network…'**
+  String get setupWizardDeviceScanningLabel;
+
+  /// No description provided for @setupWizardDeviceIdentifiedShort.
+  ///
+  /// In en, this message translates to:
+  /// **'AmbiLight controller detected.'**
+  String get setupWizardDeviceIdentifiedShort;
+
+  /// No description provided for @setupWizardDeviceTestFailedShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Not an AmbiLight controller on this port.'**
+  String get setupWizardDeviceTestFailedShort;
+
+  /// No description provided for @setupWizardDeviceControllerId.
+  ///
+  /// In en, this message translates to:
+  /// **'ID: {macSuffix}'**
+  String setupWizardDeviceControllerId(Object macSuffix);
+
+  /// No description provided for @setupWizardDeviceWifiScanFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan failed: {message}'**
+  String setupWizardDeviceWifiScanFailed(Object message);
+
+  /// No description provided for @setupWizardMappingEdgesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'LEDs per screen edge (current mapping)'**
+  String get setupWizardMappingEdgesTitle;
+
+  /// No description provided for @setupWizardMappingRainbowHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Rainbow uses the synthetic screen-output path so you can see the strip respond.'**
+  String get setupWizardMappingRainbowHint;
+
+  /// No description provided for @setupWizardWhatsNextTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s next?'**
+  String get setupWizardWhatsNextTitle;
+
+  /// No description provided for @setupWizardWhatsNextSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional features when you want more than ambient screen colors.'**
+  String get setupWizardWhatsNextSubtitle;
+
+  /// No description provided for @setupWizardCardSpotifyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Spotify integration'**
+  String get setupWizardCardSpotifyTitle;
+
+  /// No description provided for @setupWizardCardSpotifyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync lights with your music.'**
+  String get setupWizardCardSpotifyBody;
+
+  /// No description provided for @setupWizardCardHaTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Home Assistant'**
+  String get setupWizardCardHaTitle;
+
+  /// No description provided for @setupWizardCardHaBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Control via your smart home dashboard (URL + long‑lived token).'**
+  String get setupWizardCardHaBody;
+
+  /// No description provided for @setupWizardCardPcHealthTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'PC Health'**
+  String get setupWizardCardPcHealthTitle;
+
+  /// No description provided for @setupWizardCardPcHealthBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Monitor CPU/GPU temps via colors.'**
+  String get setupWizardCardPcHealthBody;
+
+  /// No description provided for @setupWizardFinalHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re set.'**
+  String get setupWizardFinalHeadline;
+
+  /// No description provided for @setupWizardFinalSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on Output in the app header when your hardware is ready.'**
+  String get setupWizardFinalSubtitle;
+
+  /// No description provided for @setupWizardLetsGlow.
+  ///
+  /// In en, this message translates to:
+  /// **'LET\'S GLOW'**
+  String get setupWizardLetsGlow;
+
+  /// No description provided for @setupWizardStepCounter.
+  ///
+  /// In en, this message translates to:
+  /// **'{current} / {total}'**
+  String setupWizardStepCounter(Object current, Object total);
 
   /// No description provided for @devicesPageSubtitle.
   ///
@@ -2742,8 +3607,44 @@ abstract class AppLocalizations {
   /// No description provided for @backupIntroBody.
   ///
   /// In en, this message translates to:
-  /// **'JSON compatible with the Python client (`config/default.json`). Import replaces current settings and persists them.'**
+  /// **'JSON compatible with the Python client (`config/default.json`). Safe export omits Home Assistant and Spotify secrets (same as the app’s on-disk profile). Use “Export with secrets” for a full clone including tokens.'**
   String get backupIntroBody;
+
+  /// No description provided for @backupExportWithSecrets.
+  ///
+  /// In en, this message translates to:
+  /// **'Export with secrets…'**
+  String get backupExportWithSecrets;
+
+  /// No description provided for @backupExportWithSecretsConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Export anyway'**
+  String get backupExportWithSecretsConfirm;
+
+  /// No description provided for @backupSecretsExportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Include secrets in the backup?'**
+  String get backupSecretsExportTitle;
+
+  /// No description provided for @backupSecretsExportBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The file will contain your Home Assistant long-lived token (if set), Spotify OAuth access/refresh tokens from this PC, Spotify client secret if entered, and the same fields as in Settings. Anyone with the file can control your HA or Spotify session — store it only in a safe place and never share it.'**
+  String get backupSecretsExportBody;
+
+  /// No description provided for @backupSecretsSaveDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save configuration including secrets'**
+  String get backupSecretsSaveDialogTitle;
+
+  /// No description provided for @backupImportRestoresTokensHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Import applies `ha_long_lived_token` and Spotify tokens from the file when present (written to the same sidecar storage as a normal login).'**
+  String get backupImportRestoresTokensHint;
 
   /// No description provided for @exportDialogTitle.
   ///
@@ -3282,8 +4183,14 @@ abstract class AppLocalizations {
   /// No description provided for @musicDefaultInputDevice.
   ///
   /// In en, this message translates to:
-  /// **'Default (first suitable)'**
+  /// **'Automatic: system mix (loopback)'**
   String get musicDefaultInputDevice;
+
+  /// No description provided for @musicSystemLoopbackHint.
+  ///
+  /// In en, this message translates to:
+  /// **'With no device selected and “Prefer microphone” off, AmbiLight drives the visualizer from system-side audio. On Windows 10+, the app uses WASAPI loopback on the default playback device (browser, games, Spotify — not just a physical mic). You can still pick Stereo Mix, VB-Audio Cable, etc. from the list. macOS: install BlackHole from existential.audio/blackhole, create a Multi-Output Device in Audio MIDI Setup, then pick “BlackHole” (or Aggregate) here.'**
+  String get musicSystemLoopbackHint;
 
   /// No description provided for @musicRefreshDeviceListTooltip.
   ///
@@ -3312,25 +4219,25 @@ abstract class AppLocalizations {
   /// No description provided for @musicLockPaletteTitle.
   ///
   /// In en, this message translates to:
-  /// **'Lock color output to strip (music)'**
+  /// **'Freeze strip lights (music)'**
   String get musicLockPaletteTitle;
 
   /// No description provided for @musicLockPaletteFrozen.
   ///
   /// In en, this message translates to:
-  /// **'Sending frozen palette (same as tray item).'**
+  /// **'Frozen: the last captured LED pattern is resent every tick — lights stay still while audio keeps updating internally.'**
   String get musicLockPaletteFrozen;
 
   /// No description provided for @musicLockPalettePending.
   ///
   /// In en, this message translates to:
-  /// **'Waiting for next frame, then palette freezes.'**
+  /// **'Next tick captures the current strip output, then LEDs hold that pattern.'**
   String get musicLockPalettePending;
 
   /// No description provided for @musicLockPaletteIdle.
   ///
   /// In en, this message translates to:
-  /// **'Only meaningful in music mode; switching modes clears the lock.'**
+  /// **'Freezes the physical LED output (whole-strip RGB snapshot), not just color-source logic. Cleared when leaving music mode.'**
   String get musicLockPaletteIdle;
 
   /// No description provided for @musicPreferMicTitle.
@@ -3489,11 +4396,29 @@ abstract class AppLocalizations {
   /// **'rotation_speed: {v}'**
   String musicRotationSpeedValue(Object v);
 
+  /// No description provided for @musicSpectrumRotationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Spectrum rotation (time)'**
+  String get musicSpectrumRotationTitle;
+
+  /// No description provided for @musicSpectrumRotationSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'When off, “Rotating spectrum” stays fixed like plain spectrum; beat-sync gradient step still applies if enabled.'**
+  String get musicSpectrumRotationSubtitle;
+
   /// No description provided for @musicActivePresetField.
   ///
   /// In en, this message translates to:
-  /// **'active_preset'**
+  /// **'Music preset'**
   String get musicActivePresetField;
+
+  /// No description provided for @helperMusicActivePreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick presets, built-in names, and entries from saved user_music_presets.'**
+  String get helperMusicActivePreset;
 
   /// No description provided for @musicFixedColorPickerTitle.
   ///
@@ -3512,6 +4437,264 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'RGB {r} · {g} · {b}'**
   String musicRgbTriple(Object r, Object g, Object b);
+
+  /// No description provided for @musicSpectrumPaletteHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Spectrum band colors'**
+  String get musicSpectrumPaletteHeader;
+
+  /// No description provided for @musicSpectrumPaletteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Seven stops from sub-bass to brilliance. Spectrum, VU+spectrum and Smart Music blend along this path when \"Spectrum from audio\" is selected.'**
+  String get musicSpectrumPaletteHint;
+
+  /// No description provided for @musicSpectrumBandSubBass.
+  ///
+  /// In en, this message translates to:
+  /// **'Sub-bass'**
+  String get musicSpectrumBandSubBass;
+
+  /// No description provided for @musicSpectrumBandBass.
+  ///
+  /// In en, this message translates to:
+  /// **'Bass'**
+  String get musicSpectrumBandBass;
+
+  /// No description provided for @musicSpectrumBandLowMid.
+  ///
+  /// In en, this message translates to:
+  /// **'Low-mid'**
+  String get musicSpectrumBandLowMid;
+
+  /// No description provided for @musicSpectrumBandMid.
+  ///
+  /// In en, this message translates to:
+  /// **'Mid'**
+  String get musicSpectrumBandMid;
+
+  /// No description provided for @musicSpectrumBandHighMid.
+  ///
+  /// In en, this message translates to:
+  /// **'High-mid'**
+  String get musicSpectrumBandHighMid;
+
+  /// No description provided for @musicSpectrumBandPresence.
+  ///
+  /// In en, this message translates to:
+  /// **'Presence'**
+  String get musicSpectrumBandPresence;
+
+  /// No description provided for @musicSpectrumBandBrilliance.
+  ///
+  /// In en, this message translates to:
+  /// **'Brilliance'**
+  String get musicSpectrumBandBrilliance;
+
+  /// No description provided for @musicSpectrumResetBands.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset spectrum colors'**
+  String get musicSpectrumResetBands;
+
+  /// No description provided for @musicSpectrumPickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Spectrum: {band}'**
+  String musicSpectrumPickerTitle(String band);
+
+  /// No description provided for @musicBeatSyncLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Beat sync (visual)'**
+  String get musicBeatSyncLabel;
+
+  /// No description provided for @musicBeatSyncHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Uses beat flags from the analyzer. Gradient step shifts spectrum; color pulse briefly boosts brightness.'**
+  String get musicBeatSyncHint;
+
+  /// No description provided for @musicBeatSyncOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get musicBeatSyncOff;
+
+  /// No description provided for @musicBeatSyncGradientStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Gradient step on beat'**
+  String get musicBeatSyncGradientStep;
+
+  /// No description provided for @musicBeatSyncColorPulse.
+  ///
+  /// In en, this message translates to:
+  /// **'Color pulse on beat'**
+  String get musicBeatSyncColorPulse;
+
+  /// No description provided for @musicMelodySpectrumTintTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Melody + spectrum palette'**
+  String get musicMelodySpectrumTintTitle;
+
+  /// No description provided for @musicMelodySpectrumTintSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'When the color source is spectrum, blend melody HSV toward the band palette (tint strength below).'**
+  String get musicMelodySpectrumTintSubtitle;
+
+  /// No description provided for @musicMelodySpectrumTintAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Tint strength: {p}%'**
+  String musicMelodySpectrumTintAmount(int p);
+
+  /// No description provided for @musicPerBandSensitivityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Per-band sensitivity (advanced)'**
+  String get musicPerBandSensitivityTitle;
+
+  /// No description provided for @musicPerBandSensitivitySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'When enabled, each FFT band has its own 0–100 gain; otherwise bass / mid / high groups apply as before.'**
+  String get musicPerBandSensitivitySubtitle;
+
+  /// No description provided for @musicUserPresetsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved music presets (JSON)'**
+  String get musicUserPresetsTitle;
+
+  /// No description provided for @musicUserPresetsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Save the current music settings under a name, export all user presets, or merge from a JSON file. Selecting a name in “Music preset” loads it.'**
+  String get musicUserPresetsHint;
+
+  /// No description provided for @musicUserPresetsNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Preset name'**
+  String get musicUserPresetsNameLabel;
+
+  /// No description provided for @musicUserPresetsSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save current as preset'**
+  String get musicUserPresetsSave;
+
+  /// No description provided for @musicUserPresetsSavedOk.
+  ///
+  /// In en, this message translates to:
+  /// **'Preset saved.'**
+  String get musicUserPresetsSavedOk;
+
+  /// No description provided for @musicUserPresetsDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get musicUserPresetsDelete;
+
+  /// No description provided for @musicUserPresetsExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy presets JSON'**
+  String get musicUserPresetsExport;
+
+  /// No description provided for @musicUserPresetsImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import JSON…'**
+  String get musicUserPresetsImport;
+
+  /// No description provided for @musicUserPresetsCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Presets JSON copied to clipboard.'**
+  String get musicUserPresetsCopied;
+
+  /// No description provided for @musicUserPresetsMerged.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported presets merged into user list.'**
+  String get musicUserPresetsMerged;
+
+  /// No description provided for @musicUserPresetsBadJson.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not read presets JSON.'**
+  String get musicUserPresetsBadJson;
+
+  /// No description provided for @musicAgcMeterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AGC (auto gain)'**
+  String get musicAgcMeterTitle;
+
+  /// No description provided for @musicAgcMeterPeak.
+  ///
+  /// In en, this message translates to:
+  /// **'Tracked peak: {v}'**
+  String musicAgcMeterPeak(String v);
+
+  /// No description provided for @musicAgcMeterGain.
+  ///
+  /// In en, this message translates to:
+  /// **'Applied gain: {v}'**
+  String musicAgcMeterGain(String v);
+
+  /// No description provided for @musicGuideMacosAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Guide: macOS loopback'**
+  String get musicGuideMacosAudio;
+
+  /// No description provided for @musicMacosLoopbackGuideTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'macOS — system audio to Ambilight'**
+  String get musicMacosLoopbackGuideTitle;
+
+  /// No description provided for @musicMacosLoopbackGuideIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlike Windows WASAPI loopback on the default playback device, macOS does not expose a built-in “what you hear” capture device to all apps.'**
+  String get musicMacosLoopbackGuideIntro;
+
+  /// No description provided for @musicMacosLoopbackGuideSteps.
+  ///
+  /// In en, this message translates to:
+  /// **'1) Install BlackHole (2ch) from existential.audio/blackhole.\n2) Open Audio MIDI Setup → create a Multi-Output Device that includes your speakers/headphones and BlackHole; set it as the system output for listening while routing a copy to BlackHole.\n3) In Ambilight → Music, pick “BlackHole” (or your aggregate) as the input device.'**
+  String get musicMacosLoopbackGuideSteps;
+
+  /// No description provided for @musicMacosLoopbackGuideNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Latency and device names depend on your aggregate. For Spotify-only colors you can also use the in-app Spotify integration.'**
+  String get musicMacosLoopbackGuideNote;
+
+  /// No description provided for @musicMacosLoopbackGuideClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get musicMacosLoopbackGuideClose;
+
+  /// No description provided for @musicMacosLoopbackGuideBlackHole.
+  ///
+  /// In en, this message translates to:
+  /// **'Open BlackHole page'**
+  String get musicMacosLoopbackGuideBlackHole;
+
+  /// No description provided for @musicMacosLoopbackGuideOpenFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the link.'**
+  String get musicMacosLoopbackGuideOpenFailed;
 
   /// No description provided for @musicEffectSmartMusic.
   ///
@@ -5200,6 +6383,54 @@ abstract class AppLocalizations {
   /// **'OTA command does not pass device-side checks.'**
   String get fwStatusOtaPayloadInvalid;
 
+  /// No description provided for @fwProgressUsbTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'USB flash'**
+  String get fwProgressUsbTitle;
+
+  /// No description provided for @fwProgressUsbSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing via esptool — stop the app stream on the same COM port while flashing.'**
+  String get fwProgressUsbSubtitle;
+
+  /// No description provided for @fwProgressOtaTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'OTA update'**
+  String get fwProgressOtaTitle;
+
+  /// No description provided for @fwProgressOtaSending.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending OTA_HTTP to the device…'**
+  String get fwProgressOtaSending;
+
+  /// No description provided for @fwProgressOtaAwaitNotify.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for lamp confirmation…'**
+  String get fwProgressOtaAwaitNotify;
+
+  /// No description provided for @fwProgressOtaSuccessNotify.
+  ///
+  /// In en, this message translates to:
+  /// **'Update complete — firmware {version}. The strip should briefly pulse purple.'**
+  String fwProgressOtaSuccessNotify(String version);
+
+  /// No description provided for @fwProgressOtaDevicePhase.
+  ///
+  /// In en, this message translates to:
+  /// **'The device is downloading and installing firmware — watch the strip LEDs. You can close this panel; the lamp keeps updating.'**
+  String get fwProgressOtaDevicePhase;
+
+  /// No description provided for @fwProgressFlashCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Flash cancelled (esptool was stopped).'**
+  String get fwProgressFlashCancelled;
+
   /// No description provided for @fwFillFromDevices.
   ///
   /// In en, this message translates to:
@@ -5211,6 +6442,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Copy IP and UDP port from the first Wi-Fi device in your list (Devices tab).'**
   String get fwFillFromDevicesTooltip;
+
+  /// No description provided for @fwDebugToolsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Debugging tools (lamp)'**
+  String get fwDebugToolsTitle;
+
+  /// No description provided for @fwDebugReject88Body.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject DHCP addresses in 192.168.88.0/24 (third octet .88). Stored on the device (NVS key dbg_rej88). Same toggle exists on the lamp’s SoftAP setup page and via UDP DEBUG_REJ88 0|1|?.'**
+  String get fwDebugReject88Body;
+
+  /// No description provided for @fwDebugReject88Query.
+  ///
+  /// In en, this message translates to:
+  /// **'Query lamp'**
+  String get fwDebugReject88Query;
+
+  /// No description provided for @fwDebugReject88Enable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable reject'**
+  String get fwDebugReject88Enable;
+
+  /// No description provided for @fwDebugReject88Disable.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable reject'**
+  String get fwDebugReject88Disable;
+
+  /// No description provided for @fwDebugReject88Unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'unknown (no reply or old firmware)'**
+  String get fwDebugReject88Unknown;
+
+  /// No description provided for @fwDebugReject88On.
+  ///
+  /// In en, this message translates to:
+  /// **'on'**
+  String get fwDebugReject88On;
+
+  /// No description provided for @fwDebugReject88Off.
+  ///
+  /// In en, this message translates to:
+  /// **'off'**
+  String get fwDebugReject88Off;
+
+  /// No description provided for @fwDebugReject88Current.
+  ///
+  /// In en, this message translates to:
+  /// **'On device: {state}'**
+  String fwDebugReject88Current(String state);
+
+  /// No description provided for @fwDebugReject88SetOk.
+  ///
+  /// In en, this message translates to:
+  /// **'Setting applied (NVS on lamp).'**
+  String get fwDebugReject88SetOk;
+
+  /// No description provided for @fwDebugReject88SetFail.
+  ///
+  /// In en, this message translates to:
+  /// **'UDP command failed (offline, wrong IP/port, or firmware without DEBUG_REJ88).'**
+  String get fwDebugReject88SetFail;
+
+  /// No description provided for @fwStatusProbeRejectOn.
+  ///
+  /// In en, this message translates to:
+  /// **' · reject 192.168.88.x: on'**
+  String get fwStatusProbeRejectOn;
+
+  /// No description provided for @fwStatusProbeRejectOff.
+  ///
+  /// In en, this message translates to:
+  /// **' · reject 192.168.88.x: off'**
+  String get fwStatusProbeRejectOff;
 
   /// No description provided for @fwStatusNoWifiDevice.
   ///
@@ -5599,7 +6908,7 @@ abstract class AppLocalizations {
   /// No description provided for @smartVirtualRoomIntro.
   ///
   /// In en, this message translates to:
-  /// **'Place the TV, yourself and lights on the plan. The cone shows viewing direction (relative to the TV axis). Wave modulates brightness by distance from TV and time; HA/HomeKit still receive mapped colors each frame.'**
+  /// **'Place the TV, yourself and lights on the plan. The cone starts at your icon (semi-transparent overlay) and shows viewing direction toward the TV plus the angle slider. Effects modulate brightness using this layout; HA/HomeKit still receive mapped colors each frame.'**
   String get smartVirtualRoomIntro;
 
   /// No description provided for @smartFixturesTitle.
@@ -5655,6 +6964,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Screen edge'**
   String get smartBindingScreenEdge;
+
+  /// No description provided for @smartBindingLedStartField.
+  ///
+  /// In en, this message translates to:
+  /// **'LED start (index)'**
+  String get smartBindingLedStartField;
+
+  /// No description provided for @smartBindingLedEndField.
+  ///
+  /// In en, this message translates to:
+  /// **'LED end (index)'**
+  String get smartBindingLedEndField;
 
   /// No description provided for @smartDeviceIdOptional.
   ///
@@ -5739,6 +7060,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You (drag)'**
   String get vrTooltipYou;
+
+  /// No description provided for @deviceFwTemporalSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware temporal smoothing'**
+  String get deviceFwTemporalSectionTitle;
+
+  /// No description provided for @deviceFwTemporalOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get deviceFwTemporalOff;
+
+  /// No description provided for @deviceFwTemporalSmooth.
+  ///
+  /// In en, this message translates to:
+  /// **'Smooth'**
+  String get deviceFwTemporalSmooth;
+
+  /// No description provided for @deviceFwTemporalSnap.
+  ///
+  /// In en, this message translates to:
+  /// **'Zero-lag snap'**
+  String get deviceFwTemporalSnap;
+
+  /// No description provided for @deviceFwTemporalApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Send to device'**
+  String get deviceFwTemporalApply;
+
+  /// No description provided for @deviceFwTemporalSnackOk.
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware smoothing mode updated.'**
+  String get deviceFwTemporalSnackOk;
+
+  /// No description provided for @deviceFwTemporalSnackFail.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not confirm the command (timeout or old firmware).'**
+  String get deviceFwTemporalSnackFail;
+
+  /// No description provided for @deviceFwTemporalHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Separate from screen interpolation below. Avoid maxing out both firmware smooth and strong PC interpolation.'**
+  String get deviceFwTemporalHint;
+
+  /// No description provided for @settingsPcSmoothingFootnote.
+  ///
+  /// In en, this message translates to:
+  /// **'Interpolation here runs on the PC before UDP/serial only. For Wi-Fi chunk size at build time see dart-define AMBI_UDP_OPCODE06_CHUNK_PIXELS (UdpAmbilightProtocol).'**
+  String get settingsPcSmoothingFootnote;
+
+  /// No description provided for @settingsGlobalPcUdpChunkHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional build-time tuning: --dart-define=AMBI_UDP_OPCODE06_CHUNK_PIXELS=… (32–498) affects UDP packet size when the strip needs 0x06 chunks.'**
+  String get settingsGlobalPcUdpChunkHint;
 }
 
 class _AppLocalizationsDelegate

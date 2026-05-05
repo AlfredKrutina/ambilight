@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -5,11 +6,12 @@ import 'dart:typed_data';
 import 'package:logging/logging.dart';
 
 import '../application/debug_trace.dart';
+import '../core/protocol/udp_frame.dart';
 import 'udp_socket_bind.dart';
 
 final _log = Logger('UdpCommands');
 
-/// Důvod zamítnutí `OTA_HTTP` před odesláním — shodné kontroly jako [`ota_update.c`] `ambilight_start_ota`
+/// Důvod zamítnutí `OTA_HTTP` před odesláním — shodné kontroly jako [`ota_update.c`] `ambilight_start_ota(url, notify)`
 /// + platná cílová IP pro socket.
 enum OtaHttpCommandRejectReason {
   invalidTargetIp,
@@ -24,6 +26,13 @@ enum OtaHttpCommandRejectReason {
 abstract final class UdpDeviceCommands {
   static const String identifyPayload = 'IDENTIFY';
   static const String resetWifiPayload = 'RESET_WIFI';
+  static const String _debugReject88Query = 'DEBUG_REJ88?';
+
+  /// Odpověď lampy po úspěšné OTA (UDP z `ota_update.c` / `ambilight.c`) — verze = `esp_app_desc.version`.
+  static const String otaOkUdpPrefix = 'AMBILIGHT OTA_OK ';
+
+  /// FW [`ambilight.c`] `DEBUG_REJ88 0|1` — NVS `dbg_rej88`, ovlivní odmítnutí DHCP 192.168.88.0/24.
+  static String debugReject88SetPayload(bool on) => on ? 'DEBUG_REJ88 1' : 'DEBUG_REJ88 0';
 
   /// Horní mez UTF‑8 payloadu pro jeden datagram — ESP `rx_buffer` / bez fragmentace UDP.
   static const int maxSafeUtf8PayloadBytes = 1400;
@@ -52,6 +61,21 @@ abstract final class UdpDeviceCommands {
   static InternetAddress? _parseIp(String raw) {
     final ip = raw.replaceAll(',', '.').trim();
     return InternetAddress.tryParse(ip);
+  }
+
+  /// Odpověď z lampy na stejné IPv4 — na Windows může `InternetAddress ==` selhat i při shodné adrese.
+  static bool _udpSourceMatchesTarget(InternetAddress target, InternetAddress source) {
+    if (target.type == InternetAddressType.IPv4 && source.type == InternetAddressType.IPv4) {
+      final a = target.rawAddress;
+      final b = source.rawAddress;
+      if (a.length == 4 && b.length == 4) {
+        for (var i = 0; i < 4; i++) {
+          if (a[i] != b[i]) return false;
+        }
+        return true;
+      }
+    }
+    return target.address == source.address;
   }
 
   /// Jednorázové odeslání UTF-8 řetězce na [ip]:[port] (ephemeral socket).
@@ -110,6 +134,182 @@ abstract final class UdpDeviceCommands {
   static Future<bool> sendResetWifi(String ip, int port, {String? logContext}) =>
       sendUtf8Text(ip, port, resetWifiPayload, logContext: logContext ?? 'RESET_WIFI');
 
+  static Future<bool?> _debugReject88Transaction(
+    String ip,
+    int port,
+    String payloadUtf8,
+    Duration timeout,
+    String? logContext,
+  ) async {
+    final addr = _parseIp(ip);
+    if (addr == null) {
+      _log.warning('_debugReject88Transaction: invalid IP "$ip" ${logContext ?? ''}');
+      return null;
+    }
+    final safePort = port.clamp(1, 65535);
+    final bytes = utf8.encode(payloadUtf8);
+    if (!isUtf8DatagramCompatibleWithLampTaskUdp(payloadUtf8)) {
+      _log.warning('_debugReject88Transaction: invalid payload ${logContext ?? ''}');
+      return null;
+    }
+    RawDatagramSocket? socket;
+    try {
+      final bindAddr = addr.type == InternetAddressType.IPv6
+          ? InternetAddress.anyIPv6
+          : await udpBindAddressForOutgoingTo(addr, probeDestinationPort: safePort);
+      socket = await RawDatagramSocket.bind(bindAddr, 0);
+      socket.broadcastEnabled = false;
+      bool? result;
+      final completer = Completer<void>();
+      late StreamSubscription<RawSocketEvent> sub;
+      sub = socket.listen((event) {
+        try {
+          if (event != RawSocketEvent.read) return;
+          for (;;) {
+            final dg = socket!.receive();
+            if (dg == null) break;
+            String text;
+            try {
+              text = utf8.decode(dg.data);
+            } catch (_) {
+              continue;
+            }
+            final t = text.trim();
+            if (!t.startsWith('DEBUG_REJ88_ACK')) continue;
+            if (!_udpSourceMatchesTarget(addr, dg.address)) continue;
+            final parts = t.split(RegExp(r'\s+'));
+            if (parts.length >= 2) {
+              final v = int.tryParse(parts[1]);
+              if (v == 0) {
+                result = false;
+              } else if (v == 1) {
+                result = true;
+              }
+            }
+            if (!completer.isCompleted) completer.complete();
+            break;
+          }
+        } catch (e, st) {
+          _log.fine('_debugReject88Transaction listen: $e', e, st);
+        }
+      });
+      var n = socket.send(bytes, addr, safePort);
+      if (n == 0) {
+        n = socket.send(bytes, addr, safePort);
+      }
+      if (n != bytes.length) {
+        await sub.cancel();
+        _log.warning('_debugReject88Transaction: send $n/${bytes.length} ${logContext ?? ''}');
+        return null;
+      }
+      await completer.future.timeout(timeout, onTimeout: () {});
+      await sub.cancel();
+      _log.fine('_debugReject88Transaction ack=$result ${logContext ?? ''}');
+      return result;
+    } catch (e, st) {
+      _log.warning('_debugReject88Transaction failed $e ${logContext ?? ''}', e, st);
+      return null;
+    } finally {
+      socket?.close();
+    }
+  }
+
+  /// `DEBUG_REJ88?` → odpověď `DEBUG_REJ88_ACK 0|1` (ladící přepínač na lampě).
+  static Future<bool?> queryDebugRejectSubnet88(
+    String ip,
+    int port, {
+    Duration timeout = const Duration(milliseconds: 1200),
+    String? logContext,
+  }) =>
+      _debugReject88Transaction(ip, port, _debugReject88Query, timeout, logContext ?? 'DEBUG_REJ88?');
+
+  /// Nastaví `DEBUG_REJ88 0|1` a počká na `DEBUG_REJ88_ACK` se stejnou hodnotou.
+  static Future<bool> setDebugRejectSubnet88(
+    String ip,
+    int port,
+    bool on, {
+    Duration timeout = const Duration(milliseconds: 1200),
+    String? logContext,
+  }) async {
+    final ack = await _debugReject88Transaction(
+      ip,
+      port,
+      debugReject88SetPayload(on),
+      timeout,
+      logContext ?? 'DEBUG_REJ88 set',
+    );
+    final ok = ack == on;
+    _log.fine('setDebugRejectSubnet88 want=$on ack=$ack ok=$ok');
+    return ok;
+  }
+
+  /// Binární `0xF1` + mode (0…2); lampa FW odpoví stejnými 2 bajty (ACK).
+  static Future<bool> sendTemporalModeWithAck(
+    String ip,
+    int port,
+    int mode, {
+    Duration timeout = const Duration(milliseconds: 1200),
+    String? logContext,
+  }) async {
+    final m = mode.clamp(0, 2);
+    final addr = _parseIp(ip);
+    if (addr == null) {
+      _log.warning('sendTemporalModeWithAck: invalid IP "$ip" ${logContext ?? ''}');
+      return false;
+    }
+    final safePort = port.clamp(1, 65535);
+    final pkt = UdpAmbilightProtocol.buildFirmwareTemporalModeFrame(m);
+    RawDatagramSocket? socket;
+    try {
+      final bindAddr = addr.type == InternetAddressType.IPv6
+          ? InternetAddress.anyIPv6
+          : await udpBindAddressForOutgoingTo(addr, probeDestinationPort: safePort);
+      socket = await RawDatagramSocket.bind(bindAddr, 0);
+      socket.broadcastEnabled = false;
+      var acked = false;
+      final completer = Completer<void>();
+      late StreamSubscription<RawSocketEvent> sub;
+      sub = socket.listen((event) {
+        try {
+          if (event != RawSocketEvent.read) return;
+          for (;;) {
+            final dg = socket!.receive();
+            if (dg == null) break;
+            final d = dg.data;
+            if (d.length != 2) continue;
+            if (d[0] != UdpAmbilightProtocol.firmwareTemporalModeOpcode || d[1] != m) {
+              continue;
+            }
+            if (!_udpSourceMatchesTarget(addr, dg.address)) continue;
+            acked = true;
+            if (!completer.isCompleted) completer.complete();
+            break;
+          }
+        } catch (e, st) {
+          _log.fine('sendTemporalModeWithAck listen: $e', e, st);
+        }
+      });
+      var n = socket.send(pkt, addr, safePort);
+      if (n == 0) {
+        n = socket.send(pkt, addr, safePort);
+      }
+      if (n != pkt.length) {
+        _log.warning('sendTemporalModeWithAck: partial send $n/${pkt.length} ${logContext ?? ''}');
+        await sub.cancel();
+        return false;
+      }
+      await completer.future.timeout(timeout, onTimeout: () {});
+      await sub.cancel();
+      _log.fine('sendTemporalModeWithAck mode=$m ack=$acked ${logContext ?? ''}');
+      return acked;
+    } catch (e) {
+      _log.warning('sendTemporalModeWithAck failed $e ${logContext ?? ''}');
+      return false;
+    } finally {
+      socket?.close();
+    }
+  }
+
   /// Vrací důvod zamítnutí, nebo `null` pokud je v pořádku pokračovat na [sendOtaHttpUrl].
   static OtaHttpCommandRejectReason? rejectReasonForOtaHttpCommand(
     String ip,
@@ -158,5 +358,151 @@ abstract final class UdpDeviceCommands {
     final u = url.trim();
     final payload = 'OTA_HTTP $u';
     return sendUtf8Text(ip, port, payload, logContext: logContext ?? 'OTA_HTTP');
+  }
+
+  /// Stejné jako [sendOtaHttpUrl], ale socket zůstane otevřený a čeká na datagram
+  /// [otaOkUdpPrefix]`{verze}` od stejné lampové IP. Vrací verzi, nebo `null` (timeout / zrušení / chyba odeslání).
+  static String? versionFromOtaOkDatagram(Datagram dg, InternetAddress lamp) {
+    if (!_udpSourceMatchesTarget(lamp, dg.address)) {
+      return null;
+    }
+    String text;
+    try {
+      text = utf8.decode(dg.data);
+    } catch (_) {
+      return null;
+    }
+    final t = text.trim();
+    if (!t.startsWith(otaOkUdpPrefix)) {
+      return null;
+    }
+    final v = t.substring(otaOkUdpPrefix.length).trim();
+    if (v.isEmpty || v.length > 64 || v.contains('\u0000')) {
+      return null;
+    }
+    return v;
+  }
+
+  /// [commandSent] znamená, že celý datagram `OTA_HTTP` odešel; [version] je non-null po UDP `AMBILIGHT OTA_OK`.
+  static Future<(bool commandSent, String? version)> sendOtaHttpUrlAwaitOtaOk(
+    String ip,
+    int port,
+    String url, {
+    Duration listenTimeout = const Duration(minutes: 4),
+    bool Function()? shouldCancel,
+    void Function()? onCommandSent,
+    String? logContext,
+  }) async {
+    final reject = rejectReasonForOtaHttpCommand(ip, port, url);
+    if (reject != null) {
+      _log.warning('sendOtaHttpUrlAwaitOtaOk: rejected $reject');
+      return (false, null);
+    }
+    final u = url.trim();
+    final payload = 'OTA_HTTP $u';
+    final addr = _parseIp(ip);
+    if (addr == null) {
+      _log.warning('sendOtaHttpUrlAwaitOtaOk: invalid IP "$ip" ${logContext ?? ''}');
+      return (false, null);
+    }
+    final safePort = port.clamp(1, 65535);
+    final bytes = Uint8List.fromList(utf8.encode(payload));
+    if (bytes.contains(0)) {
+      _log.warning('sendOtaHttpUrlAwaitOtaOk: NUL v payloadu ${logContext ?? ''}');
+      return (false, null);
+    }
+    if (bytes.isEmpty || bytes.length > maxSafeUtf8PayloadBytes) {
+      _log.warning('sendOtaHttpUrlAwaitOtaOk: délka ${bytes.length} B ${logContext ?? ''}');
+      return (false, null);
+    }
+
+    RawDatagramSocket? socket;
+    try {
+      final bindAddr = addr.type == InternetAddressType.IPv6
+          ? InternetAddress.anyIPv6
+          : await udpBindAddressForOutgoingTo(addr, probeDestinationPort: safePort);
+      socket = await RawDatagramSocket.bind(bindAddr, 0);
+      socket.broadcastEnabled = false;
+      ambilightDebugTrace(
+        'UdpCommands sendOtaHttpUrlAwaitOtaOk bind=${bindAddr.address} → ${addr.address}:$safePort'
+        '${logContext != null ? " ($logContext)" : ""}',
+      );
+
+      final done = Completer<String?>();
+      Timer? cancelPoll;
+
+      late final void Function(String?) finish;
+      final watchdog = Timer(listenTimeout, () => finish(null));
+      finish = (String? v) {
+        if (done.isCompleted) {
+          return;
+        }
+        watchdog.cancel();
+        cancelPoll?.cancel();
+        done.complete(v);
+      };
+      if (shouldCancel != null) {
+        cancelPoll = Timer.periodic(const Duration(milliseconds: 200), (_) {
+          if (shouldCancel()) {
+            finish(null);
+          }
+        });
+      }
+
+      late StreamSubscription<RawSocketEvent> sub;
+      sub = socket.listen((event) {
+        try {
+          if (event != RawSocketEvent.read) {
+            return;
+          }
+          for (;;) {
+            final dg = socket!.receive();
+            if (dg == null) {
+              break;
+            }
+            final v = versionFromOtaOkDatagram(dg, addr);
+            if (v != null) {
+              finish(v);
+              break;
+            }
+          }
+        } catch (e, st) {
+          _log.fine('sendOtaHttpUrlAwaitOtaOk listen: $e', e, st);
+        }
+      });
+
+      var n = socket.send(bytes, addr, safePort);
+      if (n == 0) {
+        n = socket.send(bytes, addr, safePort);
+      }
+      if (n != bytes.length) {
+        _log.warning('sendOtaHttpUrlAwaitOtaOk: partial send $n/${bytes.length} ${logContext ?? ''}');
+        finish(null);
+        await sub.cancel();
+        return (false, null);
+      }
+      _log.info('UDP → ${addr.address}:$safePort OTA_HTTP (${bytes.length} B), čekám na OTA_OK… ${logContext ?? ''}');
+      onCommandSent?.call();
+
+      String? out;
+      try {
+        out = await done.future;
+      } finally {
+        watchdog.cancel();
+        cancelPoll?.cancel();
+        await sub.cancel();
+      }
+      if (out != null) {
+        _log.info('OTA_OK verze=$out ${logContext ?? ''}');
+      } else {
+        _log.fine('OTA_OK timeout nebo zrušení ${logContext ?? ''}');
+      }
+      return (true, out);
+    } catch (e, st) {
+      _log.warning('sendOtaHttpUrlAwaitOtaOk failed $e ${logContext ?? ''}', e, st);
+      return (false, null);
+    } finally {
+      socket?.close();
+    }
   }
 }

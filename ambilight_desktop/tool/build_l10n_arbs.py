@@ -454,6 +454,50 @@ def main() -> None:
     e("virtualRoomWaveSpeed", "Wave speed")
     e("virtualRoomDistanceSens", "Distance sensitivity")
     e("virtualRoomFacing", "View angle offset toward TV: {deg}°", {"placeholders": {"deg": {}}})
+    e("virtualRoomEffectLabel", "Effect on smart lights")
+    e("virtualRoomEffectNone", "Off")
+    e("virtualRoomEffectWave", "Wave")
+    e("virtualRoomEffectBreath", "Breath")
+    e("virtualRoomEffectChase", "Chase")
+    e("virtualRoomEffectSparkle", "Sparkle")
+    e(
+        "virtualRoomEffectHintNone",
+        "Colors and brightness from the engine only — no extra modulation.",
+    )
+    e(
+        "virtualRoomEffectHintWave",
+        "Smooth wave through the room; geometry sets how distance affects phase.",
+    )
+    e(
+        "virtualRoomEffectHintBreath",
+        "All lights pulse together — good when you do not want a spatial pattern.",
+    )
+    e(
+        "virtualRoomEffectHintChase",
+        "Lights brighten in order along the chosen axis (sorted left-to-right on that axis).",
+    )
+    e(
+        "virtualRoomEffectHintSparkle",
+        "Each light drifts with a slightly different phase for a lively shimmer.",
+    )
+    e("virtualRoomGeometryLabel", "Wave / chase axis")
+    e("virtualRoomGeometryRadial", "Radial from TV")
+    e("virtualRoomGeometryAlongView", "Across your view (perpendicular to gaze)")
+    e("virtualRoomGeometryHorizontal", "Horizontal (toward TV on X)")
+    e("virtualRoomGeometryVertical", "Vertical (toward TV on Y)")
+    e("virtualRoomGeometryCustom", "Custom angle from TV")
+    e("virtualRoomCustomAngle", "Axis angle: {deg}°", {"placeholders": {"deg": {}}})
+    e("virtualRoomBrightnessModLabel", "Apply modulation to")
+    e("virtualRoomBrightnessBoth", "Color and brightness")
+    e("virtualRoomBrightnessRgb", "Color only")
+    e("virtualRoomBrightnessBri", "Brightness only")
+    e("virtualRoomPreviewToggle", "Animated preview")
+    e(
+        "virtualRoomPreviewSubtitle",
+        "Bulb icons use the same math as Home Assistant / HomeKit output.",
+    )
+    e("virtualRoomDragTv", "TV (drag)")
+    e("virtualRoomDragUser", "You (drag)")
 
     # Screen overlay / scan tab (short)
     e("scanOverlaySettingsTitle", "Scan overlay (detail)")
@@ -811,6 +855,32 @@ def main() -> None:
         "virtualRoomWaveSubtitle": "Modulace jasu podle vzdálenosti od TV a času snímku",
         "virtualRoomWaveSpeed": "Rychlost vlny",
         "virtualRoomDistanceSens": "Citlivost na vzdálenost",
+        "virtualRoomEffectLabel": "Efekt na chytrá světla",
+        "virtualRoomEffectNone": "Vypnuto",
+        "virtualRoomEffectWave": "Vlna",
+        "virtualRoomEffectBreath": "Dýchání",
+        "virtualRoomEffectChase": "Běh",
+        "virtualRoomEffectSparkle": "Jiskření",
+        "virtualRoomEffectHintNone": "Jen barvy a jas z enginu — žádná další modulace.",
+        "virtualRoomEffectHintWave": "Plynulá vlna místností; geometrie určuje, jak vzdálenost mění fázi.",
+        "virtualRoomEffectHintBreath": "Všechna světla společně pulzují — když nechceš prostorový vzor.",
+        "virtualRoomEffectHintChase": "Světla se rozsvěcují v pořadí podle zvolené osy (řazení podle projekce).",
+        "virtualRoomEffectHintSparkle": "Každé světlo má mírně jinou fázi pro živý třpyt.",
+        "virtualRoomGeometryLabel": "Osa vlny / běhu",
+        "virtualRoomGeometryRadial": "Radiálně od TV",
+        "virtualRoomGeometryAlongView": "Kolmě na pohled (vlevo–vpravo)",
+        "virtualRoomGeometryHorizontal": "Vodorovně (osa X od TV)",
+        "virtualRoomGeometryVertical": "Svisle (osa Y od TV)",
+        "virtualRoomGeometryCustom": "Vlastní úhel od TV",
+        "virtualRoomCustomAngle": "Úhel osy: {deg}°",
+        "virtualRoomBrightnessModLabel": "Modulace aplikovat na",
+        "virtualRoomBrightnessBoth": "Barvu i jas",
+        "virtualRoomBrightnessRgb": "Jen barvu",
+        "virtualRoomBrightnessBri": "Jen jas",
+        "virtualRoomPreviewToggle": "Animovaný náhled",
+        "virtualRoomPreviewSubtitle": "Ikony žárovek používají stejnou matematiku jako výstup do HA / HomeKit.",
+        "virtualRoomDragTv": "TV (táhni)",
+        "virtualRoomDragUser": "Ty (táhni)",
         "scanOverlaySettingsTitle": "Scan overlay (D-detail)",
         "scanOverlaySettingsIntro": "Náhled zón na monitoru při ladění režimu Obrazovka.",
         "scanOverlayPreviewTitle": "Náhled zón na monitor při ladění",

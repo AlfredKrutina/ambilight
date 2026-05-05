@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -34,6 +35,7 @@ import '../features/pc_health/pc_health_collector.dart';
 import '../features/pc_health/pc_health_smoother.dart';
 import '../features/pc_health/pc_health_snapshot.dart';
 import '../features/spotify/spotify_service.dart';
+import '../features/spotify/spotify_token_store.dart';
 import '../features/system_media/system_media_now_playing_service.dart';
 import '../l10n/app_locale_bridge.dart';
 import '../features/smart_lights/ha_token_store.dart';
@@ -151,6 +153,8 @@ class AmbilightAppController extends ChangeNotifier {
   /// Krátká ochrana při startu — dříve ~61 ticků (~2 s černého výstupu / náhledu).
   static const int _startupBlackoutTicks = 6;
   bool _enabled = true;
+  /// `true` po [`prepareQuitShutdownAsync`] / handoffu — zabrání dvojímu `0xF0` v [dispose].
+  bool _quitHandoffSent = false;
   final ScreenPipelineRuntime _screenPipeline = ScreenPipelineRuntime();
   final LightRgbSmoothingRuntime _lightRgbSmoothing = LightRgbSmoothingRuntime();
   ScreenPipelineIsolateBridge? _screenPipelineIsolate;
@@ -224,6 +228,21 @@ class AmbilightAppController extends ChangeNotifier {
   Map<String, bool> _connectionSnapshotCache = const {};
   DateTime? _lastScreenFrameUiNotify;
   static const Duration _minScreenFrameUiNotifyGap = Duration(milliseconds: 33);
+  static const Duration _minScreenFrameUiNotifyGapHighFidelity = Duration(milliseconds: 16);
+  int _highFidelityPreviewUiRefCount = 0;
+
+  /// Vyšší frekvence [previewFrameNotifier] pro otevřené náhledové dialogy — párovat s [releaseHighFidelityPreviewUi].
+  void acquireHighFidelityPreviewUi() {
+    _highFidelityPreviewUiRefCount++;
+  }
+
+  void releaseHighFidelityPreviewUi() {
+    if (_highFidelityPreviewUiRefCount > 0) _highFidelityPreviewUiRefCount--;
+  }
+
+  Duration get _effectiveScreenFrameUiNotifyGap => _highFidelityPreviewUiRefCount > 0
+      ? _minScreenFrameUiNotifyGapHighFidelity
+      : _minScreenFrameUiNotifyGap;
   ScreenFrame? _screenFrameLatest;
   ScreenSessionInfo _captureSessionInfo = ScreenSessionInfo.unknown;
   final MusicAudioService _musicAudio = MusicAudioService();
@@ -232,9 +251,10 @@ class AmbilightAppController extends ChangeNotifier {
   int? _pendingSettingsTabIndex;
 
   /// Indexy záložek [SettingsPage] — musí odpovídat `tabChild` / `_tabCount` v `settings_page.dart`.
-  static const int settingsTabSpotify = 6;
-  static const int settingsTabSmartIntegration = 7;
-  static const int settingsTabFirmware = 8;
+  /// Záložka „Zařízení“ je na stránce [DevicesPage], ne v nastavení.
+  static const int settingsTabSpotify = 5;
+  static const int settingsTabSmartIntegration = 6;
+  static const int settingsTabFirmware = 7;
   int _reconnectCounter = 0;
   final SpotifyService spotify = SpotifyService();
   final SystemMediaNowPlayingService systemMediaNowPlaying = SystemMediaNowPlayingService();
@@ -243,7 +263,8 @@ class AmbilightAppController extends ChangeNotifier {
   PcHealthSnapshot _pcHealthSnapshot = PcHealthSnapshot.empty;
   Timer? _pcHealthTimer;
 
-  /// C11 — zmrazí výstup do zařízení v music módu (parita `AppState.music_color_lock` / tray v PyQt).
+  /// C11 — zmrazí **celý RGB výstup na pásku** (snapshot po zařízeních); hudba se dál analyzuje, jen LED obraz se neposouvá.
+  /// Parita `AppState.music_color_lock` / tray v PyQt — nejde o „vypnutí barev“, ale o držení posledního snímku.
   bool _musicPaletteLockCapturePending = false;
   Map<String, List<(int, int, int)>>? _musicPaletteFrozenDeviceColors;
 
@@ -359,7 +380,17 @@ class AmbilightAppController extends ChangeNotifier {
     if (packedFirstUdp) {
       _runPackedFirstEagerScreenDistribute(r.seq, r.packed);
     } else {
-      _asyncScreenColors = unpackDeviceColors(_config, r.packed);
+      if (!packedRgbMapCoversWifiAndSerialOutputs(_config, r.packed)) {
+        _asyncScreenColors = null;
+        if (kDebugMode || ambilightVerboseLogsEnabled) {
+          _log.warning(
+            'screen isolate: packed neobsahuje všechna výstupní zařízení → sync výpadek '
+            '(packed=[${r.packed.keys.join(",")}])',
+          );
+        }
+      } else {
+        _asyncScreenColors = unpackDeviceColors(_config, r.packed);
+      }
       if (ambilightScreenEagerDistributeEnabled) {
         _eagerDistributeScreenIfDue(r.seq);
       }
@@ -445,7 +476,17 @@ class AmbilightAppController extends ChangeNotifier {
     _musicFlatAppliedSeq = r.seq;
     _musicFlatLastAckSeq = r.seq;
     _musicFlatSubmitSince = null;
-    _asyncMusicColors = unpackDeviceColors(_config, r.packed);
+    if (!packedRgbMapCoversWifiAndSerialOutputs(_config, r.packed)) {
+      _asyncMusicColors = null;
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning(
+          'music flat isolate: packed neobsahuje všechna výstupní zařízení → sync výpadek '
+          '(packed=[${r.packed.keys.join(",")}])',
+        );
+      }
+    } else {
+      _asyncMusicColors = unpackDeviceColors(_config, r.packed);
+    }
   }
 
   void _onMusicFlatStripIsolateSkip(int seq) {
@@ -513,7 +554,17 @@ class AmbilightAppController extends ChangeNotifier {
     _lightPcAppliedSeq = r.seq;
     _lightPcLastAckSeq = r.seq;
     _lightPcSubmitSince = null;
-    _asyncLightPcColors = unpackDeviceColors(_config, r.packed);
+    if (!packedRgbMapCoversWifiAndSerialOutputs(_config, r.packed)) {
+      _asyncLightPcColors = null;
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning(
+          'light/pc isolate: packed neobsahuje všechna výstupní zařízení → sync výpadek '
+          '(packed=[${r.packed.keys.join(",")}])',
+        );
+      }
+    } else {
+      _asyncLightPcColors = unpackDeviceColors(_config, r.packed);
+    }
   }
 
   void _onLightPcEngineIsolateSkip(int seq) {
@@ -702,7 +753,8 @@ class AmbilightAppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// `performanceMode` z nastavení platí pro UI/jank; při [_shellOcclusionBoost] se výstup na LED neškrtí.
+  /// Omezení smyčky kvůli výkonu (snímání / sériová fronta); při [_shellOcclusionBoost] se výstup na LED neškrtí.
+  /// Pozn.: globální [TickerMode] už **není** vázaný na výkonový režim — jen na vypnutí animací UI v [main.dart].
   bool get _effectiveThrottlePerformance =>
       _config.globalSettings.performanceMode && !_shellOcclusionBoost;
 
@@ -990,19 +1042,64 @@ class AmbilightAppController extends ChangeNotifier {
     }
   }
 
+  /// Zruší odložený zápis z [queueConfigApply] a okamžitě uloží profil (např. před [exit] z tray).
+  Future<void> flushPersistToDisk() async {
+    _persistDiskDebounceTimer?.cancel();
+    _persistDiskDebounceTimer = null;
+    await save();
+  }
+
   void setEnabled(bool v) {
+    final wasEnabled = _enabled;
     _enabled = v;
-    if (!v) _clearTransientLedOutputs();
+    if (!v) {
+      _clearTransientLedOutputs();
+    } else if (!wasEnabled) {
+      unawaited(_smartLights.ensureHaMirroringBaselines(_config));
+    }
     _restartPcHealthTimer();
     notifyListeners();
   }
 
   /// Přepnutí výstupu (stejné chování jako přepínač na přehledu / tray „Zap/Vyp“).
   void toggleEnabled() {
+    final wasEnabled = _enabled;
     _enabled = !_enabled;
-    if (!_enabled) _clearTransientLedOutputs();
+    if (!_enabled) {
+      _clearTransientLedOutputs();
+    } else if (!wasEnabled) {
+      unawaited(_smartLights.ensureHaMirroringBaselines(_config));
+    }
     _restartPcHealthTimer();
     notifyListeners();
+  }
+
+  /// Před ukončením procesu (tray „Ukončit“): obnova HA stavu + `0xF0`. Nevolat při pouhém vypnutí výstupu.
+  Future<void> prepareQuitShutdownAsync() async {
+    try {
+      await _smartLights.restoreHaMirroringBaselines(_config);
+    } catch (e, st) {
+      if (kDebugMode) {
+        _log.fine('prepareQuitShutdownAsync: $e', e, st);
+      }
+    }
+    if (!_quitHandoffSent) {
+      _releasePcHandoffToHomeAssistantSync();
+      _quitHandoffSent = true;
+    }
+  }
+
+  /// Jednosměrný signál do lampy (`0xF0`): PC už neřídí pásek — MQTT / Home Assistant může převzít.
+  void _releasePcHandoffToHomeAssistantSync() {
+    for (final t in _transports.values) {
+      try {
+        t.sendPcReleaseHandoff();
+      } catch (e, st) {
+        if (kDebugMode) {
+          _log.fine('sendPcReleaseHandoff: $e', e, st);
+        }
+      }
+    }
   }
 
   /// Jednorázově požádá shell o přepnutí na stránku [index] v [AmbiShell] (např. 2 = Nastavení).
@@ -1012,7 +1109,7 @@ class AmbilightAppController extends ChangeNotifier {
     return v;
   }
 
-  /// Index záložky v Nastavení (0 = Globální, 1 = Zařízení, 2 = Světlo, …). Volá [SettingsPage] při startu.
+  /// Index záložky v Nastavení (0 = Globální, 1 = Světlo, … — zařízení jsou na stránce Zařízení).
   int? takePendingSettingsTabIndex() {
     final v = _pendingSettingsTabIndex;
     _pendingSettingsTabIndex = null;
@@ -1037,10 +1134,10 @@ class AmbilightAppController extends ChangeNotifier {
   void requestOpenSettingsForStartMode(String startModeId) {
     _pendingShellIndex = 2;
     _pendingSettingsTabIndex = switch (startModeId) {
-      'light' => 2,
-      'screen' => 3,
-      'music' => 4,
-      'pchealth' => 5,
+      'light' => 1,
+      'screen' => 2,
+      'music' => 3,
+      'pchealth' => 4,
       _ => null,
     };
     notifyListeners();
@@ -1048,10 +1145,10 @@ class AmbilightAppController extends ChangeNotifier {
 
   /// Index záložky Nastavení pro [startModeId] (bez změny stavu).
   static int? settingsTabIndexForStartMode(String startModeId) => switch (startModeId) {
-        'light' => 2,
-        'screen' => 3,
-        'music' => 4,
-        'pchealth' => 5,
+        'light' => 1,
+        'screen' => 2,
+        'music' => 3,
+        'pchealth' => 4,
         _ => null,
       };
 
@@ -1076,6 +1173,13 @@ class AmbilightAppController extends ChangeNotifier {
         return;
       }
     }
+  }
+
+  /// FW časové vyhlazování (`0xF1` + NVS). Wi‑Fi čeká na ACK; USB jen zapíše bez čtení ACK.
+  Future<bool> sendFirmwareTemporalModeForDevice(String deviceId, int mode) async {
+    final t = _transports[deviceId];
+    if (t == null) return false;
+    return t.sendFirmwareTemporalMode(mode.clamp(0, 2));
   }
 
   void _clearTransientLedOutputs() {
@@ -1118,8 +1222,38 @@ class AmbilightAppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// JSON konfigurace pro zálohu / import (bez zápisu na disk).
+  /// JSON konfigurace pro zálohu bez tokenů / client_secret (bez zápisu na disk).
   String exportConfigJsonString() => _config.sanitizedForPersistence().toJsonString();
+
+  /// Záloha JSON: [includeSecrets] `false` jako [exportConfigJsonString]; `true` včetně HA tokenu
+  /// ze runtime konfigurace a Spotify tokenů ze [SpotifyTokenStore] + hodnot z `_config.spotify`.
+  Future<String> exportConfigJsonForBackup({required bool includeSecrets}) async {
+    if (!includeSecrets) {
+      return exportConfigJsonString();
+    }
+    final stored = await SpotifyTokenStore.read();
+    var spotify = _config.spotify;
+    final acc = stored.$1?.trim();
+    final ref = stored.$2?.trim();
+    if ((acc != null && acc.isNotEmpty) || (ref != null && ref.isNotEmpty)) {
+      spotify = spotify.copyWith(
+        accessToken: (acc != null && acc.isNotEmpty) ? acc : spotify.accessToken,
+        refreshToken: (ref != null && ref.isNotEmpty) ? ref : spotify.refreshToken,
+      );
+    }
+    return _config.copyWith(spotify: spotify).toJsonString();
+  }
+
+  Future<void> _persistSpotifyTokensFromImportedConfig() async {
+    final sp = _config.spotify;
+    final a = sp.accessToken?.trim();
+    final r = sp.refreshToken?.trim();
+    if (a != null && a.isNotEmpty && r != null && r.isNotEmpty) {
+      await SpotifyTokenStore.write(accessToken: a, refreshToken: r);
+    }
+    await spotify.hydrateFromStorage(_config);
+    spotify.startPollingIfNeeded(_config);
+  }
 
   /// Načte konfiguraci z JSON řetězce a uloží (jako uložení z nastavení).
   Future<void> importConfigFromJsonString(String json) async {
@@ -1132,6 +1266,7 @@ class AmbilightAppController extends ChangeNotifier {
       rethrow;
     }
     await applyConfigAndPersist(next);
+    await _persistSpotifyTokensFromImportedConfig();
   }
 
   /// Vrátí konfiguraci na výchozí hodnoty, smaže uložené tokeny (Home Assistant, Spotify) a přepíše `default.json`.
@@ -1180,6 +1315,7 @@ class AmbilightAppController extends ChangeNotifier {
         mid: patch.mid,
         high: patch.high,
         activePreset: patch.activePresetLabel,
+        effect: patch.effect,
       ),
     );
     notifyListeners();
@@ -1835,7 +1971,7 @@ class AmbilightAppController extends ChangeNotifier {
     _screenCaptureFaultBannerShown = false;
     final now = DateTime.now();
     if (_lastScreenFrameUiNotify == null ||
-        now.difference(_lastScreenFrameUiNotify!) >= _minScreenFrameUiNotifyGap) {
+        now.difference(_lastScreenFrameUiNotify!) >= _effectiveScreenFrameUiNotifyGap) {
       _lastScreenFrameUiNotify = now;
       previewFrameNotifier.value = f;
     }
@@ -1934,6 +2070,9 @@ class AmbilightAppController extends ChangeNotifier {
 
   void startLoop() {
     unawaited(_musicAudio.syncWithConfig(_config));
+    if (_enabled) {
+      unawaited(_smartLights.ensureHaMirroringBaselines(_config));
+    }
     _loopPeriodMs = null;
     _ensureMainLoopTimer();
   }
@@ -1945,6 +2084,19 @@ class AmbilightAppController extends ChangeNotifier {
     _screenCaptureDriverTimer?.cancel();
     _screenCaptureDriverTimer = null;
     unawaited(_stopWindowsPushCapture());
+  }
+
+  /// Krátce pozastaví hlavní loop (tick + capture driver), provede [action] a loop vrátí zpět.
+  Future<T> runWithLoopPaused<T>(Future<T> Function() action) async {
+    final wasRunning = _timer != null || _screenCaptureDriverTimer != null;
+    if (wasRunning) stopLoop();
+    try {
+      return await action();
+    } finally {
+      if (wasRunning && !_controllerDisposed) {
+        startLoop();
+      }
+    }
   }
 
   void _ensureScreenCapture() {
@@ -1989,7 +2141,7 @@ class AmbilightAppController extends ChangeNotifier {
         _screenCaptureFaultBannerShown = false;
         final now = DateTime.now();
         if (_lastScreenFrameUiNotify == null ||
-            now.difference(_lastScreenFrameUiNotify!) >= _minScreenFrameUiNotifyGap) {
+            now.difference(_lastScreenFrameUiNotify!) >= _effectiveScreenFrameUiNotifyGap) {
           _lastScreenFrameUiNotify = now;
           previewFrameNotifier.value = f;
         }
@@ -2099,15 +2251,7 @@ class AmbilightAppController extends ChangeNotifier {
     final skipAllSends = homeKitHold && !allowOverrideSends;
 
     if (!_enabled) {
-      // Vždy zhasnout pásek (i při HomeKit hold — výstup musí jít vypnout).
-      _distribute(
-        AmbilightEngine.blackoutPerDevice(_config),
-        0,
-        applyWizardOverlay: false,
-        smartLightsFrame: _screenFrameLatest,
-        smartLightsAppEnabled: false,
-        flushImmediately: true,
-      );
+      // Výstup vypnutý z UI — bez `0xF0` (handoff jen při ukončení aplikace) a bez přepisu HA/HomeKit.
       _advanceTickPhase();
       return;
     }
@@ -2372,10 +2516,7 @@ class AmbilightAppController extends ChangeNotifier {
           }
         }
       }
-      final connChanged = _syncConnectionSnapshotCache();
-      if (connChanged) {
-        notifyListeners();
-      }
+      _syncConnectionSnapshotCache();
       _reconnectCounter++;
       final anyDisconnected = _transports.values.any((t) => !t.isConnected);
       final reconnectEvery = anyDisconnected
@@ -2422,33 +2563,26 @@ class AmbilightAppController extends ChangeNotifier {
     return m;
   }
 
-  static List<int> _calibrationIndices(String corner) {
-    switch (corner) {
-      case 'top_left':
-        return const [11, 12];
-      case 'top_right':
-        return const [32, 33];
-      case 'bottom_right':
-        return const [44, 45];
-      case 'bottom_left':
-        return const [65, 0];
-      default:
-        return const [];
-    }
-  }
-
-  /// Při kalibraci neomezovat délku výstupu na uživatelem zadaný `led_count` (mohl zadat 2).
-  static int _calibrationStripLength(DeviceSettings d) {
-    return d.ledCount.clamp(1, SerialAmbilightProtocol.maxLedsPerDevice);
+  /// Délka bufferu pro rohové značky: alespoň segmenty nebo uložený počet LED (vyšší z nich).
+  int _calibrationStripLengthFor(DeviceSettings d) {
+    final cap = SerialAmbilightProtocol.maxLedsPerDevice;
+    final stored = d.ledCount.clamp(1, cap);
+    final implied = ScreenColorPipeline.impliedLedCountFromSegments(_config, d.id);
+    if (implied <= 0) return stored;
+    return math.max(stored, implied).clamp(1, cap);
   }
 
   Map<String, List<(int, int, int)>> _calibrationPreviewMap(String corner) {
-    final indices = _calibrationIndices(corner);
     final m = <String, List<(int, int, int)>>{};
     for (final d in _config.globalSettings.devices) {
       if (d.controlViaHa) continue;
-      final len = _calibrationStripLength(d);
+      final len = _calibrationStripLengthFor(d);
       final buf = List<(int, int, int)>.filled(len, (0, 0, 0), growable: false);
+      final indices = ScreenColorPipeline.cornerMarkerLedIndices(
+        config: _config,
+        deviceId: d.id,
+        corner: corner,
+      );
       for (final idx in indices) {
         if (idx >= 0 && idx < buf.length) {
           buf[idx] = (0, 255, 0);
@@ -2519,6 +2653,14 @@ class AmbilightAppController extends ChangeNotifier {
   /// Wi‑Fi UDP **před** synchronním [unpackDeviceColors] (ten alokuje tuple mapu na hlavním vlákně).
   void _runPackedFirstEagerScreenDistribute(int seq, Map<String, Uint8List> packed) {
     if (!_eagerScreenIsolateOutputAllowed(seq)) return;
+    if (!packedRgbMapCoversWifiAndSerialOutputs(_config, packed)) {
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning(
+          'eager packed-first: nekompletní packed → přeskočeno (packed=[${packed.keys.join(",")}])',
+        );
+      }
+      return;
+    }
     final bri = brightnessForMode(_config);
     try {
       _flushUdpWifiStripsFromPackedMap(packed, bri);
@@ -2600,6 +2742,8 @@ class AmbilightAppController extends ChangeNotifier {
         frame: smartLightsFrame ?? _screenFrameLatest,
         appEnabled: appEnabled,
         animationTick: _animationTick,
+        musicSnapshot:
+            _config.globalSettings.startMode == 'music' ? _musicAudio.currentSnapshot : null,
       );
     } catch (e, st) {
       if (kDebugMode) {
@@ -2752,6 +2896,8 @@ class AmbilightAppController extends ChangeNotifier {
         frame: smartLightsFrame,
         appEnabled: smartLightsAppEnabled,
         animationTick: _animationTick,
+        musicSnapshot:
+            _config.globalSettings.startMode == 'music' ? _musicAudio.currentSnapshot : null,
       );
     } catch (e, st) {
       if (kDebugMode) {
@@ -2763,7 +2909,12 @@ class AmbilightAppController extends ChangeNotifier {
   @override
   void dispose() {
     try {
+      if (!_quitHandoffSent) {
+        _releasePcHandoffToHomeAssistantSync();
+        _quitHandoffSent = true;
+      }
       _controllerDisposed = true;
+      _highFidelityPreviewUiRefCount = 0;
       _invalidateWindowsPullCaptureExtrasCache();
       _distributeFlushScheduled = false;
       final pend = _distributePending;

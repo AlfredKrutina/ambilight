@@ -6,6 +6,19 @@
 
 ---
 
+## Dvojí vyhlazování: FW lampy vs PC (aktuální produkt)
+
+| Vrstva | Kde v UI / kódu | Latence / poznámka |
+|--------|-----------------|---------------------|
+| **FW** | Nastavení → Zařízení: režim 0/1/2; příkaz `0xF1`, NVS `amb_temp_mode`, volitelně `amb_temp_ms` | 0 = stejné chování jako dřív; 1 = EMA mezi snímky (setrvačnost); 2 = velké skoky okamžitě, malé delty EMA (nízký šum bez zpoždění u řezů). Timer ~166 Hz (`ambilight.c`). |
+| **PC** | Nastavení → Obrazovka: **Interpolace (ms)** = `ScreenModeSettings.interpolation_ms` → pipeline `smoothMs` | Běží jen před odesláním na síť; neukládá se do lampy. |
+| **PC výkon** | Globální: výkonový režim + perioda smyčky; obnovovací frekvence mimo výkon | Vyšší frekvence / kratší perioda = více snímků směrem k UDP (CPU). |
+| **UDP chunky** | Build-time `--dart-define=AMBI_UDP_OPCODE06_CHUNK_PIXELS=…` (`UdpAmbilightProtocol`) | Ovlivňuje počet datagramů na snímek u >499 LED; nesahá do FW temporal. |
+
+**Doporučení:** nepřebíjet obě vrstvy na maximum (např. FW „Plynulé“ + velmi dlouhá PC interpolace) — obraz může působit mazaně a zvýší se zpoždění vůči zdroji na monitoru. Rozumné kombinace: **FW snap + lehká PC interpolace**, nebo **FW vypnuto + PC interpolace**.
+
+---
+
 ## Ověřený stav (kód / diff)
 
 ### Duplicitní submit screen pipeline (Windows push)
@@ -188,3 +201,29 @@ HOTOV = souhrn + návrh Promptu #5.
 - **USB serial:** výkonový drain 4 ms (dříve 8), fronta až 3 rámce (dříve 2).
 - **Windows capture:** výchozí `AMBI_CAPTURE_DOWNSCALE_MAX_SIDE` 224 v `screen_capture_channel.cpp` (CMake `-DAMBI_CAPTURE_DOWNSCALE_MAX_SIDE=…`).
 - **Měření:** `AMBI_PIPELINE_DIAGNOSTICS` — rozšířený `[PIPELINE_DIAG summary]` (`loopPeriodMs`, `perfScrTickCfg`, `udp06chunkPx`). Checklist v `pipeline_diagnostics.dart`.
+
+## FW ESP32-C3 — assert `spi_device_transmit` (květen 2026)
+
+- **Příznak:** `assert failed: spi_device_transmit spi_master.c:1323 (ret_trans == trans_desc)` krátce po bootu / modré animaci.
+- **Příčina:** periodický `esp_timer` pro temporal smoothing volal `led_strip_refresh` zatímco `app_main` dělal boot `led_strip_*` bez `led_mutex` → souběžný SPI na stejném zařízení.
+- **Oprava v `ambilight.c`:** boot modrá + clear drží `led_mutex`; `ambilight_temporal_configure_timer()` až **po** `start_wifi_subsystem()` (jinak temporal periodic maže oranžovou WiFi indikaci během připojování).
+- **Deadlock (0xF1):** `esp_timer_stop()` čeká na dokončení callbacku; callback volá `xSemaphoreTake(led_mutex, …)`. `ambilight_temporal_configure_timer()` se nesmí volat **uvnitř** `led_mutex` — přesunout až za `Give` u sériového i UDP `0xF1`.
+- **`led_init`:** první `clear`/`refresh` pod `led_mutex` (konzistence s ostatním SPI).
+
+## FW — hledání v síti (`DISCOVER_ESP32` / PONG)
+
+- Po každém `recvfrom` se dřív volalo `udp_drain_recv_queue_to_latest()` pro **každý** paket; fronta se srovnala na **poslední** datagram. Když PC současně posílá stream (`0x02`/`0x06`), poslední binární rámec **přepsal** buffer a textový discovery se nikdy nezpracoval → žádný PONG.
+- **Oprava:** vyprázdnění fronty jen pro `0x02` / `0x06` / `0x08`; `DISCOVER_ESP32`, `0xF1`, `0x03`, … zůstávají v prvním přečteném datagramu.
+
+## FW — COM / USB‑JTAG scan (`0xAA` → `0xBB`)
+
+- Handshake byl v `task_serial` až **za** větví `serial_expect_f1_mode` a `0xA5…` parserem. Po neúplné `0xF1` (bez druhého bajtu) nebo uprostřed `A5` sekvence další `0xAA` z aplikace **nešel** do ping větve → žádný `0xBB`, scan COM selže.
+- **Oprava:** v `ST_IDLE` zpracovat `0xAA` **nejprve** (a zrušit `serial_expect_f1_mode` / `a5_stage`), pak teprve F1 a LED count.
+- **Poznámka:** tento FW čte jen **USB Serial/JTAG** (`usb_serial_jtag_*`); klasický UART na GPIO bez přemapování na tento driver neodpovídá.
+
+## Desktop — UDP scan v **AP (SoftAP)** režimu lampy
+
+- Lampička běží jako hotspot často **192.168.4.1/24**; PC musí být na **stejné** Wi‑Fi (ne na jiné síti).
+- Windows někdy **nevrátí** hotspot včas v `NetworkInterface.list` → chybí directed `x.y.z.255`; doplněno **192.168.4.255** + **unicast DISCOVER na 192.168.4.1** (`led_discovery_service.dart`).
+- FW: UDP na 4210 po `g_wifi_enabled` na APSTA platí i pro stanice na SoftAP; dřívější drain fix platí i v AP módu.
+- **PONG verze:** dříve 4. pole `2.1` bylo jen protokol — UI ukazovalo špatně jako FW. Nově `…|FW_VER z esp_app_desc|2.1|mode|` + Flutter `parts.length >= 7`.

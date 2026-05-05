@@ -102,8 +102,15 @@ Future<void> _openSettings(AmbilightAppController c) async {
 }
 
 Future<void> _quitApp() async {
+  AmbilightAppController? ctrl;
   try {
+    ctrl = _controller;
+    if (ctrl != null) {
+      await ctrl.prepareQuitShutdownAsync();
+      await ctrl.flushPersistToDisk();
+    }
     await disposeDesktopShell();
+    ctrl?.dispose();
   } catch (e, st) {
     _log.warning('_quitApp disposeDesktopShell: $e', e, st);
   }
@@ -226,10 +233,10 @@ Menu _buildTrayMenu(AmbilightAppController c) {
       MenuItem.separator(),
       MenuItem(
         label: c.musicPaletteLocked
-            ? 'Odemknout barvy (hudba)'
+            ? 'Odmrazit pásek (hudba)'
             : (c.musicPaletteLockCapturePending
-                ? 'Zrušit zamykání barev (čeká na snímek)'
-                : 'Zamknout barvy (hudba)'),
+                ? 'Zrušit zmrazení (čeká na snímek)'
+                : 'Zmrazit výstup na pásku (hudba)'),
         onClick: (_) => c.toggleMusicPaletteLock(),
       ),
       MenuItem.separator(),

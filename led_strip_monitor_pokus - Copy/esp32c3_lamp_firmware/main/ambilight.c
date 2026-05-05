@@ -1,5 +1,6 @@
 #include "driver/gpio.h"
 #include "driver/usb_serial_jtag.h"
+#include "esp_app_format.h"
 #include "esp_event.h"
 #include "esp_heap_caps.h"
 #include "esp_http_server.h"
@@ -23,6 +24,7 @@
 #include "mqtt_client.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "ambilight_ota_feedback.h"
 #include "ota_update.h"
 #include <ctype.h>
 #include <errno.h>
@@ -88,6 +90,78 @@ static char g_device_id[32] = {0}; // Unique ID generated from MAC
 // Wifi Event Logic
 static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
+
+/** NVS: ladící odmítnutí DHCP v 192.168.88.0/24 (1=zapnuto výchozí při chybě klíče). */
+#define NVS_KEY_DBG_REJ88 "dbg_rej88"
+static bool g_debug_reject_192_168_88 = true;
+
+static void ambilight_debug_rej88_load(void) {
+  uint8_t v = 1;
+  nvs_handle_t h;
+  if (nvs_open("storage", NVS_READONLY, &h) == ESP_OK) {
+    if (nvs_get_u8(h, NVS_KEY_DBG_REJ88, &v) != ESP_OK) {
+      v = 1;
+    }
+    nvs_close(h);
+  }
+  g_debug_reject_192_168_88 = (v != 0);
+  ESP_LOGI(TAG, "[debug] reject_192_168_88 subnet=%d (NVS %s)",
+           (int)g_debug_reject_192_168_88, NVS_KEY_DBG_REJ88);
+}
+
+static void ambilight_debug_rej88_save(bool on) {
+  g_debug_reject_192_168_88 = on;
+  nvs_handle_t h;
+  if (nvs_open("storage", NVS_READWRITE, &h) == ESP_OK) {
+    (void)nvs_set_u8(h, NVS_KEY_DBG_REJ88, on ? 1u : 0u);
+    (void)nvs_commit(h);
+    nvs_close(h);
+  }
+  ESP_LOGI(TAG, "[debug] reject_192_168_88 saved=%d", (int)on);
+}
+
+/** NVS + UDP `0xF1` + mode: FW časové vyhlazování (0=vyp, 1=plynulé, 2=snap). */
+#define NVS_KEY_FW_TEMPORAL "fw_temp"
+#define OPCODE_FW_TEMPORAL 0xF1
+static uint8_t g_fw_temporal_mode = 0;
+static rgb_t s_smooth_rgb[LED_STRIP_NUM_LEDS];
+
+static void ambilight_fw_temporal_load(void) {
+  uint8_t v = 0;
+  nvs_handle_t h;
+  if (nvs_open("storage", NVS_READONLY, &h) == ESP_OK) {
+    if (nvs_get_u8(h, NVS_KEY_FW_TEMPORAL, &v) != ESP_OK) {
+      v = 0;
+    }
+    nvs_close(h);
+  }
+  if (v > 2) {
+    v = 0;
+  }
+  g_fw_temporal_mode = v;
+  memcpy(s_smooth_rgb, led_colors, sizeof(s_smooth_rgb));
+  ESP_LOGI(TAG, "[fw_temporal] loaded mode=%u (NVS %s)", (unsigned)g_fw_temporal_mode,
+           NVS_KEY_FW_TEMPORAL);
+}
+
+static void ambilight_fw_temporal_save(uint8_t mode) {
+  if (mode > 2) {
+    return;
+  }
+  g_fw_temporal_mode = mode;
+  nvs_handle_t h;
+  if (nvs_open("storage", NVS_READWRITE, &h) == ESP_OK) {
+    (void)nvs_set_u8(h, NVS_KEY_FW_TEMPORAL, mode);
+    (void)nvs_commit(h);
+    nvs_close(h);
+  }
+  ESP_LOGI(TAG, "[fw_temporal] saved mode=%u", (unsigned)mode);
+}
+
+/// Volat pod [led_mutex]: sjednotí náhledový buffer s cílovými barvami (přepnutí režimu / NVS).
+static void ambilight_fw_temporal_sync_smooth_from_targets(void) {
+  memcpy(s_smooth_rgb, led_colors, sizeof(s_smooth_rgb));
+}
 
 static inline void ambi_log_heap(const char *ctx) {
   ESP_LOGI(TAG,
@@ -217,6 +291,61 @@ static void led_strip_fill_logical_rgb(uint8_t r, uint8_t g, uint8_t b) {
   led_strip_refresh(led_strip);
 }
 
+void ambilight_ota_success_client_feedback(
+    const struct sockaddr_in *notify_udp_or_null) {
+  const uint8_t pr = 130, pg = 0, pb = 210;
+  for (int cycle = 0; cycle < 2; cycle++) {
+    for (int t = 15; t <= 255; t += 20) {
+      xSemaphoreTake(led_mutex, portMAX_DELAY);
+      led_strip_fill_logical_rgb((uint32_t)pr * (uint32_t)t / 255u,
+                                 (uint32_t)pg * (uint32_t)t / 255u,
+                                 (uint32_t)pb * (uint32_t)t / 255u);
+      xSemaphoreGive(led_mutex);
+      vTaskDelay(pdMS_TO_TICKS(38));
+    }
+    for (int t = 255; t >= 10; t -= 20) {
+      xSemaphoreTake(led_mutex, portMAX_DELAY);
+      led_strip_fill_logical_rgb((uint32_t)pr * (uint32_t)t / 255u,
+                                 (uint32_t)pg * (uint32_t)t / 255u,
+                                 (uint32_t)pb * (uint32_t)t / 255u);
+      xSemaphoreGive(led_mutex);
+      vTaskDelay(pdMS_TO_TICKS(38));
+    }
+  }
+  xSemaphoreTake(led_mutex, portMAX_DELAY);
+  ambilight_fw_temporal_sync_smooth_from_targets();
+  update_leds(255);
+  xSemaphoreGive(led_mutex);
+
+  if (notify_udp_or_null == NULL || notify_udp_or_null->sin_port == 0 ||
+      notify_udp_or_null->sin_addr.s_addr == 0) {
+    return;
+  }
+  const esp_app_desc_t *app = esp_app_get_description();
+  const char *ver = (app != NULL) ? app->version : "?";
+  char buf[96];
+  int n = snprintf(buf, sizeof(buf), "AMBILIGHT OTA_OK %s", ver);
+  if (n <= 0 || n >= (int)sizeof(buf)) {
+    ESP_LOGW(TAG, "OTA_OK UDP: snprintf selhalo");
+    return;
+  }
+  int s = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+  if (s < 0) {
+    ESP_LOGW(TAG, "OTA_OK UDP: socket errno=%d", errno);
+    return;
+  }
+  ssize_t sent =
+      sendto(s, buf, (size_t)n, 0, (struct sockaddr *)notify_udp_or_null,
+             sizeof(struct sockaddr_in));
+  if (sent < 0) {
+    ESP_LOGW(TAG, "OTA_OK UDP sendto errno=%d", errno);
+  } else {
+    ESP_LOGI(TAG, "OTA_OK UDP %d B → %s", (int)sent,
+             inet_ntoa(notify_udp_or_null->sin_addr));
+  }
+  closesocket(s);
+}
+
 // ============ HTTP SERVER ============
 static httpd_handle_t server = NULL;
 
@@ -307,6 +436,15 @@ static const char *config_page_html =
     "placeholder='User'>"
     "<label>Password</label><input id='m_pass' name='m_pass' type='password' "
     "value='mqtt' placeholder='Password'>"
+    "<hr style='margin:20px 0;border:none;border-top:1px solid rgba(255,255,255,0.15)'>"
+    "<div class='subtitle' style='margin-top:0'>Debugging</div>"
+    "<label style='text-transform:none;font-weight:500;letter-spacing:0'>"
+    "<input type='checkbox' id='rej88cb' name='reject_88' value='1' "
+    "style='width:auto;margin-right:10px;accent-color:#0A84FF'>"
+    "Reject STA IP in <code>192.168.88.0/24</code> (third octet .88)</label>"
+    "<p style='font-size:12px;color:rgba(255,255,255,0.55);margin:8px 0 0 0'>"
+    "When enabled, the lamp disconnects if DHCP assigns that subnet. "
+    "Also configurable via UDP <code>DEBUG_REJ88 0|1|?</code> from the desktop app.</p>"
 
     "<button type='submit'>Save & Connect</button>"
     "</form>"
@@ -328,6 +466,9 @@ static const char *config_page_html =
     "style='height:${(i+1)*3}px' class='bar "
     "${i<n?'active':''}'></div>`).join('')+`</div>`;"
     "}"
+    "fetch('/api/debug').then(function(r){return r.json();}).then(function(j){"
+    "var e=document.getElementById('rej88cb');if(e&&typeof j.reject_88==='boolean')e.checked=j.reject_88;"
+    "}).catch(function(){});"
     "function scanWifi(){"
     "const "
     "b=document.getElementById('scanBtn'),s=document.getElementById('spinner'),"
@@ -632,6 +773,47 @@ esp_err_t erase_wifi_creds() {
 
 // ============ HTTP HANDLERS ============
 
+static esp_err_t api_debug_get_handler(httpd_req_t *req) {
+  ESP_LOGI(TAG, "[http] GET /api/debug");
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+  char j[48];
+  const int n = snprintf(j, sizeof(j), "{\"reject_88\":%s}",
+                         g_debug_reject_192_168_88 ? "true" : "false");
+  if (n <= 0 || (size_t)n >= sizeof(j)) {
+    return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "overflow");
+  }
+  return httpd_resp_send(req, j, (size_t)n);
+}
+
+static esp_err_t save_debug_post_handler(httpd_req_t *req) {
+  ESP_LOGI(TAG, "[http] POST /save_debug len=%d", req->content_len);
+  char buf[128];
+  int ret = 0;
+  int remaining = req->content_len;
+  if (remaining < 0) {
+    remaining = 0;
+  }
+  if (remaining >= (int)sizeof(buf)) {
+    remaining = (int)sizeof(buf) - 1;
+  }
+  if (remaining > 0) {
+    ret = httpd_req_recv(req, buf, remaining);
+    if (ret <= 0) {
+      ESP_LOGE(TAG, "[http] POST /save_debug recv failed ret=%d", ret);
+      return ESP_FAIL;
+    }
+    buf[ret] = '\0';
+  } else {
+    buf[0] = '\0';
+  }
+  const bool on = (strstr(buf, "rej88=1") != NULL) || (strstr(buf, "rej88=on") != NULL);
+  ambilight_debug_rej88_save(on);
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+  return httpd_resp_send(req, "{\"ok\":true}", HTTPD_RESP_USE_STRLEN);
+}
+
 esp_err_t root_get_handler(httpd_req_t *req) {
   ESP_LOGI(TAG, "[http] GET / (config page) heap_free=%u",
            (unsigned)esp_get_free_heap_size());
@@ -685,6 +867,10 @@ esp_err_t save_post_handler(httpd_req_t *req) {
   url_decode(muri_dec, muri_enc);
   url_decode(muser_dec, muser_enc);
   url_decode(mpass_dec, mpass_enc);
+
+  const bool rej88 = (strstr(buf, "reject_88=1") != NULL);
+  ambilight_debug_rej88_save(rej88);
+  ESP_LOGI(TAG, "[http] reject_192_168_88 (debug)=%d", (int)rej88);
 
   save_wifi_creds(ssid_dec, pass_dec, muri_dec, muser_dec, mpass_dec);
   ESP_LOGI(TAG, "[http] credentials saved, reboot in 1s (ssid=\"%s\")",
@@ -760,6 +946,15 @@ void start_webserver(void) {
         .uri = "/scan", .method = HTTP_GET, .handler = scan_get_handler};
     httpd_register_uri_handler(server, &sc);
 
+    httpd_uri_t api_dbg = {.uri = "/api/debug",
+                           .method = HTTP_GET,
+                           .handler = api_debug_get_handler};
+    httpd_register_uri_handler(server, &api_dbg);
+    httpd_uri_t save_dbg = {.uri = "/save_debug",
+                            .method = HTTP_POST,
+                            .handler = save_debug_post_handler};
+    httpd_register_uri_handler(server, &save_dbg);
+
     // Common Captive Portal Probe URIs
     const char *captive_uris[] = {"/generate_204",   "/gen_204",
                                   "/ncsi.txt",       "/hotspot-detect.html",
@@ -789,6 +984,19 @@ void stop_webserver(void) {
     httpd_stop(server);
     server = NULL;
   }
+}
+
+/** Odmítnout STA adresu 192.168.88.0/24 (3. oktet nesmí být 88). */
+static bool ambilight_sta_ipv4_is_rejected_subnet(const esp_ip4_addr_t *ip) {
+  if (ip == NULL) {
+    return false;
+  }
+  /* esp_ip4_addr_t.addr (lwIP): síťové pořadí oktetů v MSB..LSB u uint32. */
+  const uint32_t a = ip->addr;
+  const uint8_t o1 = (uint8_t)((a >> 24) & 0xFFu);
+  const uint8_t o2 = (uint8_t)((a >> 16) & 0xFFu);
+  const uint8_t o3 = (uint8_t)((a >> 8) & 0xFFu);
+  return (o1 == 192U && o2 == 168U && o3 == 88U);
 }
 
 static void event_handler(void *arg, esp_event_base_t base, int32_t id,
@@ -881,6 +1089,16 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t id,
                "[ip] STA_GOT_IP ip=" IPSTR " mask=" IPSTR " gw=" IPSTR,
                IP2STR(&ev->ip_info.ip), IP2STR(&ev->ip_info.netmask),
                IP2STR(&ev->ip_info.gw));
+      if (g_debug_reject_192_168_88 &&
+          ambilight_sta_ipv4_is_rejected_subnet(&ev->ip_info.ip)) {
+        ESP_LOGW(TAG,
+                 "[ip] STA odmítnuto: adresa v 192.168.88.0/24 (3. oktet .88) — "
+                 "odpojuji (IP=" IPSTR ")",
+                 IP2STR(&ev->ip_info.ip));
+        xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+        (void)esp_wifi_disconnect();
+        return;
+      }
     }
     // Connected!
     g_connection_retries = 0;    // Reset retries
@@ -1250,6 +1468,8 @@ void task_serial(void *arg) {
 
   int a5_stage = 0;
   uint8_t a5_lo = 0;
+  /// Dvojice bajtů `0xF1` + mode (0…2) v ST_IDLE — nesmí kolidovat s wide/legacy (ty začínají FC/FF).
+  uint8_t ser_f1_stage = 0;
 
   while (1) {
     int len = usb_serial_jtag_read_bytes(buf, sizeof(buf), pdMS_TO_TICKS(20));
@@ -1263,6 +1483,7 @@ void task_serial(void *arg) {
         uint8_t b = buf[i];
 
         if (b == 0xFF) {
+          ser_f1_stage = 0;
           if (dirty && (state == ST_LEGACY || state == ST_WIDE))
             frame_complete = true;
           state = ST_LEGACY;
@@ -1271,6 +1492,7 @@ void task_serial(void *arg) {
           continue;
         }
         if (b == 0xFC) {
+          ser_f1_stage = 0;
           if (dirty && (state == ST_LEGACY || state == ST_WIDE))
             frame_complete = true;
           state = ST_WIDE;
@@ -1286,6 +1508,28 @@ void task_serial(void *arg) {
         }
 
         if (state == ST_IDLE) {
+          if (ser_f1_stage == 1) {
+            ser_f1_stage = 0;
+            uint8_t m = b;
+            if (m > 2) {
+              ESP_LOGW(TAG, "[serial] fw_temporal ignore invalid mode=%u after F1",
+                       (unsigned)m);
+              continue;
+            }
+            xSemaphoreTake(led_mutex, portMAX_DELAY);
+            ambilight_fw_temporal_save(m);
+            ambilight_fw_temporal_sync_smooth_from_targets();
+            xSemaphoreGive(led_mutex);
+            uint8_t ack[2] = {OPCODE_FW_TEMPORAL, m};
+            (void)usb_serial_jtag_write_bytes(ack, sizeof(ack), pdMS_TO_TICKS(10));
+            ESP_LOGI(TAG, "[serial] fw_temporal mode=%u (0xF1)", (unsigned)m);
+            continue;
+          }
+          if (b == OPCODE_FW_TEMPORAL) {
+            a5_stage = 0;
+            ser_f1_stage = 1;
+            continue;
+          }
           if (a5_stage == 0 && b == 0xA5) {
             a5_stage = 1;
             continue;
@@ -1409,6 +1653,7 @@ void task_serial(void *arg) {
  *   0x06 | idx_hi idx_lo | (R,G,B)×k → jen zápis do led_colors[], BEZ refresh
  *   0x08 | bri | total_hi total_lo → clear_tail(logical) + update_leds(bri)
  *   0x03 | idx_hi idx_lo | R,G,B   → jeden pixel + refresh (kalibrace)
+ *   0xF1 | mode (0…2)     → FW časové vyhlazování (NVS), odpověď stejné 2 bajty
  *
  * Proč se data „zahazují“ (paket zpracován bez změny pásku / bez zápisu):
  *   1) OTA probíhá → veškeré RGB příkazy ignorovány.
@@ -1630,19 +1875,61 @@ void task_udp(void *arg) {
           }
         }
 
+        if (len >= 12 && strncmp(rx_buffer, "DEBUG_REJ88", 11) == 0) {
+          if (len >= 13 && rx_buffer[11] == '?') {
+            char ack[24];
+            const int an = snprintf(ack, sizeof(ack), "DEBUG_REJ88_ACK %d",
+                                    g_debug_reject_192_168_88 ? 1 : 0);
+            if (an > 0 && (size_t)an < sizeof(ack)) {
+              (void)sendto(sock, ack, (size_t)an, 0,
+                           (struct sockaddr *)&source_addr, socklen);
+            }
+          } else if (len >= 13 && rx_buffer[11] == ' ' &&
+                     (rx_buffer[12] == '0' || rx_buffer[12] == '1')) {
+            const bool on = (rx_buffer[12] == '1');
+            ambilight_debug_rej88_save(on);
+            const char *ack = on ? "DEBUG_REJ88_ACK 1" : "DEBUG_REJ88_ACK 0";
+            (void)sendto(sock, ack, strlen(ack), 0,
+                         (struct sockaddr *)&source_addr, socklen);
+            ESP_LOGI(TAG, "[udp] DEBUG_REJ88 set=%d (from %s)", (int)on,
+                     inet_ntoa(source_addr.sin_addr));
+          }
+          continue;
+        }
+
+        /* FW temporal smoothing (ambilight_desktop `0xF1` + mode 0…2, NVS). */
+        if (len == 2 && (uint8_t)rx_buffer[0] == OPCODE_FW_TEMPORAL) {
+          uint8_t m = (uint8_t)rx_buffer[1];
+          if (m > 2) {
+            ESP_LOGW(TAG, "[udp] fw_temporal ignore invalid mode=%u", (unsigned)m);
+            continue;
+          }
+          xSemaphoreTake(led_mutex, portMAX_DELAY);
+          ambilight_fw_temporal_save(m);
+          ambilight_fw_temporal_sync_smooth_from_targets();
+          xSemaphoreGive(led_mutex);
+          uint8_t ack[2] = {OPCODE_FW_TEMPORAL, m};
+          (void)sendto(sock, (const char *)ack, sizeof(ack), 0,
+                        (struct sockaddr *)&source_addr, socklen);
+          ESP_LOGI(TAG, "[udp] fw_temporal mode=%u → ACK", (unsigned)m);
+          continue;
+        }
+
         if (len >= 14 && strncmp(rx_buffer, "DISCOVER_ESP32", 14) == 0) {
           uint8_t mac[6];
           esp_wifi_get_mac(WIFI_IF_STA, mac);
-          /* Fixed stack buffer; snprintf bounds; inet_ntoa(struct in_addr) — not .s_addr */
-          char resp[96];
+          /* 8 polí: …|led|2.2|0|temp|rej88| — desktop parseEsp32PongDatagram */
+          char resp[128];
           ESP_LOGI(TAG, "Discovery Broadcast Received from %s",
                    inet_ntoa(source_addr.sin_addr));
           /* ledCount = logická délka z USB 0xA5 0x5A (g_serial_strip_max) */
-          int plen =
-              snprintf(resp, sizeof(resp),
-                       "ESP32_PONG|%02x%02x%02x|Ambilight_%02x|%u|2.0",
-                       (unsigned)mac[3], (unsigned)mac[4], (unsigned)mac[5],
-                       (unsigned)mac[5], (unsigned)g_serial_strip_max);
+          int plen = snprintf(
+              resp, sizeof(resp),
+              "ESP32_PONG|%02x%02x%02x|Ambilight_%02x|%u|2.2|0|%u|%u",
+              (unsigned)mac[3], (unsigned)mac[4], (unsigned)mac[5],
+              (unsigned)mac[5], (unsigned)g_serial_strip_max,
+              (unsigned)g_fw_temporal_mode,
+              g_debug_reject_192_168_88 ? 1u : 0u);
           if (plen <= 0 || (size_t)plen >= sizeof(resp)) {
             ESP_LOGW(TAG, "Discovery PONG snprintf invalid/truncated plen=%d", plen);
             continue;
@@ -1666,6 +1953,7 @@ void task_udp(void *arg) {
           vTaskDelay(pdMS_TO_TICKS(1000));
 
           xSemaphoreTake(led_mutex, portMAX_DELAY);
+          ambilight_fw_temporal_sync_smooth_from_targets();
           update_leds(255); // Restore state
           xSemaphoreGive(led_mutex);
           continue;
@@ -1703,7 +1991,7 @@ void task_udp(void *arg) {
           }
           ESP_LOGI(TAG, "OTA_HTTP (UDP) z %s",
                    inet_ntoa(source_addr.sin_addr));
-          ambilight_start_ota(u);
+          ambilight_start_ota(u, &source_addr);
           continue;
         }
 
@@ -2113,10 +2401,52 @@ void update_leds(uint8_t global_brightness) {
              (unsigned long)s_update_leds_calls,
              (unsigned)global_brightness);
   }
+  int n = LED_STRIP_NUM_LEDS;
+  if (g_serial_strip_max > 0 && g_serial_strip_max < n) {
+    n = (int)g_serial_strip_max;
+  }
+
+  if (g_fw_temporal_mode == 1) {
+    /* Plynulé: exponenciální dojetí k cíli (kompatibilní s přepínáním — sync při změně NVS). */
+    const int numer = 26;
+    const int denom = 128;
+    for (int i = 0; i < n; i++) {
+      for (int k = 0; k < 3; k++) {
+        uint8_t *tch = (k == 0)   ? &led_colors[i].r
+                     : (k == 1) ? &led_colors[i].g
+                                : &led_colors[i].b;
+        uint8_t *sch = (k == 0)   ? &s_smooth_rgb[i].r
+                     : (k == 1) ? &s_smooth_rgb[i].g
+                                : &s_smooth_rgb[i].b;
+        int32_t t = *tch;
+        int32_t s = *sch;
+        int32_t d = t - s;
+        int32_t step = (d * numer) / denom;
+        if (step == 0 && d != 0) {
+          step = (d > 0) ? 1 : -1;
+        }
+        s += step;
+        if (s < 0) {
+          s = 0;
+        }
+        if (s > 255) {
+          s = 255;
+        }
+        *sch = (uint8_t)s;
+      }
+    }
+    for (int i = n; i < LED_STRIP_NUM_LEDS; i++) {
+      s_smooth_rgb[i] = led_colors[i];
+    }
+  } else {
+    /* 0 = vypnuto, 2 = snap (okamžitě stejně jako cíl). */
+    memcpy(s_smooth_rgb, led_colors, sizeof(s_smooth_rgb));
+  }
+
   float scale = global_brightness / 255.0;
   for (int i = 0; i < LED_STRIP_NUM_LEDS; i++) {
-    led_strip_set_pixel(led_strip, i, led_colors[i].r * scale,
-                        led_colors[i].g * scale, led_colors[i].b * scale);
+    led_strip_set_pixel(led_strip, i, s_smooth_rgb[i].r * scale,
+                        s_smooth_rgb[i].g * scale, s_smooth_rgb[i].b * scale);
   }
   led_strip_refresh(led_strip);
 }
@@ -2145,6 +2475,9 @@ void app_main(void) {
     nvs_flash_erase();
     nvs_flash_init();
   }
+
+  ambilight_debug_rej88_load();
+  ambilight_fw_temporal_load();
 
   ESP_LOGW(TAG, "Reset Reason: %d", esp_reset_reason()); // Log why we rebooted
   ESP_LOGE(TAG,
@@ -2330,7 +2663,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
         p++;
       }
       ESP_LOGI(TAG, "MQTT OTA příkaz (topic=%s)", topic);
-      ambilight_start_ota(p);
+      ambilight_start_ota(p, NULL);
       free(payload);
       return;
     }

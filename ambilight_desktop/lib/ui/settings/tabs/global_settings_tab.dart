@@ -105,7 +105,13 @@ List<Widget> globalSettingsFields(
     ),
     if (!simpleUi) ...[
       SwitchListTile(
-        title: Text(l10n.performanceModeTitle),
+        title: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: Text(l10n.performanceModeTitle)),
+            AmbiHelpIcon(message: l10n.settingsPerformanceHelpTooltip),
+          ],
+        ),
         subtitle: Text(l10n.performanceModeSubtitle),
         value: g.performanceMode,
         onChanged: (v) => onChanged(g.copyWith(performanceMode: v)),
@@ -166,6 +172,14 @@ List<Widget> globalSettingsFields(
                 if (v == null) return;
                 onChanged(g.copyWith(screenRefreshRateHz: v));
               },
+      ),
+      const SizedBox(height: 8),
+      Text(
+        l10n.settingsGlobalPcUdpChunkHint,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.35,
+            ),
       ),
     ],
     SwitchListTile(

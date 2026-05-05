@@ -7,6 +7,7 @@ import '../../../core/models/config_models.dart';
 import '../../../core/models/pc_health_defaults.dart';
 import '../../../features/pc_health/pc_health_frame.dart';
 import '../../../features/pc_health/pc_health_snapshot.dart';
+import '../../../l10n/context_ext.dart';
 import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
 import '../../widgets/config_drag_slider.dart';
@@ -450,12 +451,12 @@ class _PcHealthSettingsTabState extends State<PcHealthSettingsTab> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  tooltip: 'Upravit',
+                                  tooltip: context.l10n.pcHealthEditTooltip,
                                   icon: const Icon(Icons.edit_outlined),
                                   onPressed: () => _editMetric(context, p, i),
                                 ),
                                 IconButton(
-                                  tooltip: 'Smazat',
+                                  tooltip: context.l10n.pcHealthDeleteTooltip,
                                   icon: const Icon(Icons.delete_outline),
                                   onPressed: () => _removeMetric(p, i),
                                 ),

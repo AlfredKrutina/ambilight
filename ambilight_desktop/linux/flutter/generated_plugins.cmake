@@ -3,6 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  desktop_audio_capture
   flutter_libserialport
   record_linux
   screen_retriever_linux

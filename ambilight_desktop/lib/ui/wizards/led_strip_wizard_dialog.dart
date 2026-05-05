@@ -147,6 +147,7 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
       if (!mounted) return;
       final l10n = AppLocalizations.of(context);
       final c = context.read<AmbilightAppController>();
+      c.acquireHighFidelityPreviewUi();
       final devs = c.config.globalSettings.devices;
       final devId = widget.initialDeviceId ??
           (devs.isNotEmpty ? devs.first.id : null);
@@ -386,16 +387,17 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
   void dispose() {
     _monitorFieldCtrl.dispose();
     _controller?.setWizardLedPreview(null, -1, 0, 0, 0);
+    _controller?.releaseHighFidelityPreviewUi();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final c = context.read<AmbilightAppController>();
     final scheme = Theme.of(context).colorScheme;
-    return AnimatedBuilder(
-      animation: Listenable.merge([c, c.previewFrameNotifier]),
-      builder: (context, _) {
+    return Selector<AmbilightAppController, AppConfig>(
+      selector: (_, ctrl) => ctrl.config,
+      builder: (context, _, __) {
+        final c = context.read<AmbilightAppController>();
         final l10n = context.l10n;
         final dev = _findDevice(c.config);
         final monLocked = widget.overrideMonitorIndex != null;

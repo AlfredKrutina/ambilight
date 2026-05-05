@@ -15,4 +15,4 @@ Podrobnosti: `ambilight_desktop/README_RUN.md`.
 
 ## CI (GitHub Actions)
 
-Workflow `.github/workflows/ambilight_desktop.yml` běží matici **ubuntu-latest**, **windows-latest**, **macos-latest**: `flutter pub get`, `flutter analyze`, `flutter test` a na každém OS **`flutter build <platform> --debug`** (ověření CMake / Xcode / MSVC bez release signing). Při výpadku macOS signingu v release režimu řeš samostatný release job — debug build v CI typicky stačí.
+Workflow `.github/workflows/ambilight_desktop.yml` běží matici **ubuntu-latest**, **windows-latest**, **macos-latest**: `flutter pub get`, `flutter analyze`, `flutter test`, dále desktop build (Linux/Windows debug+release, macOS debug+release). Na **macOS** job exportuje `CODE_SIGNING_ALLOWED=NO` a `CODE_SIGN_IDENTITY=-`, aby release na GitHub-hosted runneru nečekal na Apple signing (entitlements jako HomeKit bez provisioning profilu jinak často spadnou). Samostatný podepisovaný release zůstává mimo tento krok.

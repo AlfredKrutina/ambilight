@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('VirtualRoomWave disabled passes base', () {
-    const room = VirtualRoomLayout(waveEnabled: false);
+    const room = VirtualRoomLayout(roomEffect: SmartRoomEffectKind.none);
     const fx = SmartFixture(id: 'a', displayName: 'L', roomX: 0.2, roomY: 0.3);
     final out = VirtualRoomWave.apply(
       room: room,
@@ -17,7 +17,7 @@ void main() {
 
   test('VirtualRoomWave modulates by tick and distance', () {
     const room = VirtualRoomLayout(
-      waveEnabled: true,
+      roomEffect: SmartRoomEffectKind.wave,
       waveSpeed: 0.1,
       waveStrength: 1.0,
       waveDistanceScale: 1.0,

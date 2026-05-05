@@ -161,13 +161,23 @@ Widget wrapWithAppFaultBanner(Widget child) {
                             fontSize: 13,
                             height: 1.3,
                           ),
+                          maxLines: 8,
                         ),
                       ),
-                      IconButton(
-                        tooltip: AppLocalizations.of(context).closeBannerTooltip,
-                        color: Colors.white,
-                        onPressed: dismissAppFault,
-                        icon: const Icon(Icons.close, size: 20),
+                      // [MaterialApp.builder] vkládá banner jako sourozenec nad [Navigator] — není pod
+                      // [Overlay]; [IconButton] s výchozím tooltipem používá [Tooltip] → chyba.
+                      Semantics(
+                        label: AppLocalizations.of(context).closeBannerTooltip,
+                        button: true,
+                        child: IconButton(
+                          tooltip: '',
+                          color: Colors.white,
+                          style: IconButton.styleFrom(
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: dismissAppFault,
+                          icon: const Icon(Icons.close, size: 20),
+                        ),
                       ),
                     ],
                   ),
