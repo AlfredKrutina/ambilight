@@ -21,27 +21,39 @@
     .warn { background: #fff8e6; border: 1px solid #e6d08c; padding: 0.75rem 1rem; border-radius: 8px; margin-top: 1rem; }
     #dl-loading { font-style: italic; color: #666; }
     .tag { font-size: 0.85rem; color: #666; margin-bottom: 0.35rem; }
+    .hero-dl { margin: 1rem 0 0.5rem; }
+    .share-url { word-break: break-all; font-size: 0.9rem; }
   </style>
 </head>
 <body>
   <h1>AmbiLight</h1>
-  <p class="muted">Firmware z CI + desktopové balíčky z GitHub Releases (tag <code>desktop-v*</code>).</p>
+  <p class="muted">Veřejná stažení: firmware z CI + desktop (ZIP / DMG / Linux) zrcadlené z nejnovějšího GitHub release s tagem <code>desktop-v*</code>.</p>
+  <p class="muted share-url" id="share-url-line" style="display:none;"></p>
 
   <section id="desktop">
     <h2>Desktop — Windows, macOS, Linux</h2>
-    <p class="muted"><strong>Stažení z této stránky</strong> (mirror posledního GitHub release — po každém deployi Pages):</p>
+    <p class="muted"><strong>Přímo z této stránky</strong> (stejná doména jako odkaz níže — vhodné pro sdílení):</p>
+    <div class="btn-row hero-dl">
+      <a class="btn" href="desktop/latest/ambilight_desktop_windows_x64.zip">Windows — ZIP</a>
+      <a class="btn" href="desktop/latest/ambilight_desktop_macos.dmg">macOS — DMG</a>
+      <a class="btn secondary" href="desktop/latest/ambilight_desktop_windows_x64_setup.exe">Windows — Setup</a>
+      <a class="btn secondary" href="desktop/latest/ambilight_desktop_linux_x64.tar.gz">Linux — .tar.gz</a>
+    </div>
+    <p class="muted">Podrobněji (stejné soubory):</p>
     <ul class="muted">
       <li><a href="desktop/latest/ambilight_desktop_windows_x64_setup.exe">Windows — Setup (.exe)</a></li>
       <li><a href="desktop/latest/ambilight_desktop_windows_x64.zip">Windows — ZIP (portable / auto-update)</a></li>
       <li><a href="desktop/latest/ambilight_desktop_macos.dmg">macOS — DMG</a></li>
       <li><a href="desktop/latest/ambilight_desktop_linux_x64.tar.gz">Linux — .tar.gz (x64, Ubuntu)</a></li>
+      <li><a href="desktop/latest/desktop-manifest.json"><code>desktop-manifest.json</code></a> (verze / auto-update)</li>
+      <li><a href="desktop/latest/desktop-release-tag.txt"><code>desktop-release-tag.txt</code></a> — který <code>desktop-v*</code> je zrcadlený</li>
     </ul>
-    <p id="dl-loading">Načítám údaje o posledním release…</p>
+    <p id="dl-loading">Načítám údaje o desktop release z GitHub API…</p>
     <div id="dl-buttons" class="btn-row" style="display:none;" aria-live="polite"></div>
     <p id="dl-version" class="tag" style="display:none;"></p>
     <ul id="desktop-fallback" style="display:none;">
       <li><a id="releases-latest" href="#">Všechny releases</a></li>
-      <li><a id="manifest-latest" href="#">desktop-manifest.json</a> (auto-update / kontrola verze)</li>
+      <li><a id="manifest-latest" href="#">desktop-manifest.json</a> u release <code>desktop-v*</code> (auto-update)</li>
     </ul>
     <div class="warn">
       <strong>Windows:</strong> doporučujeme <strong>Setup (.exe)</strong> — klasická instalace do Program Files.
@@ -91,8 +103,30 @@
     fallback.style.display = 'block';
     var rl = document.getElementById('releases-latest');
     var ml = document.getElementById('manifest-latest');
-    if (rl) rl.href = ghBase + '/releases/latest';
-    if (ml) ml.href = ghBase + '/releases/latest/download/desktop-manifest.json';
+    if (rl) rl.href = ghBase + '/releases';
+    if (ml) ml.href = ghBase + '/releases';
+  }
+
+  var share = document.getElementById('share-url-line');
+  if (share && location.href.indexOf('http') === 0) {
+    share.style.display = 'block';
+    share.textContent = 'Odkaz na tuto stránku: ' + location.href.split('#')[0];
+  }
+
+  function pickLatestDesktopRelease(list) {
+    var best = null;
+    var bestT = 0;
+    (list || []).forEach(function (rel) {
+      if (rel.draft) return;
+      var tag = rel.tag_name || '';
+      if (tag.indexOf('desktop-v') !== 0) return;
+      var t = Date.parse(rel.published_at || '') || 0;
+      if (t >= bestT) {
+        bestT = t;
+        best = rel;
+      }
+    });
+    return best;
   }
 
   if (!apiBase || !owner || owner === host) {
@@ -100,12 +134,15 @@
     return;
   }
 
-  fetch(apiBase + '/releases/latest')
+  fetch(apiBase + '/releases?per_page=50')
     .then(function (r) {
-      if (!r.ok) throw new Error('release ' + r.status);
+      if (!r.ok) throw new Error('releases ' + r.status);
       return r.json();
     })
-    .then(function (data) {
+    .then(function (list) {
+      var data = pickLatestDesktopRelease(list);
+      if (!data) throw new Error('no desktop-v release');
+
       var assets = data.assets || [];
       var byName = {};
       assets.forEach(function (a) { byName[a.name] = a.browser_download_url; });
@@ -123,25 +160,25 @@
           if (!url) return;
           btnRow.appendChild(link(url, label, primary ? '' : 'secondary'));
         }
-        add(setup, 'Windows — Setup (.exe)', true);
-        add(zip, 'Windows — ZIP (portable)', false);
-        add(dmg, 'macOS — DMG', true);
-        add(tgz, 'Linux — .tar.gz (x64)', true);
+        add(setup, 'GitHub — Windows Setup', true);
+        add(zip, 'GitHub — Windows ZIP', false);
+        add(dmg, 'GitHub — macOS DMG', true);
+        add(tgz, 'GitHub — Linux .tar.gz', true);
         if (!setup || !zip || !dmg || !tgz) {
-          btnRow.appendChild(link(ghBase + '/releases/latest', 'Chybí soubor? Otevři Assets na GitHubu', 'secondary'));
+          btnRow.appendChild(link(ghBase + '/releases/tag/' + encodeURIComponent(data.tag_name), 'Chybí soubor? Assets u tohoto tagu', 'secondary'));
         }
         btnRow.appendChild(link(ghBase + '/releases/tag/' + encodeURIComponent(data.tag_name), 'Stránka release', 'secondary'));
       }
       if (verEl) {
         verEl.style.display = 'block';
-        verEl.textContent = 'Tag: ' + data.tag_name + (data.name ? (' — ' + data.name) : '');
+        verEl.textContent = 'Nejnovější desktop tag: ' + data.tag_name + (data.name ? (' — ' + data.name) : '');
       }
       if (fallback) {
         fallback.style.display = 'block';
         var rl = document.getElementById('releases-latest');
         var ml = document.getElementById('manifest-latest');
-        if (rl) rl.href = ghBase + '/releases/latest';
-        if (ml) ml.href = ghBase + '/releases/latest/download/desktop-manifest.json';
+        if (rl) rl.href = ghBase + '/releases';
+        if (ml) ml.href = ghBase + '/releases/download/' + encodeURIComponent(data.tag_name) + '/desktop-manifest.json';
       }
     })
     .catch(function () {

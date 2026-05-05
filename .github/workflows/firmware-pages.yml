@@ -85,7 +85,8 @@ jobs:
             --chip esp32c3
           cp "${ROOT}/tools/firmware_index.html" "${ROOT}/_site/index.html"
 
-      - name: Mirror latest desktop release assets (GitHub → Pages)
+      # GitHub „latest“ release často není desktop (např. jen firmware) — bereme nejnovější tag desktop-v*.
+      - name: Mirror desktop release assets (GitHub → Pages)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -93,15 +94,32 @@ jobs:
           DEST="${{ github.workspace }}/_site/desktop/latest"
           mkdir -p "$DEST"
           cd "$DEST"
+          TAG="$(gh api "repos/${{ github.repository }}/releases?per_page=80" --jq '[.[] | select((.draft | not) and (.tag_name | startswith("desktop-v")))] | if length == 0 then empty else (max_by(.published_at) | .tag_name) end')"
+          if [ -z "${TAG:-}" ]; then
+            echo "Žádný release s tagem desktop-v* — složka desktop/latest zůstane prázdná (po prvním desktop tagu znovu deploy)."
+            echo "none" > desktop-release-tag.txt
+            ls -la
+            exit 0
+          fi
+          echo "$TAG" > desktop-release-tag.txt
+          echo "Mirror desktop release: $TAG"
           for f in \
             ambilight_desktop_windows_x64.zip \
             ambilight_desktop_windows_x64_setup.exe \
             ambilight_desktop_macos.dmg \
             ambilight_desktop_linux_x64.tar.gz \
+            desktop-manifest.json \
           ; do
-            gh release download -R "${{ github.repository }}" --pattern "$f" --clobber -D . || true
+            gh release download -R "${{ github.repository }}" "$TAG" --pattern "$f" --clobber -D . || true
           done
           ls -la
+
+      - name: Upload static site as CI artifact (sdílení / záloha)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ambilight-pages-site
+          path: _site
+          retention-days: 30
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

@@ -4,6 +4,9 @@
 
 The primary application you build and run is under **`ambilight_desktop/`**.
 
+**Quick downloads (pre-built desktop + firmware mirror):**  
+You can grab Windows ZIP, macOS DMG, Linux tarball, and ESP firmware from the **[GitHub Pages download site](https://alfredkrutina.github.io/ambilight/)** — same files as the latest `desktop-v*` release, hosted for easy sharing.
+
 ---
 
 ## What’s in this repository
