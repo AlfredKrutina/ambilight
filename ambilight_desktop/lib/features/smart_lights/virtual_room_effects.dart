@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../../core/models/smart_lights_models.dart';
+import 'smart_lights_music_timing.dart';
 
 /// Výstup modulace pro jedno světlo (barva + násobič jasu pro HA / HomeKit).
 class SmartEffectOutput {
@@ -47,6 +48,7 @@ abstract final class VirtualRoomEffects {
     required (int r, int g, int b) base,
     required int animationTick,
     Map<String, int>? chaseRanks,
+    SmartLightsMusicTiming? musicTiming,
   }) {
     if (room.roomEffect == SmartRoomEffectKind.none) {
       return SmartEffectOutput(
@@ -62,6 +64,7 @@ abstract final class VirtualRoomEffects {
       fixture: fixture,
       animationTick: animationTick,
       chaseRanks: chaseRanks,
+      musicTiming: musicTiming,
     );
     final s = math.sin(phase);
     final m = 1.0 - room.waveStrength + room.waveStrength * (0.5 + 0.5 * s);
@@ -73,28 +76,54 @@ abstract final class VirtualRoomEffects {
     required SmartFixture fixture,
     required int animationTick,
     Map<String, int>? chaseRanks,
+    SmartLightsMusicTiming? musicTiming,
   }) {
     final t = animationTick.toDouble();
     final sp = room.waveSpeed.clamp(0.01, 0.5);
     final sc = room.waveDistanceScale.clamp(0.5, 20.0);
+    final mt = musicTiming;
+    final musicOn = mt != null && mt.active;
+    final env = musicOn ? mt.beatEnvelope : 0.0;
+    final edge = musicOn && mt.beatEdge;
 
     switch (room.roomEffect) {
       case SmartRoomEffectKind.none:
         return 0;
       case SmartRoomEffectKind.wave:
         final spatial = _spatialScalar(room: room, fixture: fixture, forChase: false);
-        return t * sp - spatial * sc;
+        var ph = t * sp - spatial * sc;
+        if (musicOn) {
+          ph += env * 0.95;
+          if (edge) ph += 0.55;
+        }
+        return ph;
       case SmartRoomEffectKind.breath:
-        return t * sp * 1.15;
+        var ph = t * sp * 1.15;
+        if (musicOn) {
+          // Beat posouvá fázi — pulz „sedí“ na muziku; pomalý tah engine ticku zůstává jako základ.
+          ph += env * math.pi * 2.15;
+          if (edge) ph += math.pi * 0.42;
+        }
+        return ph;
       case SmartRoomEffectKind.chase:
         final rank = chaseRanks?[fixture.id] ?? 0;
         final n = math.max(chaseRanks?.length ?? 1, 1);
         final step = (2 * math.pi / n) * sc * 0.18;
-        return t * sp - rank * step;
+        var ph = t * sp - rank * step;
+        if (musicOn) {
+          ph += env * math.pi * 1.05;
+          if (edge) ph += math.pi * 0.55 / n;
+        }
+        return ph;
       case SmartRoomEffectKind.sparkle:
         final h = _hash01(fixture.id);
         final spatial = _spatialScalar(room: room, fixture: fixture, forChase: false);
-        return t * sp * 2.4 + h * 12.566370614359172 + spatial * sc * 0.35;
+        var ph = t * sp * 2.4 + h * 12.566370614359172 + spatial * sc * 0.35;
+        if (musicOn) {
+          ph += env * 3.1;
+          if (edge) ph += 1.15;
+        }
+        return ph;
     }
   }
 

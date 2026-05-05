@@ -992,6 +992,14 @@ class AppLocalizationsCs extends AppLocalizations {
   String get segGeomWizardPreviewCaption => 'Oblast vzorkování (přibližně)';
 
   @override
+  String get segGeomWizardGradientSubtitle =>
+      'Živý gradient odpovídá barvám vzorkovaným podél hrany (u horní/spodní zleva doprava, u levé/pravé shora dolů). Seřídíš ho s páskem přes Obrátit pořadí nebo otočení hrany.';
+
+  @override
+  String get segGeomWizardGradientUnavailable =>
+      'Živý náhled není k dispozici — zkontroluj index monitoru u segmentu, zapni výstup a použij režim Obrazovka, aby proudily snímky.';
+
+  @override
   String get segGeomWizardPreviewLive => 'Náhled z rozměrů živého snímku';
 
   @override
@@ -3763,7 +3771,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get smartVirtualRoomIntro =>
-      'Umísti TV, sebe a světla v plánku. Kužel ukazuje směr pohledu (relativně k ose k TV). Vlna mění jas podle vzdálenosti od TV a času — signály na HA/HomeKit jdou každý snímek přes stávající mapování barev.';
+      'Umísti TV, sebe a světla v plánku. Kužel vychází z ikony uživatele (poloprůhledná vrstva nahoře) a ukazuje směr pohledu k TV plus úhel ze slidery. Efekty podle toho modulují jas — signály na HA/HomeKit jdou každý snímek přes stávající mapování barev.';
 
   @override
   String smartFixturesTitle(Object count) {

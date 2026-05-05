@@ -152,6 +152,8 @@ class AmbilightAppController extends ChangeNotifier {
   /// Krátká ochrana při startu — dříve ~61 ticků (~2 s černého výstupu / náhledu).
   static const int _startupBlackoutTicks = 6;
   bool _enabled = true;
+  /// `true` po [`prepareQuitShutdownAsync`] / handoffu — zabrání dvojímu `0xF0` v [dispose].
+  bool _quitHandoffSent = false;
   final ScreenPipelineRuntime _screenPipeline = ScreenPipelineRuntime();
   final LightRgbSmoothingRuntime _lightRgbSmoothing = LightRgbSmoothingRuntime();
   ScreenPipelineIsolateBridge? _screenPipelineIsolate;
@@ -1036,9 +1038,8 @@ class AmbilightAppController extends ChangeNotifier {
     _enabled = v;
     if (!v) {
       _clearTransientLedOutputs();
-      if (wasEnabled) {
-        _releasePcHandoffToHomeAssistantSync();
-      }
+    } else if (!wasEnabled) {
+      unawaited(_smartLights.ensureHaMirroringBaselines(_config));
     }
     _restartPcHealthTimer();
     notifyListeners();
@@ -1050,12 +1051,26 @@ class AmbilightAppController extends ChangeNotifier {
     _enabled = !_enabled;
     if (!_enabled) {
       _clearTransientLedOutputs();
-      if (wasEnabled) {
-        _releasePcHandoffToHomeAssistantSync();
-      }
+    } else if (!wasEnabled) {
+      unawaited(_smartLights.ensureHaMirroringBaselines(_config));
     }
     _restartPcHealthTimer();
     notifyListeners();
+  }
+
+  /// Před ukončením procesu (tray „Ukončit“): obnova HA stavu + `0xF0`. Nevolat při pouhém vypnutí výstupu.
+  Future<void> prepareQuitShutdownAsync() async {
+    try {
+      await _smartLights.restoreHaMirroringBaselines(_config);
+    } catch (e, st) {
+      if (kDebugMode) {
+        _log.fine('prepareQuitShutdownAsync: $e', e, st);
+      }
+    }
+    if (!_quitHandoffSent) {
+      _releasePcHandoffToHomeAssistantSync();
+      _quitHandoffSent = true;
+    }
   }
 
   /// Jednosměrný signál do lampy (`0xF0`): PC už neřídí pásek — MQTT / Home Assistant může převzít.
@@ -2008,6 +2023,9 @@ class AmbilightAppController extends ChangeNotifier {
 
   void startLoop() {
     unawaited(_musicAudio.syncWithConfig(_config));
+    if (_enabled) {
+      unawaited(_smartLights.ensureHaMirroringBaselines(_config));
+    }
     _loopPeriodMs = null;
     _ensureMainLoopTimer();
   }
@@ -2186,20 +2204,7 @@ class AmbilightAppController extends ChangeNotifier {
     final skipAllSends = homeKitHold && !allowOverrideSends;
 
     if (!_enabled) {
-      // Po vypnutí výstupu posíláme jen `0xF0` (viz [setEnabled]) — neposílat blackout přes USB/UDP,
-      // aby lampa nepřepínala zpět do „PC režimu“ a mohla držet MQTT / Home Assistant.
-      try {
-        _invokeSmartLightsOnFrame(
-          perDevice: AmbilightEngine.blackoutPerDevice(_config),
-          brightnessScalar: 0,
-          appEnabled: false,
-          smartLightsFrame: _screenFrameLatest,
-        );
-      } catch (e, st) {
-        if (kDebugMode) {
-          _log.fine('smartLights while disabled: $e', e, st);
-        }
-      }
+      // Výstup vypnutý z UI — bez `0xF0` (handoff jen při ukončení aplikace) a bez přepisu HA/HomeKit.
       _advanceTickPhase();
       return;
     }
@@ -2693,6 +2698,8 @@ class AmbilightAppController extends ChangeNotifier {
         frame: smartLightsFrame ?? _screenFrameLatest,
         appEnabled: appEnabled,
         animationTick: _animationTick,
+        musicSnapshot:
+            _config.globalSettings.startMode == 'music' ? _musicAudio.currentSnapshot : null,
       );
     } catch (e, st) {
       if (kDebugMode) {
@@ -2845,6 +2852,8 @@ class AmbilightAppController extends ChangeNotifier {
         frame: smartLightsFrame,
         appEnabled: smartLightsAppEnabled,
         animationTick: _animationTick,
+        musicSnapshot:
+            _config.globalSettings.startMode == 'music' ? _musicAudio.currentSnapshot : null,
       );
     } catch (e, st) {
       if (kDebugMode) {
@@ -2856,7 +2865,10 @@ class AmbilightAppController extends ChangeNotifier {
   @override
   void dispose() {
     try {
-      _releasePcHandoffToHomeAssistantSync();
+      if (!_quitHandoffSent) {
+        _releasePcHandoffToHomeAssistantSync();
+        _quitHandoffSent = true;
+      }
       _controllerDisposed = true;
       _invalidateWindowsPullCaptureExtrasCache();
       _distributeFlushScheduled = false;

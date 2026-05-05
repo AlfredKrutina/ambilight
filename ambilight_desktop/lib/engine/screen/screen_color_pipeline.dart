@@ -1070,6 +1070,35 @@ abstract final class ScreenColorPipeline {
     return out;
   }
 
+  /// Živý náhled pro UI: RGB podél hrany ve stejném pořadí jako [sampleRoiColors]
+  /// (po [applyTransforms]). Index `0` je **začátek hrany v ROI** — u horní/spodní hrany
+  /// zleva doprava, u levé/pravé shora dolů. Prázdné, pokud snímek nebo monitor segmentu nesedí.
+  static List<(int, int, int)> segmentSpatialRgbPreview({
+    required LedSegment seg,
+    required ScreenModeSettings sm,
+    required ScreenFrame frame,
+  }) {
+    if (!frame.isValid || !segmentMatchesCaptureFrame(seg, frame)) {
+      return const [];
+    }
+    final roi = segmentRoiInFrameBuffer(seg, sm, frame);
+    final cnt = (seg.ledEnd - seg.ledStart).abs() + 1;
+    if (cnt <= 0 || roi.isEmpty) {
+      return const [];
+    }
+    final strip = Uint8List(cnt * 3);
+    sampleRoiColors(frame, roi, seg.edge, cnt, strip, colorSampling: sm.colorSampling);
+    final out = <(int, int, int)>[];
+    for (var i = 0; i < cnt; i++) {
+      var r = strip[i * 3];
+      var g = strip[i * 3 + 1];
+      var b = strip[i * 3 + 2];
+      final rgb = applyTransforms(r, g, b, sm);
+      out.add((rgb.$1, rgb.$2, rgb.$3));
+    }
+    return out;
+  }
+
   /// Jako Python `_process_screen_mode`: mapa capture → buffery podle `device_id` v segmentu.
   static Map<String, List<(int, int, int)>> mergeCaptureToDeviceBuffers(
     AppConfig config,

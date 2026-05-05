@@ -1,4 +1,5 @@
 import 'package:ambilight_desktop/core/models/smart_lights_models.dart';
+import 'package:ambilight_desktop/features/smart_lights/smart_lights_music_timing.dart';
 import 'package:ambilight_desktop/features/smart_lights/virtual_room_effects.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -86,6 +87,26 @@ void main() {
     final ranks = VirtualRoomEffects.chaseRanks(room: room, fixtures: fixtures);
     expect(ranks['a'], 0);
     expect(ranks['z'], 1);
+  });
+
+  test('breath phase responds to music timing', () {
+    const room = VirtualRoomLayout(
+      roomEffect: SmartRoomEffectKind.breath,
+      waveSpeed: 0.1,
+      waveStrength: 1.0,
+    );
+    const fx = SmartFixture(id: 'x', displayName: 'X');
+    const base = (180, 180, 180);
+    const tick = 40;
+    final silent = VirtualRoomEffects.apply(room: room, fixture: fx, base: base, animationTick: tick);
+    final withBeat = VirtualRoomEffects.apply(
+      room: room,
+      fixture: fx,
+      base: base,
+      animationTick: tick,
+      musicTiming: const SmartLightsMusicTiming(active: true, beatEnvelope: 0.9, beatEdge: false),
+    );
+    expect(withBeat.r, isNot(equals(silent.r)));
   });
 
   test('brightnessOnly leaves rgb unchanged', () {

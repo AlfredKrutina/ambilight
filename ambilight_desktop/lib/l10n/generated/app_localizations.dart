@@ -1791,6 +1791,18 @@ abstract class AppLocalizations {
   /// **'Sampling region (approximation)'**
   String get segGeomWizardPreviewCaption;
 
+  /// No description provided for @segGeomWizardGradientSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Live gradient matches colors sent along this edge (screen left→right on top/bottom; top→bottom on left/right). Align it with your strip using Reverse or edge rotation.'**
+  String get segGeomWizardGradientSubtitle;
+
+  /// No description provided for @segGeomWizardGradientUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No live preview — check segment monitor index, turn output on, and use Screen mode so captures reach this dialog.'**
+  String get segGeomWizardGradientUnavailable;
+
   /// No description provided for @segGeomWizardPreviewLive.
   ///
   /// In en, this message translates to:
@@ -6523,7 +6535,7 @@ abstract class AppLocalizations {
   /// No description provided for @smartVirtualRoomIntro.
   ///
   /// In en, this message translates to:
-  /// **'Place the TV, yourself and lights on the plan. The cone shows viewing direction (relative to the TV axis). Wave modulates brightness by distance from TV and time; HA/HomeKit still receive mapped colors each frame.'**
+  /// **'Place the TV, yourself and lights on the plan. The cone starts at your icon (semi-transparent overlay) and shows viewing direction toward the TV plus the angle slider. Effects modulate brightness using this layout; HA/HomeKit still receive mapped colors each frame.'**
   String get smartVirtualRoomIntro;
 
   /// No description provided for @smartFixturesTitle.

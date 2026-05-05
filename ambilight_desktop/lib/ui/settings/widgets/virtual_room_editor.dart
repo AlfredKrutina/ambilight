@@ -113,15 +113,6 @@ class _VirtualRoomEditorState extends State<VirtualRoomEditor> with SingleTicker
                             ),
                           ),
                         ),
-                        Positioned.fill(
-                          child: CustomPaint(
-                            painter: _SightPainter(
-                              vr: vr,
-                              fillColor: scheme.primary.withValues(alpha: 0.14),
-                              strokeColor: scheme.primary.withValues(alpha: 0.55),
-                            ),
-                          ),
-                        ),
                         _tvMarker(vr, size, scheme, loc),
                         ..._fixtureMarkers(
                           size,
@@ -131,6 +122,24 @@ class _VirtualRoomEditorState extends State<VirtualRoomEditor> with SingleTicker
                           chaseRanks,
                         ),
                         _userMarker(vr, size, scheme, loc),
+                        // Kužel nad ikonami — vizuálně navázaný na uživatele; dotyky musí projít na TV / žárovky / osobu.
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          width: size.width,
+                          height: size.height,
+                          child: IgnorePointer(
+                            child: CustomPaint(
+                              size: size,
+                              painter: _SightPainter(
+                                layoutSize: size,
+                                vr: vr,
+                                fillColor: scheme.primary.withValues(alpha: 0.14),
+                                strokeColor: scheme.primary.withValues(alpha: 0.55),
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   );
@@ -401,11 +410,14 @@ class _RoomGridPainter extends CustomPainter {
 
 class _SightPainter extends CustomPainter {
   _SightPainter({
+    required this.layoutSize,
     required this.vr,
     required this.fillColor,
     required this.strokeColor,
   });
 
+  /// Rozměry z LayoutBuilder — stejné jako Stack; nepřepoléhat na [size] z callbacku při výjimkách layoutu.
+  final Size layoutSize;
   final VirtualRoomLayout vr;
   final Color fillColor;
   final Color strokeColor;
@@ -414,16 +426,18 @@ class _SightPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final userCx = vr.userX * size.width;
-    final userCy = vr.userY * size.height;
+    final w = layoutSize.width;
+    final h = layoutSize.height;
+    final userCx = vr.userX * w;
+    final userCy = vr.userY * h;
     final ux = userCx;
     final uy = userCy - _userAvatarRadiusPx * 0.72;
-    final tx = vr.tvX * size.width;
-    final ty = vr.tvY * size.height;
+    final tx = vr.tvX * w;
+    final ty = vr.tvY * h;
     final base = math.atan2(ty - uy, tx - ux);
     final dir = base + vr.userFacingDeg * math.pi / 180;
     final spread = 0.38;
-    final reach = math.min(size.width, size.height) * 0.42;
+    final reach = math.min(w, h) * 0.42;
     final path = Path()..moveTo(ux, uy);
     path.lineTo(ux + reach * math.cos(dir - spread), uy + reach * math.sin(dir - spread));
     path.lineTo(ux + reach * math.cos(dir + spread), uy + reach * math.sin(dir + spread));
@@ -446,6 +460,7 @@ class _SightPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _SightPainter o) {
     if (o.fillColor != fillColor || o.strokeColor != strokeColor) return true;
+    if (o.layoutSize != layoutSize) return true;
     final a = o.vr;
     return a.tvX != vr.tvX ||
         a.tvY != vr.tvY ||

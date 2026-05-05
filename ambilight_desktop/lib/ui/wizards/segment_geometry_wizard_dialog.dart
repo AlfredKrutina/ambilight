@@ -227,6 +227,15 @@ class _SegmentGeometryWizardDialogState extends State<SegmentGeometryWizardDialo
                     final (monW, monH, live) = _previewLayoutDims(ctrl, s);
                     final sm = ctrl.config.screenMode;
                     final roi = ScreenColorPipeline.segmentRoi(s, sm, monW, monH);
+                    final fr = ctrl.latestScreenFrame;
+                    final spatialRgb = (fr != null && fr.isValid)
+                        ? ScreenColorPipeline.segmentSpatialRgbPreview(seg: s, sm: sm, frame: fr)
+                        : const <(int, int, int)>[];
+                    final gradientColors = spatialRgb.isEmpty
+                        ? null
+                        : spatialRgb
+                            .map((t) => Color.fromARGB(255, t.$1, t.$2, t.$3))
+                            .toList(growable: false);
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -240,13 +249,21 @@ class _SegmentGeometryWizardDialogState extends State<SegmentGeometryWizardDialo
                           l10n.segGeomWizardPreviewCaption,
                           style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                         ),
+                        const SizedBox(height: 4),
+                        Text(
+                          l10n.segGeomWizardGradientSubtitle,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
                         const SizedBox(height: 8),
                         _SegmentMonitorPreview(
                           roi: roi,
                           monW: monW,
                           monH: monH,
+                          edge: s.edge,
                           edgeLabel: _edgeLabel(l10n, s.edge),
+                          spatialGradient: gradientColors,
                           colorScheme: scheme,
+                          noGradientHint: spatialRgb.isEmpty ? l10n.segGeomWizardGradientUnavailable : null,
                         ),
                         const SizedBox(height: 16),
                         Row(
@@ -412,15 +429,57 @@ class _SegmentMonitorPreview extends StatelessWidget {
     required this.roi,
     required this.monW,
     required this.monH,
+    required this.edge,
     required this.edgeLabel,
+    required this.spatialGradient,
     required this.colorScheme,
+    this.noGradientHint,
   });
 
   final SegmentRoiRect roi;
   final int monW;
   final int monH;
+  final String edge;
   final String edgeLabel;
+  final List<Color>? spatialGradient;
   final ColorScheme colorScheme;
+  final String? noGradientHint;
+
+  (Alignment, Alignment) _gradientAlignments() {
+    switch (edge) {
+      case 'left':
+      case 'right':
+        return (Alignment.topCenter, Alignment.bottomCenter);
+      case 'top':
+      case 'bottom':
+      default:
+        return (Alignment.centerLeft, Alignment.centerRight);
+    }
+  }
+
+  BoxDecoration _roiFillDecoration() {
+    final g = spatialGradient;
+    if (g != null && g.length >= 2) {
+      final al = _gradientAlignments();
+      return BoxDecoration(
+        gradient: LinearGradient(begin: al.$1, end: al.$2, colors: g),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.85), width: 2),
+        borderRadius: BorderRadius.circular(4),
+      );
+    }
+    if (g != null && g.length == 1) {
+      return BoxDecoration(
+        color: g.single,
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.9), width: 2),
+        borderRadius: BorderRadius.circular(4),
+      );
+    }
+    return BoxDecoration(
+      color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.65),
+      border: Border.all(color: colorScheme.primary.withValues(alpha: 0.55), width: 2),
+      borderRadius: BorderRadius.circular(4),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -468,12 +527,38 @@ class _SegmentMonitorPreview extends StatelessWidget {
                     top: ny * h,
                     width: nw * w,
                     height: nh * h,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: colorScheme.primary.withValues(alpha: 0.38),
-                        border: Border.all(color: colorScheme.primary, width: 2),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
+                    child: Builder(
+                      builder: (context) {
+                        final grad = spatialGradient;
+                        return Stack(
+                          fit: StackFit.expand,
+                          clipBehavior: Clip.hardEdge,
+                          children: [
+                            DecoratedBox(decoration: _roiFillDecoration()),
+                            if (grad != null && grad.length >= 8)
+                              CustomPaint(
+                                painter: _LedTickPainter(
+                                  count: grad.length,
+                                  edge: edge,
+                                  lineColor: colorScheme.onSurface.withValues(alpha: 0.22),
+                                ),
+                              ),
+                            if (noGradientHint != null)
+                              Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: Text(
+                                    noGradientHint!,
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                          color: colorScheme.onSurface.withValues(alpha: 0.75),
+                                        ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                   Positioned(
@@ -494,5 +579,45 @@ class _SegmentMonitorPreview extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+/// Jemné oddělení „LED“ ve výraznějším gradientu (volitelná vizuální vodítka).
+class _LedTickPainter extends CustomPainter {
+  _LedTickPainter({required this.count, required this.edge, required this.lineColor});
+
+  final int count;
+  final String edge;
+  final Color lineColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (count < 2) return;
+    final p = Paint()
+      ..color = lineColor
+      ..strokeWidth = 1;
+    final n = count - 1;
+    switch (edge) {
+      case 'left':
+      case 'right':
+        for (var i = 1; i < n; i++) {
+          final y = size.height * i / n;
+          canvas.drawLine(Offset(0, y), Offset(size.width, y), p);
+        }
+        break;
+      case 'top':
+      case 'bottom':
+      default:
+        for (var i = 1; i < n; i++) {
+          final x = size.width * i / n;
+          canvas.drawLine(Offset(x, 0), Offset(x, size.height), p);
+        }
+        break;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LedTickPainter oldDelegate) {
+    return oldDelegate.count != count || oldDelegate.edge != edge || oldDelegate.lineColor != lineColor;
   }
 }

@@ -23,3 +23,12 @@
 | `brightness_only` | beze změny | × m |
 
 HA služba zůstává `light.turn_on` s `rgb_color` a `brightness_pct` ([`HaApiClient`](ambilight_desktop/lib/features/smart_lights/ha_api_client.dart)).
+
+### Hudba (režim Music)
+
+Při `start_mode == music` a zapnuté **detekci beatu** v nastavení hudby (`beat_detection_enabled`) [`SmartLightCoordinator`](ambilight_desktop/lib/features/smart_lights/smart_light_coordinator.dart) předává [`SmartLightsMusicTiming`](ambilight_desktop/lib/features/smart_lights/smart_lights_music_timing.dart) do [`VirtualRoomEffects`](ambilight_desktop/lib/features/smart_lights/virtual_room_effects.dart):
+
+- **Breath / Chase / Wave / Sparkle** — fáze se posouvá podle složeného beatu (náraz + envelope mezi beaty), aby modulace seděla na rytmus.
+- **Throttle na HA** — při beat edge nebo vyšším envelope se zkracuje minimální interval mezi požadavky na fixture (rychlejší aktualizace v „živých“ okamžicích).
+
+Režim **None** beat nevyužívá; při vypnuté detekci beatu je chování jako dřív (jen `animationTick`).

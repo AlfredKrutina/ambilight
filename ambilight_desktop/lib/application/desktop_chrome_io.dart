@@ -101,12 +101,15 @@ Future<void> _openSettings(AmbilightAppController c) async {
 }
 
 Future<void> _quitApp() async {
+  AmbilightAppController? ctrl;
   try {
-    final c = _controller;
-    if (c != null) {
-      await c.flushPersistToDisk();
+    ctrl = _controller;
+    if (ctrl != null) {
+      await ctrl.prepareQuitShutdownAsync();
+      await ctrl.flushPersistToDisk();
     }
     await disposeDesktopShell();
+    ctrl?.dispose();
   } catch (e, st) {
     _log.warning('_quitApp disposeDesktopShell: $e', e, st);
   }

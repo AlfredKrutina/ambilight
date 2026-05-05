@@ -990,6 +990,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get segGeomWizardPreviewCaption => 'Sampling region (approximation)';
 
   @override
+  String get segGeomWizardGradientSubtitle =>
+      'Live gradient matches colors sent along this edge (screen left→right on top/bottom; top→bottom on left/right). Align it with your strip using Reverse or edge rotation.';
+
+  @override
+  String get segGeomWizardGradientUnavailable =>
+      'No live preview — check segment monitor index, turn output on, and use Screen mode so captures reach this dialog.';
+
+  @override
   String get segGeomWizardPreviewLive => 'Preview uses live capture dimensions';
 
   @override
@@ -3757,7 +3765,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get smartVirtualRoomIntro =>
-      'Place the TV, yourself and lights on the plan. The cone shows viewing direction (relative to the TV axis). Wave modulates brightness by distance from TV and time; HA/HomeKit still receive mapped colors each frame.';
+      'Place the TV, yourself and lights on the plan. The cone starts at your icon (semi-transparent overlay) and shows viewing direction toward the TV plus the angle slider. Effects modulate brightness using this layout; HA/HomeKit still receive mapped colors each frame.';
 
   @override
   String smartFixturesTitle(Object count) {
