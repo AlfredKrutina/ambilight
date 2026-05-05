@@ -43,6 +43,11 @@ jobs:
             libx11-dev libxrandr-dev \
             libpulse-dev
 
+      # Pod libserialport (flutter_libserialport) spouští autogen.sh — na čistém macOS runneru chybí automake/libtool.
+      - name: Install macOS CocoaPods / libserialport build deps
+        if: runner.os == 'macOS'
+        run: brew install automake libtool
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable

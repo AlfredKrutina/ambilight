@@ -53,6 +53,7 @@ flutter run -d macos
 
 ## macOS
 
+- **CocoaPods / `flutter_libserialport`:** pod `libserialport` při `pod install` spouští `autogen.sh` a potřebuje **Homebrew** `automake` a `libtool` (`brew install automake libtool`). V GitHub Actions to dělají workflow; lokálně po chybě „Please run `brew install automake libtool`“ je nainstaluj.
 - **Okno / tray:** `window_manager` + `tray_manager`. Aplikace **nekončí** po zavření okna (běží v trayi); ukončení jen přes **Ukončit** v menu traye.
 - **Snímání obrazovky:** v **Nastavení → Obrazovka** je karta s nativní diagnostikou a tlačítkem **macOS: žádost o snímání obrazovky** (TCC). V `Info.plist` je `NSScreenCaptureUsageDescription`.
 - **Mikrofon (hudba):** `NSMicrophoneUsageDescription` v `Info.plist`; v entitlements je `com.apple.security.device.audio-input` (sandbox).
