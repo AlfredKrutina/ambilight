@@ -36,6 +36,12 @@ String normalizeAmbilightUiTheme(String raw) {
   return 'dark_blue';
 }
 
+/// Jednoduché UI skryje pokročilé prvky (gamma, rozšířené snímání obrazovky, …).
+String normalizeAmbilightUiControlLevel(String raw) {
+  final t = raw.trim().toLowerCase();
+  return t == 'simple' ? 'simple' : 'advanced';
+}
+
 /// UI jazyk: [`system`] podle OS, nebo vynucená [`en`] / [`cs`].
 /// Povolené hodnoty Hz hlavní smyčky mimo [GlobalSettings.performanceMode].
 const kAmbilightScreenRefreshRatesHz = <int>[60, 120, 240];
@@ -44,6 +50,13 @@ int normalizeAmbilightScreenRefreshRateHz(num? raw) {
   final v = raw == null ? 60 : raw.round();
   if (kAmbilightScreenRefreshRatesHz.contains(v)) return v;
   return 60;
+}
+
+/// Perioda hlavní smyčky ve výkonovém režimu při snímání obrazovky (Screen / Music+monitor), ms.
+/// Nižší hodnota = vyšší FPS na pásek a vyšší zátěž CPU.
+int normalizeAmbilightPerformanceScreenLoopPeriodMs(num? raw) {
+  final v = raw == null ? 40 : raw.round();
+  return v.clamp(16, 40);
 }
 
 /// Windows: `gdi` (CPU BitBlt), `dxgi` (GPU Desktop Duplication). Ostatní OS ignorují.
@@ -168,11 +181,15 @@ class GlobalSettings {
     this.performanceMode = false,
     /// Hlavní smyčka (snímání / výstup) mimo výkonový režim — jen [kAmbilightScreenRefreshRatesHz].
     this.screenRefreshRateHz = 60,
+    /// Ve výkonovém režimu při snímání monitoru: perioda hlavní smyčky v ms (výchozí 40 ≈ 25 Hz).
+    this.performanceScreenLoopPeriodMs = 40,
     this.firmwareManifestUrl = kAmbilightFirmwareManifestUrl,
     /// Zda už uživatel dokončil úvodní průvodce. Chybějící klíč v JSON = považovat za dokončeno (legacy konfigurace).
     this.onboardingCompleted = false,
     /// [`system`] = podle systému, jinak vynucený kód jazyka (viz [normalizeAmbilightUiLanguage]).
     this.uiLanguage = 'system',
+    /// [`simple`] nebo [`advanced`] — viz [normalizeAmbilightUiControlLevel].
+    this.uiControlLevel = 'advanced',
   });
 
   final String serialPort;
@@ -188,13 +205,17 @@ class GlobalSettings {
   final bool uiAnimationsEnabled;
   /// Nižší frekvence smyčky, řidší snímání obrazovky a pozadí — bez vypínání UI animací.
   final bool performanceMode;
-  /// Při vypnutém [performanceMode]: frekvence hlavní smyčky (snímání / LED). Ve výkonovém režimu je fixně 25 FPS při snímání monitoru.
+  /// Při vypnutém [performanceMode]: frekvence hlavní smyčky (snímání / LED).
+  /// Ve výkonovém režimu při snímání monitoru použij [performanceScreenLoopPeriodMs].
   final int screenRefreshRateHz;
+  final int performanceScreenLoopPeriodMs;
   /// URL základ (`…/firmware/latest/`) nebo přímo `manifest.json`. Prázdné uložené pole → při načtení/Uložení [kAmbilightFirmwareManifestUrl].
   final String firmwareManifestUrl;
   final bool onboardingCompleted;
   /// `system` | `en` | `cs`
   final String uiLanguage;
+  /// `simple` | `advanced`
+  final String uiControlLevel;
 
   GlobalSettings copyWith({
     String? serialPort,
@@ -209,9 +230,11 @@ class GlobalSettings {
     bool? uiAnimationsEnabled,
     bool? performanceMode,
     int? screenRefreshRateHz,
+    int? performanceScreenLoopPeriodMs,
     String? firmwareManifestUrl,
     bool? onboardingCompleted,
     String? uiLanguage,
+    String? uiControlLevel,
   }) {
     return GlobalSettings(
       serialPort: serialPort ?? this.serialPort,
@@ -228,11 +251,17 @@ class GlobalSettings {
       screenRefreshRateHz: screenRefreshRateHz != null
           ? normalizeAmbilightScreenRefreshRateHz(screenRefreshRateHz)
           : this.screenRefreshRateHz,
+      performanceScreenLoopPeriodMs: performanceScreenLoopPeriodMs != null
+          ? normalizeAmbilightPerformanceScreenLoopPeriodMs(performanceScreenLoopPeriodMs)
+          : this.performanceScreenLoopPeriodMs,
       firmwareManifestUrl: firmwareManifestUrl == null
           ? this.firmwareManifestUrl
           : effectiveFirmwareManifestUrl(firmwareManifestUrl),
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       uiLanguage: uiLanguage != null ? normalizeAmbilightUiLanguage(uiLanguage) : this.uiLanguage,
+      uiControlLevel: uiControlLevel != null
+          ? normalizeAmbilightUiControlLevel(uiControlLevel)
+          : this.uiControlLevel,
     );
   }
 
@@ -249,9 +278,11 @@ class GlobalSettings {
         'ui_animations_enabled': uiAnimationsEnabled,
         'performance_mode': performanceMode,
         'screen_refresh_rate_hz': screenRefreshRateHz,
+        'performance_screen_loop_period_ms': performanceScreenLoopPeriodMs,
         'firmware_manifest_url': firmwareManifestUrl,
         'onboarding_completed': onboardingCompleted,
         'ui_language': uiLanguage,
+        'ui_control_level': uiControlLevel,
       };
 
   factory GlobalSettings.fromJson(Map<String, dynamic> j) {
@@ -287,11 +318,17 @@ class GlobalSettings {
       screenRefreshRateHz: normalizeAmbilightScreenRefreshRateHz(
         asInt(j['screen_refresh_rate_hz'], 60),
       ),
+      performanceScreenLoopPeriodMs: normalizeAmbilightPerformanceScreenLoopPeriodMs(
+        asInt(j['performance_screen_loop_period_ms'], 40),
+      ),
       firmwareManifestUrl: effectiveFirmwareManifestUrl(
         asString(j['firmware_manifest_url'], ''),
       ),
       onboardingCompleted: asBool(j['onboarding_completed'], true),
       uiLanguage: normalizeAmbilightUiLanguage(asString(j['ui_language'], 'system')),
+      uiControlLevel: normalizeAmbilightUiControlLevel(
+        asString(j['ui_control_level'], 'advanced'),
+      ),
     );
   }
 }
@@ -369,6 +406,7 @@ class LightModeSettings {
     this.extra = 50,
     this.customZones = const [],
     this.homekitEnabled = false,
+    this.smoothingMs = 0,
   });
 
   final List<int> color;
@@ -378,6 +416,8 @@ class LightModeSettings {
   final int extra;
   final List<CustomZone> customZones;
   final bool homekitEnabled;
+  /// 0 = okamžitě (výchozí); kladná hodnota = EMA mezi snímky jako PyQt `AppState.interpolate_colors`.
+  final int smoothingMs;
 
   Map<String, dynamic> toJson() => {
         'color': color,
@@ -387,6 +427,7 @@ class LightModeSettings {
         'extra': extra,
         'custom_zones': customZones.map((e) => e.toJson()).toList(),
         'homekit_enabled': homekitEnabled,
+        'smoothing_ms': smoothingMs,
       };
 
   factory LightModeSettings.fromJson(Map<String, dynamic> j) {
@@ -406,6 +447,7 @@ class LightModeSettings {
       extra: asInt(j['extra'], 50),
       customZones: asMapList(j['custom_zones']).map(CustomZone.fromJson).toList(),
       homekitEnabled: asBool(j['homekit_enabled'], false),
+      smoothingMs: asInt(j['smoothing_ms'], 0),
     );
   }
 
@@ -417,6 +459,7 @@ class LightModeSettings {
     int? extra,
     List<CustomZone>? customZones,
     bool? homekitEnabled,
+    int? smoothingMs,
   }) {
     return LightModeSettings(
       color: color ?? this.color,
@@ -426,6 +469,7 @@ class LightModeSettings {
       extra: extra ?? this.extra,
       customZones: customZones ?? this.customZones,
       homekitEnabled: homekitEnabled ?? this.homekitEnabled,
+      smoothingMs: smoothingMs ?? this.smoothingMs,
     );
   }
 }
@@ -560,6 +604,8 @@ class ScreenModeSettings {
     this.segments = const [],
     /// Jen Windows — viz [normalizeWindowsScreenCaptureBackend].
     this.windowsCaptureBackend = 'dxgi',
+    /// `median` | `average` — jako PyQt `screen_mode.color_sampling` (ROI na LED → medián / průměr pixelů).
+    this.colorSampling = 'median',
   });
 
   final int monitorIndex;
@@ -589,6 +635,8 @@ class ScreenModeSettings {
   final List<LedSegment> segments;
   /// Windows: `gdi` | `dxgi`.
   final String windowsCaptureBackend;
+  /// `median` nebo `average` (JSON `color_sampling`).
+  final String colorSampling;
 
   Map<String, dynamic> toJson() => {
         'monitor_index': monitorIndex,
@@ -617,6 +665,7 @@ class ScreenModeSettings {
         'scan_depth_right': scanDepthRight,
         'segments': segments.map((e) => e.toJson()).toList(),
         'windows_capture_backend': windowsCaptureBackend,
+        'color_sampling': colorSampling,
       };
 
   factory ScreenModeSettings.fromJson(Map<String, dynamic> j) {
@@ -662,6 +711,7 @@ class ScreenModeSettings {
       segments: segList,
       windowsCaptureBackend:
           normalizeWindowsScreenCaptureBackend(asString(j['windows_capture_backend'], 'dxgi')),
+      colorSampling: asString(j['color_sampling'], 'median'),
     );
   }
 
@@ -692,6 +742,7 @@ class ScreenModeSettings {
         scanDepthRight: scanDepthRight,
         segments: segments,
         windowsCaptureBackend: windowsCaptureBackend,
+        colorSampling: colorSampling,
       );
 
   /// Python `calib_auto`: vymaže uložené kalibrační body.
@@ -722,6 +773,7 @@ class ScreenModeSettings {
         scanDepthRight: scanDepthRight,
         segments: segments,
         windowsCaptureBackend: windowsCaptureBackend,
+        colorSampling: colorSampling,
       );
 
   /// Tray / rychlé presety — mění jen vybrané parametry obrazovky.
@@ -759,6 +811,7 @@ class ScreenModeSettings {
         scanDepthRight: scanDepthRight,
         segments: segments,
         windowsCaptureBackend: windowsCaptureBackend,
+        colorSampling: colorSampling,
       );
 
   ScreenModeSettings copyWith({
@@ -788,6 +841,7 @@ class ScreenModeSettings {
     int? scanDepthRight,
     List<LedSegment>? segments,
     String? windowsCaptureBackend,
+    String? colorSampling,
   }) =>
       ScreenModeSettings(
         monitorIndex: monitorIndex ?? this.monitorIndex,
@@ -818,10 +872,27 @@ class ScreenModeSettings {
         windowsCaptureBackend: windowsCaptureBackend != null
             ? normalizeWindowsScreenCaptureBackend(windowsCaptureBackend)
             : this.windowsCaptureBackend,
+        colorSampling: colorSampling ?? this.colorSampling,
       );
 }
 
 /// --- Music ---
+
+/// PyQt `color_source: genre` a aliasy → Flutter `spectrum`; pouze `fixed` | `spectrum` | `monitor` jsou platné výstupy.
+String normalizeMusicColorSource(String raw) {
+  final t = raw.trim().toLowerCase();
+  switch (t) {
+    case 'fixed':
+    case 'spectrum':
+    case 'monitor':
+      return t;
+    case 'genre':
+    case 'spectral':
+      return 'spectrum';
+    default:
+      return 'fixed';
+  }
+}
 
 class MusicModeSettings {
   const MusicModeSettings({
@@ -885,7 +956,7 @@ class MusicModeSettings {
   Map<String, dynamic> toJson() => {
         'audio_device_index': audioDeviceIndex,
         'mic_enabled': micEnabled,
-        'color_source': colorSource,
+        'color_source': normalizeMusicColorSource(colorSource),
         'fixed_color': fixedColor,
         'brightness': brightness,
         'beat_detection_enabled': beatDetectionEnabled,
@@ -920,7 +991,7 @@ class MusicModeSettings {
     var m = MusicModeSettings(
       audioDeviceIndex: j['audio_device_index'] == null ? null : asInt(j['audio_device_index']),
       micEnabled: asBool(j['mic_enabled'], false),
-      colorSource: asString(j['color_source'], 'fixed'),
+      colorSource: normalizeMusicColorSource(asString(j['color_source'], 'fixed')),
       fixedColor: asRgb(j['fixed_color'], const [255, 0, 255]),
       brightness: asInt(j['brightness'], 200),
       beatDetectionEnabled: asBool(j['beat_detection_enabled'], true),
@@ -1112,7 +1183,7 @@ class MusicModeSettings {
       MusicModeSettings(
         audioDeviceIndex: clearAudioDeviceIndex ? null : (audioDeviceIndex ?? this.audioDeviceIndex),
         micEnabled: micEnabled ?? this.micEnabled,
-        colorSource: colorSource ?? this.colorSource,
+        colorSource: colorSource != null ? normalizeMusicColorSource(colorSource) : this.colorSource,
         fixedColor: fixedColor ?? this.fixedColor,
         brightness: brightness ?? this.brightness,
         beatDetectionEnabled: beatDetectionEnabled ?? this.beatDetectionEnabled,

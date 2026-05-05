@@ -135,7 +135,7 @@ class _DiscoveryWizardDialogState extends State<DiscoveryWizardDialog> {
             )
           else if (_found.isEmpty)
             Text(
-              'Žádná zařízení. Zkontroluj síť a FW.',
+              l10n.discEmptyAfterScan,
               style: Theme.of(context).textTheme.bodyLarge,
             )
           else
@@ -144,7 +144,7 @@ class _DiscoveryWizardDialogState extends State<DiscoveryWizardDialog> {
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
                   title: Text(d.name),
-                  subtitle: Text('${d.ip} · LED ${d.ledCount} · FW ${d.version}'),
+                  subtitle: Text(l10n.discListItemSubtitle(d.ip, d.ledCount, d.version)),
                   isThreeLine: true,
                   trailing: Wrap(
                     spacing: 4,

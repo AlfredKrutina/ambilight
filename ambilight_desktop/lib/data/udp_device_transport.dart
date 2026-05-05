@@ -18,15 +18,28 @@ final _log = Logger('UdpTransport');
 /// I při stejném hash pošli znovu, aby LED nestárly (plynulý pohyb při pomalé změně průměru).
 const int _kUdpDedupeMaxSkipAgeMs = 50;
 
-int _udpRgbFrameHash(List<(int r, int g, int b)> colors, int bri) {
-  var h = bri ^ (colors.length * 0x9E3779B9);
-  for (var i = 0; i < colors.length; i++) {
-    final c = colors[i];
-    h = 0x7fffffff & (h * 31 + c.$1);
-    h = 0x7fffffff & (h * 31 + c.$2);
-    h = 0x7fffffff & (h * 31 + c.$3);
+String _pipelineDiagMsOrDash(int? micros) =>
+    micros == null ? '-' : (micros / 1000).toStringAsFixed(1);
+
+int _udpRgbBytesHash(Uint8List rgb, int bri) {
+  var h = bri ^ (rgb.length * 0x9E3779B9);
+  for (var i = 0; i < rgb.length; i++) {
+    h = 0x7fffffff & (h * 31 + rgb[i]);
   }
   return h;
+}
+
+Uint8List _rgbTuplesToBytes(List<(int r, int g, int b)> colors) {
+  final n = colors.length;
+  final rgb = Uint8List(n * 3);
+  for (var i = 0; i < n; i++) {
+    final c = colors[i];
+    final o = i * 3;
+    rgb[o] = c.$1.clamp(0, 255);
+    rgb[o + 1] = c.$2.clamp(0, 255);
+    rgb[o + 2] = c.$3.clamp(0, 255);
+  }
+  return rgb;
 }
 
 class UdpDeviceTransport extends DeviceTransport {
@@ -43,8 +56,8 @@ class UdpDeviceTransport extends DeviceTransport {
 
   DateTime? _lastPartialSendLog;
 
-  /// Nejnovější rámec z [sendColors]; starší se zahazují (max 1 slot). Worker běží na pozadí.
-  ({List<(int r, int g, int b)> colors, int bri})? _rgbLatestJob;
+  /// Nejnovější rámec z [sendColors] / [sendPackedRgbBytes]; starší se zahazují (max 1 slot).
+  ({Uint8List rgb, int bri})? _rgbLatestJob;
 
   /// Právě probíhá async odesílání ([_emitFramePaced]).
   bool _rgbWorkerBusy = false;
@@ -78,7 +91,10 @@ class UdpDeviceTransport extends DeviceTransport {
 
   int get _udpPort => device.udpPort.clamp(1, 65535);
 
-  /// Trvalý socket: při neúplném `send` max. 5 pokusů s prodlevou 2 ms, pak zahodit datagram.
+  /// Trvalý socket: při neúplném `send` (Windows často vrací 0 při plném TX bufferu) opakování
+  /// s levnými yieldy — nejdřív [Duration.zero], pak 1 ms, pak 2 ms (dříve jen 5× 2 ms ≈ strop latence).
+  static const int _kSendDatagramMaxAttempts = 12;
+
   Future<bool> _sendDatagramPersistent(
     RawDatagramSocket sock,
     Uint8List pkt,
@@ -92,11 +108,17 @@ class UdpDeviceTransport extends DeviceTransport {
       last = sock.send(pkt, addr, port);
       if (last == pkt.length) return true;
       failCount++;
-      if (failCount >= 5) {
+      if (failCount >= _kSendDatagramMaxAttempts) {
         _logUdpSendFailureIfNeeded(last, pkt.length, addr, port);
         return false;
       }
-      await Future<void>.delayed(const Duration(milliseconds: 2));
+      if (failCount <= 4) {
+        await Future<void>.delayed(Duration.zero);
+      } else if (failCount <= 8) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      } else {
+        await Future<void>.delayed(const Duration(milliseconds: 2));
+      }
     }
   }
 
@@ -116,8 +138,20 @@ class UdpDeviceTransport extends DeviceTransport {
     }
   }
 
+  /// Max. ~10 s — při odpojené síti nekonečné čekání neblokuje kalibraci / pixel navždy.
+  static const int _kWaitRgbTransportIdleMaxIterations = 5000;
+
   Future<void> _waitRgbTransportIdle() async {
+    var n = 0;
     while (_rgbWorkerBusy || _rgbLatestJob != null) {
+      n++;
+      if (n > _kWaitRgbTransportIdleMaxIterations) {
+        _log.warning(
+          'UDP $_kWaitRgbTransportIdleMaxIterations×2 ms: worker stále busy nebo fronta neprázdná — '
+          'přerušuji čekání (${device.name})',
+        );
+        return;
+      }
       await Future<void>.delayed(const Duration(milliseconds: 2));
       if (!_ready) {
         return;
@@ -134,7 +168,7 @@ class UdpDeviceTransport extends DeviceTransport {
       while (_ready && _rgbLatestJob != null) {
         final job = _rgbLatestJob!;
         _rgbLatestJob = null;
-        await _emitFramePaced(job.colors, job.bri);
+        await _emitFramePacedRgb(job.rgb, job.bri);
       }
     } finally {
       _rgbWorkerBusy = false;
@@ -146,33 +180,42 @@ class UdpDeviceTransport extends DeviceTransport {
 
   /// Jeden kompletní snímek — chunky 0x06 + flush 0x08; jen persistentní socket.
   /// Mezi datagramy záměrně není `Future.delayed(1 ms)` — na Windows se mapuje na ~15,6 ms tick.
-  Future<void> _emitFramePaced(List<(int r, int g, int b)> colors, int brightnessScalar) async {
+  Future<void> _emitFramePacedRgb(Uint8List rgb, int brightnessScalar) async {
     final genEnter = _lifecycleGen;
     final sock = _socket;
     final addr = _addr;
     final emitSw = ambilightPipelineDiagnosticsEnabled ? (Stopwatch()..start()) : null;
     var diagPath = 'abort';
-    if (!_ready || sock == null || addr == null || colors.isEmpty) {
+    if (!_ready || sock == null || addr == null || rgb.isEmpty || rgb.length % 3 != 0) {
       emitSw?.stop();
       return;
     }
+    final pixelCount = rgb.length ~/ 3;
     final bri = brightnessScalar.clamp(0, 255);
-    final frameHash = _udpRgbFrameHash(colors, bri);
+    final frameHash = _udpRgbBytesHash(rgb, bri);
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final rawEmitAgeMs =
         _lastSuccessfulEmitWallMs == 0 ? _kUdpDedupeMaxSkipAgeMs + 1 : nowMs - _lastSuccessfulEmitWallMs;
     // Záporný rozdíl (úprava systémového času) → chovej se jako „staré“, ať se rámec nezasekne ve skip.
     final emitAgeMs = rawEmitAgeMs < 0 ? _kUdpDedupeMaxSkipAgeMs + 1 : rawEmitAgeMs;
-    final dedupeSkip =
-        _lastSentRgbFrameHash != null && frameHash == _lastSentRgbFrameHash && emitAgeMs <= _kUdpDedupeMaxSkipAgeMs;
+    // Rainbow test: fáze je vázaná na [seq] → mezi snímky se hash mění; mezi tiky bez nového výstupu
+    // izolátu zůstává stejný rámec — dedupe zabrání opakovanému celému 0x06+0x08 každých ~16 ms.
+    final dedupeSkip = _lastSentRgbFrameHash != null &&
+        frameHash == _lastSentRgbFrameHash &&
+        emitAgeMs <= _kUdpDedupeMaxSkipAgeMs;
     if (dedupeSkip) {
       emitSw?.stop();
       if (ambilightPipelineDiagnosticsEnabled) {
         final sinceCap = PipelineDiagCaptureTimeline.elapsedSinceCaptureMicros();
-        final sinceMs = sinceCap == null ? '-' : (sinceCap / 1000).toStringAsFixed(1);
+        final sinceSub = PipelineDiagCaptureTimeline.elapsedSinceSubmitWallMicros();
+        final sinceMs = _pipelineDiagMsOrDash(sinceCap);
+        final subMs = _pipelineDiagMsOrDash(sinceSub);
+        final staleCap = sinceCap != null && sinceCap > 500000;
         pipelineDiagLog(
           'udp_emit_skip',
-          'dev=${device.name} leds=${colors.length} hash=$frameHash sinceCaptureMs=$sinceMs emitAgeMs=$emitAgeMs',
+          'dev=${device.name} leds=$pixelCount hash=$frameHash '
+          'sinceCaptureMs=$sinceMs sinceSubmitMs=$subMs emitAgeMs=$emitAgeMs '
+          'dedupe=1${staleCap ? ' longGapSinceCapture=1' : ''}',
         );
       }
       return;
@@ -180,12 +223,12 @@ class UdpDeviceTransport extends DeviceTransport {
     final port = _udpPort;
     final cap = UdpAmbilightProtocol.maxRgbPixelsPerUdpDatagram;
     try {
-      if (colors.length <= cap) {
+      if (pixelCount <= cap) {
         diagPath = '0x02_bulk';
         if (genEnter != _lifecycleGen) {
           return;
         }
-        final pkt = UdpAmbilightProtocol.buildRgbFrame(colors, brightness: bri);
+        final pkt = UdpAmbilightProtocol.buildRgbFrameFromRgbBytes(rgb, brightness: bri);
         if (!await _sendDatagramPersistent(sock, pkt, addr, port)) {
           diagPath = 'abort_tx_blocked';
           return;
@@ -197,32 +240,34 @@ class UdpDeviceTransport extends DeviceTransport {
       if (!_loggedUdpOversize) {
         _loggedUdpOversize = true;
         _log.info(
-          'UDP ${colors.length} LED > $cap — chunky 0x06 + jeden flush 0x08 (${device.name}). '
+          'UDP $pixelCount LED > $cap — chunky 0x06 + jeden flush 0x08 (${device.name}). '
           'Vyžaduje aktuální lamp FW; kalibrace jedním pixelem stále 0x03.',
         );
       }
-      final chunkMax = UdpAmbilightProtocol.maxRgbPixelsPerUdpOpcode06Chunk;
+      final chunkMax = UdpAmbilightProtocol.udpOpcode06EmitChunkPixels;
       diagPath = '0x06_chunked';
-      var offset = 0;
-      while (offset < colors.length) {
+      var offsetPx = 0;
+      while (offsetPx < pixelCount) {
         if (genEnter != _lifecycleGen) {
           return;
         }
-        final take = colors.length - offset > chunkMax ? chunkMax : colors.length - offset;
-        final sub = colors.sublist(offset, offset + take);
-        final pkt = UdpAmbilightProtocol.buildRgbChunkOpcode06(offset, sub);
+        final takePx = pixelCount - offsetPx > chunkMax ? chunkMax : pixelCount - offsetPx;
+        final byteOffset = offsetPx * 3;
+        final byteLen = takePx * 3;
+        final sub = Uint8List.sublistView(rgb, byteOffset, byteOffset + byteLen);
+        final pkt = UdpAmbilightProtocol.buildRgbChunkOpcode06FromRgbBytes(offsetPx, sub);
         if (!await _sendDatagramPersistent(sock, pkt, addr, port)) {
           diagPath = 'abort_tx_blocked';
           return;
         }
-        offset += take;
+        offsetPx += takePx;
       }
       if (genEnter != _lifecycleGen) {
         return;
       }
       if (!await _sendDatagramPersistent(
         sock,
-        UdpAmbilightProtocol.buildFlushOpcode08(bri, colors.length),
+        UdpAmbilightProtocol.buildFlushOpcode08(bri, pixelCount),
         addr,
         port,
       )) {
@@ -244,11 +289,13 @@ class UdpDeviceTransport extends DeviceTransport {
         }
         PipelineUdpDiagStats.recordEmitMs(emitSw.elapsedMilliseconds);
         final sinceCap = PipelineDiagCaptureTimeline.elapsedSinceCaptureMicros();
-        final sinceMs = sinceCap == null ? '-' : (sinceCap / 1000).toStringAsFixed(1);
+        final sinceSub = PipelineDiagCaptureTimeline.elapsedSinceSubmitWallMicros();
+        final sinceMs = _pipelineDiagMsOrDash(sinceCap);
+        final subMs = _pipelineDiagMsOrDash(sinceSub);
         pipelineDiagLog(
           'udp_emit_done',
-          'dev=${device.name} ms=${emitSw.elapsedMilliseconds} leds=${colors.length} path=$diagPath gen=$genEnter '
-          'sinceCaptureMs=$sinceMs',
+          'dev=${device.name} ms=${emitSw.elapsedMilliseconds} leds=$pixelCount path=$diagPath gen=$genEnter '
+          'sinceCaptureMs=$sinceMs sinceSubmitMs=$subMs',
         );
       }
     }
@@ -324,7 +371,15 @@ class UdpDeviceTransport extends DeviceTransport {
     _lastSentRgbFrameHash = null;
     _lastSuccessfulEmitWallMs = 0;
     _rgbLatestJob = null;
+    var spin = 0;
     while (_rgbWorkerBusy) {
+      spin++;
+      if (spin > _kWaitRgbTransportIdleMaxIterations) {
+        _log.warning(
+          'sendColorsNow: čekání na idle worker překročilo limit — přerušuji (${device.name})',
+        );
+        return;
+      }
       await Future<void>.delayed(const Duration(milliseconds: 2));
       if (!_ready) {
         return;
@@ -332,8 +387,8 @@ class UdpDeviceTransport extends DeviceTransport {
     }
     _rgbWorkerBusy = true;
     try {
-      await _emitFramePaced(
-        List<(int, int, int)>.from(colors, growable: false),
+      await _emitFramePacedRgb(
+        _rgbTuplesToBytes(List<(int, int, int)>.from(colors, growable: false)),
         brightnessPercent.clamp(0, 255),
       );
     } finally {
@@ -347,6 +402,18 @@ class UdpDeviceTransport extends DeviceTransport {
   @override
   void sendColors(List<(int r, int g, int b)> colors, int brightnessScalar) {
     if (!_ready || _socket == null || _addr == null || colors.isEmpty) return;
+    final bri = brightnessScalar.clamp(0, 255);
+    final rgb = _rgbTuplesToBytes(colors);
+    final incomingHash = _udpRgbBytesHash(rgb, bri);
+
+    // Jen duplicita už zařazeného jobu — ne „stejný hash jako poslední emit“: to řeší
+    // [_emitFramePacedRgb] (dedupe + emitAge). Předčasný return u volného workeru by mohl
+    // bránit zařazení práce a kolidovat s keepalive / rychlým eager výstupem.
+    final queued = _rgbLatestJob;
+    if (queued != null && incomingHash == _udpRgbBytesHash(queued.rgb, queued.bri)) {
+      return;
+    }
+
     if (ambilightPipelineDiagnosticsEnabled) {
       PipelineUdpDiagStats.sendColorsCalls++;
       final hadQueued = _rgbLatestJob != null;
@@ -358,10 +425,34 @@ class UdpDeviceTransport extends DeviceTransport {
         );
       }
     }
-    _rgbLatestJob = (
-      colors: List<(int, int, int)>.from(colors, growable: false),
-      bri: brightnessScalar.clamp(0, 255),
-    );
+    _rgbLatestJob = (rgb: rgb, bri: bri);
+    unawaited(_runRgbWorkerIfNeeded());
+  }
+
+  /// Rychlá cesta ze screen izolátu: už hotový `[r,g,b,…]` (délka `3 × LED`), bez převodu z tuple listu.
+  /// Vlastnictví bufferu přejde na frontu — volající ho už nesmí měnit ([packDeviceRgbMap] vždy nový buffer).
+  void sendPackedRgbBytes(Uint8List rgb, int brightnessScalar) {
+    if (!_ready || _socket == null || _addr == null || rgb.isEmpty || rgb.length % 3 != 0) {
+      return;
+    }
+    final bri = brightnessScalar.clamp(0, 255);
+    final incomingHash = _udpRgbBytesHash(rgb, bri);
+    final queued = _rgbLatestJob;
+    if (queued != null && incomingHash == _udpRgbBytesHash(queued.rgb, queued.bri)) {
+      return;
+    }
+    if (ambilightPipelineDiagnosticsEnabled) {
+      PipelineUdpDiagStats.sendColorsCalls++;
+      final hadQueued = _rgbLatestJob != null;
+      if (hadQueued) {
+        PipelineUdpDiagStats.jobSupersededWhileQueued++;
+        pipelineDiagLog(
+          'udp_sendPacked_supersede',
+          'dev=${device.name} leds=${rgb.length ~/ 3} workerBusy=$_rgbWorkerBusy',
+        );
+      }
+    }
+    _rgbLatestJob = (rgb: rgb, bri: bri);
     unawaited(_runRgbWorkerIfNeeded());
   }
 

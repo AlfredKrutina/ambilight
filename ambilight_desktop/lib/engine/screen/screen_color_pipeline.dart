@@ -13,6 +13,20 @@ int _processFrameDiagThrottle = 0;
 
 typedef CaptureLedKey = (String?, int);
 
+/// Segment vzorkuje jiný monitor než aktuální snímek ([ScreenModeSettings.monitorIndex]).
+class SegmentCaptureWarning {
+  const SegmentCaptureWarning({
+    required this.segmentIndex,
+    required this.edge,
+    required this.segmentMonitorIdx,
+    required this.captureMonitorIndex,
+  });
+  final int segmentIndex;
+  final String edge;
+  final int segmentMonitorIdx;
+  final int captureMonitorIndex;
+}
+
 /// Geometrie jednoho segmentu ve souřadnicích snímku (šipka dovnitř od hrany).
 class SegmentRoiRect {
   const SegmentRoiRect({required this.x, required this.y, required this.w, required this.h});
@@ -118,13 +132,36 @@ abstract final class ScreenColorPipeline {
     return false;
   }
 
+  /// Segmenty, jejichž [LedSegment.monitorIdx] nesedí na aktuální snímek ([ScreenModeSettings.monitorIndex]).
+  static List<SegmentCaptureWarning> screenSegmentCaptureWarnings(AppConfig config) {
+    final cap = config.screenMode.monitorIndex;
+    final rgba = Uint8List(4);
+    final frame = ScreenFrame(monitorIndex: cap, width: 1, height: 1, rgba: rgba);
+    final segs = effectiveScreenSegments(config);
+    final out = <SegmentCaptureWarning>[];
+    for (var i = 0; i < segs.length; i++) {
+      if (!segmentMatchesCaptureFrame(segs[i], frame)) {
+        out.add(
+          SegmentCaptureWarning(
+            segmentIndex: i,
+            edge: segs[i].edge,
+            segmentMonitorIdx: segs[i].monitorIdx,
+            captureMonitorIndex: cap,
+          ),
+        );
+      }
+    }
+    return out;
+  }
+
   /// Diagnostika ([AMBI_PIPELINE_DIAGNOSTICS]): shoda segmentů s [frame] a ROI v pixelech snímku (např. po downscale).
   static void logSegmentDiagnosticsForFrame(AppConfig config, ScreenFrame frame) {
     if (!ambilightPipelineDiagnosticsEnabled) return;
     final sm = config.screenMode;
     pipelineDiagLog(
       'segment_cfg',
-      'minBrightness=${sm.minBrightness} interpolationMs=${sm.interpolationMs}',
+      'minBrightness=${sm.minBrightness} interpolationMs=${sm.interpolationMs} '
+      'colorSampling=${sm.colorSampling}',
     );
     final segs = effectiveScreenSegments(config);
     var matched = 0;
@@ -372,14 +409,20 @@ abstract final class ScreenColorPipeline {
     return _roiClampMin1(SegmentRoiRect(x: x0, y: y0, w: rw, h: rh), frame.width, frame.height);
   }
 
-  /// Agregace ROI → [ledCount] RGB (0–255), downsampling: sloupec/řádek průměr + box přes osu segmentu.
+  /// Agregace ROI → [ledCount] RGB (0–255).
+  ///
+  /// Každá LED dostane podobně jako PyQt `capture.py`: podél hrany se ROI rozdělí na `ledCount`
+  /// obdélníků (šířka u top/bottom, výška u left/right); uvnitř obdélníku je **průměr** (`average`)
+  /// nebo **medián po kanálech R/G/B** (`median`) ze všech pixelů — žádná závislost na rozlišení
+  /// snímku kromě mapování ROI do bufferu.
   static void sampleRoiColors(
     ScreenFrame frame,
     SegmentRoiRect roi,
     String edge,
     int ledCount,
-    Uint8List outRgb,
-  ) {
+    Uint8List outRgb, {
+    String colorSampling = 'median',
+  }) {
     final need = ledCount * 3;
     if (outRgb.length < need) {
       throw ArgumentError(
@@ -405,10 +448,148 @@ abstract final class ScreenColorPipeline {
       return;
     }
 
+    final useMean = _useMeanColorSampling(colorSampling);
     if (edge == 'top' || edge == 'bottom') {
-      _averageColumnsThenResample(rgba, fw, fh, x0, y0, rw, rh, ledCount, outRgb);
+      if (useMean) {
+        _averageColumnsThenResample(rgba, fw, fh, x0, y0, rw, rh, ledCount, outRgb);
+      } else {
+        _perLedRectMedianTopBottom(rgba, fw, fh, x0, y0, rw, rh, ledCount, outRgb);
+      }
     } else {
-      _averageRowsThenResample(rgba, fw, fh, x0, y0, rw, rh, ledCount, outRgb);
+      if (useMean) {
+        _averageRowsThenResample(rgba, fw, fh, x0, y0, rw, rh, ledCount, outRgb);
+      } else {
+        _perLedRectMedianLeftRight(rgba, fw, fh, x0, y0, rw, rh, ledCount, outRgb);
+      }
+    }
+  }
+
+  static bool _useMeanColorSampling(String mode) {
+    final t = mode.trim().toLowerCase();
+    return t == 'average' || t == 'mean' || t == 'avg';
+  }
+
+  static void _clearHist3(Int32List r, Int32List g, Int32List b) {
+    for (var i = 0; i < 256; i++) {
+      r[i] = 0;
+      g[i] = 0;
+      b[i] = 0;
+    }
+  }
+
+  static int _kthSmallestFromHist(Int32List h, int k) {
+    final need = k + 1;
+    var c = 0;
+    for (var v = 0; v < 256; v++) {
+      c += h[v];
+      if (c >= need) return v;
+    }
+    return 255;
+  }
+
+  /// Medián jednoho kanálu (0–255); sudý počet = průměr dvou středních hodnot (jako NumPy).
+  static int _medianByteFromHist(Int32List h, int n) {
+    if (n <= 0) return 0;
+    final lo = _kthSmallestFromHist(h, (n - 1) ~/ 2);
+    final hi = _kthSmallestFromHist(h, n ~/ 2);
+    return ((lo + hi + 1) ~/ 2).clamp(0, 255);
+  }
+
+  /// Rozdělení délky `axisLen` px na `ledCount` intervalů — shodné s [_resampleStrip1D].
+  static (int, int) _ledBinAlongAxis(int axisLen, int ledCount, int ledIndex) {
+    final u0 = (ledIndex * axisLen / ledCount).floor();
+    var u1 = math.max(u0 + 1, ((ledIndex + 1) * axisLen / ledCount).ceil());
+    if (u1 > axisLen) u1 = axisLen;
+    return (u0, u1);
+  }
+
+  static void _perLedRectMedianTopBottom(
+    Uint8List rgba,
+    int fw,
+    int fh,
+    int x0,
+    int y0,
+    int rw,
+    int rh,
+    int ledCount,
+    Uint8List outRgb,
+  ) {
+    final hr = Int32List(256);
+    final hg = Int32List(256);
+    final hb = Int32List(256);
+    for (var i = 0; i < ledCount; i++) {
+      final bin = _ledBinAlongAxis(rw, ledCount, i);
+      final u0 = bin.$1;
+      final u1 = bin.$2;
+      _clearHist3(hr, hg, hb);
+      var n = 0;
+      for (var yy = 0; yy < rh; yy++) {
+        final ys = y0 + yy;
+        if (ys < 0 || ys >= fh) continue;
+        for (var u = u0; u < u1; u++) {
+          final xs = x0 + u;
+          if (xs < 0 || xs >= fw) continue;
+          final o = (ys * fw + xs) * 4;
+          hr[rgba[o]]++;
+          hg[rgba[o + 1]]++;
+          hb[rgba[o + 2]]++;
+          n++;
+        }
+      }
+      if (n <= 0) {
+        outRgb[i * 3] = 0;
+        outRgb[i * 3 + 1] = 0;
+        outRgb[i * 3 + 2] = 0;
+      } else {
+        outRgb[i * 3] = _medianByteFromHist(hr, n);
+        outRgb[i * 3 + 1] = _medianByteFromHist(hg, n);
+        outRgb[i * 3 + 2] = _medianByteFromHist(hb, n);
+      }
+    }
+  }
+
+  static void _perLedRectMedianLeftRight(
+    Uint8List rgba,
+    int fw,
+    int fh,
+    int x0,
+    int y0,
+    int rw,
+    int rh,
+    int ledCount,
+    Uint8List outRgb,
+  ) {
+    final hr = Int32List(256);
+    final hg = Int32List(256);
+    final hb = Int32List(256);
+    for (var i = 0; i < ledCount; i++) {
+      final bin = _ledBinAlongAxis(rh, ledCount, i);
+      final v0 = bin.$1;
+      final v1 = bin.$2;
+      _clearHist3(hr, hg, hb);
+      var n = 0;
+      for (var xx = 0; xx < rw; xx++) {
+        final xs = x0 + xx;
+        if (xs < 0 || xs >= fw) continue;
+        for (var v = v0; v < v1; v++) {
+          final ys = y0 + v;
+          if (ys < 0 || ys >= fh) continue;
+          final o = (ys * fw + xs) * 4;
+          hr[rgba[o]]++;
+          hg[rgba[o + 1]]++;
+          hb[rgba[o + 2]]++;
+          n++;
+        }
+      }
+      if (n <= 0) {
+        outRgb[i * 3] = 0;
+        outRgb[i * 3 + 1] = 0;
+        outRgb[i * 3 + 2] = 0;
+      } else {
+        outRgb[i * 3] = _medianByteFromHist(hr, n);
+        outRgb[i * 3 + 1] = _medianByteFromHist(hg, n);
+        outRgb[i * 3 + 2] = _medianByteFromHist(hb, n);
+      }
     }
   }
 
@@ -720,7 +901,7 @@ abstract final class ScreenColorPipeline {
       final cnt = (seg.ledEnd - seg.ledStart).abs() + 1;
       if (cnt <= 0 || roi.isEmpty) continue;
 
-      sampleRoiColors(frame, roi, seg.edge, cnt, strip);
+      sampleRoiColors(frame, roi, seg.edge, cnt, strip, colorSampling: sm.colorSampling);
 
       for (var i = 0; i < cnt; i++) {
         var r = strip[i * 3];

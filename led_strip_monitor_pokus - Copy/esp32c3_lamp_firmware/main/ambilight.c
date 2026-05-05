@@ -1398,7 +1398,10 @@ void task_serial(void *arg) {
   }
 }
 
-/* ===== UDP tok z PC aplikace (ambilight_desktop / monitor) ====================
+/* Latence PC→LED (profilování): náklad je hlavně u [update_leds] po 0x02 / 0x08 flush;
+ * řada 0x06 jen plní led_colors[] pod mutexem. Komentář o „throttle 15 ms“ výše v seznamu
+ * dropů může být zastaralý vůči aktuální větvi 0x02 — ověřovat přes logy s_udp_pc_drop_*.
+ * ===== UDP tok z PC aplikace (ambilight_desktop / monitor) ====================
  * Port UDP_PORT. recvfrom → nejdřív textové příkazy, pak binární RGB.
  *
  * Formáty od aplikace:

@@ -36,6 +36,36 @@ class AmbilightPresets {
   static const screenNames = ['Movie', 'Gaming', 'Desktop'];
   static const musicNames = ['Party', 'Chill', 'Bass Focus', 'Vocals'];
 
+  /// Krátký popisek jen pro tray UI; [screenPatch] musí dál používat přesný klíč [name].
+  static String trayDisplayLabelForScreenPreset(String name) {
+    switch (name) {
+      case 'Movie':
+        return 'Movie (Vivid & Smooth)';
+      case 'Gaming':
+        return 'Gaming (Fast & Responsive)';
+      case 'Desktop':
+        return 'Desktop (Balanced)';
+      default:
+        return name;
+    }
+  }
+
+  /// Krátký popisek jen pro tray UI; [musicPatch] musí dál používat přesný klíč [name].
+  static String trayDisplayLabelForMusicPreset(String name) {
+    switch (name) {
+      case 'Party':
+        return 'Party (Full Spectrum)';
+      case 'Chill':
+        return 'Chill (Soft)';
+      case 'Bass Focus':
+        return 'Bass Focus (Low-End)';
+      case 'Vocals':
+        return 'Vocals (Mid/High)';
+      default:
+        return name;
+    }
+  }
+
   static ScreenPresetPatch? screenPatch(String name) {
     switch (name) {
       case 'Movie':

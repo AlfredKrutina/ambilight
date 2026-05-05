@@ -219,6 +219,34 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get configFileUnusableBanner =>
+      'The configuration file is damaged or incompatible — default settings are in use. Restore a backup under Import / export.';
+
+  @override
+  String configSaveFailed(Object detail) {
+    return 'Could not save configuration: $detail';
+  }
+
+  @override
+  String configInvalidJsonImport(Object detail) {
+    return 'Invalid configuration JSON: $detail';
+  }
+
+  @override
+  String configApplyFailed(Object detail) {
+    return 'Could not apply settings: $detail';
+  }
+
+  @override
+  String configAutosaveFailed(Object detail) {
+    return 'Background save failed: $detail';
+  }
+
+  @override
+  String get screenCaptureRepeatedFailureBanner =>
+      'Screen capture keeps failing. Check privacy permissions (Windows: Privacy settings) and the monitor selection.';
+
+  @override
   String faultUiError(Object detail) {
     return 'UI error: $detail';
   }
@@ -515,7 +543,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get performanceModeSubtitle =>
-      'When the app captures the monitor (Screen mode or Music with “monitor” colors), the main loop runs at 25 FPS; Spotify / PC Health intervals are longer and the USB queue is gentler. Light-only mode stays faster (~62 Hz). When performance mode is off, set the refresh rate below (60 / 120 / 240 FPS). “UI animations” only affects Material transitions.';
+      'When the app captures the monitor (Screen mode or Music with “monitor” colors), the main loop is capped (default ~25 FPS); use “Performance screen tick” below to trade CPU for smoother LEDs. Spotify / PC Health intervals are longer and the USB queue is gentler. Light-only mode stays faster (~62 Hz). When performance mode is off, set the refresh rate below (60 / 120 / 240 FPS). “UI animations” only affects Material transitions.';
+
+  @override
+  String performanceScreenLoopPeriodLabel(Object ms) {
+    return 'Performance screen tick (ms): $ms';
+  }
+
+  @override
+  String get performanceScreenLoopPeriodHint =>
+      'Lower ms = higher FPS to the strip and higher CPU use (16–40 ms). Applies only when performance mode is on and the app captures the monitor.';
 
   @override
   String get screenRefreshRateTitle => 'Ambilight refresh rate';
@@ -526,7 +563,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get screenRefreshRateDisabledHint =>
-      'Turn off performance mode to change this (capture is fixed at 25 FPS while performance is on).';
+      'Turn off performance mode to change this (while performance is on, tune “Performance screen tick” above instead).';
 
   @override
   String get screenRefreshRateHz60 => '60 FPS';
@@ -685,6 +722,53 @@ class AppLocalizationsEn extends AppLocalizations {
   String onboardProgress(Object current, Object total) {
     return '$current / $total';
   }
+
+  @override
+  String get onboardIllustColorsToStrip => 'Colors flow to the strip';
+
+  @override
+  String get onboardIllustMiniBackup => 'JSON backup';
+
+  @override
+  String get onboardIllustCpuLabel => 'CPU';
+
+  @override
+  String get onboardIllustGpuLabel => 'GPU';
+
+  @override
+  String get onboardOutputTourOnlyHint =>
+      'Preview only — the real Output switch lives in the app header.';
+
+  @override
+  String onboardSlideDotA11y(int n, int total) {
+    return 'Go to step $n of $total';
+  }
+
+  @override
+  String get onboardScreenHuePreview => 'Preview hue';
+
+  @override
+  String get onboardSettingsSnackModes =>
+      'Pick the active mode on the overview (tiles at the top).';
+
+  @override
+  String get onboardSettingsSnackFirmware =>
+      'Firmware downloads and OTA: Settings → Firmware.';
+
+  @override
+  String get onboardSettingsSnackBackup =>
+      'Back up JSON: Settings → Global → Export.';
+
+  @override
+  String get onboardConnectivityUsbTap =>
+      'USB: choose the COM port under Devices.';
+
+  @override
+  String get onboardConnectivityWifiTap =>
+      'Wi‑Fi: set IP and UDP port under Devices (same as firmware).';
+
+  @override
+  String get onboardKeysHint => 'Keyboard: arrow keys for steps, Esc to skip.';
 
   @override
   String get devicesPageTitle => 'Devices';
@@ -900,6 +984,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backupInvalid => 'Invalid configuration file.';
+
+  @override
+  String get factoryResetTitle => 'Restore defaults';
+
+  @override
+  String get factoryResetButton => 'Restore factory defaults…';
+
+  @override
+  String get factoryResetDialogTitle => 'Restore factory defaults?';
+
+  @override
+  String get factoryResetDialogBody =>
+      'All settings will revert to built-in defaults, devices and zones will be cleared, and saved Home Assistant and Spotify tokens will be removed. This cannot be undone — export a JSON backup first if you need a copy.';
+
+  @override
+  String get factoryResetConfirm => 'Restore defaults';
+
+  @override
+  String get factoryResetDone => 'Settings restored to defaults.';
+
+  @override
+  String factoryResetFailed(String error) {
+    return 'Factory reset failed: $error';
+  }
 
   @override
   String get spotifyTabTitle => 'Spotify';
@@ -1250,6 +1358,123 @@ class AppLocalizationsEn extends AppLocalizations {
   String get replayOnboardingButton => 'Run onboarding again';
 
   @override
+  String get uiControlLevelLabel => 'Control level';
+
+  @override
+  String get uiControlLevelHelper =>
+      'Simple hides advanced screen tuning (gamma, calibration shortcuts, capture diagnostics). You can change this anytime.';
+
+  @override
+  String get uiControlLevelSimple => 'Simple';
+
+  @override
+  String get uiControlLevelAdvanced => 'Advanced';
+
+  @override
+  String get onboardWizardStepThemeTitle => 'Choose appearance';
+
+  @override
+  String get onboardWizardStepThemeSubtitle =>
+      'You can change this later under Settings → Global.';
+
+  @override
+  String get onboardWizardThemeLightTitle => 'Light';
+
+  @override
+  String get onboardWizardThemeLightSubtitle =>
+      'Bright surfaces and high contrast controls.';
+
+  @override
+  String get onboardWizardThemeDarkTitle => 'Dark';
+
+  @override
+  String get onboardWizardThemeDarkSubtitle =>
+      'Easier on the eyes in dim rooms.';
+
+  @override
+  String get onboardWizardStepComplexityTitle =>
+      'How detailed should settings be?';
+
+  @override
+  String get onboardWizardStepComplexitySubtitle =>
+      'Simple keeps everyday sliders only. Advanced exposes gamma, offsets and diagnostics.';
+
+  @override
+  String get onboardWizardComplexitySimpleTitle => 'Simple';
+
+  @override
+  String get onboardWizardComplexitySimpleSubtitle =>
+      'Recommended — fewer knobs, faster setup.';
+
+  @override
+  String get onboardWizardComplexityAdvancedTitle => 'Advanced';
+
+  @override
+  String get onboardWizardComplexityAdvancedSubtitle =>
+      'Full control over capture, color math and calibration tools.';
+
+  @override
+  String get onboardWizardStepDeviceTitle => 'Connect your controller';
+
+  @override
+  String get onboardWizardStepDeviceSubtitle =>
+      'Pick how your PC talks to the LEDs. You can add more devices later on the Devices page.';
+
+  @override
+  String get onboardWizardScanWifi => 'Scan for Wi‑Fi devices';
+
+  @override
+  String get onboardWizardSetupUsb => 'Set up USB / Serial';
+
+  @override
+  String get onboardWizardStepMappingTitle => 'Map LEDs to your screen';
+
+  @override
+  String get onboardWizardStepMappingSubtitle =>
+      'Walk the strip once so corners match your monitor. Skip if you want to do this later.';
+
+  @override
+  String get onboardWizardOpenMapping => 'Open mapping wizard';
+
+  @override
+  String get onboardWizardMappingSkip => 'Skip for now';
+
+  @override
+  String get onboardWizardStepIntegrationsTitle => 'Integrations';
+
+  @override
+  String get onboardWizardStepIntegrationsSubtitle =>
+      'Optional extras — enable them when you need them.';
+
+  @override
+  String get onboardWizardHaCardTitle => 'Home Assistant';
+
+  @override
+  String get onboardWizardHaCardBody =>
+      'Mirror colors to lamps and automations with a long‑lived token and your HA URL.';
+
+  @override
+  String get onboardWizardSpotifyCardTitle => 'Spotify';
+
+  @override
+  String get onboardWizardSpotifyCardBody =>
+      'Richer music visuals when you link a Spotify Developer app (Client ID in Settings).';
+
+  @override
+  String get onboardWizardPcHealthCardTitle => 'PC Health';
+
+  @override
+  String get onboardWizardPcHealthCardBody =>
+      'Temperatures and load drive ambient colors — great for idle dashboards.';
+
+  @override
+  String get onboardWizardPreviewHint =>
+      'Rainbow preview uses the same test path as Settings → Screen (synthetic colors).';
+
+  @override
+  String get onboardWizardFinish => 'Get started';
+
+  @override
   String get devicesPageSubtitle =>
       'Network discovery, segment editing and calibration. Tap a device row for LED mapping.';
 
@@ -1350,6 +1575,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get screenColorSamplingLabel => 'LED color from scan region';
+
+  @override
+  String get screenColorSamplingMedian => 'Median (PyQt default)';
+
+  @override
+  String get screenColorSamplingAverage => 'Average (mean)';
+
+  @override
+  String get screenColorSamplingHint =>
+      'Each LED maps to a rectangle along the segment edge (same geometry at any capture resolution). Median reduces bright outliers (e.g. white UI on colored backgrounds). Average matches smoother pooling similar to PyQt cv2.resize INTER_AREA.';
+
+  @override
   String get screenCaptureCardTitle => 'Screen capture';
 
   @override
@@ -1357,7 +1595,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get screenCapturePermissionOk =>
-      'Screen permission: OK â€” check Privacy settings if needed.';
+      'Screen permission: OK — check Privacy settings if needed.';
 
   @override
   String get screenCapturePermissionDenied =>
@@ -1399,7 +1637,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get screenTechMonitorTitle => 'Technical monitor and uniform region';
 
   @override
-  String get fieldMonitorIndexMssLabel => 'monitor_index (MSS, 0â€“32)';
+  String get fieldMonitorIndexMssLabel => 'monitor_index (MSS, 0-32)';
 
   @override
   String get screenColorsDetailTitle => 'Colors and scan (detail)';
@@ -1446,7 +1684,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get stripMarkersBody =>
-      'Green LEDs at corners (like PyQt calibration). When indicating, max strip length is used for transport (USB up to 2000 LEDs with wide 0xFC framing, Wiâ€‘Fi per UDP), not the LED count from device settings â€” so high indices can light up. Turn off before saving or switching tabs.';
+      'Green LEDs at corners (like PyQt calibration). When indicating, max strip length is used for transport (USB up to 2000 LEDs with wide 0xFC framing, Wi-Fi per UDP), not the LED count from device settings — so high indices can light up. Turn off before saving or switching tabs.';
 
   @override
   String get markerTopLeft => 'Top left';
@@ -1464,11 +1702,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get markerOff => 'Turn off markers';
 
   @override
+  String get screenRainbowSynthSectionTitle => 'Pipeline diagnostics';
+
+  @override
+  String get screenRainbowSynthSwitchTitle =>
+      'Synthetic rainbow (ignore screen pixels)';
+
+  @override
+  String get screenRainbowSynthSwitchSubtitle =>
+      'The screen worker skips ROI and sends a moving test pattern through the same pack/UDP path. Off by default — use to separate capture lag from downstream lag.';
+
+  @override
   String get segmentsTileTitle => 'Segments';
 
   @override
   String segmentsZoneEditorSubtitle(Object count) {
     return 'Count: $count (zone editor A7)';
+  }
+
+  @override
+  String screenSegmentMonitorMismatchBanner(Object capture) {
+    return 'Some LED segments sample a different monitor than the selected capture source (index $capture). Adjust segment monitor indices or change the capture monitor.';
   }
 
   @override
@@ -1511,8 +1765,17 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String lightSmoothingMs(Object v) {
+    return 'Color smoothing (ms): $v';
+  }
+
+  @override
+  String get lightSmoothingHint =>
+      'Blends light-mode colors between frames (0 = instant). Same idea as screen interpolation.';
+
+  @override
   String get lightHomekitTile =>
-      'HomeKit (FW / MQTT â€” do not send colors from PC)';
+      'HomeKit (FW / MQTT — do not send colors from PC)';
 
   @override
   String get lightHomekitSubtitle => 'homekit_enabled';
@@ -1562,6 +1825,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get lightEffectCustomZones => 'Custom zones';
+
+  @override
+  String get lightZoneEffectPulse => 'Pulse';
+
+  @override
+  String get lightZoneEffectBlink => 'Blink';
 
   @override
   String musicDeviceError(Object error) {
@@ -1626,7 +1895,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get musicFixedColorHint =>
-      'Pick color like Home / Hue â€” strip preview while adjusting.';
+      'Pick color like Home / Hue — strip preview while adjusting.';
 
   @override
   String get musicVisualEffectLabel => 'Visual effect';
@@ -1758,7 +2027,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get devicesTabEmptyHint =>
-      'The list may stay empty â€” useful for preparing profiles only. Add at least one device to drive a strip.';
+      'The list may stay empty — useful for preparing profiles only. Add at least one device to drive a strip.';
 
   @override
   String get devicesAddDevice => 'Add device';
@@ -1784,7 +2053,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get devicesTypeUsb => 'USB (serial)';
 
   @override
-  String get devicesTypeWifi => 'Wiâ€‘Fi (UDP)';
+  String get devicesTypeWifi => 'Wi-Fi (UDP)';
 
   @override
   String get devicesControlViaHa => 'Control via Home Assistant';
@@ -1820,7 +2089,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String devicesComDetectedHelper(Object ports) {
-    return 'Detected: $ports â€” tap chips below to fill quickly';
+    return 'Detected: $ports — tap chips below to fill quickly';
   }
 
   @override
@@ -1853,7 +2122,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get scanPreviewOnDragging =>
-      'On â€” preview while dragging sliders (capture region)';
+      'On — preview while dragging sliders (capture region)';
 
   @override
   String get fieldMonitorMssSameAsCapture =>
@@ -1908,14 +2177,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Turn on screen mode for a live preview.';
 
   @override
-  String get scanThumbWaiting => 'Waiting for frameâ€¦';
+  String get scanThumbWaiting => 'Waiting for frame…';
 
   @override
   String get removeDeviceDialogTitle => 'Remove device?';
 
   @override
   String get removeDeviceDialogLastBody =>
-      'The device list may stay empty â€” that is fine. Without a device you cannot send colors to strips; you can still configure modes and presets. When hardware is connected, add it again here or via Discovery.';
+      'The device list may stay empty — that is fine. Without a device you cannot send colors to strips; you can still configure modes and presets. When hardware is connected, add it again here or via Discovery.';
 
   @override
   String removeDeviceDialogNamedBody(Object name) {
@@ -1968,7 +2237,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceHaControlledNote =>
-      'Controlled via Home Assistant â€” PC colors are not sent to this device.';
+      'Controlled via Home Assistant — PC colors are not sent to this device.';
 
   @override
   String get menuMoreActions => 'More actions';
@@ -1977,7 +2246,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get menuEditLedMapping => 'Edit LED mapping';
 
   @override
-  String get menuTechnicalDetailsEllipsis => 'Technical detailsâ€¦';
+  String get menuTechnicalDetailsEllipsis => 'Technical details…';
 
   @override
   String get menuIdentifyBlink => 'Brief identify (blink)';
@@ -1989,7 +2258,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get menuResetSavedWifi => 'Reset saved Wi‑Fi on controller';
 
   @override
-  String get menuRemoveDeviceEllipsis => 'Remove deviceâ€¦';
+  String get menuRemoveDeviceEllipsis => 'Remove device…';
 
   @override
   String deviceSubtitleUsbLed(Object count) {
@@ -1998,7 +2267,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String deviceSubtitleWifiLed(Object count) {
-    return 'Wiâ€‘Fi Â· $count LED';
+    return 'Wi-Fi · $count LED';
   }
 
   @override
@@ -2167,7 +2436,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String discResetWifiBody(Object name, Object ip) {
-    return 'Device „$name“ ($ip) clears saved Wi‑Fi credentials and restarts. You must configure it again.';
+    return 'Device \"$name\" ($ip) clears saved Wi-Fi credentials and restarts. You must configure it again.';
   }
 
   @override
@@ -2189,6 +2458,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get discIdentifyTooltip => 'Identify';
 
   @override
+  String discListItemSubtitle(Object ip, int ledCount, Object version) {
+    return '$ip · $ledCount LED · FW $version';
+  }
+
+  @override
   String zoneEditorSavedSegments(Object count) {
     return 'Saved $count segments.';
   }
@@ -2205,6 +2479,121 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get zoneEditorDeleteTooltip => 'Delete';
+
+  @override
+  String zoneFieldLedStart(int value) {
+    return 'LED start: $value';
+  }
+
+  @override
+  String zoneFieldLedEnd(int value) {
+    return 'LED end: $value';
+  }
+
+  @override
+  String zoneFieldMonitorIndex(int value) {
+    return 'Monitor index: $value';
+  }
+
+  @override
+  String get zoneFieldEdge => 'Edge';
+
+  @override
+  String zoneFieldDepthScan(int value) {
+    return 'Scan depth: $value';
+  }
+
+  @override
+  String get zoneFieldReverse => 'Reverse direction';
+
+  @override
+  String get zoneFieldDeviceId => 'Device';
+
+  @override
+  String zoneFieldPixelStart(int value) {
+    return 'Pixel start: $value';
+  }
+
+  @override
+  String zoneFieldPixelEnd(int value) {
+    return 'Pixel end: $value';
+  }
+
+  @override
+  String zoneFieldRefWidth(int value) {
+    return 'Reference width: $value';
+  }
+
+  @override
+  String zoneFieldRefHeight(int value) {
+    return 'Reference height: $value';
+  }
+
+  @override
+  String get zoneFieldMusicEffect => 'Music effect';
+
+  @override
+  String get zoneFieldRole => 'Frequency band';
+
+  @override
+  String get zoneEdgeTop => 'Top';
+
+  @override
+  String get zoneEdgeBottom => 'Bottom';
+
+  @override
+  String get zoneEdgeLeft => 'Left';
+
+  @override
+  String get zoneEdgeRight => 'Right';
+
+  @override
+  String get zoneMusicEffectDefault => 'Default';
+
+  @override
+  String get zoneMusicEffectSmartMusic => 'Smart music';
+
+  @override
+  String get zoneMusicEffectEnergy => 'Energy';
+
+  @override
+  String get zoneMusicEffectSpectrum => 'Spectrum';
+
+  @override
+  String get zoneMusicEffectSpectrumRotate => 'Spectrum rotate';
+
+  @override
+  String get zoneMusicEffectSpectrumPunchy => 'Spectrum punchy';
+
+  @override
+  String get zoneMusicEffectStrobe => 'Strobe';
+
+  @override
+  String get zoneMusicEffectVumeter => 'VU meter';
+
+  @override
+  String get zoneMusicEffectVumeterSpectrum => 'VU + spectrum';
+
+  @override
+  String get zoneMusicEffectPulse => 'Pulse';
+
+  @override
+  String get zoneMusicEffectReactiveBass => 'Reactive bass';
+
+  @override
+  String get zoneRoleAuto => 'Auto';
+
+  @override
+  String get zoneRoleBass => 'Bass';
+
+  @override
+  String get zoneRoleMids => 'Mids';
+
+  @override
+  String get zoneRoleHighs => 'Highs';
+
+  @override
+  String get zoneRoleAmbience => 'Ambience';
 
   @override
   String get zoneDeviceAllDefault => '— All / default —';
@@ -2245,7 +2634,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String configProfileSavedSnack(Object name) {
-    return 'Preset „$name“ saved to user_screen_presets.';
+    return 'Preset \"$name\" saved to user_screen_presets.';
   }
 
   @override

@@ -434,8 +434,12 @@ bool RectToRgba(const RECT& src_rect, std::vector<uint8_t>& out_rgba, int& out_w
   return true;
 }
 
-// Maximální delší strana výstupu (RGBA). 1440p → ~256×144×4 ≈ 147 KiB místo ~15 MiB přes isolát.
-constexpr int kAmbilightCaptureDownscaleMaxSide = 256;
+// Maximální delší strana výstupu (RGBA). Nižší = levnější downscale na CPU/GPU; výchozí 224.
+// Přepsání buildem: -DAMBI_CAPTURE_DOWNSCALE_MAX_SIDE=256
+#ifndef AMBI_CAPTURE_DOWNSCALE_MAX_SIDE
+#define AMBI_CAPTURE_DOWNSCALE_MAX_SIDE 224
+#endif
+constexpr int kAmbilightCaptureDownscaleMaxSide = AMBI_CAPTURE_DOWNSCALE_MAX_SIDE;
 
 /// Shrání captured framebufferu se zachováním poměru stran (ROI v Dartu zůstávají v % platné).
 /// Vstup musí být už převedený RGBA s kanály R,G,B,A v tomto pořadí (GDI/DXGI BGRA→RGBA výše).

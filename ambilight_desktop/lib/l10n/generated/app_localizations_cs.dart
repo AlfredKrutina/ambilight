@@ -203,10 +203,10 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get semanticsCloseScanOverlay => 'Close capture region preview';
+  String get semanticsCloseScanOverlay => 'Zavřít náhled oblasti snímání';
 
   @override
-  String get scanZonesChip => 'Zone preview';
+  String get scanZonesChip => 'Náhled zón';
 
   @override
   String bootstrapFailed(Object detail) {
@@ -217,6 +217,34 @@ class AppLocalizationsCs extends AppLocalizations {
   String configLoadFailed(Object detail) {
     return 'Načtení konfigurace selhalo, používám výchozí: $detail';
   }
+
+  @override
+  String get configFileUnusableBanner =>
+      'Konfigurační soubor je poškozený nebo nekompatibilní — používám výchozí nastavení. Obnov zálohu v části Import / export.';
+
+  @override
+  String configSaveFailed(Object detail) {
+    return 'Uložení konfigurace selhalo: $detail';
+  }
+
+  @override
+  String configInvalidJsonImport(Object detail) {
+    return 'Neplatný JSON konfigurace: $detail';
+  }
+
+  @override
+  String configApplyFailed(Object detail) {
+    return 'Nastavení se nepodařilo aplikovat: $detail';
+  }
+
+  @override
+  String configAutosaveFailed(Object detail) {
+    return 'Automatické uložení nastavení selhalo: $detail';
+  }
+
+  @override
+  String get screenCaptureRepeatedFailureBanner =>
+      'Snímání obrazovky opakovaně selhává. Zkontroluj oprávnění (Windows: nastavení soukromí) a výběr monitoru.';
 
   @override
   String faultUiError(Object detail) {
@@ -249,7 +277,7 @@ class AppLocalizationsCs extends AppLocalizations {
       'Zapni výstup, vyber režim a zkontroluj připojení. Podrobná konfigurace je v záložkách Zařízení a Nastavení.';
 
   @override
-  String get homeModeTitle => 'Mode';
+  String get homeModeTitle => 'Režim';
 
   @override
   String get homeModeSubtitle =>
@@ -280,7 +308,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get modeLightSubtitle => 'Statické efekty, zóny, dýchání';
 
   @override
-  String get modeScreenTitle => 'Screen';
+  String get modeScreenTitle => 'Obrazovka';
 
   @override
   String get modeScreenSubtitle => 'Ambilight ze snímku monitoru';
@@ -329,10 +357,10 @@ class AppLocalizationsCs extends AppLocalizations {
   String get musicCardTitle => 'Hudba';
 
   @override
-  String get spotifyConnected => 'Spotify: connected';
+  String get spotifyConnected => 'Spotify: připojeno';
 
   @override
-  String get spotifyDisconnected => 'Spotify: not connected';
+  String get spotifyDisconnected => 'Spotify: nepřipojeno';
 
   @override
   String get spotifyHintNeedClientId =>
@@ -446,7 +474,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get tabLight => 'Světlo';
 
   @override
-  String get tabScreen => 'Screen';
+  String get tabScreen => 'Obrazovka';
 
   @override
   String get tabMusic => 'Hudba';
@@ -516,7 +544,16 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get performanceModeSubtitle =>
-      'Při snímání monitoru (Obrazovka nebo Hudba se zdrojem „monitor“) běží hlavní smyčka na 25 FPS; delší intervaly Spotify / PC Health a šetrnější USB fronta. Čistě režim Světlo zůstává rychlejší (~62 Hz). Bez výkonového režimu nastav frekvenci níže (60 / 120 / 240 FPS). „Animace rozhraní“ mění jen Material přechody.';
+      'Při snímání monitoru (Obrazovka nebo Hudba se zdrojem „monitor“) je hlavní smyčka omezená (výchozí ~25 FPS); níže „Tick obrazovky ve výkonu“ vyměníš CPU za plynulejší pásek. Delší intervaly Spotify / PC Health a šetrnější USB fronta. Čistě režim Světlo zůstává rychlejší (~62 Hz). Bez výkonového režimu nastav frekvenci níže (60 / 120 / 240 FPS). „Animace rozhraní“ mění jen Material přechody.';
+
+  @override
+  String performanceScreenLoopPeriodLabel(Object ms) {
+    return 'Tick obrazovky ve výkonu (ms): $ms';
+  }
+
+  @override
+  String get performanceScreenLoopPeriodHint =>
+      'Nižší ms = vyšší FPS na pásek a vyšší zátěž CPU (16–40 ms). Platí jen ve výkonovém režimu při snímání monitoru.';
 
   @override
   String get screenRefreshRateTitle => 'Frekvence Ambilight smyčky';
@@ -527,7 +564,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get screenRefreshRateDisabledHint =>
-      'Vypni výkonový režim pro změnu (se zapnutým výkonem je snímání fixně 25 FPS).';
+      'Vypni výkonový režim pro změnu (ve výkonu uprav „Tick obrazovky ve výkonu“ výše).';
 
   @override
   String get screenRefreshRateHz60 => '60 FPS';
@@ -688,13 +725,61 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String get onboardIllustColorsToStrip => 'Barvy jedou na pásek';
+
+  @override
+  String get onboardIllustMiniBackup => 'Záloha JSON';
+
+  @override
+  String get onboardIllustCpuLabel => 'CPU';
+
+  @override
+  String get onboardIllustGpuLabel => 'GPU';
+
+  @override
+  String get onboardOutputTourOnlyHint =>
+      'Jen náhled — skutečný přepínač výstupu je v horní liště aplikace.';
+
+  @override
+  String onboardSlideDotA11y(int n, int total) {
+    return 'Přejít na krok $n z $total';
+  }
+
+  @override
+  String get onboardScreenHuePreview => 'Náhled odstínu';
+
+  @override
+  String get onboardSettingsSnackModes =>
+      'Aktivní režim vybereš na přehledu (dlaždice nahoře).';
+
+  @override
+  String get onboardSettingsSnackFirmware =>
+      'Firmware a OTA: Nastavení → Firmware.';
+
+  @override
+  String get onboardSettingsSnackBackup =>
+      'Záloha JSON: Nastavení → Globální → Export.';
+
+  @override
+  String get onboardConnectivityUsbTap =>
+      'USB: COM port nastavíš v záložce Zařízení.';
+
+  @override
+  String get onboardConnectivityWifiTap =>
+      'Wi‑Fi: IP a UDP port v Zařízeních (stejně jako ve firmware).';
+
+  @override
+  String get onboardKeysHint =>
+      'Klávesnice: šipky mění krok, Esc přeskočí průvodce.';
+
+  @override
   String get devicesPageTitle => 'Zařízení';
 
   @override
   String get devicesActionsTitle => 'Actions';
 
   @override
-  String get discoveryWizardLabel => 'Discovery — wizard';
+  String get discoveryWizardLabel => 'Discovery — průvodce';
 
   @override
   String get segmentsLabel => 'Segments';
@@ -703,10 +788,10 @@ class AppLocalizationsCs extends AppLocalizations {
   String get calibrationLabel => 'Calibration';
 
   @override
-  String get screenPresetLabel => 'Screen preset';
+  String get screenPresetLabel => 'Preset obrazovky';
 
   @override
-  String get addWifiManual => 'Add Wi‑Fi manually';
+  String get addWifiManual => 'Přidat Wi-Fi ručně';
 
   @override
   String get findAmbilightCom => 'Find Ambilight (COM)';
@@ -903,6 +988,30 @@ class AppLocalizationsCs extends AppLocalizations {
   String get backupInvalid => 'Neplatný soubor konfigurace.';
 
   @override
+  String get factoryResetTitle => 'Obnovit výchozí';
+
+  @override
+  String get factoryResetButton => 'Obnovit výrobní nastavení…';
+
+  @override
+  String get factoryResetDialogTitle => 'Obnovit výrobní nastavení?';
+
+  @override
+  String get factoryResetDialogBody =>
+      'Všechna nastavení se vrátí na vestavěné výchozí hodnoty, zařízení a zóny se vymažou a uložené tokeny Home Assistant a Spotify se odstraní. Akci nelze vrátit — pokud potřebuješ kopii, nejdřív exportuj JSON zálohu.';
+
+  @override
+  String get factoryResetConfirm => 'Obnovit výchozí';
+
+  @override
+  String get factoryResetDone => 'Nastavení bylo obnoveno na výchozí hodnoty.';
+
+  @override
+  String factoryResetFailed(String error) {
+    return 'Obnovení selhalo: $error';
+  }
+
+  @override
   String get spotifyTabTitle => 'Spotify';
 
   @override
@@ -1074,7 +1183,7 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get scanOverlaySettingsTitle => 'Scan overlay (D-detail)';
+  String get scanOverlaySettingsTitle => 'Náhled skenu (D-detail)';
 
   @override
   String get scanOverlaySettingsIntro =>
@@ -1225,7 +1334,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get calibrationTitle => 'Calibration';
 
   @override
-  String get ledStripWizardTitle => 'LED strip wizard';
+  String get ledStripWizardTitle => 'Průvodce páskem LED';
 
   @override
   String get configProfileWizardTitle => 'Uložit screen preset (D14)';
@@ -1248,6 +1357,123 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get replayOnboardingButton => 'Znovu spustit úvodní průvodce';
+
+  @override
+  String get uiControlLevelLabel => 'Úroveň ovládání';
+
+  @override
+  String get uiControlLevelHelper =>
+      'Jednoduchý režim skryje pokročilé doladění obrazovky (gamma, značky kalibrace, diagnostiku snímání). Kdykoli změníš v nastavení.';
+
+  @override
+  String get uiControlLevelSimple => 'Jednoduchý';
+
+  @override
+  String get uiControlLevelAdvanced => 'Pokročilý';
+
+  @override
+  String get onboardWizardStepThemeTitle => 'Vzhled';
+
+  @override
+  String get onboardWizardStepThemeSubtitle =>
+      'Kdykoli změníš v Nastavení → Globální.';
+
+  @override
+  String get onboardWizardThemeLightTitle => 'Světlý';
+
+  @override
+  String get onboardWizardThemeLightSubtitle =>
+      'Světlé plochy a přehledné ovládací prvky.';
+
+  @override
+  String get onboardWizardThemeDarkTitle => 'Tmavý';
+
+  @override
+  String get onboardWizardThemeDarkSubtitle =>
+      'Příjemnější ve ztlumeném prostředí.';
+
+  @override
+  String get onboardWizardStepComplexityTitle =>
+      'Jak podrobné má být nastavení?';
+
+  @override
+  String get onboardWizardStepComplexitySubtitle =>
+      'Jednoduchý nechá jen běžné posuvníky. Pokročilý ukáže gamma, odsazení a diagnostiku.';
+
+  @override
+  String get onboardWizardComplexitySimpleTitle => 'Jednoduchý';
+
+  @override
+  String get onboardWizardComplexitySimpleSubtitle =>
+      'Doporučeno — méně přepínačů, rychlejší start.';
+
+  @override
+  String get onboardWizardComplexityAdvancedTitle => 'Pokročilý';
+
+  @override
+  String get onboardWizardComplexityAdvancedSubtitle =>
+      'Plná kontrola nad snímáním, barvami a nástroji kalibrace.';
+
+  @override
+  String get onboardWizardStepDeviceTitle => 'Připojení kontroléru';
+
+  @override
+  String get onboardWizardStepDeviceSubtitle =>
+      'Jak má PC komunikovat s LED. Další zařízení přidáš později na stránce Zařízení.';
+
+  @override
+  String get onboardWizardScanWifi => 'Hledat zařízení ve Wi‑Fi';
+
+  @override
+  String get onboardWizardSetupUsb => 'Nastavit USB / sériový port';
+
+  @override
+  String get onboardWizardStepMappingTitle => 'Mapovat LED na obrazovku';
+
+  @override
+  String get onboardWizardStepMappingSubtitle =>
+      'Projdi pásek jednou, aby rohy seděly s monitorem. Přeskoč, když to uděláš později.';
+
+  @override
+  String get onboardWizardOpenMapping => 'Otevřít průvodce mapováním';
+
+  @override
+  String get onboardWizardMappingSkip => 'Teď přeskočit';
+
+  @override
+  String get onboardWizardStepIntegrationsTitle => 'Integrace';
+
+  @override
+  String get onboardWizardStepIntegrationsSubtitle =>
+      'Volitelné doplňky — zapneš je, až je budeš potřebovat.';
+
+  @override
+  String get onboardWizardHaCardTitle => 'Home Assistant';
+
+  @override
+  String get onboardWizardHaCardBody =>
+      'Zrcadlení barev na lampy a automatizace přes URL HA a dlouho platný token.';
+
+  @override
+  String get onboardWizardSpotifyCardTitle => 'Spotify';
+
+  @override
+  String get onboardWizardSpotifyCardBody =>
+      'Bohatší vizualizace hudby po propojení aplikace ve Spotify Developer (Client ID v nastavení).';
+
+  @override
+  String get onboardWizardPcHealthCardTitle => 'PC Health';
+
+  @override
+  String get onboardWizardPcHealthCardBody =>
+      'Teploty a zátěž řídí ambientní barvy — vhodné pro přehledy na pozadí.';
+
+  @override
+  String get onboardWizardPreviewHint =>
+      'Duhový náhled používá stejnou syntetickou cestu jako Nastavení → Obrazovka.';
+
+  @override
+  String get onboardWizardFinish => 'Začít používat';
 
   @override
   String get devicesPageSubtitle =>
@@ -1348,6 +1574,19 @@ class AppLocalizationsCs extends AppLocalizations {
   String screenPaddingUniformPct(Object pct) {
     return 'Odsazení (jednotně): $pct %';
   }
+
+  @override
+  String get screenColorSamplingLabel => 'Barva LED ze skenované oblasti';
+
+  @override
+  String get screenColorSamplingMedian => 'Medián (výchozí jako PyQt)';
+
+  @override
+  String get screenColorSamplingAverage => 'Průměr (mean)';
+
+  @override
+  String get screenColorSamplingHint =>
+      'Každá LED má podél hrany vlastní obdélník (stejná geometrie při libovolném rozlišení snímku). Medián potlačí světlé výjimky; průměr odpovídá jemnějšímu smíchání podobně jako cv2.resize INTER_AREA v PyQt.';
 
   @override
   String get screenCaptureCardTitle => 'Snímání obrazovky';
@@ -1464,11 +1703,27 @@ class AppLocalizationsCs extends AppLocalizations {
   String get markerOff => 'Vypnout značky';
 
   @override
+  String get screenRainbowSynthSectionTitle => 'Diagnostika pipeline';
+
+  @override
+  String get screenRainbowSynthSwitchTitle =>
+      'Syntetická duha (ignorovat pixely obrazovky)';
+
+  @override
+  String get screenRainbowSynthSwitchSubtitle =>
+      'Worker obrazovky přeskočí ROI a po stejné cestě pack/UDP pošle pohyblivý test. Ve výchozím vypnuto — k oddělení zpoždění snímání od zbytku řetězce.';
+
+  @override
   String get segmentsTileTitle => 'Segmenty';
 
   @override
   String segmentsZoneEditorSubtitle(Object count) {
     return 'Počet: $count (editor zón A7)';
+  }
+
+  @override
+  String screenSegmentMonitorMismatchBanner(Object capture) {
+    return 'Některé segmenty LED vzorkují jiný monitor než vybraný zdroj snímku (index $capture). Upravte monitor u segmentů nebo monitor pro snímání.';
   }
 
   @override
@@ -1509,6 +1764,15 @@ class AppLocalizationsCs extends AppLocalizations {
   String lightBrightnessValue(Object v) {
     return 'Jas: $v';
   }
+
+  @override
+  String lightSmoothingMs(Object v) {
+    return 'Plynulost barev (ms): $v';
+  }
+
+  @override
+  String get lightSmoothingHint =>
+      'Vyhlazuje barvy light režimu mezi snímky (0 = okamžitě). Stejný princip jako interpolace obrazovky.';
 
   @override
   String get lightHomekitTile => 'HomeKit (FW / MQTT — neposílat barvy z PC)';
@@ -1561,6 +1825,12 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get lightEffectCustomZones => 'Vlastní zóny';
+
+  @override
+  String get lightZoneEffectPulse => 'Puls';
+
+  @override
+  String get lightZoneEffectBlink => 'Blikání';
 
   @override
   String musicDeviceError(Object error) {
@@ -1719,7 +1989,7 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get musicEffectSmartMusic => 'Smart Music';
+  String get musicEffectSmartMusic => 'Chytrá hudba';
 
   @override
   String get musicEffectEnergy => 'Energie';
@@ -1834,7 +2104,7 @@ class AppLocalizationsCs extends AppLocalizations {
       'Měň jen pokud víš, že segmenty v JSON na to odkazují.';
 
   @override
-  String get scanOverlayTitle => 'Scan overlay (D-detail)';
+  String get scanOverlayTitle => 'Náhled skenu (D-detail)';
 
   @override
   String scanOverlayIntro(Object seconds) {
@@ -1905,7 +2175,8 @@ class AppLocalizationsCs extends AppLocalizations {
   String get scanDiagramTitle => 'Schéma oblasti (poměr zvoleného monitoru)';
 
   @override
-  String get scanThumbNeedScreenMode => 'Zapni režim screen pro živý náhled.';
+  String get scanThumbNeedScreenMode =>
+      'Zapni režim Obrazovka pro živý náhled.';
 
   @override
   String get scanThumbWaiting => 'Čekám na snímek…';
@@ -2187,7 +2458,12 @@ class AppLocalizationsCs extends AppLocalizations {
       'Reset Wi‑Fi (smaže uložené přihlašovací údaje)';
 
   @override
-  String get discIdentifyTooltip => 'Identify';
+  String get discIdentifyTooltip => 'Identifikovat';
+
+  @override
+  String discListItemSubtitle(Object ip, int ledCount, Object version) {
+    return '$ip · $ledCount LED · FW $version';
+  }
 
   @override
   String zoneEditorSavedSegments(Object count) {
@@ -2206,6 +2482,121 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get zoneEditorDeleteTooltip => 'Smazat';
+
+  @override
+  String zoneFieldLedStart(int value) {
+    return 'Začátek LED: $value';
+  }
+
+  @override
+  String zoneFieldLedEnd(int value) {
+    return 'Konec LED: $value';
+  }
+
+  @override
+  String zoneFieldMonitorIndex(int value) {
+    return 'Index monitoru: $value';
+  }
+
+  @override
+  String get zoneFieldEdge => 'Hrana';
+
+  @override
+  String zoneFieldDepthScan(int value) {
+    return 'Hloubka skenu: $value';
+  }
+
+  @override
+  String get zoneFieldReverse => 'Obrátit směr';
+
+  @override
+  String get zoneFieldDeviceId => 'Zařízení';
+
+  @override
+  String zoneFieldPixelStart(int value) {
+    return 'Začátek pixelu: $value';
+  }
+
+  @override
+  String zoneFieldPixelEnd(int value) {
+    return 'Konec pixelu: $value';
+  }
+
+  @override
+  String zoneFieldRefWidth(int value) {
+    return 'Referenční šířka: $value';
+  }
+
+  @override
+  String zoneFieldRefHeight(int value) {
+    return 'Referenční výška: $value';
+  }
+
+  @override
+  String get zoneFieldMusicEffect => 'Efekt hudby';
+
+  @override
+  String get zoneFieldRole => 'Frekvenční pásmo';
+
+  @override
+  String get zoneEdgeTop => 'Nahoře';
+
+  @override
+  String get zoneEdgeBottom => 'Dole';
+
+  @override
+  String get zoneEdgeLeft => 'Vlevo';
+
+  @override
+  String get zoneEdgeRight => 'Vpravo';
+
+  @override
+  String get zoneMusicEffectDefault => 'Výchozí';
+
+  @override
+  String get zoneMusicEffectSmartMusic => 'Chytrá hudba';
+
+  @override
+  String get zoneMusicEffectEnergy => 'Energie';
+
+  @override
+  String get zoneMusicEffectSpectrum => 'Spektrum';
+
+  @override
+  String get zoneMusicEffectSpectrumRotate => 'Rotující spektrum';
+
+  @override
+  String get zoneMusicEffectSpectrumPunchy => 'Spektrum (výrazné)';
+
+  @override
+  String get zoneMusicEffectStrobe => 'Stroboskop';
+
+  @override
+  String get zoneMusicEffectVumeter => 'VU měřič';
+
+  @override
+  String get zoneMusicEffectVumeterSpectrum => 'VU + spektrum';
+
+  @override
+  String get zoneMusicEffectPulse => 'Puls';
+
+  @override
+  String get zoneMusicEffectReactiveBass => 'Reaktivní basy';
+
+  @override
+  String get zoneRoleAuto => 'Auto';
+
+  @override
+  String get zoneRoleBass => 'Bas';
+
+  @override
+  String get zoneRoleMids => 'Středy';
+
+  @override
+  String get zoneRoleHighs => 'Výšky';
+
+  @override
+  String get zoneRoleAmbience => 'Prostor';
 
   @override
   String get zoneDeviceAllDefault => '— všechna / výchozí —';

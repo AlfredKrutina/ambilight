@@ -6,6 +6,7 @@ import '../config_backup_section.dart';
 import '../settings_common.dart';
 import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
+import '../../widgets/config_drag_slider.dart';
 
 List<Widget> globalSettingsFields(
   BuildContext context,
@@ -15,6 +16,7 @@ List<Widget> globalSettingsFields(
   final l10n = context.l10n;
   final langVal = normalizeAmbilightUiLanguage(g.uiLanguage);
   final langDropdown = langVal == 'system' ? 'system' : langVal;
+  final simpleUi = normalizeAmbilightUiControlLevel(g.uiControlLevel) == 'simple';
 
   return [
     DropdownButtonFormField<String>(
@@ -71,46 +73,91 @@ List<Widget> globalSettingsFields(
         onChanged(g.copyWith(theme: v));
       },
     ),
+    DropdownButtonFormField<String>(
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: l10n.uiControlLevelLabel,
+        border: const OutlineInputBorder(),
+        helperText: l10n.uiControlLevelHelper,
+      ),
+      value: normalizeAmbilightUiControlLevel(g.uiControlLevel),
+      items: [
+        DropdownMenuItem(value: 'simple', child: Text(l10n.uiControlLevelSimple)),
+        DropdownMenuItem(value: 'advanced', child: Text(l10n.uiControlLevelAdvanced)),
+      ],
+      onChanged: (v) {
+        if (v == null) return;
+        onChanged(g.copyWith(uiControlLevel: normalizeAmbilightUiControlLevel(v)));
+      },
+    ),
     SwitchListTile(
       title: Text(l10n.uiAnimationsTitle),
       subtitle: Text(l10n.uiAnimationsSubtitle),
       value: g.uiAnimationsEnabled,
       onChanged: (v) => onChanged(g.copyWith(uiAnimationsEnabled: v)),
     ),
-    SwitchListTile(
-      title: Text(l10n.performanceModeTitle),
-      subtitle: Text(l10n.performanceModeSubtitle),
-      value: g.performanceMode,
-      onChanged: (v) => onChanged(g.copyWith(performanceMode: v)),
-    ),
-    DropdownButtonFormField<int>(
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: l10n.screenRefreshRateTitle,
-        border: const OutlineInputBorder(),
-        helperText: g.performanceMode ? l10n.screenRefreshRateDisabledHint : l10n.screenRefreshRateSubtitle,
+    if (!simpleUi) ...[
+      SwitchListTile(
+        title: Text(l10n.performanceModeTitle),
+        subtitle: Text(l10n.performanceModeSubtitle),
+        value: g.performanceMode,
+        onChanged: (v) => onChanged(g.copyWith(performanceMode: v)),
       ),
-      value: normalizeAmbilightScreenRefreshRateHz(g.screenRefreshRateHz),
-      items: [
-        for (final hz in kAmbilightScreenRefreshRatesHz)
-          DropdownMenuItem(
-            value: hz,
-            child: Text(
-              switch (hz) {
-                60 => l10n.screenRefreshRateHz60,
-                120 => l10n.screenRefreshRateHz120,
-                _ => l10n.screenRefreshRateHz240,
-              },
-            ),
+      if (g.performanceMode) ...[
+        Text(
+          l10n.performanceScreenLoopPeriodLabel(g.performanceScreenLoopPeriodMs),
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            l10n.performanceScreenLoopPeriodHint,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
           ),
+        ),
+        ConfigDragSlider(
+          value: g.performanceScreenLoopPeriodMs.toDouble(),
+          min: 16,
+          max: 40,
+          divisions: 24,
+          label: '${g.performanceScreenLoopPeriodMs}',
+          onChanged: (v) => onChanged(
+            g.copyWith(performanceScreenLoopPeriodMs: v.round()),
+          ),
+        ),
+        const SizedBox(height: 8),
       ],
-      onChanged: g.performanceMode
-          ? null
-          : (v) {
-              if (v == null) return;
-              onChanged(g.copyWith(screenRefreshRateHz: v));
-            },
-    ),
+      DropdownButtonFormField<int>(
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: l10n.screenRefreshRateTitle,
+          border: const OutlineInputBorder(),
+          helperText: g.performanceMode ? l10n.screenRefreshRateDisabledHint : l10n.screenRefreshRateSubtitle,
+        ),
+        value: normalizeAmbilightScreenRefreshRateHz(g.screenRefreshRateHz),
+        items: [
+          for (final hz in kAmbilightScreenRefreshRatesHz)
+            DropdownMenuItem(
+              value: hz,
+              child: Text(
+                switch (hz) {
+                  60 => l10n.screenRefreshRateHz60,
+                  120 => l10n.screenRefreshRateHz120,
+                  _ => l10n.screenRefreshRateHz240,
+                },
+              ),
+            ),
+        ],
+        onChanged: g.performanceMode
+            ? null
+            : (v) {
+                if (v == null) return;
+                onChanged(g.copyWith(screenRefreshRateHz: v));
+              },
+      ),
+    ],
     SwitchListTile(
       title: Text(l10n.autostartTitle),
       subtitle: Text(l10n.autostartSubtitle),
@@ -122,34 +169,35 @@ List<Widget> globalSettingsFields(
       value: g.startMinimized,
       onChanged: (v) => onChanged(g.copyWith(startMinimized: v)),
     ),
-    Builder(
-      builder: (context) {
-        final trimmed = g.captureMethod.trim();
-        final value = trimmed.isEmpty || trimmed == 'mss' ? 'mss' : trimmed;
-        final items = <DropdownMenuItem<String>>[
-          DropdownMenuItem(value: 'mss', child: Text(l10n.captureMethodNativeMss)),
-          if (value != 'mss')
-            DropdownMenuItem(
-              value: value,
-              child: Text(l10n.captureMethodCustomSaved(value)),
+    if (!simpleUi)
+      Builder(
+        builder: (context) {
+          final trimmed = g.captureMethod.trim();
+          final value = trimmed.isEmpty || trimmed == 'mss' ? 'mss' : trimmed;
+          final items = <DropdownMenuItem<String>>[
+            DropdownMenuItem(value: 'mss', child: Text(l10n.captureMethodNativeMss)),
+            if (value != 'mss')
+              DropdownMenuItem(
+                value: value,
+                child: Text(l10n.captureMethodCustomSaved(value)),
+              ),
+          ];
+          return DropdownButtonFormField<String>(
+            isExpanded: true,
+            decoration: InputDecoration(
+              labelText: l10n.captureMethodLabel,
+              border: const OutlineInputBorder(),
+              helperText: l10n.captureMethodHelper,
             ),
-        ];
-        return DropdownButtonFormField<String>(
-          isExpanded: true,
-          decoration: InputDecoration(
-            labelText: l10n.captureMethodLabel,
-            border: const OutlineInputBorder(),
-            helperText: l10n.captureMethodHelper,
-          ),
-          value: value,
-          items: items,
-          onChanged: (v) {
-            if (v == null) return;
-            onChanged(g.copyWith(captureMethod: v));
-          },
-        );
-      },
-    ),
+            value: value,
+            items: items,
+            onChanged: (v) {
+              if (v == null) return;
+              onChanged(g.copyWith(captureMethod: v));
+            },
+          );
+        },
+      ),
   ];
 }
 

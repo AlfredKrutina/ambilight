@@ -1,6 +1,24 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
+import '../../l10n/context_ext.dart';
+
+void _syncLoopingAnimation(AnimationController c, BuildContext context, {bool reverse = false}) {
+  if (MediaQuery.disableAnimationsOf(context)) {
+    c.stop();
+    c.value = 0;
+    return;
+  }
+  if (!c.isAnimating) {
+    if (reverse) {
+      c.repeat(reverse: true);
+    } else {
+      c.repeat();
+    }
+  }
+}
 
 /// Logo / ikona s jemným pulzem.
 class OnboardingPulseLogo extends StatefulWidget {
@@ -18,11 +36,18 @@ class OnboardingPulseLogo extends StatefulWidget {
 }
 
 class _OnboardingPulseLogoState extends State<OnboardingPulseLogo> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 3))
-    ..repeat(reverse: true);
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 3));
+  late final CurvedAnimation _ease = CurvedAnimation(parent: _c, curve: Curves.easeInOut);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncLoopingAnimation(_c, context, reverse: true);
+  }
 
   @override
   void dispose() {
+    _ease.dispose();
     _c.dispose();
     super.dispose();
   }
@@ -32,8 +57,7 @@ class _OnboardingPulseLogoState extends State<OnboardingPulseLogo> with SingleTi
     return AnimatedBuilder(
       animation: _c,
       builder: (context, _) {
-        final t = CurvedAnimation(parent: _c, curve: Curves.easeInOut);
-        final scale = 1 + 0.06 * math.sin(t.value * math.pi);
+        final scale = 1 + 0.06 * math.sin(_ease.value * math.pi);
         return Transform.scale(
           scale: scale,
           child: SizedBox(width: widget.size, height: widget.size, child: widget.child),
@@ -53,8 +77,15 @@ class OnboardingAmbilightScreenDemo extends StatefulWidget {
 
 class _OnboardingAmbilightScreenDemoState extends State<OnboardingAmbilightScreenDemo>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 5))
-    ..repeat();
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 5));
+  /// Posun náhledové barvy (interakce posuvníkem).
+  double _hueTweak = 0.35;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncLoopingAnimation(_c, context);
+  }
 
   @override
   void dispose() {
@@ -65,24 +96,51 @@ class _OnboardingAmbilightScreenDemoState extends State<OnboardingAmbilightScree
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     return AnimatedBuilder(
       animation: _c,
       builder: (context, _) {
-        final hue = (_c.value * 360) % 360;
+        final hue = ((_c.value * 360) + _hueTweak * 200) % 360;
         final glow = HSVColor.fromAHSV(1, hue, 0.65, 1).toColor();
         final glow2 = HSVColor.fromAHSV(1, (hue + 40) % 360, 0.55, 1).toColor();
         return LayoutBuilder(
           builder: (context, c) {
             final w = c.maxWidth.clamp(120.0, 340.0);
             final h = w * 0.62;
-            return CustomPaint(
-              size: Size(w, h + 28),
-              painter: _AmbilightFramePainter(
-                progress: _c.value,
-                glow: glow,
-                glow2: glow2,
-                surface: scheme.surfaceContainerHigh,
-              ),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                CustomPaint(
+                  size: Size(w, h + 28),
+                  painter: _AmbilightFramePainter(
+                    progress: _c.value,
+                    glow: glow,
+                    glow2: glow2,
+                    surface: scheme.surfaceContainerHigh,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 10, left: 4, right: 4),
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 3,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                      // Bez Overlay (MaterialApp.builder) by value indicator házel chybu.
+                      showValueIndicator: ShowValueIndicator.never,
+                    ),
+                    child: Slider(
+                      value: _hueTweak,
+                      divisions: 24,
+                      onChanged: (v) => setState(() => _hueTweak = v),
+                    ),
+                  ),
+                ),
+                Text(
+                  l10n.onboardScreenHuePreview,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
             );
           },
         );
@@ -175,13 +233,32 @@ class OnboardingMusicBarsDemo extends StatefulWidget {
 }
 
 class _OnboardingMusicBarsDemoState extends State<OnboardingMusicBarsDemo> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
-    ..repeat(reverse: true);
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+  late final CurvedAnimation _ease = CurvedAnimation(parent: _c, curve: Curves.easeInOut);
+  int? _pulseBar;
+  Timer? _pulseTimer;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncLoopingAnimation(_c, context, reverse: true);
+  }
 
   @override
   void dispose() {
+    _pulseTimer?.cancel();
+    _ease.dispose();
     _c.dispose();
     super.dispose();
+  }
+
+  void _tapBar(int i) {
+    _pulseTimer?.cancel();
+    setState(() => _pulseBar = i);
+    _pulseTimer = Timer(const Duration(milliseconds: 220), () {
+      if (mounted) setState(() => _pulseBar = null);
+    });
   }
 
   @override
@@ -190,13 +267,13 @@ class _OnboardingMusicBarsDemoState extends State<OnboardingMusicBarsDemo> with 
     return AnimatedBuilder(
       animation: _c,
       builder: (context, _) {
-        final v = CurvedAnimation(parent: _c, curve: Curves.easeInOut).value;
+        final v = _ease.value;
         final heights = List<double>.generate(
           12,
           (i) => 0.35 + 0.65 * math.sin(v * math.pi + i * 0.55).abs(),
         );
         return SizedBox(
-          height: 140,
+          height: 148,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisAlignment: MainAxisAlignment.center,
@@ -204,27 +281,34 @@ class _OnboardingMusicBarsDemoState extends State<OnboardingMusicBarsDemo> with 
               for (var i = 0; i < heights.length; i++)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: AnimatedContainer(
-                    duration: Duration.zero,
-                    width: 12,
-                    height: 28 + heights[i] * 92,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(6),
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [
-                          scheme.tertiary,
-                          Color.lerp(scheme.primary, scheme.secondary, i / heights.length)!,
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          blurRadius: 8,
-                          spreadRadius: 0,
-                          color: scheme.primary.withValues(alpha: 0.35),
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => _tapBar(i),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOut,
+                        width: 12,
+                        height: (28 + heights[i] * 92) * (_pulseBar == i ? 1.22 : 1.0),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(6),
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              scheme.tertiary,
+                              Color.lerp(scheme.primary, scheme.secondary, i / heights.length)!,
+                            ],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              blurRadius: _pulseBar == i ? 16 : 8,
+                              spreadRadius: 0,
+                              color: scheme.primary.withValues(alpha: _pulseBar == i ? 0.65 : 0.35),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -245,8 +329,14 @@ class OnboardingModesTilesDemo extends StatefulWidget {
 }
 
 class _OnboardingModesTilesDemoState extends State<OnboardingModesTilesDemo> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 4))
-    ..repeat();
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 4));
+  int _selected = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncLoopingAnimation(_c, context);
+  }
 
   @override
   void dispose() {
@@ -261,8 +351,27 @@ class _OnboardingModesTilesDemoState extends State<OnboardingModesTilesDemo> wit
     (icon: Icons.monitor_heart_rounded, colors: [Color(0xFF0D9488), Color(0xFF22C55E)]),
   ];
 
+  List<String> _modeNames(BuildContext context) {
+    final l = context.l10n;
+    return [l.modeLightTitle, l.modeScreenTitle, l.modeMusicTitle, l.modePcHealthTitle];
+  }
+
+  void _onTileTap(int i) {
+    setState(() => _selected = i);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.hideCurrentSnackBar();
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(_modeNames(context)[i]),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return AnimatedBuilder(
       animation: _c,
       builder: (context, _) {
@@ -272,11 +381,15 @@ class _OnboardingModesTilesDemoState extends State<OnboardingModesTilesDemo> wit
           alignment: WrapAlignment.center,
           children: [
             for (var i = 0; i < _tiles.length; i++)
-              _AnimatedTile(
+              _InteractiveModeTile(
                 delay: i * 0.18,
                 phase: _c.value,
                 icon: _tiles[i].icon,
                 colors: _tiles[i].colors,
+                selected: _selected == i,
+                label: _modeNames(context)[i],
+                onTap: () => _onTileTap(i),
+                ring: scheme.primary,
               ),
           ],
         );
@@ -285,18 +398,26 @@ class _OnboardingModesTilesDemoState extends State<OnboardingModesTilesDemo> wit
   }
 }
 
-class _AnimatedTile extends StatelessWidget {
-  const _AnimatedTile({
+class _InteractiveModeTile extends StatelessWidget {
+  const _InteractiveModeTile({
     required this.delay,
     required this.phase,
     required this.icon,
     required this.colors,
+    required this.selected,
+    required this.label,
+    required this.onTap,
+    required this.ring,
   });
 
   final double delay;
   final double phase;
   final IconData icon;
   final List<Color> colors;
+  final bool selected;
+  final String label;
+  final VoidCallback onTap;
+  final Color ring;
 
   @override
   Widget build(BuildContext context) {
@@ -304,21 +425,38 @@ class _AnimatedTile extends StatelessWidget {
     final lift = 4 * math.sin(local * math.pi * 2);
     return Transform.translate(
       offset: Offset(0, -lift),
-      child: Container(
-        width: 76,
-        height: 76,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(colors: colors),
-          boxShadow: [
-            BoxShadow(
-              color: colors.first.withValues(alpha: 0.45),
-              blurRadius: 12 + lift,
-              offset: const Offset(0, 4),
+      child: Semantics(
+        label: label,
+        button: true,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(18),
+            child: Ink(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                gradient: LinearGradient(colors: colors),
+                border: Border.all(
+                  color: selected ? ring : ring.withValues(alpha: 0.28),
+                  width: selected ? 3 : 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.first.withValues(alpha: selected ? 0.55 : 0.38),
+                    blurRadius: selected ? 18 : 12 + lift,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Icon(icon, color: Colors.white.withValues(alpha: 0.95), size: 34),
+              ),
             ),
-          ],
+          ),
         ),
-        child: Icon(icon, color: Colors.white.withValues(alpha: 0.95), size: 34),
       ),
     );
   }
@@ -333,8 +471,13 @@ class OnboardingConnectivityDemo extends StatefulWidget {
 }
 
 class _OnboardingConnectivityDemoState extends State<OnboardingConnectivityDemo> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 2))
-    ..repeat();
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 2));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncLoopingAnimation(_c, context);
+  }
 
   @override
   void dispose() {
@@ -345,18 +488,38 @@ class _OnboardingConnectivityDemoState extends State<OnboardingConnectivityDemo>
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
+    void snack(String msg) {
+      final m = ScaffoldMessenger.maybeOf(context);
+      m?.hideCurrentSnackBar();
+      m?.showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating));
+    }
+
     return SizedBox(
       height: 140,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.usb_rounded, size: 52, color: scheme.primary),
-              const SizedBox(height: 8),
-              Text('USB / sériový', style: TextStyle(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600)),
-            ],
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => snack(l10n.onboardConnectivityUsbTap),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.usb_rounded, size: 52, color: scheme.primary),
+                    const SizedBox(height: 8),
+                    Text(
+                      l10n.onboardingUsbSerialLabel,
+                      style: TextStyle(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
           AnimatedBuilder(
             animation: _c,
@@ -367,13 +530,26 @@ class _OnboardingConnectivityDemoState extends State<OnboardingConnectivityDemo>
               );
             },
           ),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.wifi_rounded, size: 52, color: scheme.tertiary),
-              const SizedBox(height: 8),
-              Text('UDP / Wi‑Fi', style: TextStyle(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600)),
-            ],
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => snack(l10n.onboardConnectivityWifiTap),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.wifi_rounded, size: 52, color: scheme.tertiary),
+                    const SizedBox(height: 8),
+                    Text(
+                      l10n.onboardingUdpWifiLabel,
+                      style: TextStyle(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -405,7 +581,7 @@ class _WifiRipplesPainter extends CustomPainter {
   bool shouldRepaint(covariant _WifiRipplesPainter oldDelegate) => oldDelegate.progress != progress;
 }
 
-/// Průběh výstupu — blesk + šipka na pásek.
+/// Průběh výstupu — přepínač (náhled) + animace na pásek.
 class OnboardingOutputDemo extends StatefulWidget {
   const OnboardingOutputDemo({super.key});
 
@@ -414,11 +590,20 @@ class OnboardingOutputDemo extends StatefulWidget {
 }
 
 class _OnboardingOutputDemoState extends State<OnboardingOutputDemo> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))
-    ..repeat(reverse: true);
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
+  late final CurvedAnimation _ease = CurvedAnimation(parent: _c, curve: Curves.easeInOut);
+  bool _demoOn = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncLoopingAnimation(_c, context, reverse: true);
+  }
 
   @override
   void dispose() {
+    _ease.dispose();
     _c.dispose();
     super.dispose();
   }
@@ -426,41 +611,80 @@ class _OnboardingOutputDemoState extends State<OnboardingOutputDemo> with Single
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (context, _) {
-        final e = CurvedAnimation(parent: _c, curve: Curves.easeInOut);
-        final glow = scheme.tertiary.withValues(alpha: 0.35 + 0.45 * e.value);
-        return Column(
+    final l10n = context.l10n;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.bolt_rounded, size: 56, color: glow),
-            const SizedBox(height: 8),
-            Icon(Icons.arrow_downward_rounded, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
-            const SizedBox(height: 8),
-            Container(
-              height: 22,
-              width: 220,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(11),
-                gradient: LinearGradient(
-                  colors: [
-                    scheme.primary.withValues(alpha: 0.5 + 0.45 * e.value),
-                    scheme.secondary.withValues(alpha: 0.55),
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(blurRadius: 14, color: scheme.primary.withValues(alpha: 0.45 * e.value)),
+            Switch(
+              value: _demoOn,
+              onChanged: (v) => setState(() => _demoOn = v),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _demoOn ? l10n.onboardingOutputDemoOn : l10n.onboardingOutputDemoOff,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    l10n.onboardOutputTourOnlyHint,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Barvy jedou na pásek',
-              style: TextStyle(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w500),
-            ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 8),
+        AnimatedBuilder(
+          animation: _c,
+          builder: (context, _) {
+            final t = _ease.value;
+            final glow = scheme.tertiary.withValues(alpha: (_demoOn ? 0.35 : 0.12) + (_demoOn ? 0.45 : 0) * t);
+            return AnimatedOpacity(
+              duration: const Duration(milliseconds: 220),
+              opacity: _demoOn ? 1 : 0.38,
+              child: Column(
+                children: [
+                  Icon(Icons.bolt_rounded, size: 56, color: glow),
+                  const SizedBox(height: 8),
+                  Icon(Icons.arrow_downward_rounded, color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 22,
+                    width: 220,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(11),
+                      gradient: LinearGradient(
+                        colors: [
+                          scheme.primary.withValues(alpha: (_demoOn ? 0.5 : 0.2) + (_demoOn ? 0.45 : 0) * t),
+                          scheme.secondary.withValues(alpha: _demoOn ? 0.55 : 0.25),
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          blurRadius: 14,
+                          color: scheme.primary.withValues(alpha: (_demoOn ? 0.45 : 0.08) * t),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.onboardIllustColorsToStrip,
+                    style: TextStyle(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -474,8 +698,13 @@ class OnboardingPcHealthDemo extends StatefulWidget {
 }
 
 class _OnboardingPcHealthDemoState extends State<OnboardingPcHealthDemo> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 3))
-    ..repeat();
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 3));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncLoopingAnimation(_c, context);
+  }
 
   @override
   void dispose() {
@@ -486,6 +715,7 @@ class _OnboardingPcHealthDemoState extends State<OnboardingPcHealthDemo> with Si
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     return AnimatedBuilder(
       animation: _c,
       builder: (context, _) {
@@ -496,9 +726,9 @@ class _OnboardingPcHealthDemoState extends State<OnboardingPcHealthDemo> with Si
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _MeterBar(label: 'CPU', value: cpu, color: scheme.primary),
+              _MeterBar(label: l10n.onboardIllustCpuLabel, value: cpu, color: scheme.primary),
               const SizedBox(width: 28),
-              _MeterBar(label: 'GPU', value: gpu, color: scheme.tertiary),
+              _MeterBar(label: l10n.onboardIllustGpuLabel, value: gpu, color: scheme.tertiary),
             ],
           ),
         );
@@ -563,15 +793,83 @@ class OnboardingSettingsDemo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
+    void snack(String msg) {
+      final m = ScaffoldMessenger.maybeOf(context);
+      m?.hideCurrentSnackBar();
+      m?.showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating));
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _MiniCard(icon: Icons.tune_rounded, label: 'Režimy', scheme: scheme),
+        _MiniCard(
+          icon: Icons.tune_rounded,
+          label: l10n.onboardingModesDemoLabel,
+          scheme: scheme,
+          onTap: () => snack(l10n.onboardSettingsSnackModes),
+        ),
         const SizedBox(width: 14),
-        _MiniCard(icon: Icons.cloud_download_rounded, label: 'Firmware', scheme: scheme),
+        _MiniCard(
+          icon: Icons.cloud_download_rounded,
+          label: l10n.tabFirmware,
+          scheme: scheme,
+          onTap: () => snack(l10n.onboardSettingsSnackFirmware),
+        ),
         const SizedBox(width: 14),
-        _MiniCard(icon: Icons.save_alt_rounded, label: 'Záloha JSON', scheme: scheme),
+        _MiniCard(
+          icon: Icons.save_alt_rounded,
+          label: l10n.onboardIllustMiniBackup,
+          scheme: scheme,
+          onTap: () => snack(l10n.onboardSettingsSnackBackup),
+        ),
       ],
+    );
+  }
+}
+
+/// Závěrečná stránka — raketa s jemným pohybem.
+class OnboardingReadyIllustration extends StatefulWidget {
+  const OnboardingReadyIllustration({super.key});
+
+  @override
+  State<OnboardingReadyIllustration> createState() => _OnboardingReadyIllustrationState();
+}
+
+class _OnboardingReadyIllustrationState extends State<OnboardingReadyIllustration>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 2200));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncLoopingAnimation(_c, context, reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final t = Curves.easeInOut.transform(_c.value);
+        final lift = 6 * math.sin(t * math.pi * 2);
+        final rot = 0.12 * math.sin((t + 0.25) * math.pi * 2);
+        return Transform.translate(
+          offset: Offset(0, -lift),
+          child: Transform.rotate(
+            angle: rot,
+            child: Icon(Icons.rocket_launch_rounded, size: 88, color: scheme.primary),
+          ),
+        );
+      },
     );
   }
 }
@@ -581,32 +879,41 @@ class _MiniCard extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.scheme,
+    required this.onTap,
   });
 
   final IconData icon;
   final String label;
   final ColorScheme scheme;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 96,
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-      decoration: BoxDecoration(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        color: scheme.surfaceContainerHigh.withValues(alpha: 0.9),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: scheme.primary, size: 30),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant),
+        onTap: onTap,
+        child: Ink(
+          width: 96,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            color: scheme.surfaceContainerHigh.withValues(alpha: 0.9),
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
           ),
-        ],
+          child: Column(
+            children: [
+              Icon(icon, color: scheme.primary, size: 30),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
