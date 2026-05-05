@@ -1947,6 +1947,19 @@ class AmbilightAppController extends ChangeNotifier {
     unawaited(_stopWindowsPushCapture());
   }
 
+  /// Krátce pozastaví hlavní loop (tick + capture driver), provede [action] a loop vrátí zpět.
+  Future<T> runWithLoopPaused<T>(Future<T> Function() action) async {
+    final wasRunning = _timer != null || _screenCaptureDriverTimer != null;
+    if (wasRunning) stopLoop();
+    try {
+      return await action();
+    } finally {
+      if (wasRunning && !_controllerDisposed) {
+        startLoop();
+      }
+    }
+  }
+
   void _ensureScreenCapture() {
     if (_screenCapture != null) return;
     try {

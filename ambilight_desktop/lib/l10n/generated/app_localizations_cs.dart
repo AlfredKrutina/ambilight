@@ -1438,7 +1438,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get onboardWizardOpenMapping => 'Otevřít průvodce mapováním';
 
   @override
-  String get onboardWizardMappingSkip => 'Teď přeskočit';
+  String get onboardWizardMappingSkip => 'PŘESKOČIT';
 
   @override
   String get onboardWizardStepIntegrationsTitle => 'Integrace';
@@ -1474,6 +1474,103 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get onboardWizardFinish => 'Začít používat';
+
+  @override
+  String get setupWizardLanguageHeader => 'Choose your language / Zvolte jazyk';
+
+  @override
+  String get setupWizardLanguageSubtitle =>
+      'Použije se hned — změníš kdykoli v Nastavení → Globální.';
+
+  @override
+  String get setupWizardLanguageEnglishTitle => 'English';
+
+  @override
+  String get setupWizardLanguageEnglishSubtitle => 'Výchozí jazyk rozhraní.';
+
+  @override
+  String get setupWizardLanguageCzechTitle => 'Čeština';
+
+  @override
+  String get setupWizardLanguageCzechSubtitle => 'České řetězce v aplikaci.';
+
+  @override
+  String get setupWizardAppearanceHeader => 'Jak má vypadat?';
+
+  @override
+  String get setupWizardAppearanceSubtitle =>
+      'Světlý nebo tmavý režim — uloží se hned do profilu.';
+
+  @override
+  String get setupWizardExpertiseSimpleExplain =>
+      'Pokročilé položky (gamma, vyhlazování a jemné IP/offsety) zůstanou skryté pro přehlednější práci. Na Pokročilý přepneš kdykoli v Globálním nastavení.';
+
+  @override
+  String get setupWizardUsbListTitle => 'USB — sériové porty';
+
+  @override
+  String get setupWizardUsbEmpty =>
+      'Žádný COM port. Připoj kontrolér a klepni na obnovit.';
+
+  @override
+  String get setupWizardUsbConnect => 'Připojit';
+
+  @override
+  String get setupWizardUsbWebHint =>
+      'USB/sériové nastavení je ve desktopové verzi pro Windows.';
+
+  @override
+  String get setupWizardComDtrRtsHint =>
+      'Test používá stejné nastavení linek DTR/RTS jako běžné připojení (ESP32‑C3 USB‑JTAG nebo klasický USB‑UART bridge).';
+
+  @override
+  String get setupWizardMappingEdgesTitle =>
+      'LED pod hranou obrazovky (aktuální mapování)';
+
+  @override
+  String get setupWizardMappingRainbowHint =>
+      'Duhová kontrola jde syntetickou cestou výstupu z obrazovky, aby šlo vidět reakci pásku.';
+
+  @override
+  String get setupWizardWhatsNextTitle => 'Co dál?';
+
+  @override
+  String get setupWizardWhatsNextSubtitle =>
+      'Volitelné funkce, až budeš chtít víc než barvy z obrazovky.';
+
+  @override
+  String get setupWizardCardSpotifyTitle => 'Integrace Spotify';
+
+  @override
+  String get setupWizardCardSpotifyBody => 'Synchronizace barev s hudbou.';
+
+  @override
+  String get setupWizardCardHaTitle => 'Home Assistant';
+
+  @override
+  String get setupWizardCardHaBody =>
+      'Ovládání přes tvůj chytrý domov (URL + dlouho platný token).';
+
+  @override
+  String get setupWizardCardPcHealthTitle => 'PC Health';
+
+  @override
+  String get setupWizardCardPcHealthBody => 'Teploty CPU/GPU přes barvy.';
+
+  @override
+  String get setupWizardFinalHeadline => 'Hotovo.';
+
+  @override
+  String get setupWizardFinalSubtitle =>
+      'Výstup zapni v horní liště, až bude hardware připravený.';
+
+  @override
+  String get setupWizardLetsGlow => 'LET\'S GLOW';
+
+  @override
+  String setupWizardStepCounter(Object current, Object total) {
+    return '$current / $total';
+  }
 
   @override
   String get devicesPageSubtitle =>

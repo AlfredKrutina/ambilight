@@ -7,6 +7,7 @@ import '../../core/protocol/serial_frame.dart';
 import '../../data/udp_device_commands.dart';
 import '../../l10n/context_ext.dart';
 import '../../services/led_discovery_service.dart';
+import '../app_navigator.dart';
 import 'wizard_dialog_shell.dart';
 
 /// D9 — průvodce discovery: sken, seznam, identify, uložení (polish oproti jednoduchému AlertDialog).
@@ -14,8 +15,11 @@ class DiscoveryWizardDialog extends StatefulWidget {
   const DiscoveryWizardDialog({super.key});
 
   static Future<void> show(BuildContext context) {
+    final dialogContext = ambiNavigatorModalContext(context);
+    if (dialogContext == null) return Future.value();
     return showDialog<void>(
-      context: context,
+      context: dialogContext,
+      useRootNavigator: true,
       barrierDismissible: false,
       builder: (ctx) => const DiscoveryWizardDialog(),
     );

@@ -1437,7 +1437,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardWizardOpenMapping => 'Open mapping wizard';
 
   @override
-  String get onboardWizardMappingSkip => 'Skip for now';
+  String get onboardWizardMappingSkip => 'SKIP FOR NOW';
 
   @override
   String get onboardWizardStepIntegrationsTitle => 'Integrations';
@@ -1473,6 +1473,104 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardWizardFinish => 'Get started';
+
+  @override
+  String get setupWizardLanguageHeader => 'Choose your language / Zvolte jazyk';
+
+  @override
+  String get setupWizardLanguageSubtitle =>
+      'Applied immediately — change anytime under Settings → Global.';
+
+  @override
+  String get setupWizardLanguageEnglishTitle => 'English';
+
+  @override
+  String get setupWizardLanguageEnglishSubtitle =>
+      'Default language for the UI.';
+
+  @override
+  String get setupWizardLanguageCzechTitle => 'Čeština';
+
+  @override
+  String get setupWizardLanguageCzechSubtitle => 'Czech interface.';
+
+  @override
+  String get setupWizardAppearanceHeader => 'How should we look?';
+
+  @override
+  String get setupWizardAppearanceSubtitle =>
+      'Light or dark — saved to your profile right away.';
+
+  @override
+  String get setupWizardExpertiseSimpleExplain =>
+      'Advanced settings (Gamma, smoothing, and fine IP/offset fields) stay hidden for a cleaner experience. You can switch to Advanced anytime in Global settings.';
+
+  @override
+  String get setupWizardUsbListTitle => 'USB — serial ports';
+
+  @override
+  String get setupWizardUsbEmpty =>
+      'No COM ports detected. Plug in the controller and tap refresh.';
+
+  @override
+  String get setupWizardUsbConnect => 'Connect';
+
+  @override
+  String get setupWizardUsbWebHint =>
+      'Serial/USB setup is available in the Windows desktop build.';
+
+  @override
+  String get setupWizardComDtrRtsHint =>
+      'Test uses the same DTR/RTS line setup as a normal connect (ESP32‑C3 USB‑JTAG or classic USB‑UART bridge).';
+
+  @override
+  String get setupWizardMappingEdgesTitle =>
+      'LEDs per screen edge (current mapping)';
+
+  @override
+  String get setupWizardMappingRainbowHint =>
+      'Rainbow uses the synthetic screen-output path so you can see the strip respond.';
+
+  @override
+  String get setupWizardWhatsNextTitle => 'What\'s next?';
+
+  @override
+  String get setupWizardWhatsNextSubtitle =>
+      'Optional features when you want more than ambient screen colors.';
+
+  @override
+  String get setupWizardCardSpotifyTitle => 'Spotify integration';
+
+  @override
+  String get setupWizardCardSpotifyBody => 'Sync lights with your music.';
+
+  @override
+  String get setupWizardCardHaTitle => 'Home Assistant';
+
+  @override
+  String get setupWizardCardHaBody =>
+      'Control via your smart home dashboard (URL + long‑lived token).';
+
+  @override
+  String get setupWizardCardPcHealthTitle => 'PC Health';
+
+  @override
+  String get setupWizardCardPcHealthBody => 'Monitor CPU/GPU temps via colors.';
+
+  @override
+  String get setupWizardFinalHeadline => 'You\'re set.';
+
+  @override
+  String get setupWizardFinalSubtitle =>
+      'Turn on Output in the app header when your hardware is ready.';
+
+  @override
+  String get setupWizardLetsGlow => 'LET\'S GLOW';
+
+  @override
+  String setupWizardStepCounter(Object current, Object total) {
+    return '$current / $total';
+  }
 
   @override
   String get devicesPageSubtitle =>

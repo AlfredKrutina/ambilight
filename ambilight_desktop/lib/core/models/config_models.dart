@@ -214,8 +214,11 @@ class GlobalSettings {
   final bool onboardingCompleted;
   /// `system` | `en` | `cs`
   final String uiLanguage;
-  /// `simple` | `advanced`
+  /// `simple` | `advanced` — v JSON i jako [app_control_level].
   final String uiControlLevel;
+
+  /// Alias pro [uiControlLevel] (stejný údaj; preferovaný klíč v JSON je `app_control_level`).
+  String get appControlLevel => uiControlLevel;
 
   GlobalSettings copyWith({
     String? serialPort,
@@ -282,6 +285,7 @@ class GlobalSettings {
         'firmware_manifest_url': firmwareManifestUrl,
         'onboarding_completed': onboardingCompleted,
         'ui_language': uiLanguage,
+        'app_control_level': uiControlLevel,
         'ui_control_level': uiControlLevel,
       };
 
@@ -327,7 +331,10 @@ class GlobalSettings {
       onboardingCompleted: asBool(j['onboarding_completed'], true),
       uiLanguage: normalizeAmbilightUiLanguage(asString(j['ui_language'], 'system')),
       uiControlLevel: normalizeAmbilightUiControlLevel(
-        asString(j['ui_control_level'], 'advanced'),
+        asString(
+          j['app_control_level'] ?? j['ui_control_level'],
+          'advanced',
+        ),
       ),
     );
   }

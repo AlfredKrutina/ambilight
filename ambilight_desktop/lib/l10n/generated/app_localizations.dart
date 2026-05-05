@@ -2610,7 +2610,7 @@ abstract class AppLocalizations {
   /// No description provided for @onboardWizardMappingSkip.
   ///
   /// In en, this message translates to:
-  /// **'Skip for now'**
+  /// **'SKIP FOR NOW'**
   String get onboardWizardMappingSkip;
 
   /// No description provided for @onboardWizardStepIntegrationsTitle.
@@ -2672,6 +2672,174 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Get started'**
   String get onboardWizardFinish;
+
+  /// No description provided for @setupWizardLanguageHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your language / Zvolte jazyk'**
+  String get setupWizardLanguageHeader;
+
+  /// No description provided for @setupWizardLanguageSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Applied immediately — change anytime under Settings → Global.'**
+  String get setupWizardLanguageSubtitle;
+
+  /// No description provided for @setupWizardLanguageEnglishTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get setupWizardLanguageEnglishTitle;
+
+  /// No description provided for @setupWizardLanguageEnglishSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Default language for the UI.'**
+  String get setupWizardLanguageEnglishSubtitle;
+
+  /// No description provided for @setupWizardLanguageCzechTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Čeština'**
+  String get setupWizardLanguageCzechTitle;
+
+  /// No description provided for @setupWizardLanguageCzechSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Czech interface.'**
+  String get setupWizardLanguageCzechSubtitle;
+
+  /// No description provided for @setupWizardAppearanceHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'How should we look?'**
+  String get setupWizardAppearanceHeader;
+
+  /// No description provided for @setupWizardAppearanceSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Light or dark — saved to your profile right away.'**
+  String get setupWizardAppearanceSubtitle;
+
+  /// No description provided for @setupWizardExpertiseSimpleExplain.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced settings (Gamma, smoothing, and fine IP/offset fields) stay hidden for a cleaner experience. You can switch to Advanced anytime in Global settings.'**
+  String get setupWizardExpertiseSimpleExplain;
+
+  /// No description provided for @setupWizardUsbListTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'USB — serial ports'**
+  String get setupWizardUsbListTitle;
+
+  /// No description provided for @setupWizardUsbEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No COM ports detected. Plug in the controller and tap refresh.'**
+  String get setupWizardUsbEmpty;
+
+  /// No description provided for @setupWizardUsbConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect'**
+  String get setupWizardUsbConnect;
+
+  /// No description provided for @setupWizardUsbWebHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Serial/USB setup is available in the Windows desktop build.'**
+  String get setupWizardUsbWebHint;
+
+  /// No description provided for @setupWizardComDtrRtsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Test uses the same DTR/RTS line setup as a normal connect (ESP32‑C3 USB‑JTAG or classic USB‑UART bridge).'**
+  String get setupWizardComDtrRtsHint;
+
+  /// No description provided for @setupWizardMappingEdgesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'LEDs per screen edge (current mapping)'**
+  String get setupWizardMappingEdgesTitle;
+
+  /// No description provided for @setupWizardMappingRainbowHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Rainbow uses the synthetic screen-output path so you can see the strip respond.'**
+  String get setupWizardMappingRainbowHint;
+
+  /// No description provided for @setupWizardWhatsNextTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s next?'**
+  String get setupWizardWhatsNextTitle;
+
+  /// No description provided for @setupWizardWhatsNextSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional features when you want more than ambient screen colors.'**
+  String get setupWizardWhatsNextSubtitle;
+
+  /// No description provided for @setupWizardCardSpotifyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Spotify integration'**
+  String get setupWizardCardSpotifyTitle;
+
+  /// No description provided for @setupWizardCardSpotifyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync lights with your music.'**
+  String get setupWizardCardSpotifyBody;
+
+  /// No description provided for @setupWizardCardHaTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Home Assistant'**
+  String get setupWizardCardHaTitle;
+
+  /// No description provided for @setupWizardCardHaBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Control via your smart home dashboard (URL + long‑lived token).'**
+  String get setupWizardCardHaBody;
+
+  /// No description provided for @setupWizardCardPcHealthTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'PC Health'**
+  String get setupWizardCardPcHealthTitle;
+
+  /// No description provided for @setupWizardCardPcHealthBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Monitor CPU/GPU temps via colors.'**
+  String get setupWizardCardPcHealthBody;
+
+  /// No description provided for @setupWizardFinalHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re set.'**
+  String get setupWizardFinalHeadline;
+
+  /// No description provided for @setupWizardFinalSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on Output in the app header when your hardware is ready.'**
+  String get setupWizardFinalSubtitle;
+
+  /// No description provided for @setupWizardLetsGlow.
+  ///
+  /// In en, this message translates to:
+  /// **'LET\'S GLOW'**
+  String get setupWizardLetsGlow;
+
+  /// No description provided for @setupWizardStepCounter.
+  ///
+  /// In en, this message translates to:
+  /// **'{current} / {total}'**
+  String setupWizardStepCounter(Object current, Object total);
 
   /// No description provided for @devicesPageSubtitle.
   ///

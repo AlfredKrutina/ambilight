@@ -23,7 +23,7 @@ import 'ui/tray/tray_menu_host.dart';
 import 'l10n/app_locale_bridge.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'l10n/locale_resolution.dart';
-import 'ui/onboarding/ambilight_onboarding_flow.dart';
+import 'ui/onboarding/onboarding_overlay.dart';
 
 /// Zóna z okamžiku [WidgetsFlutterBinding.ensureInitialized]. Po `await` v bootstrapu může být
 /// [Zone.current] jiná (window_manager apod.) — [runApp] musí běžet v této zóně,

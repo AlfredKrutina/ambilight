@@ -99,6 +99,35 @@ class SerialAmbilightPortDiscovery {
     return null;
   }
 
+  /// Otevře [name], aplikuje [SerialDeviceTransport.applyAmbilightPortPolicyAfterOpen] (DTR/RTS / ESP USB‑JTAG),
+  /// provede ping handshake — vhodné pro ruční výběr COM v průvodci nastavením.
+  static Future<bool> tryHandshakeOnPort(
+    String name, {
+    int baudRate = 115200,
+  }) {
+    return SerialNativeGate.synchronized(() async {
+      SerialPort? port;
+      try {
+        port = SerialPort(name);
+        if (!port.openReadWrite()) {
+          final err = SerialPort.lastError;
+          _log.fine('tryHandshakeOnPort $name: open failed $err');
+          return false;
+        }
+        SerialDeviceTransport.applyAmbilightPortPolicyAfterOpen(port, baudRate);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        return await _handshake(port);
+      } catch (e, st) {
+        _log.fine('tryHandshakeOnPort $name: $e', e, st);
+        return false;
+      } finally {
+        if (port != null) {
+          await disposeSerialPortNativeOnce(port);
+        }
+      }
+    });
+  }
+
   static Future<bool> _handshake(SerialPort port) async {
     try {
       try {
