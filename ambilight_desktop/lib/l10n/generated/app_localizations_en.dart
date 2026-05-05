@@ -1524,6 +1524,51 @@ class AppLocalizationsEn extends AppLocalizations {
       'Test uses the same DTR/RTS line setup as a normal connect (ESP32‑C3 USB‑JTAG or classic USB‑UART bridge).';
 
   @override
+  String get setupWizardDeviceWifiSection => 'Wi‑Fi / network';
+
+  @override
+  String get setupWizardDeviceSerialSection => 'USB / serial';
+
+  @override
+  String get setupWizardDeviceWifiIntro =>
+      'We broadcast on your LAN (UDP 4210). Controllers that answer appear below — tap Add to save one to your profile.';
+
+  @override
+  String get setupWizardDeviceSerialIntro =>
+      'Choose the COM port your ESP32 or USB‑serial adapter uses (for example COM3). Test verifies an AmbiLight controller before you add it.';
+
+  @override
+  String get setupWizardDeviceWifiDesktopOnly =>
+      'Wi‑Fi discovery is available in the Windows desktop build.';
+
+  @override
+  String get setupWizardDeviceTestConnection => 'Test';
+
+  @override
+  String get setupWizardDeviceAdd => 'Add';
+
+  @override
+  String get setupWizardDeviceScanningLabel => 'Scanning your network…';
+
+  @override
+  String get setupWizardDeviceIdentifiedShort =>
+      'AmbiLight controller detected.';
+
+  @override
+  String get setupWizardDeviceTestFailedShort =>
+      'Not an AmbiLight controller on this port.';
+
+  @override
+  String setupWizardDeviceControllerId(Object macSuffix) {
+    return 'ID: $macSuffix';
+  }
+
+  @override
+  String setupWizardDeviceWifiScanFailed(Object message) {
+    return 'Scan failed: $message';
+  }
+
+  @override
   String get setupWizardMappingEdgesTitle =>
       'LEDs per screen edge (current mapping)';
 
@@ -1939,7 +1984,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get musicInputDeviceLabel => 'Audio input device';
 
   @override
-  String get musicDefaultInputDevice => 'Default (first suitable)';
+  String get musicDefaultInputDevice => 'Automatic: system mix (loopback)';
+
+  @override
+  String get musicSystemLoopbackHint =>
+      'With no device selected, AmbiLight prefers a loopback / “what you hear” input so system audio can drive the visualizer. Windows: Stereo Mix, VB-Audio Cable, or similar. macOS: install BlackHole from existential.audio/blackhole, create a Multi-Output Device in Audio MIDI Setup, then pick “BlackHole” (or Aggregate) here.';
 
   @override
   String get musicRefreshDeviceListTooltip => 'Refresh device list';
@@ -3409,4 +3458,38 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get vrTooltipYou => 'You (drag)';
+
+  @override
+  String get deviceFwTemporalSectionTitle => 'Firmware temporal smoothing';
+
+  @override
+  String get deviceFwTemporalOff => 'Off';
+
+  @override
+  String get deviceFwTemporalSmooth => 'Smooth';
+
+  @override
+  String get deviceFwTemporalSnap => 'Zero-lag snap';
+
+  @override
+  String get deviceFwTemporalApply => 'Send to device';
+
+  @override
+  String get deviceFwTemporalSnackOk => 'Firmware smoothing mode updated.';
+
+  @override
+  String get deviceFwTemporalSnackFail =>
+      'Could not confirm the command (timeout or old firmware).';
+
+  @override
+  String get deviceFwTemporalHint =>
+      'Separate from screen interpolation below. Avoid maxing out both firmware smooth and strong PC interpolation.';
+
+  @override
+  String get settingsPcSmoothingFootnote =>
+      'Interpolation here runs on the PC before UDP/serial only. For Wi-Fi chunk size at build time see dart-define AMBI_UDP_OPCODE06_CHUNK_PIXELS (UdpAmbilightProtocol).';
+
+  @override
+  String get settingsGlobalPcUdpChunkHint =>
+      'Optional build-time tuning: --dart-define=AMBI_UDP_OPCODE06_CHUNK_PIXELS=… (32–498) affects UDP packet size when the strip needs 0x06 chunks.';
 }

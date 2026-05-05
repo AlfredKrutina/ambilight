@@ -131,10 +131,14 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
                 },
               ),
             ),
-            IconButton(
-              tooltip: l10n.musicRefreshDeviceListTooltip,
-              onPressed: _reloadDevices,
-              icon: const Icon(Icons.refresh),
+            Semantics(
+              label: l10n.musicRefreshDeviceListTooltip,
+              button: true,
+              child: IconButton(
+                tooltip: '',
+                onPressed: _reloadDevices,
+                icon: const Icon(Icons.refresh),
+              ),
             ),
           ],
         );
@@ -149,14 +153,27 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
       ),
       Align(
         alignment: Alignment.centerLeft,
-        child: FilledButton.tonalIcon(
-          onPressed: () => MusicSpotifyIntegrationGuide.show(context),
-          icon: const Icon(Icons.menu_book_outlined),
-          label: Text(l10n.musicGuideMusicArtwork),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: FilledButton.tonalIcon(
+            onPressed: () => MusicSpotifyIntegrationGuide.show(context),
+            icon: const Icon(Icons.menu_book_outlined),
+            label: Text(l10n.musicGuideMusicArtwork),
+          ),
         ),
       ),
       const SizedBox(height: 8),
       devicePicker,
+      Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Text(
+          l10n.musicSystemLoopbackHint,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+      ),
       Selector<AmbilightAppController, ({bool locked, bool pending})>(
         selector: (_, ctrl) => (locked: ctrl.musicPaletteLocked, pending: ctrl.musicPaletteLockCapturePending),
         builder: (context, v, _) {

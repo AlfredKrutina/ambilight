@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../../application/ambilight_app_controller.dart';
 import '../../../core/device_bindings_debug.dart';
@@ -211,6 +212,58 @@ class DevicesTab extends StatelessWidget {
                             next[i] = d.copyWith(controlViaHa: v);
                             onDevicesChanged(next);
                           },
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(l10n.deviceFwTemporalSectionTitle,
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          l10n.deviceFwTemporalHint,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                height: 1.35,
+                              ),
+                        ),
+                        const SizedBox(height: 8),
+                        SegmentedButton<int>(
+                          segments: [
+                            ButtonSegment(value: 0, label: Text(l10n.deviceFwTemporalOff)),
+                            ButtonSegment(value: 1, label: Text(l10n.deviceFwTemporalSmooth)),
+                            ButtonSegment(value: 2, label: Text(l10n.deviceFwTemporalSnap)),
+                          ],
+                          selected: {d.fwTemporalSmoothingMode.clamp(0, 2)},
+                          onSelectionChanged: (set) {
+                            final v = set.first;
+                            final next = List<DeviceSettings>.from(devices);
+                            next[i] = d.copyWith(fwTemporalSmoothingMode: v);
+                            onDevicesChanged(next);
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: FilledButton.tonalIcon(
+                            onPressed: () async {
+                              final ctrl = context.read<AmbilightAppController>();
+                              final ok = await ctrl.sendFirmwareTemporalModeForDevice(
+                                d.id,
+                                d.fwTemporalSmoothingMode,
+                              );
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    ok ? l10n.deviceFwTemporalSnackOk : l10n.deviceFwTemporalSnackFail,
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.send_outlined),
+                            label: Text(l10n.deviceFwTemporalApply),
+                          ),
                         ),
                         ExpansionTile(
                           initiallyExpanded: d.type == 'serial' ||

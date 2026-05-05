@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -991,18 +992,43 @@ class AmbilightAppController extends ChangeNotifier {
   }
 
   void setEnabled(bool v) {
+    final wasEnabled = _enabled;
     _enabled = v;
-    if (!v) _clearTransientLedOutputs();
+    if (!v) {
+      _clearTransientLedOutputs();
+      if (wasEnabled) {
+        _releasePcHandoffToHomeAssistantSync();
+      }
+    }
     _restartPcHealthTimer();
     notifyListeners();
   }
 
   /// Přepnutí výstupu (stejné chování jako přepínač na přehledu / tray „Zap/Vyp“).
   void toggleEnabled() {
+    final wasEnabled = _enabled;
     _enabled = !_enabled;
-    if (!_enabled) _clearTransientLedOutputs();
+    if (!_enabled) {
+      _clearTransientLedOutputs();
+      if (wasEnabled) {
+        _releasePcHandoffToHomeAssistantSync();
+      }
+    }
     _restartPcHealthTimer();
     notifyListeners();
+  }
+
+  /// Jednosměrný signál do lampy (`0xF0`): PC už neřídí pásek — MQTT / Home Assistant může převzít.
+  void _releasePcHandoffToHomeAssistantSync() {
+    for (final t in _transports.values) {
+      try {
+        t.sendPcReleaseHandoff();
+      } catch (e, st) {
+        if (kDebugMode) {
+          _log.fine('sendPcReleaseHandoff: $e', e, st);
+        }
+      }
+    }
   }
 
   /// Jednorázově požádá shell o přepnutí na stránku [index] v [AmbiShell] (např. 2 = Nastavení).
@@ -1076,6 +1102,13 @@ class AmbilightAppController extends ChangeNotifier {
         return;
       }
     }
+  }
+
+  /// FW časové vyhlazování (`0xF1` + NVS). Wi‑Fi čeká na ACK; USB jen zapíše bez čtení ACK.
+  Future<bool> sendFirmwareTemporalModeForDevice(String deviceId, int mode) async {
+    final t = _transports[deviceId];
+    if (t == null) return false;
+    return t.sendFirmwareTemporalMode(mode.clamp(0, 2));
   }
 
   void _clearTransientLedOutputs() {
@@ -2112,15 +2145,20 @@ class AmbilightAppController extends ChangeNotifier {
     final skipAllSends = homeKitHold && !allowOverrideSends;
 
     if (!_enabled) {
-      // Vždy zhasnout pásek (i při HomeKit hold — výstup musí jít vypnout).
-      _distribute(
-        AmbilightEngine.blackoutPerDevice(_config),
-        0,
-        applyWizardOverlay: false,
-        smartLightsFrame: _screenFrameLatest,
-        smartLightsAppEnabled: false,
-        flushImmediately: true,
-      );
+      // Po vypnutí výstupu posíláme jen `0xF0` (viz [setEnabled]) — neposílat blackout přes USB/UDP,
+      // aby lampa nepřepínala zpět do „PC režimu“ a mohla držet MQTT / Home Assistant.
+      try {
+        _invokeSmartLightsOnFrame(
+          perDevice: AmbilightEngine.blackoutPerDevice(_config),
+          brightnessScalar: 0,
+          appEnabled: false,
+          smartLightsFrame: _screenFrameLatest,
+        );
+      } catch (e, st) {
+        if (kDebugMode) {
+          _log.fine('smartLights while disabled: $e', e, st);
+        }
+      }
       _advanceTickPhase();
       return;
     }
@@ -2435,33 +2473,26 @@ class AmbilightAppController extends ChangeNotifier {
     return m;
   }
 
-  static List<int> _calibrationIndices(String corner) {
-    switch (corner) {
-      case 'top_left':
-        return const [11, 12];
-      case 'top_right':
-        return const [32, 33];
-      case 'bottom_right':
-        return const [44, 45];
-      case 'bottom_left':
-        return const [65, 0];
-      default:
-        return const [];
-    }
-  }
-
-  /// Při kalibraci neomezovat délku výstupu na uživatelem zadaný `led_count` (mohl zadat 2).
-  static int _calibrationStripLength(DeviceSettings d) {
-    return d.ledCount.clamp(1, SerialAmbilightProtocol.maxLedsPerDevice);
+  /// Délka bufferu pro rohové značky: alespoň segmenty nebo uložený počet LED (vyšší z nich).
+  int _calibrationStripLengthFor(DeviceSettings d) {
+    final cap = SerialAmbilightProtocol.maxLedsPerDevice;
+    final stored = d.ledCount.clamp(1, cap);
+    final implied = ScreenColorPipeline.impliedLedCountFromSegments(_config, d.id);
+    if (implied <= 0) return stored;
+    return math.max(stored, implied).clamp(1, cap);
   }
 
   Map<String, List<(int, int, int)>> _calibrationPreviewMap(String corner) {
-    final indices = _calibrationIndices(corner);
     final m = <String, List<(int, int, int)>>{};
     for (final d in _config.globalSettings.devices) {
       if (d.controlViaHa) continue;
-      final len = _calibrationStripLength(d);
+      final len = _calibrationStripLengthFor(d);
       final buf = List<(int, int, int)>.filled(len, (0, 0, 0), growable: false);
+      final indices = ScreenColorPipeline.cornerMarkerLedIndices(
+        config: _config,
+        deviceId: d.id,
+        corner: corner,
+      );
       for (final idx in indices) {
         if (idx >= 0 && idx < buf.length) {
           buf[idx] = (0, 255, 0);
@@ -2776,6 +2807,7 @@ class AmbilightAppController extends ChangeNotifier {
   @override
   void dispose() {
     try {
+      _releasePcHandoffToHomeAssistantSync();
       _controllerDisposed = true;
       _invalidateWindowsPullCaptureExtrasCache();
       _distributeFlushScheduled = false;

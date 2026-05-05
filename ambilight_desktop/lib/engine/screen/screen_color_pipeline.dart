@@ -86,6 +86,158 @@ abstract final class ScreenColorPipeline {
     return math.min(stored, implied).clamp(1, cap);
   }
 
+  /// Stejná logika jako [segmentMatchesCaptureFrame], ale jen podle čísla monitoru ze settings.
+  static bool segmentMatchesMonitorIndex(LedSegment seg, int captureMonitorIndex) {
+    final fm = captureMonitorIndex;
+    final sm = seg.monitorIdx;
+    if (sm == fm) return true;
+    if (fm >= 1 && sm + 1 == fm) return true;
+    return false;
+  }
+
+  static String? _cornerKeyForEdgePair(String e1, String e2) {
+    final a = e1.toLowerCase();
+    final b = e2.toLowerCase();
+    final s = {a, b};
+    if (s.containsAll({'left', 'top'})) return 'top_left';
+    if (s.containsAll({'top', 'right'})) return 'top_right';
+    if (s.containsAll({'right', 'bottom'})) return 'bottom_right';
+    if (s.containsAll({'bottom', 'left'})) return 'bottom_left';
+    return null;
+  }
+
+  static int _segLo(LedSegment s) => math.min(s.ledStart, s.ledEnd);
+
+  static int _segHi(LedSegment s) => math.max(s.ledStart, s.ledEnd);
+
+  /// Dva sousední LED indexy na pásku mezi segmenty [a] a [b] (vhůru podél indexů nebo wrap  N−1 ↔ 0).
+  static List<int>? _junctionLedPair(LedSegment a, LedSegment b, int spanLo, int spanHi) {
+    final aLo = _segLo(a);
+    final aHi = _segHi(a);
+    final bLo = _segLo(b);
+    final bHi = _segHi(b);
+    if (aHi + 1 == bLo) return [aHi, bLo];
+    if (bHi + 1 == aLo) return [bHi, aLo];
+    if (spanLo == 0 && aHi == spanHi && bLo == spanLo) return [aHi, bLo];
+    if (spanLo == 0 && bHi == spanHi && aLo == spanLo) return [bHi, aLo];
+    return null;
+  }
+
+  /// LED indexy pro rohové značky kalibrace podle [LedSegment] mapování (ne fixní PyQt konstanty).
+  /// Roh = pár sousedních indexů na pásku mezi dvěma hranami (včetně wrap spodní → levá hrana).
+  static List<int> cornerMarkerLedIndices({
+    required AppConfig config,
+    required String deviceId,
+    required String corner,
+  }) {
+    final cap = SerialAmbilightProtocol.maxLedsPerDevice;
+    final devices = config.globalSettings.devices;
+    if (devices.isEmpty) return const [];
+    DeviceSettings? dev;
+    for (final d in devices) {
+      if (d.id == deviceId) {
+        dev = d;
+        break;
+      }
+    }
+    if (dev == null) return const [];
+
+    final bufLen = math
+        .max(dev.ledCount, impliedLedCountFromSegments(config, deviceId))
+        .clamp(1, cap);
+
+    String resolvedSegDev(LedSegment s) {
+      var tid = s.deviceId;
+      if (tid == null || tid.isEmpty || tid == 'primary') {
+        tid = devices.first.id;
+      }
+      return tid;
+    }
+
+    final mi = config.screenMode.monitorIndex;
+    final mine = effectiveScreenSegments(config)
+        .where((s) => resolvedSegDev(s) == deviceId && segmentMatchesMonitorIndex(s, mi))
+        .toList();
+
+    LedSegment? pickEdge(String edge) {
+      try {
+        return mine.firstWhere((s) => s.edge.toLowerCase() == edge);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final byEdge = <String, LedSegment>{};
+    for (final e in const ['left', 'top', 'right', 'bottom']) {
+      final s = pickEdge(e);
+      if (s != null) byEdge[e] = s;
+    }
+
+    if (byEdge.length < 4) {
+      return _fallbackCornerMarkerIndices(corner, bufLen);
+    }
+
+    var spanLo = 1 << 30;
+    var spanHi = -1;
+    for (final s in byEdge.values) {
+      spanLo = math.min(spanLo, _segLo(s));
+      spanHi = math.max(spanHi, _segHi(s));
+    }
+
+    final chain = byEdge.values.toList()..sort((a, b) => _segLo(a).compareTo(_segLo(b)));
+    final junctions = <String, List<int>>{};
+    for (var i = 0; i < chain.length; i++) {
+      final cur = chain[i];
+      final next = chain[(i + 1) % chain.length];
+      final key = _cornerKeyForEdgePair(cur.edge, next.edge);
+      if (key == null) continue;
+      final pair = _junctionLedPair(cur, next, spanLo, spanHi);
+      if (pair != null) {
+        junctions[key] = pair;
+      }
+    }
+
+    final hit = junctions[corner];
+    if (hit != null && hit.length >= 2) {
+      final a = hit[0].clamp(0, bufLen - 1);
+      final b = hit[1].clamp(0, bufLen - 1);
+      if (a == b) {
+        final b2 = math.min(a + 1, bufLen - 1);
+        return a == b2 ? <int>[a] : <int>[a, b2];
+      }
+      return a <= b ? <int>[a, b] : <int>[b, a];
+    }
+
+    return _fallbackCornerMarkerIndices(corner, bufLen);
+  }
+
+  static List<int> _fallbackCornerMarkerIndices(String corner, int bufLen) {
+    if (bufLen <= 0) return const [];
+    final maxIdx = bufLen - 1;
+    List<int> pair(int a, int b) {
+      final aa = a.clamp(0, maxIdx);
+      final bb = b.clamp(0, maxIdx);
+      if (aa == bb) {
+        final bb2 = math.min(aa + 1, maxIdx);
+        return aa == bb2 ? <int>[aa] : <int>[aa, bb2];
+      }
+      return aa <= bb ? <int>[aa, bb] : <int>[bb, aa];
+    }
+
+    switch (corner) {
+      case 'top_left':
+        return pair((maxIdx * 0.25).floor(), (maxIdx * 0.25).floor() + 1);
+      case 'top_right':
+        return pair((maxIdx * 0.5).floor(), (maxIdx * 0.5).floor() + 1);
+      case 'bottom_right':
+        return pair((maxIdx * 0.75).floor(), (maxIdx * 0.75).floor() + 1);
+      case 'bottom_left':
+        return pair(maxIdx, 0);
+      default:
+        return const [];
+    }
+  }
+
   static List<LedSegment> implicitScreenSegments(AppConfig config) {
     final n = combinedDeviceLedCount(config);
     final mi = config.screenMode.monitorIndex;

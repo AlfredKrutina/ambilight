@@ -157,6 +157,14 @@ List<Widget> globalSettingsFields(
                 onChanged(g.copyWith(screenRefreshRateHz: v));
               },
       ),
+      const SizedBox(height: 8),
+      Text(
+        l10n.settingsGlobalPcUdpChunkHint,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.35,
+            ),
+      ),
     ],
     SwitchListTile(
       title: Text(l10n.autostartTitle),

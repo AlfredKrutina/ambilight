@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -5,6 +6,7 @@ import 'dart:typed_data';
 import 'package:logging/logging.dart';
 
 import '../application/debug_trace.dart';
+import '../core/protocol/udp_frame.dart';
 import 'udp_socket_bind.dart';
 
 final _log = Logger('UdpCommands');
@@ -109,6 +111,70 @@ abstract final class UdpDeviceCommands {
 
   static Future<bool> sendResetWifi(String ip, int port, {String? logContext}) =>
       sendUtf8Text(ip, port, resetWifiPayload, logContext: logContext ?? 'RESET_WIFI');
+
+  /// Binární `0xF1` + mode (0…2); lampa FW odpoví stejnými 2 bajty (ACK).
+  static Future<bool> sendTemporalModeWithAck(
+    String ip,
+    int port,
+    int mode, {
+    Duration timeout = const Duration(milliseconds: 450),
+    String? logContext,
+  }) async {
+    final m = mode.clamp(0, 2);
+    final addr = _parseIp(ip);
+    if (addr == null) {
+      _log.warning('sendTemporalModeWithAck: invalid IP "$ip" ${logContext ?? ''}');
+      return false;
+    }
+    final safePort = port.clamp(1, 65535);
+    final pkt = UdpAmbilightProtocol.buildFirmwareTemporalModeFrame(m);
+    RawDatagramSocket? socket;
+    try {
+      final bindAddr = addr.type == InternetAddressType.IPv6
+          ? InternetAddress.anyIPv6
+          : await udpBindAddressForOutgoingTo(addr, probeDestinationPort: safePort);
+      socket = await RawDatagramSocket.bind(bindAddr, 0);
+      socket.broadcastEnabled = false;
+      var acked = false;
+      final completer = Completer<void>();
+      late StreamSubscription<RawSocketEvent> sub;
+      sub = socket.listen((event) {
+        try {
+          if (event != RawSocketEvent.read) return;
+          final dg = socket!.receive();
+          if (dg == null) return;
+          if (dg.address.address != addr.address) return;
+          final d = dg.data;
+          if (d.length == 2 &&
+              d[0] == UdpAmbilightProtocol.firmwareTemporalModeOpcode &&
+              d[1] == m) {
+            acked = true;
+            if (!completer.isCompleted) completer.complete();
+          }
+        } catch (e, st) {
+          _log.fine('sendTemporalModeWithAck listen: $e', e, st);
+        }
+      });
+      var n = socket.send(pkt, addr, safePort);
+      if (n == 0) {
+        n = socket.send(pkt, addr, safePort);
+      }
+      if (n != pkt.length) {
+        _log.warning('sendTemporalModeWithAck: partial send $n/${pkt.length} ${logContext ?? ''}');
+        await sub.cancel();
+        return false;
+      }
+      await completer.future.timeout(timeout, onTimeout: () {});
+      await sub.cancel();
+      _log.fine('sendTemporalModeWithAck mode=$m ack=$acked ${logContext ?? ''}');
+      return acked;
+    } catch (e) {
+      _log.warning('sendTemporalModeWithAck failed $e ${logContext ?? ''}');
+      return false;
+    } finally {
+      socket?.close();
+    }
+  }
 
   /// Vrací důvod zamítnutí, nebo `null` pokud je v pořádku pokračovat na [sendOtaHttpUrl].
   static OtaHttpCommandRejectReason? rejectReasonForOtaHttpCommand(

@@ -439,6 +439,14 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                 label: '${s.interpolationMs}',
                 onChanged: (v) => _patch(s.copyWith(interpolationMs: v.round())),
               ),
+              const SizedBox(height: 8),
+              Text(
+                l10n.settingsPcSmoothingFootnote,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+              ),
             ],
           ),
         ),

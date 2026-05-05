@@ -11,9 +11,12 @@ import '../../application/app_error_safety.dart';
 import '../../core/models/config_models.dart';
 import '../../l10n/context_ext.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../services/led_discovery_service.dart';
 import '../dashboard_ui.dart';
 import '../wizards/led_strip_wizard_dialog.dart';
 import 'onboarding_device_actions.dart';
+
+enum _OnboardSerialProbe { idle, testing, okAmbi, noReply }
 
 const double _kOverlayMaxWidth = 720;
 
@@ -84,7 +87,6 @@ class _SetupWizardState extends State<SetupWizard> with TickerProviderStateMixin
   late AnimationController _radarCtrl;
 
   int _step = 0;
-  bool _wifiBusy = false;
   bool _faultCleared = false;
 
   bool _mappingPreviewOn = false;
@@ -94,6 +96,15 @@ class _SetupWizardState extends State<SetupWizard> with TickerProviderStateMixin
 
   List<String> _comPorts = const [];
   bool _comLoading = false;
+
+  bool _wifiScanning = false;
+  List<DiscoveredLedController> _wifiDiscovered = const [];
+  String? _wifiError;
+  bool _wifiLandingScanDone = false;
+  bool _wifiEverScanned = false;
+  String? _wifiAddingIp;
+  Map<String, _OnboardSerialProbe> _serialProbeByPort = {};
+  String? _serialAddingPort;
 
   @override
   void initState() {
@@ -204,6 +215,10 @@ class _SetupWizardState extends State<SetupWizard> with TickerProviderStateMixin
 
   Future<void> _afterStepChange() async {
     await _syncMappingPreview();
+    if (_step == 3 && !_wifiLandingScanDone && !kIsWeb) {
+      _wifiLandingScanDone = true;
+      unawaited(_runWifiDiscoveryInStep());
+    }
   }
 
   Future<void> _applyLanguage(String code) async {
@@ -239,13 +254,169 @@ class _SetupWizardState extends State<SetupWizard> with TickerProviderStateMixin
     if (mounted) setState(() {});
   }
 
-  Future<void> _runWifiScan() async {
-    setState(() => _wifiBusy = true);
+  Future<void> _runWifiDiscoveryInStep() async {
+    final c = _ctrl ?? context.read<AmbilightAppController>();
+    if (kIsWeb) return;
+    setState(() {
+      _wifiScanning = true;
+      _wifiError = null;
+    });
     try {
-      await onboardingOpenWifiDiscovery(context);
+      final list = await c.runWithLoopPaused(() => LedDiscoveryService.scan());
+      if (!mounted) return;
+      setState(() => _wifiDiscovered = list);
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString().split('\n').first;
+      setState(() {
+        _wifiError = msg;
+        _wifiDiscovered = const [];
+      });
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(context.l10n.setupWizardDeviceWifiScanFailed(msg))),
+      );
     } finally {
-      if (mounted) setState(() => _wifiBusy = false);
+      if (mounted) {
+        setState(() {
+          _wifiScanning = false;
+          _wifiEverScanned = true;
+        });
+      }
     }
+  }
+
+  Future<void> _onAddWifiDevice(DiscoveredLedController d) async {
+    setState(() => _wifiAddingIp = d.ip);
+    try {
+      await onboardingAddWifiDevice(context, d);
+    } finally {
+      if (mounted) setState(() => _wifiAddingIp = null);
+    }
+  }
+
+  Future<void> _onTestSerialPort(String port) async {
+    if ((_serialProbeByPort[port] ?? _OnboardSerialProbe.idle) == _OnboardSerialProbe.testing) return;
+    setState(() {
+      _serialProbeByPort = {..._serialProbeByPort, port: _OnboardSerialProbe.testing};
+    });
+    final ok = await onboardingProbeSerialPort(context, port);
+    if (!mounted) return;
+    setState(() {
+      _serialProbeByPort = {
+        ..._serialProbeByPort,
+        port: ok ? _OnboardSerialProbe.okAmbi : _OnboardSerialProbe.noReply,
+      };
+    });
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(ok ? context.l10n.setupWizardDeviceIdentifiedShort : context.l10n.setupWizardDeviceTestFailedShort),
+      ),
+    );
+  }
+
+  Future<void> _onAddSerialPort(String port) async {
+    if ((_serialProbeByPort[port] ?? _OnboardSerialProbe.idle) != _OnboardSerialProbe.okAmbi) return;
+    setState(() => _serialAddingPort = port);
+    try {
+      await onboardingPersistUsbPort(context, port);
+    } finally {
+      if (mounted) setState(() => _serialAddingPort = null);
+    }
+  }
+
+  Widget _serialPortTile(AppLocalizations l10n, String p) {
+    final scheme = Theme.of(context).colorScheme;
+    final probe = _serialProbeByPort[p] ?? _OnboardSerialProbe.idle;
+    final testing = probe == _OnboardSerialProbe.testing;
+    final ok = probe == _OnboardSerialProbe.okAmbi;
+    final fail = probe == _OnboardSerialProbe.noReply;
+    final adding = _serialAddingPort == p;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        p,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      if (ok) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.check_circle_rounded, size: 18, color: scheme.primary),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                l10n.setupWizardDeviceIdentifiedShort,
+                                style: Theme.of(context).textTheme.labelMedium?.copyWith(color: scheme.primary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (fail) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.error_outline_rounded, size: 18, color: scheme.error),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                l10n.setupWizardDeviceTestFailedShort,
+                                style: Theme.of(context).textTheme.labelMedium?.copyWith(color: scheme.error),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: (testing || adding || kIsWeb) ? null : () => unawaited(_onTestSerialPort(p)),
+                  icon: testing
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cable_rounded, size: 18),
+                  label: Text(l10n.setupWizardDeviceTestConnection),
+                ),
+                FilledButton(
+                  onPressed: (!ok || adding || testing || kIsWeb) ? null : () => unawaited(_onAddSerialPort(p)),
+                  child: adding
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(l10n.setupWizardDeviceAdd),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _setStep(int s) {
@@ -471,43 +642,139 @@ class _SetupWizardState extends State<SetupWizard> with TickerProviderStateMixin
           ],
         );
       case 3:
+        final scheme = Theme.of(context).colorScheme;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(l10n.onboardWizardStepDeviceSubtitle, textAlign: TextAlign.center),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
+            Text(
+              l10n.setupWizardDeviceWifiSection,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              kIsWeb ? l10n.setupWizardDeviceWifiDesktopOnly : l10n.setupWizardDeviceWifiIntro,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.35),
+            ),
+            const SizedBox(height: 12),
+            if (!kIsWeb) ...[
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  FilledButton.tonalIcon(
+                    onPressed: _wifiScanning ? null : () => unawaited(_runWifiDiscoveryInStep()),
+                    icon: const Icon(Icons.wifi_find_rounded),
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        _wifiScanning
+                            ? l10n.setupWizardDeviceScanningLabel
+                            : (_wifiEverScanned ? l10n.discScanAgain : l10n.onboardWizardScanWifi),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    style: FilledButton.styleFrom(alignment: Alignment.centerLeft, minimumSize: const Size.fromHeight(52)),
+                  ),
+                  if (_wifiScanning) ...[
+                    Positioned.fill(
+                      child: ColoredBox(color: scheme.surface.withValues(alpha: 0.88)),
+                    ),
+                    _radarPulse(scheme),
+                  ],
+                ],
+              ),
+              if (_wifiError != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  l10n.setupWizardDeviceWifiScanFailed(_wifiError!.split('\n').first),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.error),
+                ),
+              ],
+              if (!_wifiScanning && _wifiEverScanned && _wifiDiscovered.isEmpty && _wifiError == null) ...[
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline_rounded, size: 20, color: scheme.onSurfaceVariant),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(l10n.discEmptyAfterScan, style: Theme.of(context).textTheme.bodyMedium)),
+                  ],
+                ),
+              ],
+              if (_wifiDiscovered.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ..._wifiDiscovered.map((d) {
+                  final adding = _wifiAddingIp == d.ip;
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            d.name,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            l10n.discListItemSubtitle(d.ip, d.ledCount, d.version),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                          Text(
+                            l10n.setupWizardDeviceControllerId(d.macSuffix),
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: adding
+                                ? const Padding(
+                                    padding: EdgeInsets.all(8),
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                  )
+                                : FilledButton(
+                                    onPressed: () => unawaited(_onAddWifiDevice(d)),
+                                    child: Text(l10n.setupWizardDeviceAdd),
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ],
+              const SizedBox(height: 22),
+            ],
+            Text(
+              l10n.setupWizardDeviceSerialSection,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              l10n.setupWizardDeviceSerialIntro,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.35),
+            ),
+            const SizedBox(height: 6),
             Text(
               l10n.setupWizardComDtrRtsHint,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.35),
             ),
-            const SizedBox(height: 16),
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                FilledButton.tonalIcon(
-                  onPressed: _wifiBusy ? null : () => unawaited(_runWifiScan()),
-                  icon: const Icon(Icons.wifi_find_rounded),
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text(l10n.onboardWizardScanWifi, textAlign: TextAlign.center),
-                  ),
-                  style: FilledButton.styleFrom(alignment: Alignment.centerLeft, minimumSize: const Size.fromHeight(52)),
-                ),
-                if (_wifiBusy) ...[
-                  Positioned.fill(
-                    child: ColoredBox(
-                      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.88),
-                    ),
-                  ),
-                  _radarPulse(Theme.of(context).colorScheme),
-                ],
-              ],
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
             Row(
               children: [
-                Text(l10n.setupWizardUsbListTitle, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  l10n.setupWizardUsbListTitle,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
                 const Spacer(),
                 IconButton(
                   onPressed: _comLoading ? null : () => unawaited(_refreshComPorts()),
@@ -523,21 +790,10 @@ class _SetupWizardState extends State<SetupWizard> with TickerProviderStateMixin
             else if (_comPorts.isEmpty)
               Text(l10n.setupWizardUsbEmpty, style: Theme.of(context).textTheme.bodySmall)
             else
-              ..._comPorts.map(
-                (p) => Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    title: Text(p),
-                    trailing: FilledButton(
-                      onPressed: () => unawaited(onboardingConnectComPort(context, p)),
-                      child: Text(l10n.setupWizardUsbConnect),
-                    ),
-                  ),
-                ),
-              ),
+              ..._comPorts.map((p) => _serialPortTile(l10n, p)),
             const SizedBox(height: 8),
             OutlinedButton.icon(
-              onPressed: () => unawaited(onboardingSetupSerialUsb(context)),
+              onPressed: kIsWeb ? null : () => unawaited(onboardingSetupSerialUsb(context)),
               icon: const Icon(Icons.usb_rounded),
               label: Text(l10n.onboardWizardSetupUsb),
             ),

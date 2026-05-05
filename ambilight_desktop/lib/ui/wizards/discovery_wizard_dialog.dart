@@ -69,6 +69,7 @@ class _DiscoveryWizardDialogState extends State<DiscoveryWizardDialog> {
         udpPort: 4210,
         ledCount: d.ledCount.clamp(1, SerialAmbilightProtocol.maxLedsPerDevice),
         firmwareVersion: d.version,
+        fwTemporalSmoothingMode: d.fwTemporalSmoothingMode ?? 0,
       ),
     ];
     await c.applyConfigAndPersist(

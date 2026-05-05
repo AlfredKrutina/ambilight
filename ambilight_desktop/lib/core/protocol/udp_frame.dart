@@ -4,6 +4,17 @@ import 'dart:typed_data';
 class UdpAmbilightProtocol {
   UdpAmbilightProtocol._();
 
+  /// Jednobajt — viz [SerialAmbilightProtocol.pcReleaseHandoff] (UDP stejný kód ve FW).
+  static const int pcReleaseHandoff = 0xF0;
+
+  /// FW časové vyhlazování (NVS): `0xF1` + `mode` 0…2; lampa odpoví stejnými 2 bajty (ACK).
+  static const int firmwareTemporalModeOpcode = 0xF1;
+
+  static Uint8List buildFirmwareTemporalModeFrame(int mode) {
+    final m = mode.clamp(0, 2);
+    return Uint8List.fromList([firmwareTemporalModeOpcode, m]);
+  }
+
   /// ESP `rx_buffer[1500]` → platný rámec `0x02` + `bri` + 3×N musí mít `2 + 3*N <= 1499`.
   static const int maxRgbPixelsPerUdpDatagram = 499;
 

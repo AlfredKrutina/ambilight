@@ -196,9 +196,13 @@ class _DevicesPageState extends State<DevicesPage> {
                       final port = int.tryParse(portCtrl.text.trim()) ?? 4210;
                       final leds = int.tryParse(ledCtrl.text.trim()) ?? 66;
                       var firmware = fw;
-                      if (firmware.isEmpty) {
-                        final pong = await LedDiscoveryService.queryPong(ip, udpPort: port);
-                        firmware = pong?.version ?? '';
+                      var fwTemporal = 0;
+                      final pong = await LedDiscoveryService.queryPong(ip.replaceAll(',', '.'), udpPort: port);
+                      if (pong != null) {
+                        firmware = firmware.isEmpty ? pong.version : firmware;
+                        fwTemporal = pong.fwTemporalSmoothingMode ?? 0;
+                      } else if (firmware.isEmpty) {
+                        firmware = '';
                       }
                       if (!ctx.mounted) return;
                       final devs = [...c.config.globalSettings.devices];
@@ -211,6 +215,7 @@ class _DevicesPageState extends State<DevicesPage> {
                           udpPort: port,
                           ledCount: leds.clamp(1, SerialAmbilightProtocol.maxLedsPerDevice),
                           firmwareVersion: firmware,
+                          fwTemporalSmoothingMode: fwTemporal,
                         ),
                       );
                       final next = c.config.copyWith(
@@ -315,7 +320,10 @@ class _DevicesPageState extends State<DevicesPage> {
       return;
     }
     final devs = [...c.config.globalSettings.devices];
-    devs[index] = dev.copyWith(firmwareVersion: pong.version);
+    devs[index] = dev.copyWith(
+      firmwareVersion: pong.version,
+      fwTemporalSmoothingMode: pong.fwTemporalSmoothingMode ?? dev.fwTemporalSmoothingMode,
+    );
     traceDeviceBindings('DevicesPage._refreshFirmware: ${dev.id} → fw ${pong.version}');
     await c.applyConfigAndPersist(
       c.config.copyWith(globalSettings: c.config.globalSettings.copyWith(devices: devs)),

@@ -689,6 +689,28 @@
   "setupWizardUsbConnect": "Connect",
   "setupWizardUsbWebHint": "Serial/USB setup is available in the Windows desktop build.",
   "setupWizardComDtrRtsHint": "Test uses the same DTR/RTS line setup as a normal connect (ESP32‑C3 USB‑JTAG or classic USB‑UART bridge).",
+  "setupWizardDeviceWifiSection": "Wi‑Fi / network",
+  "setupWizardDeviceSerialSection": "USB / serial",
+  "setupWizardDeviceWifiIntro": "We broadcast on your LAN (UDP 4210). Controllers that answer appear below — tap Add to save one to your profile.",
+  "setupWizardDeviceSerialIntro": "Choose the COM port your ESP32 or USB‑serial adapter uses (for example COM3). Test verifies an AmbiLight controller before you add it.",
+  "setupWizardDeviceWifiDesktopOnly": "Wi‑Fi discovery is available in the Windows desktop build.",
+  "setupWizardDeviceTestConnection": "Test",
+  "setupWizardDeviceAdd": "Add",
+  "setupWizardDeviceScanningLabel": "Scanning your network…",
+  "setupWizardDeviceIdentifiedShort": "AmbiLight controller detected.",
+  "setupWizardDeviceTestFailedShort": "Not an AmbiLight controller on this port.",
+  "setupWizardDeviceControllerId": "ID: {macSuffix}",
+  "@setupWizardDeviceControllerId": {
+    "placeholders": {
+      "macSuffix": {}
+    }
+  },
+  "setupWizardDeviceWifiScanFailed": "Scan failed: {message}",
+  "@setupWizardDeviceWifiScanFailed": {
+    "placeholders": {
+      "message": {}
+    }
+  },
   "setupWizardMappingEdgesTitle": "LEDs per screen edge (current mapping)",
   "setupWizardMappingRainbowHint": "Rainbow uses the synthetic screen-output path so you can see the strip respond.",
   "setupWizardWhatsNextTitle": "What's next?",
@@ -835,7 +857,8 @@
   "lightZoneEffectBlink": "Blink",
   "musicDeviceError": "Device: {error}",
   "musicInputDeviceLabel": "Audio input device",
-  "musicDefaultInputDevice": "Default (first suitable)",
+  "musicDefaultInputDevice": "Automatic: system mix (loopback)",
+  "musicSystemLoopbackHint": "With no device selected, AmbiLight prefers a loopback / “what you hear” input so system audio can drive the visualizer. Windows: Stereo Mix, VB-Audio Cable, or similar. macOS: install BlackHole from existential.audio/blackhole, create a Multi-Output Device in Audio MIDI Setup, then pick “BlackHole” (or Aggregate) here.",
   "musicRefreshDeviceListTooltip": "Refresh device list",
   "musicSettingsHeader": "Music",
   "musicSettingsSubtitle": "Audio source, effects and color preview. Music mode must be active on the overview for output to reach strips.",
@@ -1782,5 +1805,15 @@
     "placeholders": {
       "deg": {}
     }
-  }
+  },
+  "deviceFwTemporalSectionTitle": "Firmware temporal smoothing",
+  "deviceFwTemporalOff": "Off",
+  "deviceFwTemporalSmooth": "Smooth",
+  "deviceFwTemporalSnap": "Zero-lag snap",
+  "deviceFwTemporalApply": "Send to device",
+  "deviceFwTemporalSnackOk": "Firmware smoothing mode updated.",
+  "deviceFwTemporalSnackFail": "Could not confirm the command (timeout or old firmware).",
+  "deviceFwTemporalHint": "Separate from screen interpolation below. Avoid maxing out both firmware smooth and strong PC interpolation.",
+  "settingsPcSmoothingFootnote": "Interpolation here runs on the PC before UDP/serial only. For Wi-Fi chunk size at build time see dart-define AMBI_UDP_OPCODE06_CHUNK_PIXELS (UdpAmbilightProtocol).",
+  "settingsGlobalPcUdpChunkHint": "Optional build-time tuning: --dart-define=AMBI_UDP_OPCODE06_CHUNK_PIXELS=… (32–498) affects UDP packet size when the strip needs 0x06 chunks."
 }

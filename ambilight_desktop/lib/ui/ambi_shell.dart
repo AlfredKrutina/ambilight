@@ -261,22 +261,26 @@ class _TopChrome extends StatelessWidget {
           children: [
             Icon(Icons.blur_circular, color: scheme.onSurface, size: 26),
             const SizedBox(width: 10),
-            Text(
-              context.l10n.appTitle,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                    color: scheme.onSurface,
-                  ),
+            Expanded(
+              child: Text(
+                context.l10n.appTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                      color: scheme.onSurface,
+                    ),
+              ),
             ),
-            const Spacer(),
+            const SizedBox(width: 8),
             Selector<AmbilightAppController, ({int online, int total})>(
               selector: (_, c) => _deviceOnlineCounts(c),
               builder: (context, conn, _) {
                 if (conn.total <= 0) return const SizedBox.shrink();
                 final ok = conn.online >= conn.total;
                 return Padding(
-                  padding: const EdgeInsets.only(right: 10),
+                  padding: const EdgeInsets.only(right: 6),
                   child: Tooltip(
                     message: ok
                         ? context.l10n.allOutputsOnline(conn.online, conn.total)
@@ -290,25 +294,32 @@ class _TopChrome extends StatelessWidget {
                 );
               },
             ),
-            Selector<AmbilightAppController, bool>(
-              selector: (_, c) => c.enabled,
-              builder: (context, on, _) {
-                final ctrl = context.read<AmbilightAppController>();
-                return Tooltip(
-                  message: on ? context.l10n.tooltipColorsOn : context.l10n.tooltipColorsOff,
-                  child: FilledButton.tonalIcon(
-                    onPressed: () => ctrl.setEnabled(!on),
-                    icon: Icon(on ? Icons.bolt : Icons.bolt_outlined, size: 20),
-                    label: Text(on ? context.l10n.outputOn : context.l10n.outputOff),
-                    style: FilledButton.styleFrom(
-                      foregroundColor: on ? scheme.onTertiaryContainer : scheme.onSurfaceVariant,
-                      backgroundColor: on
-                          ? scheme.tertiaryContainer.withValues(alpha: 0.85)
-                          : scheme.surface.withValues(alpha: 0.55),
+            Flexible(
+              fit: FlexFit.loose,
+              child: Selector<AmbilightAppController, bool>(
+                selector: (_, c) => c.enabled,
+                builder: (context, on, _) {
+                  final ctrl = context.read<AmbilightAppController>();
+                  return Tooltip(
+                    message: on ? context.l10n.tooltipColorsOn : context.l10n.tooltipColorsOff,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: FilledButton.tonalIcon(
+                        onPressed: () => ctrl.setEnabled(!on),
+                        icon: Icon(on ? Icons.bolt : Icons.bolt_outlined, size: 20),
+                        label: Text(on ? context.l10n.outputOn : context.l10n.outputOff),
+                        style: FilledButton.styleFrom(
+                          foregroundColor: on ? scheme.onTertiaryContainer : scheme.onSurfaceVariant,
+                          backgroundColor: on
+                              ? scheme.tertiaryContainer.withValues(alpha: 0.85)
+                              : scheme.surface.withValues(alpha: 0.55),
+                        ),
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ],
         ),

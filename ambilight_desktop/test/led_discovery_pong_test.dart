@@ -14,6 +14,17 @@ void main() {
       expect(p.name, 'Ambilight_dd');
       expect(p.ledCount, 512);
       expect(p.version, '2.0');
+      expect(p.fwTemporalSmoothingMode, isNull);
+    });
+
+    test('parses FW 2.1 temporal mode field', () {
+      final p = parseEsp32PongDatagram(
+        '10.0.0.2',
+        'ESP32_PONG|aabbcc|Ambilight_dd|300|2.1|1',
+      );
+      expect(p, isNotNull);
+      expect(p!.version, '2.1');
+      expect(p.fwTemporalSmoothingMode, 1);
     });
 
     test('rejects short string', () {

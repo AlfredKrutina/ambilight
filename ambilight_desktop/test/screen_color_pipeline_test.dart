@@ -236,4 +236,49 @@ void main() {
       expect(ScreenColorPipeline.screenSegmentCaptureWarnings(cfg), isEmpty);
     });
   });
+
+  group('cornerMarkerLedIndices', () {
+    test('implicit 66 LEDs — junctions match strip left→top→right→bottom order', () {
+      final cfg = AppConfig.defaults().copyWith(
+        globalSettings: AppConfig.defaults().globalSettings.copyWith(
+          ledCount: 66,
+          devices: [
+            const DeviceSettings(id: 'primary', name: 'x', type: 'serial', ledCount: 66),
+          ],
+        ),
+        screenMode: const ScreenModeSettings(
+          monitorIndex: 1,
+          segments: [],
+          interpolationMs: 0,
+        ),
+      );
+      expect(ScreenColorPipeline.cornerMarkerLedIndices(config: cfg, deviceId: 'primary', corner: 'top_left'), [16, 17]);
+      expect(ScreenColorPipeline.cornerMarkerLedIndices(config: cfg, deviceId: 'primary', corner: 'top_right'), [33, 34]);
+      expect(ScreenColorPipeline.cornerMarkerLedIndices(config: cfg, deviceId: 'primary', corner: 'bottom_right'), [49, 50]);
+      expect(ScreenColorPipeline.cornerMarkerLedIndices(config: cfg, deviceId: 'primary', corner: 'bottom_left'), [0, 65]);
+    });
+
+    test('explicit segments — corners use strip index junctions', () {
+      const sm = ScreenModeSettings(
+        monitorIndex: 1,
+        interpolationMs: 0,
+        segments: [
+          LedSegment(ledStart: 0, ledEnd: 9, monitorIdx: 1, edge: 'left', reverse: true),
+          LedSegment(ledStart: 10, ledEnd: 19, monitorIdx: 1, edge: 'top', reverse: false),
+          LedSegment(ledStart: 20, ledEnd: 29, monitorIdx: 1, edge: 'right', reverse: false),
+          LedSegment(ledStart: 30, ledEnd: 39, monitorIdx: 1, edge: 'bottom', reverse: true),
+        ],
+      );
+      final cfg = AppConfig.defaults().copyWith(
+        globalSettings: AppConfig.defaults().globalSettings.copyWith(
+          devices: [
+            const DeviceSettings(id: 'd1', name: 'x', type: 'serial', ledCount: 40),
+          ],
+        ),
+        screenMode: sm,
+      );
+      expect(ScreenColorPipeline.cornerMarkerLedIndices(config: cfg, deviceId: 'd1', corner: 'top_left'), [9, 10]);
+      expect(ScreenColorPipeline.cornerMarkerLedIndices(config: cfg, deviceId: 'd1', corner: 'bottom_left'), [0, 39]);
+    });
+  });
 }

@@ -52,6 +52,7 @@ class DiscoveredLedController {
     required this.name,
     required this.ledCount,
     required this.version,
+    this.fwTemporalSmoothingMode,
   });
 
   final String ip;
@@ -59,6 +60,8 @@ class DiscoveredLedController {
   final String name;
   final int ledCount;
   final String version;
+  /// Z `ESP32_PONG|…|2.1|<0–2>`; u starého FW (`|2.0` bez extra pole) je `null`.
+  final int? fwTemporalSmoothingMode;
 
   @override
   String toString() => '$name ($ip) leds=$ledCount';
@@ -70,12 +73,14 @@ DiscoveredLedController? parseEsp32PongDatagram(String sourceIp, String utf8Text
   if (!text.startsWith('ESP32_PONG')) return null;
   final parts = text.split('|');
   if (parts.length < 5) return null;
+  final int? temporal = parts.length >= 6 ? int.tryParse(parts[5].trim()) : null;
   return DiscoveredLedController(
     ip: sourceIp,
     macSuffix: parts[1],
     name: parts[2],
     ledCount: int.tryParse(parts[3]) ?? 0,
     version: parts[4].trim(),
+    fwTemporalSmoothingMode: temporal != null && temporal >= 0 && temporal <= 2 ? temporal : null,
   );
 }
 

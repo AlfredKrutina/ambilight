@@ -2757,6 +2757,78 @@ abstract class AppLocalizations {
   /// **'Test uses the same DTR/RTS line setup as a normal connect (ESP32‑C3 USB‑JTAG or classic USB‑UART bridge).'**
   String get setupWizardComDtrRtsHint;
 
+  /// No description provided for @setupWizardDeviceWifiSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Wi‑Fi / network'**
+  String get setupWizardDeviceWifiSection;
+
+  /// No description provided for @setupWizardDeviceSerialSection.
+  ///
+  /// In en, this message translates to:
+  /// **'USB / serial'**
+  String get setupWizardDeviceSerialSection;
+
+  /// No description provided for @setupWizardDeviceWifiIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'We broadcast on your LAN (UDP 4210). Controllers that answer appear below — tap Add to save one to your profile.'**
+  String get setupWizardDeviceWifiIntro;
+
+  /// No description provided for @setupWizardDeviceSerialIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the COM port your ESP32 or USB‑serial adapter uses (for example COM3). Test verifies an AmbiLight controller before you add it.'**
+  String get setupWizardDeviceSerialIntro;
+
+  /// No description provided for @setupWizardDeviceWifiDesktopOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Wi‑Fi discovery is available in the Windows desktop build.'**
+  String get setupWizardDeviceWifiDesktopOnly;
+
+  /// No description provided for @setupWizardDeviceTestConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Test'**
+  String get setupWizardDeviceTestConnection;
+
+  /// No description provided for @setupWizardDeviceAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get setupWizardDeviceAdd;
+
+  /// No description provided for @setupWizardDeviceScanningLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning your network…'**
+  String get setupWizardDeviceScanningLabel;
+
+  /// No description provided for @setupWizardDeviceIdentifiedShort.
+  ///
+  /// In en, this message translates to:
+  /// **'AmbiLight controller detected.'**
+  String get setupWizardDeviceIdentifiedShort;
+
+  /// No description provided for @setupWizardDeviceTestFailedShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Not an AmbiLight controller on this port.'**
+  String get setupWizardDeviceTestFailedShort;
+
+  /// No description provided for @setupWizardDeviceControllerId.
+  ///
+  /// In en, this message translates to:
+  /// **'ID: {macSuffix}'**
+  String setupWizardDeviceControllerId(Object macSuffix);
+
+  /// No description provided for @setupWizardDeviceWifiScanFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan failed: {message}'**
+  String setupWizardDeviceWifiScanFailed(Object message);
+
   /// No description provided for @setupWizardMappingEdgesTitle.
   ///
   /// In en, this message translates to:
@@ -3450,8 +3522,14 @@ abstract class AppLocalizations {
   /// No description provided for @musicDefaultInputDevice.
   ///
   /// In en, this message translates to:
-  /// **'Default (first suitable)'**
+  /// **'Automatic: system mix (loopback)'**
   String get musicDefaultInputDevice;
+
+  /// No description provided for @musicSystemLoopbackHint.
+  ///
+  /// In en, this message translates to:
+  /// **'With no device selected, AmbiLight prefers a loopback / “what you hear” input so system audio can drive the visualizer. Windows: Stereo Mix, VB-Audio Cable, or similar. macOS: install BlackHole from existential.audio/blackhole, create a Multi-Output Device in Audio MIDI Setup, then pick “BlackHole” (or Aggregate) here.'**
+  String get musicSystemLoopbackHint;
 
   /// No description provided for @musicRefreshDeviceListTooltip.
   ///
@@ -5907,6 +5985,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You (drag)'**
   String get vrTooltipYou;
+
+  /// No description provided for @deviceFwTemporalSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware temporal smoothing'**
+  String get deviceFwTemporalSectionTitle;
+
+  /// No description provided for @deviceFwTemporalOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get deviceFwTemporalOff;
+
+  /// No description provided for @deviceFwTemporalSmooth.
+  ///
+  /// In en, this message translates to:
+  /// **'Smooth'**
+  String get deviceFwTemporalSmooth;
+
+  /// No description provided for @deviceFwTemporalSnap.
+  ///
+  /// In en, this message translates to:
+  /// **'Zero-lag snap'**
+  String get deviceFwTemporalSnap;
+
+  /// No description provided for @deviceFwTemporalApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Send to device'**
+  String get deviceFwTemporalApply;
+
+  /// No description provided for @deviceFwTemporalSnackOk.
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware smoothing mode updated.'**
+  String get deviceFwTemporalSnackOk;
+
+  /// No description provided for @deviceFwTemporalSnackFail.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not confirm the command (timeout or old firmware).'**
+  String get deviceFwTemporalSnackFail;
+
+  /// No description provided for @deviceFwTemporalHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Separate from screen interpolation below. Avoid maxing out both firmware smooth and strong PC interpolation.'**
+  String get deviceFwTemporalHint;
+
+  /// No description provided for @settingsPcSmoothingFootnote.
+  ///
+  /// In en, this message translates to:
+  /// **'Interpolation here runs on the PC before UDP/serial only. For Wi-Fi chunk size at build time see dart-define AMBI_UDP_OPCODE06_CHUNK_PIXELS (UdpAmbilightProtocol).'**
+  String get settingsPcSmoothingFootnote;
+
+  /// No description provided for @settingsGlobalPcUdpChunkHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional build-time tuning: --dart-define=AMBI_UDP_OPCODE06_CHUNK_PIXELS=… (32–498) affects UDP packet size when the strip needs 0x06 chunks.'**
+  String get settingsGlobalPcUdpChunkHint;
 }
 
 class _AppLocalizationsDelegate

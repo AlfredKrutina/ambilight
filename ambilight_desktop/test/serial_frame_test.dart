@@ -1,4 +1,5 @@
 import 'package:ambilight_desktop/core/protocol/serial_frame.dart';
+import 'package:ambilight_desktop/core/protocol/udp_frame.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -50,5 +51,12 @@ void main() {
     expect(frame[tupleStart + 3], 8);
     expect(frame[tupleStart + 4], 7);
     expect(frame.last, 0xFE);
+  });
+
+  test('PC release handoff opcode matches UDP', () {
+    expect(SerialAmbilightProtocol.pcReleaseHandoff, 0xF0);
+    expect(UdpAmbilightProtocol.pcReleaseHandoff, 0xF0);
+    expect(SerialAmbilightProtocol.buildFirmwareTemporalModeFrame(2), orderedEquals([0xF1, 2]));
+    expect(UdpAmbilightProtocol.buildFirmwareTemporalModeFrame(1), orderedEquals([0xF1, 1]));
   });
 }

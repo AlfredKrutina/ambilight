@@ -76,6 +76,23 @@ class MusicAudioService {
     }
   }
 
+  /// Heuristika „systémový mix“ / loopback (Windows Stereo Mix, VB-Cable, macOS BlackHole, …).
+  static bool labelLooksLikeSystemLoopback(String raw) {
+    final label = raw.toLowerCase();
+    return label.contains('loopback') ||
+        label.contains('stereo mix') ||
+        label.contains('vb-audio') ||
+        label.contains('cable output') ||
+        label.contains('cable input') ||
+        label.contains('blackhole') ||
+        label.contains('black hole') ||
+        label.contains('aggregate') ||
+        label.contains('multi-output') ||
+        label.contains('wave out mix') ||
+        label.contains('what u hear') ||
+        label.contains('stereo out');
+  }
+
   static Future<List<MusicCaptureDeviceInfo>> listDevices() async {
     try {
       final r = AudioRecorder();
@@ -83,11 +100,7 @@ class MusicAudioService {
       final out = <MusicCaptureDeviceInfo>[];
       for (var i = 0; i < inputs.length; i++) {
         final d = inputs[i];
-        final label = d.label.toLowerCase();
-        final loopHint = label.contains('loopback') ||
-            label.contains('stereo mix') ||
-            label.contains('vb-audio') ||
-            label.contains('cable output');
+        final loopHint = labelLooksLikeSystemLoopback(d.label);
         out.add(MusicCaptureDeviceInfo(
           index: i,
           id: d.id,
@@ -166,7 +179,7 @@ class MusicAudioService {
         }
         if (device == null && mm.micEnabled) {
           for (final d in inputs) {
-            if (!d.label.toLowerCase().contains('loopback')) {
+            if (!labelLooksLikeSystemLoopback(d.label)) {
               device = d;
               break;
             }
@@ -174,8 +187,7 @@ class MusicAudioService {
         }
         if (device == null) {
           for (final d in inputs) {
-            final l = d.label.toLowerCase();
-            if (l.contains('loopback') || l.contains('stereo mix') || l.contains('cable')) {
+            if (labelLooksLikeSystemLoopback(d.label)) {
               device = d;
               break;
             }

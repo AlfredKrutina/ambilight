@@ -128,14 +128,19 @@ class AmbiLightRoot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Selector<AmbilightAppController,
-        ({String uiTheme, bool uiAnimations, String uiLang})>(
+        ({String uiTheme, bool uiAnimations, bool performanceMode, String uiLang})>(
       selector: (_, c) => (
         uiTheme: normalizeAmbilightUiTheme(c.config.globalSettings.theme),
         uiAnimations: c.config.globalSettings.uiAnimationsEnabled,
+        performanceMode: c.config.globalSettings.performanceMode,
         uiLang: c.config.globalSettings.uiLanguage,
       ),
       builder: (context, shell, _) {
-        final appPalette = AmbiLightTheme.themeForKey(shell.uiTheme);
+        final reducedMotion = shell.performanceMode || !shell.uiAnimations;
+        final appPalette = AmbiLightTheme.themeForKey(
+          shell.uiTheme,
+          reducedMotion: reducedMotion,
+        );
         return Consumer<ScanOverlayController>(
           builder: (context, scan, _) {
             return TrayMenuHost(
@@ -153,10 +158,14 @@ class AmbiLightRoot extends StatelessWidget {
                 theme: appPalette,
                 darkTheme: appPalette,
                 themeMode: ThemeMode.light,
+                themeAnimationDuration: reducedMotion ? Duration.zero : kThemeAnimationDuration,
+                themeAnimationCurve: reducedMotion ? Curves.linear : Curves.ease,
+                scrollBehavior:
+                    reducedMotion ? const _NoGlowScrollBehavior() : const MaterialScrollBehavior(),
                 builder: (context, child) {
                   AppLocaleBridge.syncFrom(context);
                   final mq = MediaQuery.of(context);
-                  final userAnimOff = !shell.uiAnimations;
+                  final userAnimOff = reducedMotion;
                   final mqMerged = mq.copyWith(
                       disableAnimations: mq.disableAnimations || userAnimOff);
 
@@ -264,6 +273,10 @@ class AmbiLightRoot extends StatelessWidget {
                       ),
                     ],
                   );
+                  inner = TickerMode(
+                    enabled: !reducedMotion,
+                    child: inner,
+                  );
                   final mqChild = MediaQuery(data: mqMerged, child: inner);
                   return Selector<AmbilightAppController, bool>(
                     selector: (_, c) =>
@@ -281,5 +294,18 @@ class AmbiLightRoot extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class _NoGlowScrollBehavior extends MaterialScrollBehavior {
+  const _NoGlowScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
   }
 }

@@ -1524,6 +1524,50 @@ class AppLocalizationsCs extends AppLocalizations {
       'Test používá stejné nastavení linek DTR/RTS jako běžné připojení (ESP32‑C3 USB‑JTAG nebo klasický USB‑UART bridge).';
 
   @override
+  String get setupWizardDeviceWifiSection => 'Wi‑Fi / síť';
+
+  @override
+  String get setupWizardDeviceSerialSection => 'USB / sériový port';
+
+  @override
+  String get setupWizardDeviceWifiIntro =>
+      'Na lokální síti pošleme UDP broadcast (port 4210). Nalezené kontroléry se zobrazí níže — klepnutím na Přidat ho uložíš do profilu.';
+
+  @override
+  String get setupWizardDeviceSerialIntro =>
+      'Vyber COM port, na kterém máš ESP32 nebo USB‑UART adaptér (např. COM3). Test ověří, že jde o AmbiLight kontrolér, než ho přidáš.';
+
+  @override
+  String get setupWizardDeviceWifiDesktopOnly =>
+      'Vyhledávání přes Wi‑Fi je v desktopové verzi pro Windows.';
+
+  @override
+  String get setupWizardDeviceTestConnection => 'Test';
+
+  @override
+  String get setupWizardDeviceAdd => 'Přidat';
+
+  @override
+  String get setupWizardDeviceScanningLabel => 'Skenuji síť…';
+
+  @override
+  String get setupWizardDeviceIdentifiedShort => 'Nalezen AmbiLight kontrolér.';
+
+  @override
+  String get setupWizardDeviceTestFailedShort =>
+      'Na tomto portu není AmbiLight kontrolér.';
+
+  @override
+  String setupWizardDeviceControllerId(Object macSuffix) {
+    return 'ID: $macSuffix';
+  }
+
+  @override
+  String setupWizardDeviceWifiScanFailed(Object message) {
+    return 'Skenování selhalo: $message';
+  }
+
+  @override
   String get setupWizardMappingEdgesTitle =>
       'LED pod hranou obrazovky (aktuální mapování)';
 
@@ -1938,7 +1982,12 @@ class AppLocalizationsCs extends AppLocalizations {
   String get musicInputDeviceLabel => 'Vstupní zvukové zařízení';
 
   @override
-  String get musicDefaultInputDevice => 'Výchozí (první vhodné)';
+  String get musicDefaultInputDevice =>
+      'Automaticky: mix ze systému (loopback)';
+
+  @override
+  String get musicSystemLoopbackHint =>
+      'Bez vybraného zařízení aplikace upřednostní loopback / „co hraje reproduktory“, aby šel vizualizovat zvuk systému. Windows: Stereo Mix, VB-Audio Cable apod. macOS: nainstaluj BlackHole (existential.audio/blackhole), v Audio MIDI Setup slož Multi-Output Device a sem vyber vstup „BlackHole“ nebo Aggregate.';
 
   @override
   String get musicRefreshDeviceListTooltip => 'Obnovit seznam';
@@ -3413,4 +3462,38 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get vrTooltipYou => 'Ty (táhni)';
+
+  @override
+  String get deviceFwTemporalSectionTitle => 'Časové vyhlazování na lampě (FW)';
+
+  @override
+  String get deviceFwTemporalOff => 'Vypnuto';
+
+  @override
+  String get deviceFwTemporalSmooth => 'Plynulé';
+
+  @override
+  String get deviceFwTemporalSnap => 'Bez přidané latence';
+
+  @override
+  String get deviceFwTemporalApply => 'Odeslat na zařízení';
+
+  @override
+  String get deviceFwTemporalSnackOk => 'Režim vyhlazování na lampě uložen.';
+
+  @override
+  String get deviceFwTemporalSnackFail =>
+      'Příkaz se nepodařilo potvrdit (timeout nebo starý FW).';
+
+  @override
+  String get deviceFwTemporalHint =>
+      'Oddělené od interpolace obrazovky níže — ne kombinovat obě na maximum.';
+
+  @override
+  String get settingsPcSmoothingFootnote =>
+      'Interpolace zde běží jen na PC před UDP/sérií. Velikost UDP chunků při buildu: dart-define AMBI_UDP_OPCODE06_CHUNK_PIXELS (viz UdpAmbilightProtocol).';
+
+  @override
+  String get settingsGlobalPcUdpChunkHint =>
+      'Volitelné ladění při buildu: --dart-define=AMBI_UDP_OPCODE06_CHUNK_PIXELS=… (32–498) mění velikost datagramů 0x06 u dlouhého pásku.';
 }

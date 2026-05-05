@@ -9,15 +9,9 @@ import '../../core/device_bindings_debug.dart';
 import '../../core/models/config_models.dart';
 import '../../core/protocol/serial_frame.dart';
 import '../../l10n/context_ext.dart';
+import '../../services/led_discovery_service.dart';
 import '../../services/serial_ambilight_port_discovery.dart';
 import '../app_navigator.dart';
-import '../wizards/discovery_wizard_dialog.dart';
-
-/// Wi‑Fi / UDP discovery — stejný dialog jako na stránce Zařízení.
-Future<void> onboardingOpenWifiDiscovery(BuildContext context) {
-  final dialogContext = ambiNavigatorModalContext(context) ?? context;
-  return DiscoveryWizardDialog.show(dialogContext);
-}
 
 Future<void> _persistUsbPortAfterHandshake(
   BuildContext context,
@@ -72,6 +66,59 @@ Future<void> _persistUsbPortAfterHandshake(
   }
 }
 
+/// Ruční uložení sériového portu po úspěšném ověření (bez dalšího handshake).
+Future<void> onboardingPersistUsbPort(BuildContext context, String port) async {
+  final c = context.read<AmbilightAppController>();
+  final uiContext = ambiNavigatorModalContext(context) ?? context;
+  final messenger = ScaffoldMessenger.maybeOf(uiContext) ?? ScaffoldMessenger.maybeOf(context);
+  await _persistUsbPortAfterHandshake(context, c, port, messenger);
+}
+
+/// `true`, pokud na [portName] odpovídá AmbiLight sériový protokol.
+Future<bool> onboardingProbeSerialPort(BuildContext context, String portName) async {
+  final c = context.read<AmbilightAppController>();
+  return c.runWithLoopPaused(
+    () => SerialAmbilightPortDiscovery.tryHandshakeOnPort(
+      portName,
+      baudRate: c.config.globalSettings.baudRate,
+    ),
+  );
+}
+
+/// Přidá Wi‑Fi zařízení z UDP discovery do globální konfigurace.
+Future<void> onboardingAddWifiDevice(BuildContext context, DiscoveredLedController d) async {
+  final c = context.read<AmbilightAppController>();
+  final uiContext = ambiNavigatorModalContext(context) ?? context;
+  final messenger = ScaffoldMessenger.maybeOf(uiContext) ?? ScaffoldMessenger.maybeOf(context);
+  final l10n = context.l10n;
+  final devs = [
+    ...c.config.globalSettings.devices,
+    DeviceSettings(
+      id: 'd${DateTime.now().millisecondsSinceEpoch % 100000000}',
+      name: d.name,
+      type: 'wifi',
+      ipAddress: d.ip,
+      udpPort: 4210,
+      ledCount: d.ledCount.clamp(1, SerialAmbilightProtocol.maxLedsPerDevice),
+      firmwareVersion: d.version,
+    ),
+  ];
+  try {
+    await c.applyConfigAndPersist(
+      c.config.copyWith(globalSettings: c.config.globalSettings.copyWith(devices: devs)),
+    );
+  } catch (e, st) {
+    traceDeviceBindingsSevere('onboarding Wi‑Fi persist apply výjimka', e, st);
+    messenger?.showSnackBar(
+      SnackBar(content: Text(l10n.settingsDevicesSaveFailed(e.toString().split('\n').first))),
+    );
+    return;
+  }
+  if (context.mounted) {
+    messenger?.showSnackBar(SnackBar(content: Text(l10n.discAddedSnack(d.name))));
+  }
+}
+
 /// COM scan se handshake — stejná logika jako [DevicesPage]._findAmbilightCom.
 Future<void> onboardingSetupSerialUsb(BuildContext context) async {
   final c = context.read<AmbilightAppController>();
@@ -100,18 +147,13 @@ Future<void> onboardingSetupSerialUsb(BuildContext context) async {
   await _persistUsbPortAfterHandshake(context, c, port, messenger);
 }
 
-/// Ruční výběr COM: handshake s DTR/RTS politikou ([SerialDeviceTransport.applyAmbilightPortPolicyAfterOpen]), pak uložení.
+/// Ruční výběr COM: handshake, pak uložení.
 Future<void> onboardingConnectComPort(BuildContext context, String portName) async {
   final c = context.read<AmbilightAppController>();
   final uiContext = ambiNavigatorModalContext(context) ?? context;
   final messenger = ScaffoldMessenger.maybeOf(uiContext) ?? ScaffoldMessenger.maybeOf(context);
   messenger?.showSnackBar(SnackBar(content: Text(context.l10n.comScanHandshake)));
-  final ok = await c.runWithLoopPaused(
-    () => SerialAmbilightPortDiscovery.tryHandshakeOnPort(
-      portName,
-      baudRate: c.config.globalSettings.baudRate,
-    ),
-  );
+  final ok = await onboardingProbeSerialPort(context, portName);
   if (!context.mounted) return;
   if (!ok) {
     messenger?.showSnackBar(SnackBar(content: Text(context.l10n.comScanNoReply)));

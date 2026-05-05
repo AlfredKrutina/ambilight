@@ -89,6 +89,8 @@ class DeviceSettings {
     this.defaultMonitor = 1,
     this.controlViaHa = false,
     this.firmwareVersion = '',
+    /// FW časové vyhlazování (0=vyp, 1=plynulé, 2=snap) — odesílá se `0xF1`; lampa ukládá NVS.
+    this.fwTemporalSmoothingMode = 0,
   });
 
   final String id;
@@ -104,6 +106,7 @@ class DeviceSettings {
   final bool controlViaHa;
   /// Z `ESP32_PONG` (poslední pole), pokud známe.
   final String firmwareVersion;
+  final int fwTemporalSmoothingMode;
 
   DeviceSettings copyWith({
     String? id,
@@ -117,6 +120,7 @@ class DeviceSettings {
     int? defaultMonitor,
     bool? controlViaHa,
     String? firmwareVersion,
+    int? fwTemporalSmoothingMode,
   }) {
     return DeviceSettings(
       id: id ?? this.id,
@@ -130,6 +134,8 @@ class DeviceSettings {
       defaultMonitor: defaultMonitor ?? this.defaultMonitor,
       controlViaHa: controlViaHa ?? this.controlViaHa,
       firmwareVersion: firmwareVersion ?? this.firmwareVersion,
+      fwTemporalSmoothingMode:
+          (fwTemporalSmoothingMode ?? this.fwTemporalSmoothingMode).clamp(0, 2),
     );
   }
 
@@ -145,6 +151,7 @@ class DeviceSettings {
         'default_monitor': defaultMonitor,
         'control_via_ha': controlViaHa,
         'firmware_version': firmwareVersion,
+        'fw_temporal_mode': fwTemporalSmoothingMode,
       };
 
   factory DeviceSettings.fromJson(Map<String, dynamic> j) {
@@ -160,6 +167,7 @@ class DeviceSettings {
       defaultMonitor: asInt(j['default_monitor'], 1),
       controlViaHa: asBool(j['control_via_ha'], false),
       firmwareVersion: asString(j['firmware_version'], ''),
+      fwTemporalSmoothingMode: asInt(j['fw_temporal_mode'], 0).clamp(0, 2),
     );
   }
 }

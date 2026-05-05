@@ -6,6 +6,19 @@
 
 ---
 
+## Dvojí vyhlazování: FW lampy vs PC (aktuální produkt)
+
+| Vrstva | Kde v UI / kódu | Latence / poznámka |
+|--------|-----------------|---------------------|
+| **FW** | Nastavení → Zařízení: režim 0/1/2; příkaz `0xF1`, NVS `amb_temp_mode`, volitelně `amb_temp_ms` | 0 = stejné chování jako dřív; 1 = EMA mezi snímky (setrvačnost); 2 = velké skoky okamžitě, malé delty EMA (nízký šum bez zpoždění u řezů). Timer ~166 Hz (`ambilight.c`). |
+| **PC** | Nastavení → Obrazovka: **Interpolace (ms)** = `ScreenModeSettings.interpolation_ms` → pipeline `smoothMs` | Běží jen před odesláním na síť; neukládá se do lampy. |
+| **PC výkon** | Globální: výkonový režim + perioda smyčky; obnovovací frekvence mimo výkon | Vyšší frekvence / kratší perioda = více snímků směrem k UDP (CPU). |
+| **UDP chunky** | Build-time `--dart-define=AMBI_UDP_OPCODE06_CHUNK_PIXELS=…` (`UdpAmbilightProtocol`) | Ovlivňuje počet datagramů na snímek u >499 LED; nesahá do FW temporal. |
+
+**Doporučení:** nepřebíjet obě vrstvy na maximum (např. FW „Plynulé“ + velmi dlouhá PC interpolace) — obraz může působit mazaně a zvýší se zpoždění vůči zdroji na monitoru. Rozumné kombinace: **FW snap + lehká PC interpolace**, nebo **FW vypnuto + PC interpolace**.
+
+---
+
 ## Ověřený stav (kód / diff)
 
 ### Duplicitní submit screen pipeline (Windows push)

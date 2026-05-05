@@ -480,6 +480,28 @@
   "setupWizardUsbConnect": "Připojit",
   "setupWizardUsbWebHint": "USB/sériové nastavení je ve desktopové verzi pro Windows.",
   "setupWizardComDtrRtsHint": "Test používá stejné nastavení linek DTR/RTS jako běžné připojení (ESP32‑C3 USB‑JTAG nebo klasický USB‑UART bridge).",
+  "setupWizardDeviceWifiSection": "Wi‑Fi / síť",
+  "setupWizardDeviceSerialSection": "USB / sériový port",
+  "setupWizardDeviceWifiIntro": "Na lokální síti pošleme UDP broadcast (port 4210). Nalezené kontroléry se zobrazí níže — klepnutím na Přidat ho uložíš do profilu.",
+  "setupWizardDeviceSerialIntro": "Vyber COM port, na kterém máš ESP32 nebo USB‑UART adaptér (např. COM3). Test ověří, že jde o AmbiLight kontrolér, než ho přidáš.",
+  "setupWizardDeviceWifiDesktopOnly": "Vyhledávání přes Wi‑Fi je v desktopové verzi pro Windows.",
+  "setupWizardDeviceTestConnection": "Test",
+  "setupWizardDeviceAdd": "Přidat",
+  "setupWizardDeviceScanningLabel": "Skenuji síť…",
+  "setupWizardDeviceIdentifiedShort": "Nalezen AmbiLight kontrolér.",
+  "setupWizardDeviceTestFailedShort": "Na tomto portu není AmbiLight kontrolér.",
+  "setupWizardDeviceControllerId": "ID: {macSuffix}",
+  "@setupWizardDeviceControllerId": {
+    "placeholders": {
+      "macSuffix": {}
+    }
+  },
+  "setupWizardDeviceWifiScanFailed": "Skenování selhalo: {message}",
+  "@setupWizardDeviceWifiScanFailed": {
+    "placeholders": {
+      "message": {}
+    }
+  },
   "setupWizardMappingEdgesTitle": "LED pod hranou obrazovky (aktuální mapování)",
   "setupWizardMappingRainbowHint": "Duhová kontrola jde syntetickou cestou výstupu z obrazovky, aby šlo vidět reakci pásku.",
   "setupWizardWhatsNextTitle": "Co dál?",
@@ -601,7 +623,8 @@
   "lightZoneEffectBlink": "Blikání",
   "musicDeviceError": "Zařízení: {error}",
   "musicInputDeviceLabel": "Vstupní zvukové zařízení",
-  "musicDefaultInputDevice": "Výchozí (první vhodné)",
+  "musicDefaultInputDevice": "Automaticky: mix ze systému (loopback)",
+  "musicSystemLoopbackHint": "Bez vybraného zařízení aplikace upřednostní loopback / „co hraje reproduktory“, aby šel vizualizovat zvuk systému. Windows: Stereo Mix, VB-Audio Cable apod. macOS: nainstaluj BlackHole (existential.audio/blackhole), v Audio MIDI Setup slož Multi-Output Device a sem vyber vstup „BlackHole“ nebo Aggregate.",
   "musicRefreshDeviceListTooltip": "Obnovit seznam",
   "musicSettingsHeader": "Hudba",
   "musicSettingsSubtitle": "Zdroj zvuku, efekty a náhled barev. Režim Hudba na přehledu musí být aktivní, aby se výstup promítl na pásky.",
@@ -1019,5 +1042,15 @@
   "vrDistanceSensitivity": "Citlivost na vzdálenost",
   "vrViewingAngle": "Úchyl pohledu od osy k TV: {deg}°",
   "vrTooltipTv": "TV (táhni)",
-  "vrTooltipYou": "Ty (táhni)"
+  "vrTooltipYou": "Ty (táhni)",
+  "deviceFwTemporalSectionTitle": "Časové vyhlazování na lampě (FW)",
+  "deviceFwTemporalOff": "Vypnuto",
+  "deviceFwTemporalSmooth": "Plynulé",
+  "deviceFwTemporalSnap": "Bez přidané latence",
+  "deviceFwTemporalApply": "Odeslat na zařízení",
+  "deviceFwTemporalSnackOk": "Režim vyhlazování na lampě uložen.",
+  "deviceFwTemporalSnackFail": "Příkaz se nepodařilo potvrdit (timeout nebo starý FW).",
+  "deviceFwTemporalHint": "Oddělené od interpolace obrazovky níže — ne kombinovat obě na maximum.",
+  "settingsPcSmoothingFootnote": "Interpolace zde běží jen na PC před UDP/sérií. Velikost UDP chunků při buildu: dart-define AMBI_UDP_OPCODE06_CHUNK_PIXELS (viz UdpAmbilightProtocol).",
+  "settingsGlobalPcUdpChunkHint": "Volitelné ladění při buildu: --dart-define=AMBI_UDP_OPCODE06_CHUNK_PIXELS=… (32–498) mění velikost datagramů 0x06 u dlouhého pásku."
 }
