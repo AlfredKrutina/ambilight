@@ -110,10 +110,15 @@ List<PopupMenuEntry<void>> _trayEntries(
 }) {
   final l10n = context.l10n;
   final scheme = theme.colorScheme;
+  final menuTextStyle = theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurface);
   final labelSmall = theme.textTheme.labelSmall?.copyWith(
     color: scheme.primary,
     fontWeight: FontWeight.w600,
   );
+  Text menuText(String text, {Color? color}) => Text(
+        text,
+        style: menuTextStyle?.copyWith(color: color ?? scheme.onSurface),
+      );
 
   PopupMenuItem<void> hdr(String text) => PopupMenuItem<void>(
         enabled: false,
@@ -129,24 +134,24 @@ List<PopupMenuEntry<void>> _trayEntries(
   return [
     PopupMenuItem<void>(
       onTap: () => c.toggleEnabled(),
-      child: Text(c.enabled ? l10n.trayDisableOutput : l10n.trayEnableOutput),
+      child: menuText(c.enabled ? l10n.trayDisableOutput : l10n.trayEnableOutput),
     ),
     const PopupMenuDivider(height: 1),
     PopupMenuItem<void>(
       onTap: () => modeTap('light'),
-      child: Text(l10n.trayModeLine(l10n.modeLightTitle)),
+      child: menuText(l10n.trayModeLine(l10n.modeLightTitle)),
     ),
     PopupMenuItem<void>(
       onTap: () => modeTap('screen'),
-      child: Text(l10n.trayModeLine(l10n.modeScreenTitle)),
+      child: menuText(l10n.trayModeLine(l10n.modeScreenTitle)),
     ),
     PopupMenuItem<void>(
       onTap: () => modeTap('music'),
-      child: Text(l10n.trayModeLine(l10n.modeMusicTitle)),
+      child: menuText(l10n.trayModeLine(l10n.modeMusicTitle)),
     ),
     PopupMenuItem<void>(
       onTap: () => modeTap('pchealth'),
-      child: Text(l10n.trayModeLine(l10n.modePcHealthTitle)),
+      child: menuText(l10n.trayModeLine(l10n.modePcHealthTitle)),
     ),
     const PopupMenuDivider(height: 1),
     hdr(l10n.trayScreenPresetsSection),
@@ -154,14 +159,14 @@ List<PopupMenuEntry<void>> _trayEntries(
       PopupMenuItem<void>(
         padding: const EdgeInsets.only(left: 28, right: 16),
         onTap: () => unawaited(c.applyQuickScreenPreset(name)),
-        child: Text(name),
+        child: menuText(name),
       ),
     hdr(l10n.trayMusicPresetsSection),
     for (final name in AmbilightPresets.musicNames)
       PopupMenuItem<void>(
         padding: const EdgeInsets.only(left: 28, right: 16),
         onTap: () => unawaited(c.applyQuickMusicPreset(name)),
-        child: Text(name),
+        child: menuText(name),
       ),
     const PopupMenuDivider(height: 1),
     CheckedPopupMenuItem<void>(
@@ -175,7 +180,7 @@ List<PopupMenuEntry<void>> _trayEntries(
           ),
         );
       },
-      child: Text(l10n.performanceModeTitle),
+      child: menuText(l10n.performanceModeTitle),
     ),
     CheckedPopupMenuItem<void>(
       checked: c.config.globalSettings.autostart,
@@ -188,7 +193,7 @@ List<PopupMenuEntry<void>> _trayEntries(
           ),
         );
       },
-      child: Text(l10n.autostartTitle),
+      child: menuText(l10n.autostartTitle),
     ),
     const PopupMenuDivider(height: 1),
     PopupMenuItem<void>(
@@ -199,16 +204,17 @@ List<PopupMenuEntry<void>> _trayEntries(
             : (c.musicPaletteLockCapturePending
                 ? l10n.trayMusicCancelLockPending
                 : l10n.trayMusicLockColorsShort),
+        style: menuTextStyle,
       ),
     ),
     const PopupMenuDivider(height: 1),
     PopupMenuItem<void>(
       onTap: () => unawaited(onOpenSettings(c)),
-      child: Text(l10n.traySettingsEllipsis),
+      child: menuText(l10n.traySettingsEllipsis),
     ),
     PopupMenuItem<void>(
       onTap: () => unawaited(onQuit()),
-      child: Text(l10n.trayQuit, style: TextStyle(color: scheme.error)),
+      child: menuText(l10n.trayQuit, color: scheme.error),
     ),
   ];
 }
