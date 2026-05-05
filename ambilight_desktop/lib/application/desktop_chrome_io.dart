@@ -41,6 +41,7 @@ Future<void> trayOpenSettingsFromMenu(AmbilightAppController c) =>
 
 Future<void> trayPopNativeContextMenu() async {
   try {
+    // Native tray menu vzhled (barvy/font) řídí shell OS; přes tray_manager nelze vynutit app téma.
     await trayManager.popUpContextMenu();
   } catch (e, st) {
     if (kDebugMode) {
