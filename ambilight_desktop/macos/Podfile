@@ -40,4 +40,21 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_macos_build_settings(target)
   end
+
+  # Na GitHub Actions Swift často nenačte modul HomeKit při flutter/xcodebuild — zapnout stub v Runneru.
+  if ENV['GITHUB_ACTIONS'] == 'true'
+    require 'xcodeproj'
+    runner_xcodeproj = File.expand_path(File.join(__dir__, 'Runner.xcodeproj'))
+    project = Xcodeproj::Project.open(runner_xcodeproj)
+    project.targets.each do |target|
+      next unless target.name == 'Runner'
+      target.build_configurations.each do |config|
+        cond = config.build_settings['SWIFT_ACTIVE_COMPILATION_CONDITIONS']
+        cond = cond.nil? ? '$(inherited)' : cond.to_s
+        next if cond.include?('AMBILIGHT_CI_NO_HOMEKIT')
+        config.build_settings['SWIFT_ACTIVE_COMPILATION_CONDITIONS'] = "#{cond} AMBILIGHT_CI_NO_HOMEKIT"
+      end
+    end
+    project.save
+  end
 end

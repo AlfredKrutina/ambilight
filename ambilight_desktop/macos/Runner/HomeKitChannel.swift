@@ -1,3 +1,5 @@
+#if !AMBILIGHT_CI_NO_HOMEKIT && canImport(HomeKit)
+
 import Cocoa
 import FlutterMacOS
 import HomeKit
@@ -156,3 +158,5 @@ final class HomeKitChannel: NSObject, HMHomeManagerDelegate {
         }
     }
 }
+
+#endif
