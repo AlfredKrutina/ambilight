@@ -44,14 +44,28 @@ void main() {
       expect(b, Uint8List.fromList([0x08, 128, 0x02, 0x58]));
     });
 
-    test('max 0x06 chunk fits FW rx budget', () {
+    test('default 0x06 emit chunk fits FW rx budget', () {
       final px = List<(int, int, int)>.generate(
-        UdpAmbilightProtocol.maxRgbPixelsPerUdpOpcode06Chunk,
+        UdpAmbilightProtocol.maxRgbPixelsPerUdpOpcode06ChunkDefault,
         (i) => (0, 0, 0),
       );
       final b = UdpAmbilightProtocol.buildRgbChunkOpcode06(0, px);
       expect(b.length, 3 + 400 * 3);
       expect(b.length <= 1499, isTrue);
+    });
+
+    test('wire max 0x06 chunk fits FW rx budget', () {
+      final px = List<(int, int, int)>.generate(
+        UdpAmbilightProtocol.maxRgbPixelsPerUdpOpcode06Wire,
+        (i) => (0, 0, 0),
+      );
+      final b = UdpAmbilightProtocol.buildRgbChunkOpcode06(0, px);
+      expect(b.length, 3 + UdpAmbilightProtocol.maxRgbPixelsPerUdpOpcode06Wire * 3);
+      expect(b.length <= 1499, isTrue);
+    });
+
+    test('udpOpcode06EmitChunkPixels matches default without define', () {
+      expect(UdpAmbilightProtocol.udpOpcode06EmitChunkPixels, 400);
     });
   });
 

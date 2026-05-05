@@ -61,6 +61,8 @@ Future<void> releaseSerialPortOnce(SerialPort port) {
 
 /// Omezí čtení z portu — špatný driver může hlásit extrémní [SerialPort.bytesAvailable].
 const int _kSerialReadChunkMax = 65536;
+const int _kSerialWriteChunkMax = 512;
+const int _kSerialDrainStrideChunks = 2;
 
 int _clampBytesToRead(int n) {
   if (n <= 0) return 0;
@@ -87,6 +89,7 @@ class SerialDeviceTransport extends DeviceTransport {
   bool _drainKickScheduled = false;
 
   int _debugDrainSample = 0;
+  Uint8List? _pendingControlFrame;
 
   SerialPort? _port;
   bool _connected = false;
@@ -439,6 +442,7 @@ class SerialDeviceTransport extends DeviceTransport {
     _closingPort = true;
     _lifecycleGen++;
     _drainKickScheduled = false;
+    _pendingControlFrame = null;
     _drainTimer?.cancel();
     _drainTimer = null;
     _connected = false;
@@ -475,7 +479,8 @@ class SerialDeviceTransport extends DeviceTransport {
     if (_closingPort) return;
     final genAtEnter = _lifecycleGen;
     final port = _port;
-    if (!_connected || port == null || _queue.isEmpty) return;
+    final hasControlFrame = _pendingControlFrame != null;
+    if (!_connected || port == null || (!hasControlFrame && _queue.isEmpty)) return;
     try {
       if (!port.isOpen) return;
     } catch (e, st) {
@@ -485,11 +490,17 @@ class SerialDeviceTransport extends DeviceTransport {
       _armReconnectBackoff();
       return;
     }
-    final frame = _queue.removeFirst();
-    // Po dequeue: před zápisem znovu generaci (disconnect mohl doběhnout uprostřed _drain).
-    if (genAtEnter != _lifecycleGen) return;
     try {
-      port.write(frame.bytes, timeout: 200);
+      final controlFrame = _pendingControlFrame;
+      if (controlFrame != null) {
+        _writeFrameChunked(port, controlFrame, genAtEnter);
+        _pendingControlFrame = null;
+      }
+      if (_queue.isEmpty) return;
+      final frame = _queue.removeFirst();
+      // Po dequeue: před zápisem znovu generaci (disconnect mohl doběhnout uprostřed _drain).
+      if (genAtEnter != _lifecycleGen) return;
+      _writeFrameChunked(port, frame.bytes, genAtEnter);
       if (ambilightDebugTraceEnabled) {
         _debugDrainSample++;
         if (_debugDrainSample % 128 == 0) {
@@ -512,6 +523,24 @@ class SerialDeviceTransport extends DeviceTransport {
     }
   }
 
+  void _writeFrameChunked(SerialPort port, Uint8List bytes, int genAtEnter) {
+    var offset = 0;
+    var chunkIx = 0;
+    while (offset < bytes.length) {
+      if (_closingPort || genAtEnter != _lifecycleGen) return;
+      final end = math.min(offset + _kSerialWriteChunkMax, bytes.length);
+      port.write(Uint8List.sublistView(bytes, offset, end), timeout: 250);
+      offset = end;
+      chunkIx++;
+      // Dlouhé rámce (wide >256 LED) posíláme po menších dávkách s mezilehlým drainem.
+      if (offset < bytes.length && chunkIx % _kSerialDrainStrideChunks == 0) {
+        port.drain();
+      }
+    }
+    // CDC/JTAG bridge mívá malý HW buffer; čekání na drain snižuje šanci přetečení a resetu ESP.
+    port.drain();
+  }
+
   void _kickDrain() {
     if (_drainKickScheduled) return;
     _drainKickScheduled = true;
@@ -531,23 +560,22 @@ class SerialDeviceTransport extends DeviceTransport {
     final port = _port;
     if (!_connected || port == null || !port.isOpen) return;
     final n = ledCount.clamp(1, SerialAmbilightProtocol.maxLedsPerDevice);
-    try {
-      port.write(SerialAmbilightProtocol.buildLedCountCommand(n), timeout: 100);
-    } on SerialPortError catch (e) {
-      _log.fine('announceLogicalStripLength: $e');
-    } catch (e, st) {
-      _log.fine('announceLogicalStripLength: $e', e, st);
-    }
+    _pendingControlFrame = SerialAmbilightProtocol.buildLedCountCommand(n);
+    _kickDrain();
   }
 
   @override
   void syncDeviceSnapshot(DeviceSettings next) {
+    final prevLedCount = device.ledCount;
     device = next;
+    if (next.ledCount != prevLedCount) {
+      announceLogicalStripLength(next.ledCount);
+    }
   }
 
   @override
   void applyPerformanceMode(bool performanceMode) {
-    final nextMs = performanceMode ? 8 : 2;
+    final nextMs = performanceMode ? 4 : 2;
     if (_writeQueuePeriodMs == nextMs) return;
     _writeQueuePeriodMs = nextMs;
     if (_drainTimer != null) {
@@ -565,15 +593,17 @@ class SerialDeviceTransport extends DeviceTransport {
     if (!isConnected) return;
     if (colors.isEmpty) return;
     final maxL = SerialAmbilightProtocol.maxLedsPerDevice;
-    final fromDevice = device.ledCount.clamp(1, maxL);
     final fromList = colors.length.clamp(1, maxL);
-    // Průvodce / kalibrace posílá delší buffer než uložený `led_count` — délka rámce musí
-    // pokrýt index zelené LED, jinak se nad `device.ledCount` vůbec nevyšle.
-    final strip = math.max(fromList, fromDevice);
+    // Motor používá 0–255 jako UDP (`brightnessForMode`); serial_wire škáluje /100 jako Python.
+    final serialBrightnessPct =
+        ((brightnessScalar.clamp(0, 255) * 100) / 255).round().clamp(0, 100);
+    // Délka rámce vychází z payloadu od pipeline/controlleru; tím držíme shodné mapování
+    // pro USB i UDP a neinflatujeme rámec na historicky uložený `device.ledCount`.
+    final strip = fromList;
     final packet = SerialAmbilightProtocol.buildColorFrame(
       colors,
       stripLength: strip,
-      brightnessScalar: brightnessScalar,
+      brightnessScalar: serialBrightnessPct,
     );
     _diagSerialColorSampleCounter++;
     if (ambilightPipelineDiagnosticsEnabled && _diagSerialColorSampleCounter % 120 == 0) {
@@ -582,7 +612,7 @@ class SerialDeviceTransport extends DeviceTransport {
         'start=0x${packet.isNotEmpty ? packet[0].toRadixString(16) : '?'} len=${packet.length} strip=$strip',
       );
     }
-    while (_queue.length >= 2) {
+    while (_queue.length >= 3) {
       _queue.removeFirst();
     }
     _queue.addLast(_Frame(packet));

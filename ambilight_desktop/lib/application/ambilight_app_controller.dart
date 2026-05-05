@@ -15,6 +15,7 @@ import 'pipeline_diagnostics.dart';
 import '../core/device_bindings_debug.dart';
 import '../core/models/config_models.dart';
 import '../core/protocol/serial_frame.dart';
+import '../core/protocol/udp_frame.dart';
 import '../data/config_repository.dart';
 import '../data/device_transport.dart';
 import '../data/serial_device_transport.dart';
@@ -1489,7 +1490,11 @@ class AmbilightAppController extends ChangeNotifier {
     }
     _lastPipelineDiagSummaryUtc = now;
     _log.info(
-      '[PIPELINE_DIAG summary] gateDrops_total=$_screenPipelineGateDropCount '
+      '[PIPELINE_DIAG summary] loopPeriodMs=$_loopPeriodMs '
+      'perfScrTickCfg=${_config.globalSettings.performanceScreenLoopPeriodMs} '
+      'perfScrTickOverride=$ambilightPerfScreenTickMsOverride '
+      'udp06chunkPx=${UdpAmbilightProtocol.udpOpcode06EmitChunkPixels} '
+      'gateDrops_total=$_screenPipelineGateDropCount '
       'submit=$_screenPipelineSubmitSeq lastAck=$_screenPipelineLastAckSeq applied=$_screenPipelineAppliedSeq '
       '${PipelineUdpDiagStats.formatWindowSummary()} '
       '${PipelineStreamDiagStats.formatWindowSummary()} '
@@ -1732,12 +1737,16 @@ class AmbilightAppController extends ChangeNotifier {
         (gs.startMode == 'music' && _config.musicMode.colorSource == 'monitor');
   }
 
-  /// Výkonový režim: hlavní tick 40 ms při screen (≈25 Hz); capture driver běží zvlášť každých 8 ms (viz [_ensureScreenCaptureDriverTimer]). Mimo výkon: [GlobalSettings.screenRefreshRateHz].
+  /// Výkonový režim při screen: perioda z [GlobalSettings.performanceScreenLoopPeriodMs],
+  /// volitelně přepsána `--dart-define=AMBI_PERF_SCREEN_TICK_MS`. Capture driver běží zvlášť (viz [_ensureScreenCaptureDriverTimer]).
+  /// Mimo výkon: [GlobalSettings.screenRefreshRateHz].
   int _mainLoopPeriodMs() {
     final gs = _config.globalSettings;
     if (_effectiveThrottlePerformance) {
       if (_mainLoopUsesScreenCapture()) {
-        return 40;
+        final o = ambilightPerfScreenTickMsOverride;
+        if (o > 0) return o;
+        return gs.performanceScreenLoopPeriodMs;
       }
       if (gs.startMode == 'light') {
         return 16;
@@ -2687,12 +2696,11 @@ class AmbilightAppController extends ChangeNotifier {
             }
             continue;
           }
-          // Serial: buffer až do [maxLedsPerDevice] (legacy / wide rámec podle délky).
+          // Serial preview pošli jako single-pixel: délka rámce bude `max(index+1, ledCount)`,
+          // ne fixně 2000 LED (menší USB zátěž, stabilnější ESP bez ztráty mapovací funkce).
           final cap = SerialAmbilightProtocol.maxLedsPerDevice;
           final clamped = idx.clamp(0, cap - 1);
-          final buf = List<(int, int, int)>.filled(cap, (0, 0, 0), growable: false);
-          buf[clamped] = (r, g, b);
-          t.sendColors(buf, brightnessScalar);
+          t.sendPixel(clamped, r, g, b);
           continue;
         }
         if (skipUdpWifiAmbilight && dev.type == 'wifi' && t is UdpDeviceTransport) {
@@ -2712,15 +2720,15 @@ class AmbilightAppController extends ChangeNotifier {
             continue;
           }
         }
+        final stripLen = ScreenColorPipeline.effectiveDeviceLedCount(_config, dev)
+            .clamp(1, SerialAmbilightProtocol.maxLedsPerDevice);
         final chunk = perDevice[dev.id] ??
-            List<(int, int, int)>.filled(dev.ledCount, (0, 0, 0), growable: false);
+            List<(int, int, int)>.filled(stripLen, (0, 0, 0), growable: false);
         if (!clipToDeviceLedCount) {
           t.sendColors(chunk, brightnessScalar);
         } else {
           // Shodně s pipeline / unpack: délka na pásek = effective (segmenty ∩ uložený ledCount),
           // ne slepě uložené maximum — jinak by šlo na UDP 2000× RGB i když worker poslal 200.
-          final stripLen = ScreenColorPipeline.effectiveDeviceLedCount(_config, dev)
-              .clamp(1, SerialAmbilightProtocol.maxLedsPerDevice);
           if (chunk.length != stripLen) {
             final padded = List<(int, int, int)>.generate(
               stripLen,

@@ -267,10 +267,17 @@
   "uiAnimationsTitle": "UI animations",
   "uiAnimationsSubtitle": "Short transitions between sections. Disable when tweaking repeatedly; also respects system reduced motion.",
   "performanceModeTitle": "Performance mode",
-  "performanceModeSubtitle": "When the app captures the monitor (Screen mode or Music with “monitor” colors), the main loop runs at 25 FPS; Spotify / PC Health intervals are longer and the USB queue is gentler. Light-only mode stays faster (~62 Hz). When performance mode is off, set the refresh rate below (60 / 120 / 240 FPS). “UI animations” only affects Material transitions.",
+  "performanceModeSubtitle": "When the app captures the monitor (Screen mode or Music with “monitor” colors), the main loop is capped (default ~25 FPS); use “Performance screen tick” below to trade CPU for smoother LEDs. Spotify / PC Health intervals are longer and the USB queue is gentler. Light-only mode stays faster (~62 Hz). When performance mode is off, set the refresh rate below (60 / 120 / 240 FPS). “UI animations” only affects Material transitions.",
+  "performanceScreenLoopPeriodLabel": "Performance screen tick (ms): {ms}",
+  "performanceScreenLoopPeriodHint": "Lower ms = higher FPS to the strip and higher CPU use (16–40 ms). Applies only when performance mode is on and the app captures the monitor.",
+  "@performanceScreenLoopPeriodLabel": {
+    "placeholders": {
+      "ms": {}
+    }
+  },
   "screenRefreshRateTitle": "Ambilight refresh rate",
   "screenRefreshRateSubtitle": "Main loop when performance mode is off — applies to capture and LED output.",
-  "screenRefreshRateDisabledHint": "Turn off performance mode to change this (capture is fixed at 25 FPS while performance is on).",
+  "screenRefreshRateDisabledHint": "Turn off performance mode to change this (while performance is on, tune “Performance screen tick” above instead).",
   "screenRefreshRateHz60": "60 FPS",
   "screenRefreshRateHz120": "120 FPS",
   "screenRefreshRateHz240": "240 FPS",

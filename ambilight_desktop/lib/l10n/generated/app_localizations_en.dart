@@ -543,7 +543,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get performanceModeSubtitle =>
-      'When the app captures the monitor (Screen mode or Music with “monitor” colors), the main loop runs at 25 FPS; Spotify / PC Health intervals are longer and the USB queue is gentler. Light-only mode stays faster (~62 Hz). When performance mode is off, set the refresh rate below (60 / 120 / 240 FPS). “UI animations” only affects Material transitions.';
+      'When the app captures the monitor (Screen mode or Music with “monitor” colors), the main loop is capped (default ~25 FPS); use “Performance screen tick” below to trade CPU for smoother LEDs. Spotify / PC Health intervals are longer and the USB queue is gentler. Light-only mode stays faster (~62 Hz). When performance mode is off, set the refresh rate below (60 / 120 / 240 FPS). “UI animations” only affects Material transitions.';
+
+  @override
+  String performanceScreenLoopPeriodLabel(Object ms) {
+    return 'Performance screen tick (ms): $ms';
+  }
+
+  @override
+  String get performanceScreenLoopPeriodHint =>
+      'Lower ms = higher FPS to the strip and higher CPU use (16–40 ms). Applies only when performance mode is on and the app captures the monitor.';
 
   @override
   String get screenRefreshRateTitle => 'Ambilight refresh rate';
@@ -554,7 +563,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get screenRefreshRateDisabledHint =>
-      'Turn off performance mode to change this (capture is fixed at 25 FPS while performance is on).';
+      'Turn off performance mode to change this (while performance is on, tune “Performance screen tick” above instead).';
 
   @override
   String get screenRefreshRateHz60 => '60 FPS';

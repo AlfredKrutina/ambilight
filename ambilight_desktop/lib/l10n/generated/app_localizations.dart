@@ -1037,8 +1037,20 @@ abstract class AppLocalizations {
   /// No description provided for @performanceModeSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'When the app captures the monitor (Screen mode or Music with “monitor” colors), the main loop runs at 25 FPS; Spotify / PC Health intervals are longer and the USB queue is gentler. Light-only mode stays faster (~62 Hz). When performance mode is off, set the refresh rate below (60 / 120 / 240 FPS). “UI animations” only affects Material transitions.'**
+  /// **'When the app captures the monitor (Screen mode or Music with “monitor” colors), the main loop is capped (default ~25 FPS); use “Performance screen tick” below to trade CPU for smoother LEDs. Spotify / PC Health intervals are longer and the USB queue is gentler. Light-only mode stays faster (~62 Hz). When performance mode is off, set the refresh rate below (60 / 120 / 240 FPS). “UI animations” only affects Material transitions.'**
   String get performanceModeSubtitle;
+
+  /// No description provided for @performanceScreenLoopPeriodLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Performance screen tick (ms): {ms}'**
+  String performanceScreenLoopPeriodLabel(Object ms);
+
+  /// No description provided for @performanceScreenLoopPeriodHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Lower ms = higher FPS to the strip and higher CPU use (16–40 ms). Applies only when performance mode is on and the app captures the monitor.'**
+  String get performanceScreenLoopPeriodHint;
 
   /// No description provided for @screenRefreshRateTitle.
   ///
@@ -1055,7 +1067,7 @@ abstract class AppLocalizations {
   /// No description provided for @screenRefreshRateDisabledHint.
   ///
   /// In en, this message translates to:
-  /// **'Turn off performance mode to change this (capture is fixed at 25 FPS while performance is on).'**
+  /// **'Turn off performance mode to change this (while performance is on, tune “Performance screen tick” above instead).'**
   String get screenRefreshRateDisabledHint;
 
   /// No description provided for @screenRefreshRateHz60.

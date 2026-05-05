@@ -8,15 +8,31 @@ class UdpAmbilightProtocol {
   static const int maxRgbPixelsPerUdpDatagram = 499;
 
   /// Rámec `0x06`: `[cmd, idx_hi, idx_lo]` + RGB×M — max M aby `3 + 3*M <= 1499` (lampa FW).
-  /// Volitelně držíme ≤400 LED (~1203 B) pro méně datagramů na snímek na Windows.
-  static const int maxRgbPixelsPerUdpOpcode06Chunk = 400;
+  static const int maxRgbPixelsPerUdpOpcode06Wire = 498;
+
+  /// Výchozí velikost chunku při emisi z PC (méně datagramů na snímek než miniaturní chunky).
+  static const int maxRgbPixelsPerUdpOpcode06ChunkDefault = 400;
+
+  /// Zpětná kompatibilita testů / starší kód — stejné jako [maxRgbPixelsPerUdpOpcode06ChunkDefault].
+  static const int maxRgbPixelsPerUdpOpcode06Chunk = maxRgbPixelsPerUdpOpcode06ChunkDefault;
+
+  /// Počet LED na jeden datagram `0x06` při skládání snímku z PC.
+  /// Ladění: `--dart-define=AMBI_UDP_OPCODE06_CHUNK_PIXELS=250` (32…498).
+  /// Menší chunky = více UDP paketů na snímek → často vyšší jitter; větší až po [maxRgbPixelsPerUdpOpcode06Wire] = méně round-tripů.
+  static int get udpOpcode06EmitChunkPixels {
+    const env = int.fromEnvironment('AMBI_UDP_OPCODE06_CHUNK_PIXELS', defaultValue: -1);
+    if (env >= 32 && env <= maxRgbPixelsPerUdpOpcode06Wire) {
+      return env;
+    }
+    return maxRgbPixelsPerUdpOpcode06ChunkDefault;
+  }
 
   /// Počet RGB pixelů vhodný pro jeden datagram `0x02` (bez výpočtu přesné délky bytu).
   static bool isRgbPixelCountValidForBulkFrame(int n) =>
       n >= 0 && n <= maxRgbPixelsPerUdpDatagram;
 
   static bool isRgbPixelCountValidForOpcode06Chunk(int n) =>
-      n >= 1 && n <= maxRgbPixelsPerUdpOpcode06Chunk;
+      n >= 1 && n <= maxRgbPixelsPerUdpOpcode06Wire;
 
   /// Bulk RGB frame: 0x02 + brightness + flat r,g,b,...
   static Uint8List buildRgbFrame(
@@ -71,7 +87,7 @@ class UdpAmbilightProtocol {
       throw ArgumentError.value(
         pixels.length,
         'pixels.length',
-        'must be 1…$maxRgbPixelsPerUdpOpcode06Chunk for one 0x06 datagram',
+        'must be 1…$maxRgbPixelsPerUdpOpcode06Wire for one 0x06 datagram',
       );
     }
     final hi = (startIndex >> 8) & 0xFF;
@@ -102,7 +118,7 @@ class UdpAmbilightProtocol {
       throw ArgumentError.value(
         m,
         'pixelCount',
-        'must be 1…$maxRgbPixelsPerUdpOpcode06Chunk for one 0x06 datagram',
+        'must be 1…$maxRgbPixelsPerUdpOpcode06Wire for one 0x06 datagram',
       );
     }
     final hi = (startIndex >> 8) & 0xFF;

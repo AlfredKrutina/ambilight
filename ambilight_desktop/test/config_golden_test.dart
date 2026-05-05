@@ -10,6 +10,12 @@ void main() {
     expect(g.firmwareManifestUrl, kAmbilightFirmwareManifestUrl);
   });
 
+  test('normalizeAmbilightPerformanceScreenLoopPeriodMs clamps', () {
+    expect(normalizeAmbilightPerformanceScreenLoopPeriodMs(40), 40);
+    expect(normalizeAmbilightPerformanceScreenLoopPeriodMs(10), 16);
+    expect(normalizeAmbilightPerformanceScreenLoopPeriodMs(99), 40);
+  });
+
   test('normalizeAmbilightUiTheme: legacy dark → dark_blue, snowrunner zůstane', () {
     expect(normalizeAmbilightUiTheme('dark'), 'dark_blue');
     expect(normalizeAmbilightUiTheme('DARK_BLUE'), 'dark_blue');
@@ -42,6 +48,7 @@ void main() {
     expect(cfg.globalSettings.devices.single.id, 'primary');
     expect(cfg.globalSettings.devices.single.type, 'serial');
     expect(cfg.globalSettings.startMode, 'light');
+    expect(cfg.globalSettings.performanceScreenLoopPeriodMs, 40);
     expect(cfg.globalSettings.theme, 'dark_blue');
     expect(cfg.globalSettings.captureMethod, 'mss');
     expect(cfg.lightMode.effect, 'static');

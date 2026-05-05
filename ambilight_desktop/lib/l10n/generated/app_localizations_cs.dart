@@ -544,7 +544,16 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get performanceModeSubtitle =>
-      'Při snímání monitoru (Obrazovka nebo Hudba se zdrojem „monitor“) běží hlavní smyčka na 25 FPS; delší intervaly Spotify / PC Health a šetrnější USB fronta. Čistě režim Světlo zůstává rychlejší (~62 Hz). Bez výkonového režimu nastav frekvenci níže (60 / 120 / 240 FPS). „Animace rozhraní“ mění jen Material přechody.';
+      'Při snímání monitoru (Obrazovka nebo Hudba se zdrojem „monitor“) je hlavní smyčka omezená (výchozí ~25 FPS); níže „Tick obrazovky ve výkonu“ vyměníš CPU za plynulejší pásek. Delší intervaly Spotify / PC Health a šetrnější USB fronta. Čistě režim Světlo zůstává rychlejší (~62 Hz). Bez výkonového režimu nastav frekvenci níže (60 / 120 / 240 FPS). „Animace rozhraní“ mění jen Material přechody.';
+
+  @override
+  String performanceScreenLoopPeriodLabel(Object ms) {
+    return 'Tick obrazovky ve výkonu (ms): $ms';
+  }
+
+  @override
+  String get performanceScreenLoopPeriodHint =>
+      'Nižší ms = vyšší FPS na pásek a vyšší zátěž CPU (16–40 ms). Platí jen ve výkonovém režimu při snímání monitoru.';
 
   @override
   String get screenRefreshRateTitle => 'Frekvence Ambilight smyčky';
@@ -555,7 +564,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get screenRefreshRateDisabledHint =>
-      'Vypni výkonový režim pro změnu (se zapnutým výkonem je snímání fixně 25 FPS).';
+      'Vypni výkonový režim pro změnu (ve výkonu uprav „Tick obrazovky ve výkonu“ výše).';
 
   @override
   String get screenRefreshRateHz60 => '60 FPS';

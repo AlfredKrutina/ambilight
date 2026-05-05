@@ -11,10 +11,19 @@ import '../data/serial_native_gate.dart';
 final _log = Logger('SerialPortDiscovery');
 
 const int _kSerialReadChunkMax = 65536;
+const int _kDiscoveryOpenAttempts = 2;
 
 int _clampBytesToRead(int n) {
   if (n <= 0) return 0;
   return n > _kSerialReadChunkMax ? _kSerialReadChunkMax : n;
+}
+
+bool _isTransientOpenError(SerialPortError? err) {
+  if (err == null) return false;
+  final s = err.toString().toLowerCase();
+  if (s.contains('errno = 121') || s.contains('semaphore timeout')) return true;
+  if (s.contains('errno = 0') || s.contains('operation completed successfully')) return true;
+  return false;
 }
 
 /// Projde [SerialPort.availablePorts], na každém zkusí handshake `0xAA` → očekává `0xBB` ([SerialAmbilightProtocol]).
@@ -45,32 +54,44 @@ class SerialAmbilightPortDiscovery {
         _log.fine('skip $name: port je v seznamu obsazených (aktivní serial v konfiguraci)');
         continue;
       }
-      var handshakeOk = false;
-      await SerialNativeGate.synchronized(() async {
-        SerialPort? port;
-        try {
-          port = SerialPort(name);
-          if (!port.openReadWrite()) {
-            _log.fine('skip $name: openReadWrite failed ${SerialPort.lastError}');
-            return;
+      for (var attempt = 1; attempt <= _kDiscoveryOpenAttempts; attempt++) {
+        var handshakeOk = false;
+        var retryOpen = false;
+        await SerialNativeGate.synchronized(() async {
+          SerialPort? port;
+          try {
+            port = SerialPort(name);
+            if (!port.openReadWrite()) {
+              final err = SerialPort.lastError;
+              retryOpen = attempt < _kDiscoveryOpenAttempts && _isTransientOpenError(err);
+              _log.fine(
+                'skip $name: openReadWrite failed $err'
+                '${retryOpen ? " (retry ${attempt + 1}/$_kDiscoveryOpenAttempts)" : ""}',
+              );
+              return;
+            }
+            // Stejná politika DTR/RTS jako [SerialDeviceTransport.connect] (ESP USB-JTAG vs bridge).
+            SerialDeviceTransport.applyAmbilightPortPolicyAfterOpen(port, baudRate);
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+            if (await _handshake(port)) {
+              _log.info('Ambilight handshake OK on $name');
+              handshakeOk = true;
+            }
+          } catch (e, st) {
+            _log.fine('$name: $e', e, st);
+          } finally {
+            if (port != null) {
+              await disposeSerialPortNativeOnce(port);
+            }
           }
-          // Stejná politika DTR/RTS jako [SerialDeviceTransport.connect] (ESP USB-JTAG vs bridge).
-          SerialDeviceTransport.applyAmbilightPortPolicyAfterOpen(port, baudRate);
-          await Future<void>.delayed(const Duration(milliseconds: 50));
-          if (await _handshake(port)) {
-            _log.info('Ambilight handshake OK on $name');
-            handshakeOk = true;
-          }
-        } catch (e, st) {
-          _log.fine('$name: $e', e, st);
-        } finally {
-          if (port != null) {
-            await disposeSerialPortNativeOnce(port);
-          }
+        });
+        if (handshakeOk) {
+          return name;
         }
-      });
-      if (handshakeOk) {
-        return name;
+        if (!retryOpen) {
+          break;
+        }
+        await Future<void>.delayed(Duration(milliseconds: 60 * attempt));
       }
       // Krátká prodleva mezi porty — driver na Windows po close někdy potřebuje okamžik.
       await Future<void>.delayed(const Duration(milliseconds: 50));

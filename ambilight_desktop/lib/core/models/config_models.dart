@@ -52,6 +52,13 @@ int normalizeAmbilightScreenRefreshRateHz(num? raw) {
   return 60;
 }
 
+/// Perioda hlavní smyčky ve výkonovém režimu při snímání obrazovky (Screen / Music+monitor), ms.
+/// Nižší hodnota = vyšší FPS na pásek a vyšší zátěž CPU.
+int normalizeAmbilightPerformanceScreenLoopPeriodMs(num? raw) {
+  final v = raw == null ? 40 : raw.round();
+  return v.clamp(16, 40);
+}
+
 /// Windows: `gdi` (CPU BitBlt), `dxgi` (GPU Desktop Duplication). Ostatní OS ignorují.
 String normalizeWindowsScreenCaptureBackend(String raw) {
   final k = raw.trim().toLowerCase();
@@ -174,6 +181,8 @@ class GlobalSettings {
     this.performanceMode = false,
     /// Hlavní smyčka (snímání / výstup) mimo výkonový režim — jen [kAmbilightScreenRefreshRatesHz].
     this.screenRefreshRateHz = 60,
+    /// Ve výkonovém režimu při snímání monitoru: perioda hlavní smyčky v ms (výchozí 40 ≈ 25 Hz).
+    this.performanceScreenLoopPeriodMs = 40,
     this.firmwareManifestUrl = kAmbilightFirmwareManifestUrl,
     /// Zda už uživatel dokončil úvodní průvodce. Chybějící klíč v JSON = považovat za dokončeno (legacy konfigurace).
     this.onboardingCompleted = false,
@@ -196,8 +205,10 @@ class GlobalSettings {
   final bool uiAnimationsEnabled;
   /// Nižší frekvence smyčky, řidší snímání obrazovky a pozadí — bez vypínání UI animací.
   final bool performanceMode;
-  /// Při vypnutém [performanceMode]: frekvence hlavní smyčky (snímání / LED). Ve výkonovém režimu je fixně 25 FPS při snímání monitoru.
+  /// Při vypnutém [performanceMode]: frekvence hlavní smyčky (snímání / LED).
+  /// Ve výkonovém režimu při snímání monitoru použij [performanceScreenLoopPeriodMs].
   final int screenRefreshRateHz;
+  final int performanceScreenLoopPeriodMs;
   /// URL základ (`…/firmware/latest/`) nebo přímo `manifest.json`. Prázdné uložené pole → při načtení/Uložení [kAmbilightFirmwareManifestUrl].
   final String firmwareManifestUrl;
   final bool onboardingCompleted;
@@ -219,6 +230,7 @@ class GlobalSettings {
     bool? uiAnimationsEnabled,
     bool? performanceMode,
     int? screenRefreshRateHz,
+    int? performanceScreenLoopPeriodMs,
     String? firmwareManifestUrl,
     bool? onboardingCompleted,
     String? uiLanguage,
@@ -239,6 +251,9 @@ class GlobalSettings {
       screenRefreshRateHz: screenRefreshRateHz != null
           ? normalizeAmbilightScreenRefreshRateHz(screenRefreshRateHz)
           : this.screenRefreshRateHz,
+      performanceScreenLoopPeriodMs: performanceScreenLoopPeriodMs != null
+          ? normalizeAmbilightPerformanceScreenLoopPeriodMs(performanceScreenLoopPeriodMs)
+          : this.performanceScreenLoopPeriodMs,
       firmwareManifestUrl: firmwareManifestUrl == null
           ? this.firmwareManifestUrl
           : effectiveFirmwareManifestUrl(firmwareManifestUrl),
@@ -263,6 +278,7 @@ class GlobalSettings {
         'ui_animations_enabled': uiAnimationsEnabled,
         'performance_mode': performanceMode,
         'screen_refresh_rate_hz': screenRefreshRateHz,
+        'performance_screen_loop_period_ms': performanceScreenLoopPeriodMs,
         'firmware_manifest_url': firmwareManifestUrl,
         'onboarding_completed': onboardingCompleted,
         'ui_language': uiLanguage,
@@ -301,6 +317,9 @@ class GlobalSettings {
       performanceMode: asBool(j['performance_mode'], false),
       screenRefreshRateHz: normalizeAmbilightScreenRefreshRateHz(
         asInt(j['screen_refresh_rate_hz'], 60),
+      ),
+      performanceScreenLoopPeriodMs: normalizeAmbilightPerformanceScreenLoopPeriodMs(
+        asInt(j['performance_screen_loop_period_ms'], 40),
       ),
       firmwareManifestUrl: effectiveFirmwareManifestUrl(
         asString(j['firmware_manifest_url'], ''),

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -65,10 +66,9 @@ class _DevicesPageState extends State<DevicesPage> {
     }
     final existing = c.config.globalSettings.devices;
     final hadSerialRow = existing.any((d) => d.type == 'serial');
-    final wifiDevices = existing.where((d) => d.type == 'wifi');
-    final ledHint = wifiDevices.isEmpty
+    final ledHint = existing.isEmpty
         ? c.config.globalSettings.ledCount
-        : wifiDevices.first.ledCount;
+        : existing.map((d) => d.ledCount).fold<int>(c.config.globalSettings.ledCount, math.max);
     final devs = hadSerialRow
         ? existing.map((d) => d.type == 'serial' ? d.copyWith(port: port) : d).toList()
         : [

@@ -244,7 +244,7 @@ class UdpDeviceTransport extends DeviceTransport {
           'Vyžaduje aktuální lamp FW; kalibrace jedním pixelem stále 0x03.',
         );
       }
-      final chunkMax = UdpAmbilightProtocol.maxRgbPixelsPerUdpOpcode06Chunk;
+      final chunkMax = UdpAmbilightProtocol.udpOpcode06EmitChunkPixels;
       diagPath = '0x06_chunked';
       var offsetPx = 0;
       while (offsetPx < pixelCount) {

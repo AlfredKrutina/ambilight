@@ -178,3 +178,13 @@ HOTOV = souhrn + návrh Promptu #5.
 | 4 | Viz blok „Prompt #4“ výše — metriky sinceCapture/emit, gate/UDP, volitelně Linux crop |
 
 *Aktualizuj tento soubor po každé agentní iteraci (stav, baseline testů).*
+
+---
+
+## Desktop latence — úpravy (parity plán)
+
+- **Výkonový screen tick:** `GlobalSettings.performance_screen_loop_period_ms` (16–40 ms, výchozí 40), UI v Globální nastavení při zapnutém výkonovém režimu; staging přepíše `--dart-define=AMBI_PERF_SCREEN_TICK_MS`.
+- **UDP 0x06 chunky:** `--dart-define=AMBI_UDP_OPCODE06_CHUNK_PIXELS` (32–498), výchozí emise 400; horní limit wire `maxRgbPixelsPerUdpOpcode06Wire` (498).
+- **USB serial:** výkonový drain 4 ms (dříve 8), fronta až 3 rámce (dříve 2).
+- **Windows capture:** výchozí `AMBI_CAPTURE_DOWNSCALE_MAX_SIDE` 224 v `screen_capture_channel.cpp` (CMake `-DAMBI_CAPTURE_DOWNSCALE_MAX_SIDE=…`).
+- **Měření:** `AMBI_PIPELINE_DIAGNOSTICS` — rozšířený `[PIPELINE_DIAG summary]` (`loopPeriodMs`, `perfScrTickCfg`, `udp06chunkPx`). Checklist v `pipeline_diagnostics.dart`.

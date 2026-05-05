@@ -17,3 +17,11 @@ bool get ambilightDebugTraceEnabled =>
 /// Root logger [Level.FINE] pro širší diagnostiku (verbose nebo debug trace).
 bool get ambilightDetailedLogsEnabled =>
     ambilightVerboseLogsEnabled || ambilightDebugTraceEnabled;
+
+/// Přepíše periodu hlavní smyčky ve výkonovém režimu při snímání obrazovky (ms). `-1` = z konfigurace.
+/// Staging: `--dart-define=AMBI_PERF_SCREEN_TICK_MS=25`
+int get ambilightPerfScreenTickMsOverride {
+  const v = int.fromEnvironment('AMBI_PERF_SCREEN_TICK_MS', defaultValue: -1);
+  if (v >= 16 && v <= 40) return v;
+  return -1;
+}

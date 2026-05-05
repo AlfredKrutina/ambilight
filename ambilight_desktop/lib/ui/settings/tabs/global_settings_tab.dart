@@ -6,6 +6,7 @@ import '../config_backup_section.dart';
 import '../settings_common.dart';
 import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
+import '../../widgets/config_drag_slider.dart';
 
 List<Widget> globalSettingsFields(
   BuildContext context,
@@ -102,6 +103,32 @@ List<Widget> globalSettingsFields(
         value: g.performanceMode,
         onChanged: (v) => onChanged(g.copyWith(performanceMode: v)),
       ),
+      if (g.performanceMode) ...[
+        Text(
+          l10n.performanceScreenLoopPeriodLabel(g.performanceScreenLoopPeriodMs),
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            l10n.performanceScreenLoopPeriodHint,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+        ),
+        ConfigDragSlider(
+          value: g.performanceScreenLoopPeriodMs.toDouble(),
+          min: 16,
+          max: 40,
+          divisions: 24,
+          label: '${g.performanceScreenLoopPeriodMs}',
+          onChanged: (v) => onChanged(
+            g.copyWith(performanceScreenLoopPeriodMs: v.round()),
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
       DropdownButtonFormField<int>(
         isExpanded: true,
         decoration: InputDecoration(

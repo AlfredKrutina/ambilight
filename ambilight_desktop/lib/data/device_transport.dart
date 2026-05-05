@@ -16,7 +16,7 @@ abstract class DeviceTransport {
 
   void disconnect();
 
-  /// [brightnessPercent] 0–100 for serial scaling; UDP uses 0–255 in packet (caller maps).
+  /// Engine brightness 0–255 (viz [brightnessForMode]); UDP bere jako bajt jasu, USB sériové mapuje na škálu rámu /100.
   void sendColors(List<(int r, int g, int b)> colors, int brightnessPercent);
 
   /// Stejný obsah jako [sendColors], ale bez UDP 16ms bulk časovače — průvodce (full blackout před [sendPixel]).

@@ -6,6 +6,15 @@ final _log = Logger('PipelineDiag');
 
 /// Zapnuto jen explicitně: `--dart-define=AMBI_PIPELINE_DIAGNOSTICS=true` (v `flutter run` bez define žádný PIPELINE spam).
 /// End-to-end časová osa screen→isolate→UDP a segment / serial audit (viz diagnostický plán).
+///
+/// **Měření „sekavosti“ / latency (staging checklist):**
+/// 1. Porovnej `[PIPELINE_DIAG summary]` každých 5 s: `udp emitAvgMs`, `path0x06` vs `path0x02`,
+///    `capToIsolateAvgMs`, `distributeCalls`, `stream_frames` (Windows push).
+/// 2. Ve výkonovém režimu při Screen je hlavní limiter perioda smyčky (`loopPeriodMs` v summary) —
+///    capture driver může běžet častěji než `_tick` → nízký počet snímků na pásek je očekávaný,
+///    dokud nezeslabíš výkonový režim nebo nesnížíš ms v Globální → „Performance screen tick“.
+/// 3. Volitelné define: `AMBI_PERF_SCREEN_TICK_MS`, `AMBI_UDP_OPCODE06_CHUNK_PIXELS`
+///    (viz `UdpAmbilightProtocol` v `core/protocol/udp_frame.dart`).
 bool get ambilightPipelineDiagnosticsEnabled =>
     const bool.fromEnvironment('AMBI_PIPELINE_DIAGNOSTICS', defaultValue: false);
 
