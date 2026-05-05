@@ -29,6 +29,7 @@
 		33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC11122044BFA00003C045 /* MainFlutterWindow.swift */; };
 		A14B000320264A4F0000E001 /* ScreenCaptureChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14B000220264A4F0000E001 /* ScreenCaptureChannel.swift */; };
 		A14B000B20264A4F0000E041 /* HomeKitChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14B000A20264A4F0000E040 /* HomeKitChannel.swift */; };
+		A14B00C120264C0000000001 /* HomeKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A14B00C220264C0000000002 /* HomeKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -74,6 +75,7 @@
 		33CC11122044BFA00003C045 /* MainFlutterWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainFlutterWindow.swift; sourceTree = "<group>"; };
 		A14B000220264A4F0000E001 /* ScreenCaptureChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCaptureChannel.swift; sourceTree = "<group>"; };
 		A14B000A20264A4F0000E040 /* HomeKitChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeKitChannel.swift; sourceTree = "<group>"; };
+		A14B00C220264C0000000002 /* HomeKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HomeKit.framework; path = System/Library/Frameworks/HomeKit.framework; sourceTree = SDKROOT; };
 		33CEB47222A05771004F2AC0 /* Flutter-Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Flutter-Debug.xcconfig"; sourceTree = "<group>"; };
 		33CEB47422A05771004F2AC0 /* Flutter-Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Flutter-Release.xcconfig"; sourceTree = "<group>"; };
 		33CEB47722A0578A004F2AC0 /* Flutter-Generated.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "Flutter-Generated.xcconfig"; path = "ephemeral/Flutter-Generated.xcconfig"; sourceTree = "<group>"; };
@@ -96,6 +98,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A14B00C120264C0000000001 /* HomeKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -181,6 +184,7 @@
 		D73912EC22F37F3D000D13A0 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				A14B00C220264C0000000002 /* HomeKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";

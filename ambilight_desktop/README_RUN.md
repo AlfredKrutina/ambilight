@@ -61,7 +61,9 @@ flutter run -d macos
 - **Sériový port:** v entitlements je **`com.apple.security.device.serial`** (spolu se síťovými a audio právy). Stále platí: podepsaný build a případně schválení u Apple podle kanálu distribuce.
 - **Globální zkratky:** `NSInputMonitoringUsageDescription` v `Info.plist` — uživatel musí v **Soukromí a zabezpečení → Sledování vstupu** povolit AmbiLight.
 - **HomeKit:** v repu nejsou v entitlements klíče vyžadující placený Apple Developer profil (kvůli CI / obecnému podepisování). Funkce přes kanál `ambilight/homekit` na distribuovaném buildu doplníš v Xcode: capability **HomeKit** + stejný klíč v `Release.entitlements` / profilu.
-- **Větev `mac-app` + DMG:** Mac úpravy nejdřív na **mac-app**, pak sladit s `main`. Workflow **`desktop_release`** po tagu `desktop-v*` z CI vytvoří **nepodepsaný** DMG (ad-hoc) — uživatelům stačí při prvním spuštění *Otevřít* / Soukromí. Pokud chceš **podepsaný / notarizovaný** disk: `flutter build macos --release` na Macu (např. s vlastním `LocalSigning.xcconfig`), vlastní `create-dmg` nebo `hdiutil`, a soubor **`ambilight_desktop_macos.dmg`** nahraj k danému GitHub Release ručně (přepíše asset z CI, pokud použiješ stejný název).
+- **HomeKit (Swift):** cíl **Runner** v Xcode musí mít v *Frameworks* navázané **`HomeKit.framework`** (system), jinak `import HomeKit` v CI spadne na *no such module 'HomeKit'*.
+- **Větev `mac-app` + DMG + Pages:** Mac vývoj může běžet na **mac-app**, ale **stejná webovka** (GitHub Pages mirror `desktop/latest/…`) a **workflow `firmware_pages`** běží z **`main`**. Aby se na stránce objevil DMG z CI, **slouč `mac-app` do `main`** a tag `desktop-v*` nech doběhnout na `main` (nebo releasni z `main`). Jinak mirror na Pages bere jen to, co je v nejnovějším `desktop-v*` release z default větve.
+- **DMG z CI:** Workflow **`desktop_release`** po tagu `desktop-v*` vytvoří **nepodepsaný** DMG (ad-hoc). Pro **podepsaný / notarizovaný** build si DMG přegeneruj lokálně a stejný název souboru nahraj k release ručně.
 
 ## Linux (screen capture)
 

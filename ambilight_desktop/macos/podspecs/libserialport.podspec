@@ -22,7 +22,8 @@ A minimal, cross-platform shared library written in C that is intended to take c
                       '{ echo >&2 \'Please run brew install automake libtool.\'; exit 1; }) && ' \
                       './autogen.sh && ./configure'
 
-  s.platform           = :osx, '10.11'
+  # 10.13+ — warning z Xcode (Pods) při 10.11 na nových SDK
+  s.platform           = :osx, '10.13'
 
   s.source_files       = '*.{c,h}'
   s.exclude_files      = ['freebsd.c', 'linux*.c', 'windows.c']
