@@ -10,6 +10,7 @@ import '../../engine/screen/screen_frame.dart';
 import '../../services/music/music_types.dart';
 import 'fixture_color_resolver.dart';
 import 'ha_api_client.dart';
+import 'ha_rgb_transform.dart';
 import 'homekit_bridge.dart';
 import 'smart_lights_music_timing.dart';
 import 'virtual_room_effects.dart';
@@ -296,8 +297,10 @@ class SmartLightCoordinator {
                 vrEffect == SmartRoomEffectKind.chase ||
                 vrEffect == SmartRoomEffectKind.wave ||
                 vrEffect == SmartRoomEffectKind.sparkle);
+    final useMusicHaThrottle =
+        musicTiming.active && (effectUsesMusic || sl.haMusicReactiveThrottle);
     var effGapMs = baseGapMs;
-    if (effectUsesMusic) {
+    if (useMusicHaThrottle) {
       if (musicTiming.beatEdge) {
         effGapMs = math.max(8, (baseGapMs * 0.28).round());
       } else if (musicTiming.beatEnvelope > 0.18) {
@@ -343,7 +346,16 @@ class SmartLightCoordinator {
       );
       final rgb = (effectOut.r, effectOut.g, effectOut.b);
       final baseBri = _brightnessPct(engineBrightness, sl.globalBrightnessCapPct, fx.brightnessPctCap);
-      final briPct = (baseBri * effectOut.brightnessMul).round().clamp(0, 100);
+      var briPct = (baseBri * effectOut.brightnessMul).round().clamp(0, 100);
+      if (musicTiming.active && sl.haMusicBeatBrightnessBoost > 0 && musicTiming.beatEdge) {
+        briPct = (briPct + sl.haMusicBeatBrightnessBoost).clamp(0, 100);
+      }
+      final rgbOut = HaRgbTransform.applySaturationPercent(
+        rgb.$1,
+        rgb.$2,
+        rgb.$3,
+        sl.haColorSaturationPercent,
+      );
 
       _lastSent[fx.id] = now;
 
@@ -355,9 +367,9 @@ class SmartLightCoordinator {
           try {
             final res = await client.lightTurnOnRgb(
               entityId: fx.haEntityId,
-              r: rgb.$1,
-              g: rgb.$2,
-              b: rgb.$3,
+              r: rgbOut.$1,
+              g: rgbOut.$2,
+              b: rgbOut.$3,
               brightnessPct: briPct,
             );
             if (!res.$1 && kDebugMode) {
@@ -375,9 +387,9 @@ class SmartLightCoordinator {
           try {
             final res = await HomeKitBridge.setLightColor(
               accessoryUuid: fx.homeKitAccessoryUuid,
-              r: rgb.$1,
-              g: rgb.$2,
-              b: rgb.$3,
+              r: rgbOut.$1,
+              g: rgbOut.$2,
+              b: rgbOut.$3,
               brightnessPct: briPct,
             );
             if (!res.$1 && kDebugMode) {

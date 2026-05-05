@@ -6839,6 +6839,48 @@ abstract class AppLocalizations {
   /// **'Brightness cap %'**
   String get smartBrightnessCapLabel;
 
+  /// No description provided for @smartHaSaturationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Home Assistant color saturation: {v}%'**
+  String smartHaSaturationLabel(Object v);
+
+  /// No description provided for @smartHaSaturationHint.
+  ///
+  /// In en, this message translates to:
+  /// **'100% = same as the strip. Lower washes colors toward white; above 100% boosts vividness before light.turn_on (HSV).'**
+  String get smartHaSaturationHint;
+
+  /// No description provided for @smartHaMusicReactiveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Music: faster HA updates on beat'**
+  String get smartHaMusicReactiveTitle;
+
+  /// No description provided for @smartHaMusicReactiveSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shortens the per-light throttle on drum hits in Music mode, even if the virtual-room wave does not use music.'**
+  String get smartHaMusicReactiveSubtitle;
+
+  /// No description provided for @smartHaBeatBoostLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Music: brightness spike on beat (+{v}%)'**
+  String smartHaBeatBoostLabel(Object v);
+
+  /// No description provided for @smartHaBeatBoostHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Adds up to this many percent brightness points on each detected beat edge (0 = off).'**
+  String get smartHaBeatBoostHint;
+
+  /// No description provided for @musicHaIntegrationFootnote.
+  ///
+  /// In en, this message translates to:
+  /// **'Home Assistant: tune saturation and beat-linked updates under Settings → Smart Home.'**
+  String get musicHaIntegrationFootnote;
+
   /// No description provided for @smartHomeKitSection.
   ///
   /// In en, this message translates to:

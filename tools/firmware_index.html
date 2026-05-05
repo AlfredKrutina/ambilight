@@ -1,18 +1,143 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="cs">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AmbiLight firmware</title>
+  <title>AmbiLight — stažení</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 42rem; margin: 2rem auto; padding: 0 1rem; }
-    code { background: #eee; padding: 0 .25rem; border-radius: 3px; }
+    body { font-family: system-ui, sans-serif; max-width: 48rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.45; color: #1a1a1a; }
+    code { background: #f0f0f0; padding: 0 .25rem; border-radius: 4px; font-size: 0.9em; }
     a { color: #0b57d0; }
+    section { margin-top: 2rem; }
+    ul { padding-left: 1.2rem; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0.75rem 0; }
+    .btn {
+      display: inline-block; padding: 0.55rem 1rem; border-radius: 8px; text-decoration: none; font-weight: 600;
+      background: #0b57d0; color: #fff !important; border: none;
+    }
+    .btn.secondary { background: #444; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .muted { color: #555; font-size: 0.92rem; }
+    .warn { background: #fff8e6; border: 1px solid #e6d08c; padding: 0.75rem 1rem; border-radius: 8px; margin-top: 1rem; }
+    #dl-loading { font-style: italic; color: #666; }
+    .tag { font-size: 0.85rem; color: #666; margin-bottom: 0.35rem; }
   </style>
 </head>
 <body>
-  <h1>AmbiLight — firmware</h1>
-  <p>CI sestavuje projekt <strong>esp32c3_lamp_firmware</strong> (lampa). Nejnovější výstup: <a href="firmware/latest/manifest.json"><code>firmware/latest/manifest.json</code></a> a <code>.bin</code> soubory ve stejné složce.</p>
-  <p>V desktopové aplikaci: <strong>Nastavení → Firmware</strong> — stažení z manifestu, flash USB (<code>esptool</code>), nebo OTA přes UDP <code>OTA_HTTP &lt;url&gt;</code> / MQTT topic <code>…/ota</code> na zařízení.</p>
+  <h1>AmbiLight</h1>
+  <p class="muted">Firmware z CI + desktopové balíčky z GitHub Releases (tag <code>desktop-v*</code>).</p>
+
+  <section id="desktop">
+    <h2>Desktop — Windows a macOS</h2>
+    <p id="dl-loading">Načítám poslední release…</p>
+    <div id="dl-buttons" class="btn-row" style="display:none;" aria-live="polite"></div>
+    <p id="dl-version" class="tag" style="display:none;"></p>
+    <ul id="desktop-fallback" style="display:none;">
+      <li><a id="releases-latest" href="#">Všechny releases</a></li>
+      <li><a id="manifest-latest" href="#">desktop-manifest.json</a> (auto-update / kontrola verze)</li>
+    </ul>
+    <div class="warn">
+      <strong>Windows:</strong> doporučujeme <strong>Setup (.exe)</strong> — klasická instalace do Program Files.
+      <strong>ZIP</strong> je portable složka (vhodné pro auto-update v aplikaci).<br />
+      <strong>macOS:</strong> <strong>DMG</strong> — aplikace z CI není notarizovaná; při prvním spuštění může být potřeba
+      <em>Systémová nastavení → Soukromí a zabezpečení</em> nebo pravý klik → Otevřít.
+    </div>
+  </section>
+
+  <section id="firmware">
+    <h2>Firmware (ESP32-C3 lampa)</h2>
+    <p>Nejnovější build CI: <a href="firmware/latest/manifest.json"><code>firmware/latest/manifest.json</code></a>
+      a soubory <code>.bin</code> ve stejné složce.</p>
+    <p>V aplikaci: <strong>Nastavení → Firmware</strong> — stažení, USB flash (<code>esptool</code>), nebo OTA přes UDP / MQTT.</p>
+  </section>
+
+  <script>
+(function () {
+  var host = location.hostname.toLowerCase();
+  var owner = host.replace(/\.github\.io$/i, '');
+  var parts = location.pathname.replace(/\/+$/, '').split('/').filter(Boolean);
+  var repo = parts[0] || '';
+  var apiBase = owner && repo ? ('https://api.github.com/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo)) : '';
+  var ghBase = owner && repo ? ('https://github.com/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo)) : '';
+
+  var loading = document.getElementById('dl-loading');
+  var btnRow = document.getElementById('dl-buttons');
+  var verEl = document.getElementById('dl-version');
+  var fallback = document.getElementById('desktop-fallback');
+
+  function link(rel, label, cls) {
+    var a = document.createElement('a');
+    a.href = rel;
+    a.textContent = label;
+    a.className = 'btn' + (cls ? ' ' + cls : '');
+    a.rel = 'noopener';
+    return a;
+  }
+
+  function showFallback() {
+    if (loading) loading.style.display = 'none';
+    if (btnRow) btnRow.style.display = 'none';
+    if (verEl) verEl.style.display = 'none';
+    if (!ghBase || !fallback) return;
+    fallback.style.display = 'block';
+    var rl = document.getElementById('releases-latest');
+    var ml = document.getElementById('manifest-latest');
+    if (rl) rl.href = ghBase + '/releases/latest';
+    if (ml) ml.href = ghBase + '/releases/latest/download/desktop-manifest.json';
+  }
+
+  if (!apiBase || !owner || owner === host) {
+    showFallback();
+    return;
+  }
+
+  fetch(apiBase + '/releases/latest')
+    .then(function (r) {
+      if (!r.ok) throw new Error('release ' + r.status);
+      return r.json();
+    })
+    .then(function (data) {
+      var assets = data.assets || [];
+      var byName = {};
+      assets.forEach(function (a) { byName[a.name] = a.browser_download_url; });
+
+      var zip = byName['ambilight_desktop_windows_x64.zip'];
+      var setup = byName['ambilight_desktop_windows_x64_setup.exe'];
+      var dmg = byName['ambilight_desktop_macos.dmg'];
+
+      if (loading) loading.style.display = 'none';
+      if (btnRow) {
+        btnRow.style.display = 'flex';
+        btnRow.innerHTML = '';
+        var baseDl = ghBase + '/releases/download/' + encodeURIComponent(data.tag_name);
+        function add(url, label, primary) {
+          if (!url) return;
+          btnRow.appendChild(link(url, label, primary ? '' : 'secondary'));
+        }
+        add(setup, 'Windows — Setup (.exe)', true);
+        add(zip, 'Windows — ZIP (portable)', false);
+        add(dmg, 'macOS — DMG', true);
+        if (!setup || !zip || !dmg) {
+          btnRow.appendChild(link(ghBase + '/releases/latest', 'Chybí soubor? Otevři Assets na GitHubu', 'secondary'));
+        }
+        btnRow.appendChild(link(ghBase + '/releases/tag/' + encodeURIComponent(data.tag_name), 'Stránka release', 'secondary'));
+      }
+      if (verEl) {
+        verEl.style.display = 'block';
+        verEl.textContent = 'Tag: ' + data.tag_name + (data.name ? (' — ' + data.name) : '');
+      }
+      if (fallback) {
+        fallback.style.display = 'block';
+        var rl = document.getElementById('releases-latest');
+        var ml = document.getElementById('manifest-latest');
+        if (rl) rl.href = ghBase + '/releases/latest';
+        if (ml) ml.href = ghBase + '/releases/latest/download/desktop-manifest.json';
+      }
+    })
+    .catch(function () {
+      showFallback();
+    });
+})();
+  </script>
 </body>
 </html>

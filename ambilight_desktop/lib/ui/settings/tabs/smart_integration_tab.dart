@@ -12,6 +12,7 @@ import '../../../l10n/context_ext.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
+import '../../widgets/config_drag_slider.dart';
 import '../widgets/virtual_room_editor.dart';
 
 /// Home Assistant (REST), Apple HomeKit (macOS), návod na Google Home přes HA.
@@ -271,6 +272,46 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                context.l10n.smartHaSaturationLabel(sl.haColorSaturationPercent),
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              ConfigDragSlider(
+                value: sl.haColorSaturationPercent.toDouble(),
+                min: 0,
+                max: 200,
+                divisions: 40,
+                label: '${sl.haColorSaturationPercent}',
+                onChanged: (v) => _patch(sl.copyWith(haColorSaturationPercent: v.round())),
+              ),
+              Text(
+                context.l10n.smartHaSaturationHint,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                title: Text(context.l10n.smartHaMusicReactiveTitle),
+                subtitle: Text(context.l10n.smartHaMusicReactiveSubtitle),
+                value: sl.haMusicReactiveThrottle,
+                onChanged: (v) => _patch(sl.copyWith(haMusicReactiveThrottle: v)),
+              ),
+              Text(
+                context.l10n.smartHaBeatBoostLabel(sl.haMusicBeatBrightnessBoost),
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              ConfigDragSlider(
+                value: sl.haMusicBeatBrightnessBoost.toDouble(),
+                min: 0,
+                max: 35,
+                divisions: 35,
+                label: '${sl.haMusicBeatBrightnessBoost}',
+                onChanged: (v) => _patch(sl.copyWith(haMusicBeatBrightnessBoost: v.round())),
+              ),
+              Text(
+                context.l10n.smartHaBeatBoostHint,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
               const Divider(height: 32),
               Text(context.l10n.smartHomeKitSection, style: Theme.of(context).textTheme.titleMedium),

@@ -3966,6 +3966,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String get smartBrightnessCapLabel => 'Brightness cap %';
 
   @override
+  String smartHaSaturationLabel(Object v) {
+    return 'Home Assistant color saturation: $v%';
+  }
+
+  @override
+  String get smartHaSaturationHint =>
+      '100% = same as the strip. Lower washes colors toward white; above 100% boosts vividness before light.turn_on (HSV).';
+
+  @override
+  String get smartHaMusicReactiveTitle => 'Music: faster HA updates on beat';
+
+  @override
+  String get smartHaMusicReactiveSubtitle =>
+      'Shortens the per-light throttle on drum hits in Music mode, even if the virtual-room wave does not use music.';
+
+  @override
+  String smartHaBeatBoostLabel(Object v) {
+    return 'Music: brightness spike on beat (+$v%)';
+  }
+
+  @override
+  String get smartHaBeatBoostHint =>
+      'Adds up to this many percent brightness points on each detected beat edge (0 = off).';
+
+  @override
+  String get musicHaIntegrationFootnote =>
+      'Home Assistant: tune saturation and beat-linked updates under Settings → Smart Home.';
+
+  @override
   String get smartHomeKitSection => 'Apple Home (HomeKit)';
 
   @override

@@ -3972,6 +3972,36 @@ class AppLocalizationsCs extends AppLocalizations {
   String get smartBrightnessCapLabel => 'Strop jasu %';
 
   @override
+  String smartHaSaturationLabel(Object v) {
+    return 'Saturace barev v Home Assistant: $v %';
+  }
+
+  @override
+  String get smartHaSaturationHint =>
+      '100 % = stejné jako pásek. Nižší hodnoty barvu vyblednou k bílé, nad 100 % zvýrazní sytost před light.turn_on (HSV).';
+
+  @override
+  String get smartHaMusicReactiveTitle =>
+      'Hudba: rychlejší aktualizace HA při beatu';
+
+  @override
+  String get smartHaMusicReactiveSubtitle =>
+      'Zkrátí throttling na úder v režimu Hudba i bez prostorového efektu ve virtuální místnosti.';
+
+  @override
+  String smartHaBeatBoostLabel(Object v) {
+    return 'Hudba: výkyv jasu při beatu (+$v %)';
+  }
+
+  @override
+  String get smartHaBeatBoostHint =>
+      'Ke každému beatu přičte až tolik procent jasu (0 = vypnuto).';
+
+  @override
+  String get musicHaIntegrationFootnote =>
+      'Home Assistant: saturaci a beat najdeš v Nastavení → Smart Home.';
+
+  @override
   String get smartHomeKitSection => 'Apple Home (HomeKit)';
 
   @override

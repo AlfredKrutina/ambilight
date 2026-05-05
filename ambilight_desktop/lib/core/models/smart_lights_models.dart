@@ -449,6 +449,12 @@ class SmartLightsSettings {
     this.haTimeoutSeconds = 12,
     this.maxUpdateHzPerFixture = 8,
     this.globalBrightnessCapPct = 100,
+    /// 0–200 % saturace barvy před `light.turn_on` (100 = beze změny).
+    this.haColorSaturationPercent = 100,
+    /// V režimu Hudba zrychlit odesílání do HA podle beatu (i bez prostorového efektu).
+    this.haMusicReactiveThrottle = true,
+    /// Při náběžné hraně beatu přičíst k jasu světel v HA (0 = vypnuto).
+    this.haMusicBeatBrightnessBoost = 0,
     this.fixtures = const [],
     this.virtualRoom = const VirtualRoomLayout(),
   });
@@ -462,6 +468,9 @@ class SmartLightsSettings {
   final int haTimeoutSeconds;
   final int maxUpdateHzPerFixture;
   final int globalBrightnessCapPct;
+  final int haColorSaturationPercent;
+  final bool haMusicReactiveThrottle;
+  final int haMusicBeatBrightnessBoost;
   final List<SmartFixture> fixtures;
   final VirtualRoomLayout virtualRoom;
 
@@ -476,6 +485,9 @@ class SmartLightsSettings {
     int? haTimeoutSeconds,
     int? maxUpdateHzPerFixture,
     int? globalBrightnessCapPct,
+    int? haColorSaturationPercent,
+    bool? haMusicReactiveThrottle,
+    int? haMusicBeatBrightnessBoost,
     List<SmartFixture>? fixtures,
     VirtualRoomLayout? virtualRoom,
   }) {
@@ -487,6 +499,9 @@ class SmartLightsSettings {
       haTimeoutSeconds: haTimeoutSeconds ?? this.haTimeoutSeconds,
       maxUpdateHzPerFixture: maxUpdateHzPerFixture ?? this.maxUpdateHzPerFixture,
       globalBrightnessCapPct: globalBrightnessCapPct ?? this.globalBrightnessCapPct,
+      haColorSaturationPercent: haColorSaturationPercent ?? this.haColorSaturationPercent,
+      haMusicReactiveThrottle: haMusicReactiveThrottle ?? this.haMusicReactiveThrottle,
+      haMusicBeatBrightnessBoost: haMusicBeatBrightnessBoost ?? this.haMusicBeatBrightnessBoost,
       fixtures: fixtures ?? this.fixtures,
       virtualRoom: virtualRoom ?? this.virtualRoom,
     );
@@ -500,6 +515,9 @@ class SmartLightsSettings {
         'ha_timeout_seconds': haTimeoutSeconds.clamp(3, 120),
         'max_update_hz_per_fixture': maxUpdateHzPerFixture.clamp(1, 30),
         'global_brightness_cap_pct': globalBrightnessCapPct.clamp(1, 100),
+        'ha_color_saturation_pct': haColorSaturationPercent.clamp(0, 200),
+        'ha_music_reactive_throttle': haMusicReactiveThrottle,
+        'ha_music_beat_brightness_boost': haMusicBeatBrightnessBoost.clamp(0, 35),
         'fixtures': fixtures.map((e) => e.toJson()).toList(),
         'virtual_room': virtualRoom.toJson(),
       };
@@ -518,6 +536,11 @@ class SmartLightsSettings {
       haTimeoutSeconds: asInt(j['ha_timeout_seconds'], 12).clamp(3, 120),
       maxUpdateHzPerFixture: asInt(j['max_update_hz_per_fixture'], 8).clamp(1, 30),
       globalBrightnessCapPct: asInt(j['global_brightness_cap_pct'], 100).clamp(1, 100),
+      haColorSaturationPercent: asInt(j['ha_color_saturation_pct'], 100).clamp(0, 200),
+      haMusicReactiveThrottle: j['ha_music_reactive_throttle'] is bool
+          ? j['ha_music_reactive_throttle'] as bool
+          : asBool(j['ha_music_reactive_throttle'], true),
+      haMusicBeatBrightnessBoost: asInt(j['ha_music_beat_brightness_boost'], 0).clamp(0, 35),
       fixtures: fx,
       virtualRoom: VirtualRoomLayout.fromJson(j['virtual_room'] is Map ? asMap(j['virtual_room']) : null),
     );

@@ -365,6 +365,15 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
           widget.onChanged(m.copyWith(beatSyncMode: v));
         },
       ),
+      if (widget.draft.smartLights.enabled) ...[
+        const SizedBox(height: 8),
+        Text(
+          l10n.musicHaIntegrationFootnote,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+      ],
       Text(l10n.musicOverallSensitivity(m.sensitivity), style: Theme.of(context).textTheme.labelLarge),
       ConfigDragSlider(
         value: m.sensitivity.toDouble(),

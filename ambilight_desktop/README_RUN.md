@@ -58,6 +58,8 @@ flutter run -d macos
 - **Tray ikona:** barva podle **režimu a zapnutí** (generovaný PNG/ICO v tempu); při chybě fallback na `AppIcon.icns`.
 - **Sériový port:** v entitlements je **`com.apple.security.device.serial`** (spolu se síťovými a audio právy). Stále platí: podepsaný build a případně schválení u Apple podle kanálu distribuce.
 - **Globální zkratky:** `NSInputMonitoringUsageDescription` v `Info.plist` — uživatel musí v **Soukromí a zabezpečení → Sledování vstupu** povolit AmbiLight.
+- **HomeKit:** v repu nejsou v entitlements klíče vyžadující placený Apple Developer profil (kvůli CI / obecnému podepisování). Funkce přes kanál `ambilight/homekit` na distribuovaném buildu doplníš v Xcode: capability **HomeKit** + stejný klíč v `Release.entitlements` / profilu.
+- **Větev `mac-app` + DMG:** Mac úpravy nejdřív na **mac-app**, pak sladit s `main`. Workflow **`desktop_release`** po tagu `desktop-v*` z CI vytvoří **nepodepsaný** DMG (ad-hoc) — uživatelům stačí při prvním spuštění *Otevřít* / Soukromí. Pokud chceš **podepsaný / notarizovaný** disk: `flutter build macos --release` na Macu (např. s vlastním `LocalSigning.xcconfig`), vlastní `create-dmg` nebo `hdiutil`, a soubor **`ambilight_desktop_macos.dmg`** nahraj k danému GitHub Release ručně (přepíše asset z CI, pokud použiješ stejný název).
 
 ## Linux (screen capture)
 
