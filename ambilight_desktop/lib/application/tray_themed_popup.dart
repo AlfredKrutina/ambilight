@@ -79,8 +79,7 @@ Future<bool> tryShowAmbilightTrayPopup(
       elevation: 12,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side:
-            BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.45)),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.45)),
       ),
       menuPadding: const EdgeInsets.symmetric(vertical: 6),
       items: _trayEntries(
@@ -110,7 +109,8 @@ List<PopupMenuEntry<void>> _trayEntries(
 }) {
   final l10n = context.l10n;
   final scheme = theme.colorScheme;
-  final menuTextStyle = theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurface);
+  final menuTextStyle =
+      theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurface);
   final labelSmall = theme.textTheme.labelSmall?.copyWith(
     color: scheme.primary,
     fontWeight: FontWeight.w600,
@@ -134,7 +134,8 @@ List<PopupMenuEntry<void>> _trayEntries(
   return [
     PopupMenuItem<void>(
       onTap: () => c.toggleEnabled(),
-      child: menuText(c.enabled ? l10n.trayDisableOutput : l10n.trayEnableOutput),
+      child:
+          menuText(c.enabled ? l10n.trayDisableOutput : l10n.trayEnableOutput),
     ),
     const PopupMenuDivider(height: 1),
     PopupMenuItem<void>(

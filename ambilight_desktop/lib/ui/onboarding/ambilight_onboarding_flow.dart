@@ -28,7 +28,8 @@ class AmbilightOnboardingLayer extends StatelessWidget {
     final ctrl = context.read<AmbilightAppController>();
     await ctrl.applyConfigAndPersist(
       ctrl.config.copyWith(
-        globalSettings: ctrl.config.globalSettings.copyWith(onboardingCompleted: true),
+        globalSettings:
+            ctrl.config.globalSettings.copyWith(onboardingCompleted: true),
       ),
     );
   }
@@ -41,7 +42,9 @@ class AmbilightOnboardingLayer extends StatelessWidget {
       child: SafeArea(
         child: LayoutBuilder(
           builder: (context, c) {
-            final w = math.min(_kOnboardingMaxContentWidth, c.maxWidth - 16).clamp(280.0, _kOnboardingMaxContentWidth);
+            final w = math
+                .min(_kOnboardingMaxContentWidth, c.maxWidth - 16)
+                .clamp(280.0, _kOnboardingMaxContentWidth);
             return Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
@@ -70,7 +73,8 @@ class AmbilightOnboardingWizard extends StatefulWidget {
   final VoidCallback onComplete;
 
   @override
-  State<AmbilightOnboardingWizard> createState() => _AmbilightOnboardingWizardState();
+  State<AmbilightOnboardingWizard> createState() =>
+      _AmbilightOnboardingWizardState();
 }
 
 class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
@@ -88,7 +92,9 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
   @override
   void initState() {
     super.initState();
-    _rainbowCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 10))..repeat();
+    _rainbowCtrl =
+        AnimationController(vsync: this, duration: const Duration(seconds: 10))
+          ..repeat();
   }
 
   @override
@@ -109,7 +115,8 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
       if (_didSwitchStartMode) {
         await ctrl.applyConfigAndPersist(
           ctrl.config.copyWith(
-            globalSettings: ctrl.config.globalSettings.copyWith(startMode: 'screen'),
+            globalSettings:
+                ctrl.config.globalSettings.copyWith(startMode: 'screen'),
           ),
         );
       }
@@ -125,7 +132,8 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
       unawaited(
         c.applyConfigAndPersist(
           c.config.copyWith(
-            globalSettings: c.config.globalSettings.copyWith(startMode: _savedStartMode),
+            globalSettings:
+                c.config.globalSettings.copyWith(startMode: _savedStartMode),
           ),
         ),
       );
@@ -142,7 +150,8 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
   void _applyTheme(String canonicalKey) {
     final c = context.read<AmbilightAppController>();
     final theme = normalizeAmbilightUiTheme(canonicalKey);
-    c.queueConfigApply(c.config.copyWith(globalSettings: c.config.globalSettings.copyWith(theme: theme)));
+    c.queueConfigApply(c.config.copyWith(
+        globalSettings: c.config.globalSettings.copyWith(theme: theme)));
   }
 
   void _applyControlLevel(String level) {
@@ -222,17 +231,23 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
                     children: [
                       Text(
                         title,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         subtitle,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.35),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant, height: 1.35),
                       ),
                     ],
                   ),
                 ),
-                if (selected) Icon(Icons.check_circle_rounded, color: scheme.primary, size: 22),
+                if (selected)
+                  Icon(Icons.check_circle_rounded,
+                      color: scheme.primary, size: 22),
               ],
             ),
           ),
@@ -263,9 +278,15 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(title,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 6),
-                  Text(body, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.4)),
+                  Text(body,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant, height: 1.4)),
                 ],
               ),
             ),
@@ -287,7 +308,8 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(l10n.onboardWizardStepThemeSubtitle, textAlign: TextAlign.center),
+            Text(l10n.onboardWizardStepThemeSubtitle,
+                textAlign: TextAlign.center),
             const SizedBox(height: 16),
             for (final option in themeOptions)
               _choiceTile(
@@ -295,7 +317,8 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
                 onTap: () => _applyTheme(option.key),
                 icon: option.icon,
                 title: AmbilightUiThemeCatalog.title(context, option.key),
-                subtitle: AmbilightUiThemeCatalog.onboardingSubtitle(context, option.key),
+                subtitle: AmbilightUiThemeCatalog.onboardingSubtitle(
+                    context, option.key),
               ),
           ],
         );
@@ -303,7 +326,8 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(l10n.onboardWizardStepComplexitySubtitle, textAlign: TextAlign.center),
+            Text(l10n.onboardWizardStepComplexitySubtitle,
+                textAlign: TextAlign.center),
             const SizedBox(height: 16),
             _choiceTile(
               selected: levelKey == 'simple',
@@ -325,14 +349,16 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(l10n.onboardWizardStepDeviceSubtitle, textAlign: TextAlign.center),
+            Text(l10n.onboardWizardStepDeviceSubtitle,
+                textAlign: TextAlign.center),
             const SizedBox(height: 18),
             FilledButton.tonalIcon(
               onPressed: () => unawaited(onboardingOpenWifiDiscovery(context)),
               icon: const Icon(Icons.wifi_find_rounded),
               label: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(l10n.onboardWizardScanWifi, textAlign: TextAlign.center),
+                child: Text(l10n.onboardWizardScanWifi,
+                    textAlign: TextAlign.center),
               ),
               style: FilledButton.styleFrom(alignment: Alignment.centerLeft),
             ),
@@ -342,7 +368,8 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
               icon: const Icon(Icons.usb_rounded),
               label: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(l10n.onboardWizardSetupUsb, textAlign: TextAlign.center),
+                child: Text(l10n.onboardWizardSetupUsb,
+                    textAlign: TextAlign.center),
               ),
               style: FilledButton.styleFrom(alignment: Alignment.centerLeft),
             ),
@@ -352,7 +379,8 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(l10n.onboardWizardStepMappingSubtitle, textAlign: TextAlign.center),
+            Text(l10n.onboardWizardStepMappingSubtitle,
+                textAlign: TextAlign.center),
             const SizedBox(height: 18),
             FilledButton.icon(
               onPressed: () => unawaited(LedStripWizardDialog.show(context)),
@@ -370,7 +398,8 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(l10n.onboardWizardStepIntegrationsSubtitle, textAlign: TextAlign.center),
+            Text(l10n.onboardWizardStepIntegrationsSubtitle,
+                textAlign: TextAlign.center),
             const SizedBox(height: 14),
             _integrationCard(
               icon: Icons.hub_rounded,
@@ -429,7 +458,10 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
               const Spacer(),
               Text(
                 l10n.onboardProgress(_step + 1, _kWizardSteps),
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
+                style: Theme.of(context)
+                    .textTheme
+                    .labelMedium
+                    ?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -443,7 +475,10 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
               Text(
                 l10n.onboardWizardPreviewHint,
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+                style: Theme.of(context)
+                    .textTheme
+                    .labelSmall
+                    ?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -457,19 +492,25 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
                 Text(
                   _stepTitle(l10n),
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 12),
                 Expanded(
                   child: AnimatedSwitcher(
-                    duration: instant ? Duration.zero : const Duration(milliseconds: 380),
+                    duration: instant
+                        ? Duration.zero
+                        : const Duration(milliseconds: 380),
                     switchInCurve: Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
                     transitionBuilder: (child, anim) {
                       final offset = Tween<Offset>(
                         begin: const Offset(0.04, 0),
                         end: Offset.zero,
-                      ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic));
+                      ).animate(CurvedAnimation(
+                          parent: anim, curve: Curves.easeOutCubic));
                       return FadeTransition(
                         opacity: anim,
                         child: SlideTransition(position: offset, child: child),
@@ -480,7 +521,8 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: AmbiGlassPanel(
-                          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 18, horizontal: 14),
                           child: _buildStepBody(l10n),
                         ),
                       ),
@@ -506,7 +548,8 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
                         button: true,
                         label: l10n.onboardSlideDotA11y(i + 1, _kWizardSteps),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 2, vertical: 6),
                           child: GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onTap: () {
@@ -515,16 +558,24 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
                             },
                             child: AnimatedScale(
                               scale: on ? 1.15 : 1,
-                              duration: instant ? Duration.zero : const Duration(milliseconds: 240),
+                              duration: instant
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 240),
                               curve: Curves.easeOutCubic,
                               child: AnimatedContainer(
-                                duration: instant ? Duration.zero : const Duration(milliseconds: 240),
-                                margin: const EdgeInsets.symmetric(horizontal: 3),
+                                duration: instant
+                                    ? Duration.zero
+                                    : const Duration(milliseconds: 240),
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 3),
                                 width: on ? 24 : 7,
                                 height: 7,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(999),
-                                  color: on ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.45),
+                                  color: on
+                                      ? scheme.primary
+                                      : scheme.outlineVariant
+                                          .withValues(alpha: 0.45),
                                 ),
                               ),
                             ),
@@ -540,7 +591,10 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
                       child: Text(
                         l10n.onboardKeysHint,
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelSmall
+                            ?.copyWith(color: scheme.onSurfaceVariant),
                       ),
                     ),
                   if (narrow)
@@ -549,10 +603,13 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
                       children: [
                         FilledButton(
                           onPressed: _next,
-                          child: Text(last ? l10n.onboardWizardFinish : l10n.next),
+                          child:
+                              Text(last ? l10n.onboardWizardFinish : l10n.next),
                         ),
                         const SizedBox(height: 10),
-                        OutlinedButton(onPressed: _step > 0 ? _prev : null, child: Text(l10n.back)),
+                        OutlinedButton(
+                            onPressed: _step > 0 ? _prev : null,
+                            child: Text(l10n.back)),
                       ],
                     )
                   else
@@ -561,14 +618,17 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
                       children: [
                         SizedBox(
                           width: 148,
-                          child: OutlinedButton(onPressed: _step > 0 ? _prev : null, child: Text(l10n.back)),
+                          child: OutlinedButton(
+                              onPressed: _step > 0 ? _prev : null,
+                              child: Text(l10n.back)),
                         ),
                         const SizedBox(width: 12),
                         SizedBox(
                           width: 220,
                           child: FilledButton(
                             onPressed: _next,
-                            child: Text(last ? l10n.onboardWizardFinish : l10n.next),
+                            child: Text(
+                                last ? l10n.onboardWizardFinish : l10n.next),
                           ),
                         ),
                       ],
@@ -625,5 +685,6 @@ class _RainbowBarPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _RainbowBarPainter oldDelegate) => oldDelegate.progress != progress;
+  bool shouldRepaint(covariant _RainbowBarPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }

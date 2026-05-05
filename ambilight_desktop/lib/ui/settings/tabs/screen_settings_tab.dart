@@ -429,9 +429,13 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
             children: [
               Text(l10n.screenImageOutputTitle, style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 10),
-              if (!_advanced) monitorPicker(),
-              ...windowsCaptureBackendWidgets(),
-              Text(l10n.screenBrightnessValue(s.brightness), style: Theme.of(context).textTheme.labelLarge),
+              if (!_advanced) ...[
+                monitorPicker(),
+                ...windowsCaptureBackendWidgets(),
+                const Divider(height: 20),
+              ],
+              sectionLabel(l10n.screenBrightnessValue(s.brightness)),
+              const SizedBox(height: 2),
               ConfigDragSlider(
                 value: s.brightness.toDouble(),
                 min: 0,
@@ -440,7 +444,8 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                 label: '${s.brightness}',
                 onChanged: (v) => _patch(s.copyWith(brightness: v.round())),
               ),
-              Text(l10n.screenInterpolationMs(s.interpolationMs), style: Theme.of(context).textTheme.labelLarge),
+              sectionLabel(l10n.screenInterpolationMs(s.interpolationMs)),
+              const SizedBox(height: 2),
               ConfigDragSlider(
                 value: s.interpolationMs.toDouble(),
                 min: 0,

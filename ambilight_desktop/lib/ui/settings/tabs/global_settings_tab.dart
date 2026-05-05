@@ -17,7 +17,8 @@ List<Widget> globalSettingsFields(
   final l10n = context.l10n;
   final langVal = normalizeAmbilightUiLanguage(g.uiLanguage);
   final langDropdown = langVal == 'system' ? 'system' : langVal;
-  final simpleUi = normalizeAmbilightUiControlLevel(g.uiControlLevel) == 'simple';
+  final simpleUi =
+      normalizeAmbilightUiControlLevel(g.uiControlLevel) == 'simple';
 
   return [
     DropdownButtonFormField<String>(
@@ -48,7 +49,8 @@ List<Widget> globalSettingsFields(
         DropdownMenuItem(value: 'light', child: Text(l10n.startModeLight)),
         DropdownMenuItem(value: 'screen', child: Text(l10n.startModeScreen)),
         DropdownMenuItem(value: 'music', child: Text(l10n.startModeMusic)),
-        DropdownMenuItem(value: 'pchealth', child: Text(l10n.startModePcHealth)),
+        DropdownMenuItem(
+            value: 'pchealth', child: Text(l10n.startModePcHealth)),
       ],
       onChanged: (v) {
         if (v == null) return;
@@ -84,12 +86,15 @@ List<Widget> globalSettingsFields(
       ),
       value: normalizeAmbilightUiControlLevel(g.uiControlLevel),
       items: [
-        DropdownMenuItem(value: 'simple', child: Text(l10n.uiControlLevelSimple)),
-        DropdownMenuItem(value: 'advanced', child: Text(l10n.uiControlLevelAdvanced)),
+        DropdownMenuItem(
+            value: 'simple', child: Text(l10n.uiControlLevelSimple)),
+        DropdownMenuItem(
+            value: 'advanced', child: Text(l10n.uiControlLevelAdvanced)),
       ],
       onChanged: (v) {
         if (v == null) return;
-        onChanged(g.copyWith(uiControlLevel: normalizeAmbilightUiControlLevel(v)));
+        onChanged(
+            g.copyWith(uiControlLevel: normalizeAmbilightUiControlLevel(v)));
       },
     ),
     SwitchListTile(
@@ -107,7 +112,8 @@ List<Widget> globalSettingsFields(
       ),
       if (g.performanceMode) ...[
         Text(
-          l10n.performanceScreenLoopPeriodLabel(g.performanceScreenLoopPeriodMs),
+          l10n.performanceScreenLoopPeriodLabel(
+              g.performanceScreenLoopPeriodMs),
           style: Theme.of(context).textTheme.labelLarge,
         ),
         Padding(
@@ -136,7 +142,9 @@ List<Widget> globalSettingsFields(
         decoration: InputDecoration(
           labelText: l10n.screenRefreshRateTitle,
           border: const OutlineInputBorder(),
-          helperText: g.performanceMode ? l10n.screenRefreshRateDisabledHint : l10n.screenRefreshRateSubtitle,
+          helperText: g.performanceMode
+              ? l10n.screenRefreshRateDisabledHint
+              : l10n.screenRefreshRateSubtitle,
         ),
         value: normalizeAmbilightScreenRefreshRateHz(g.screenRefreshRateHz),
         items: [
@@ -177,7 +185,8 @@ List<Widget> globalSettingsFields(
           final trimmed = g.captureMethod.trim();
           final value = trimmed.isEmpty || trimmed == 'mss' ? 'mss' : trimmed;
           final items = <DropdownMenuItem<String>>[
-            DropdownMenuItem(value: 'mss', child: Text(l10n.captureMethodNativeMss)),
+            DropdownMenuItem(
+                value: 'mss', child: Text(l10n.captureMethodNativeMss)),
             if (value != 'mss')
               DropdownMenuItem(
                 value: value,
@@ -217,13 +226,15 @@ class GlobalSettingsTab extends StatelessWidget {
   final double maxWidth;
   final ValueChanged<GlobalSettings> onChanged;
   final VoidCallback? onImportedFromDisk;
+
   /// Okamžitě uloží `onboarding_completed: false` a znovu zobrazí úvodní průvodce (nad hlavním UI).
   final VoidCallback? onReplayOnboarding;
 
   @override
   Widget build(BuildContext context) {
     final g = draft.globalSettings;
-    final innerMax = AppBreakpoints.maxContentWidth(maxWidth).clamp(280.0, maxWidth);
+    final innerMax =
+        AppBreakpoints.maxContentWidth(maxWidth).clamp(280.0, maxWidth);
     final fields = globalSettingsFields(context, g, onChanged);
     const splitAt = 4;
 
@@ -256,7 +267,10 @@ class GlobalSettingsTab extends StatelessWidget {
                 const SizedBox(height: 22),
                 Text(
                   context.l10n.onboardingReplayTitle,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 6),
                 Text(
