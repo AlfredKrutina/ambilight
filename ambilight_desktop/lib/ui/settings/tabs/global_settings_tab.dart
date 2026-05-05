@@ -6,6 +6,7 @@ import '../config_backup_section.dart';
 import '../settings_common.dart';
 import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
+import '../../theme_catalog.dart';
 import '../../widgets/config_drag_slider.dart';
 
 List<Widget> globalSettingsFields(
@@ -63,10 +64,11 @@ List<Widget> globalSettingsFields(
       ),
       value: normalizeAmbilightUiTheme(g.theme),
       items: [
-        DropdownMenuItem(value: 'snowrunner', child: Text(l10n.themeSnowrunner)),
-        DropdownMenuItem(value: 'dark_blue', child: Text(l10n.themeDarkBlue)),
-        DropdownMenuItem(value: 'light', child: Text(l10n.themeLight)),
-        DropdownMenuItem(value: 'coffee', child: Text(l10n.themeCoffee)),
+        for (final option in AmbilightUiThemeCatalog.options)
+          DropdownMenuItem(
+            value: option.key,
+            child: Text(AmbilightUiThemeCatalog.title(context, option.key)),
+          ),
       ],
       onChanged: (v) {
         if (v == null) return;

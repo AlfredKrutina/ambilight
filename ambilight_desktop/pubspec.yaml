@@ -42,6 +42,7 @@ dev_dependencies:
 flutter:
   generate: true
   uses-material-design: true
+  # Desktop launcher icons: run `dart run tool/sync_desktop_app_icons.dart` after changing assets/branding/app_icon_dark.png
   assets:
     - assets/branding/app_icon_dark.png
     - assets/branding/app_icon_light.png
