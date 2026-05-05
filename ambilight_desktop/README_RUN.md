@@ -64,7 +64,6 @@ flutter run -d macos
 - **Tray ikona:** barva podle **režimu a zapnutí** (generovaný PNG/ICO v tempu); při chybě fallback na `AppIcon.icns`.
 - **Sériový port:** v entitlements je **`com.apple.security.device.serial`** (spolu se síťovými a audio právy). Stále platí: podepsaný build a případně schválení u Apple podle kanálu distribuce.
 - **Globální zkratky:** `NSInputMonitoringUsageDescription` v `Info.plist` — uživatel musí v **Soukromí a zabezpečení → Sledování vstupu** povolit AmbiLight.
-- **DMG (release):** z kořene celého repozitáře na Macu spusť **`bash tools/build_mac_dmg.sh`**. Vznikne **`ambilight_desktop/ambilight_desktop_macos.dmg`** (výchozí nepodepsaný build přes `CODE_SIGNING_ALLOWED=NO`, vhodné pro vlastní sdílení; Gatekeeper → pravý klik → Otevřít). Pro podepsaný build nastav `LocalSigning.xcconfig` a před spuštěním skriptu unsetni `CODE_SIGNING_ALLOWED` / použij Xcode.
 
 ## Linux (screen capture)
 
