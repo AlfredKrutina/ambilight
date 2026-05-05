@@ -1,6 +1,5 @@
 #include "driver/gpio.h"
 #include "driver/usb_serial_jtag.h"
-#include "esp_app_desc.h"
 #include "esp_event.h"
 #include "esp_heap_caps.h"
 #include "esp_http_server.h"
@@ -13,7 +12,6 @@
 #include "esp_wifi_types.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
-#include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "led_strip.h"
@@ -53,34 +51,14 @@ typedef struct {
 
 // State Globals
 static volatile int64_t g_last_serial_interaction = 0;
-
-/// Jen skutečný LED stream po USB-JTAG (legacy/wide). NIKDY z IDLE pingů (0xAA) —
-/// jinak by periodické skenování COM v aplikaci drželo UDP zablokované [SERIAL_TIMEOUT_US].
-static inline void ambilight_serial_mark_led_stream_activity(void) {
-  g_last_serial_interaction = esp_timer_get_time();
-}
 static bool g_wifi_enabled = false;
 static bool g_is_provisioned =
     false; // Flag to prevent auto-connect loops when unconfigured
 static bool g_ap_disabled_after_connection = false;
 static rgb_t led_colors[LED_STRIP_NUM_LEDS] = {0};
-/// Výstup pro RMT po časovém vyhlazování (PC plní [led_colors] jako target).
-static rgb_t led_display[LED_STRIP_NUM_LEDS] = {0};
 /// Logická délka pásku z PC (`0xA5 0x5A` + uint16 LE); ořez zápisu do [led_colors].
 static uint16_t g_serial_strip_max = LED_STRIP_NUM_LEDS;
 static SemaphoreHandle_t led_mutex;
-
-#define NVS_KEY_AMB_TEMP_MODE "amb_temp_mode"
-#define NVS_KEY_AMB_TEMP_MS "amb_temp_ms"
-#define AMB_TEMP_TIMER_PERIOD_MS 6
-#define AMB_TEMP_SMOOTH_MS_MIN 20
-#define AMB_TEMP_SMOOTH_MS_MAX 120
-#define AMB_TEMP_SNAP_THRESH 10
-
-static uint8_t g_amb_temp_mode = 0; ///< 0=off 1=smooth 2=snap (NVS + 0xF1)
-static uint16_t g_amb_temp_smooth_ms = 60;
-static uint8_t g_last_pc_brightness = 255;
-static esp_timer_handle_t s_amb_temporal_timer;
 static volatile int g_scan_status = 0; // 0=IDLE, 1=SCANNING, 2=DONE
 static volatile int64_t g_last_data_interaction = 0;
 #define DATA_TIMEOUT_US (5 * 60 * 1000000LL) // 5 minutes
@@ -208,187 +186,9 @@ void url_decode(char *dst, const char *src) {
 void clear_tail_leds(int start_idx) {
   ESP_LOGD(TAG, "[led] clear_tail_leds start_idx=%d", start_idx);
   if (start_idx < LED_STRIP_NUM_LEDS) {
-    const size_t tail = (LED_STRIP_NUM_LEDS - start_idx) * sizeof(rgb_t);
-    memset(&led_colors[start_idx], 0, tail);
-    /* [led_display] musí sledovat tail — jinak temporal blend drží staré cíle a pásek „nezhasne“. */
-    memset(&led_display[start_idx], 0, tail);
+    memset(&led_colors[start_idx], 0,
+           (LED_STRIP_NUM_LEDS - start_idx) * sizeof(rgb_t));
   }
-}
-
-static void ambilight_buffers_sync_logical_fill(uint8_t r, uint8_t g, uint8_t b) {
-  int n = (int)g_serial_strip_max;
-  if (n < 1) {
-    n = 1;
-  }
-  if (n > LED_STRIP_NUM_LEDS) {
-    n = LED_STRIP_NUM_LEDS;
-  }
-  rgb_t c = {.r = r, .g = g, .b = b};
-  for (int i = 0; i < n; i++) {
-    led_colors[i] = c;
-    led_display[i] = c;
-  }
-  if (n < LED_STRIP_NUM_LEDS) {
-    const size_t tail = (size_t)(LED_STRIP_NUM_LEDS - n) * sizeof(rgb_t);
-    memset(&led_colors[n], 0, tail);
-    memset(&led_display[n], 0, tail);
-  }
-}
-
-static void ambilight_buffers_all_black(void) {
-  memset(led_colors, 0, sizeof(led_colors));
-  memset(led_display, 0, sizeof(led_display));
-}
-
-static void ambilight_temporal_load_from_nvs(void) {
-  nvs_handle_t h;
-  if (nvs_open("storage", NVS_READONLY, &h) != ESP_OK) {
-    g_amb_temp_mode = 0;
-    g_amb_temp_smooth_ms = 60;
-    return;
-  }
-  uint8_t mode = 0;
-  if (nvs_get_u8(h, NVS_KEY_AMB_TEMP_MODE, &mode) != ESP_OK) {
-    mode = 0;
-  }
-  if (mode > 2) {
-    mode = 0;
-  }
-  uint16_t ms = 60;
-  if (nvs_get_u16(h, NVS_KEY_AMB_TEMP_MS, &ms) != ESP_OK) {
-    ms = 60;
-  }
-  nvs_close(h);
-  if (ms < AMB_TEMP_SMOOTH_MS_MIN) {
-    ms = AMB_TEMP_SMOOTH_MS_MIN;
-  }
-  if (ms > AMB_TEMP_SMOOTH_MS_MAX) {
-    ms = AMB_TEMP_SMOOTH_MS_MAX;
-  }
-  g_amb_temp_mode = mode;
-  g_amb_temp_smooth_ms = ms;
-}
-
-static esp_err_t ambilight_temporal_save_to_nvs(uint8_t mode) {
-  nvs_handle_t h;
-  esp_err_t err = nvs_open("storage", NVS_READWRITE, &h);
-  if (err != ESP_OK) {
-    return err;
-  }
-  err = nvs_set_u8(h, NVS_KEY_AMB_TEMP_MODE, mode);
-  if (err == ESP_OK) {
-    err = nvs_set_u16(h, NVS_KEY_AMB_TEMP_MS, g_amb_temp_smooth_ms);
-  }
-  if (err == ESP_OK) {
-    err = nvs_commit(h);
-  }
-  nvs_close(h);
-  return err;
-}
-
-static void ambilight_temporal_blend_one_channel(uint8_t tgt, uint8_t *disp_ptr) {
-  int disp = (int)*disp_ptr;
-  int d = (int)tgt - disp;
-  if (d == 0) {
-    return;
-  }
-  int step = (d * (int)AMB_TEMP_TIMER_PERIOD_MS) / (int)g_amb_temp_smooth_ms;
-  if (d > 0 && step < 1) {
-    step = 1;
-  }
-  if (d < 0 && step > -1) {
-    step = -1;
-  }
-  if (d > 0 && step > d) {
-    step = d;
-  }
-  if (d < 0 && step < d) {
-    step = d;
-  }
-  disp += step;
-  if (disp < 0) {
-    disp = 0;
-  }
-  if (disp > 255) {
-    disp = 255;
-  }
-  *disp_ptr = (uint8_t)disp;
-}
-
-static void ambilight_temporal_blend_tick(void) {
-  if (g_amb_temp_mode == 0) {
-    return;
-  }
-  if (g_amb_temp_mode == 2) {
-    for (int i = 0; i < LED_STRIP_NUM_LEDS; i++) {
-      int dr = (int)led_colors[i].r - (int)led_display[i].r;
-      int dg = (int)led_colors[i].g - (int)led_display[i].g;
-      int db = (int)led_colors[i].b - (int)led_display[i].b;
-      int adr = dr >= 0 ? dr : -dr;
-      int adg = dg >= 0 ? dg : -dg;
-      int adb = db >= 0 ? db : -db;
-      int m = adr > adg ? adr : adg;
-      if (adb > m) {
-        m = adb;
-      }
-      if (m > AMB_TEMP_SNAP_THRESH) {
-        led_display[i] = led_colors[i];
-      } else {
-        ambilight_temporal_blend_one_channel(led_colors[i].r, &led_display[i].r);
-        ambilight_temporal_blend_one_channel(led_colors[i].g, &led_display[i].g);
-        ambilight_temporal_blend_one_channel(led_colors[i].b, &led_display[i].b);
-      }
-    }
-    return;
-  }
-  /* mode == 1 smooth */
-  for (int i = 0; i < LED_STRIP_NUM_LEDS; i++) {
-    ambilight_temporal_blend_one_channel(led_colors[i].r, &led_display[i].r);
-    ambilight_temporal_blend_one_channel(led_colors[i].g, &led_display[i].g);
-    ambilight_temporal_blend_one_channel(led_colors[i].b, &led_display[i].b);
-  }
-}
-
-static void ambilight_push_led_display_to_strip(uint8_t global_brightness) {
-  float scale = (float)global_brightness / 255.0f;
-  for (int i = 0; i < LED_STRIP_NUM_LEDS; i++) {
-    led_strip_set_pixel(led_strip, i, led_display[i].r * scale,
-                        led_display[i].g * scale, led_display[i].b * scale);
-  }
-  led_strip_refresh(led_strip);
-}
-
-static void ambilight_temporal_timer_cb(void *arg) {
-  (void)arg;
-  if (g_amb_temp_mode == 0) {
-    return;
-  }
-  if (ambilight_ota_in_progress()) {
-    return;
-  }
-  if (led_mutex == NULL) {
-    return;
-  }
-  if (xSemaphoreTake(led_mutex, pdMS_TO_TICKS(2)) != pdTRUE) {
-    return;
-  }
-  ambilight_temporal_blend_tick();
-  ambilight_push_led_display_to_strip(g_last_pc_brightness);
-  xSemaphoreGive(led_mutex);
-}
-
-/* esp_timer_stop čeká na dokončení callbacku; callback bere led_mutex.
- * Nikdy nevolat tuto funkci z kontextu, který už drží led_mutex — deadlock. */
-static void ambilight_temporal_configure_timer(void) {
-  if (s_amb_temporal_timer == NULL) {
-    return;
-  }
-  esp_timer_stop(s_amb_temporal_timer);
-  if (g_amb_temp_mode == 0) {
-    return;
-  }
-  esp_timer_start_periodic(s_amb_temporal_timer,
-                           (int64_t)AMB_TEMP_TIMER_PERIOD_MS * 1000);
 }
 
 /// Logický počet LED (`g_serial_strip_max`) v rozsahu [1 … LED_STRIP_NUM_LEDS].
@@ -415,118 +215,6 @@ static void led_strip_fill_logical_rgb(uint8_t r, uint8_t g, uint8_t b) {
     led_strip_set_pixel(led_strip, i, 0, 0, 0);
   }
   led_strip_refresh(led_strip);
-  ambilight_buffers_sync_logical_fill(r, g, b);
-}
-
-/* Animace WiFi/IP nesmí běžet na default event loopu (vTaskDelay + mutex) —
- * httpd pak hází ESP_ERR_TIMEOUT při esp_event_post. */
-#define LED_FX_QUEUE_DEPTH 4
-
-typedef enum {
-  LED_FX_GOT_IP_GREEN = 1,
-  LED_FX_MAX_RETRIES_RED = 2,
-  LED_FX_SAFE_MODE_RED = 3,
-} ambilight_led_fx_type_t;
-
-typedef struct {
-  ambilight_led_fx_type_t type;
-  SemaphoreHandle_t done_sem; /* pouze SAFE_MODE: synchronizace s volajícím */
-} ambilight_led_fx_msg_t;
-
-static QueueHandle_t s_led_fx_queue;
-
-static void ambilight_led_fx_task(void *arg) {
-  (void)arg;
-  ambilight_led_fx_msg_t m;
-  for (;;) {
-    if (xQueueReceive(s_led_fx_queue, &m, portMAX_DELAY) != pdTRUE) {
-      continue;
-    }
-
-    if (m.type == LED_FX_GOT_IP_GREEN) {
-      for (int k = 0; k < 3; k++) {
-        xSemaphoreTake(led_mutex, portMAX_DELAY);
-        led_strip_fill_logical_rgb(0, 76, 0);
-        xSemaphoreGive(led_mutex);
-        vTaskDelay(pdMS_TO_TICKS(200));
-        xSemaphoreTake(led_mutex, portMAX_DELAY);
-        led_strip_fill_logical_rgb(0, 0, 0);
-        xSemaphoreGive(led_mutex);
-        vTaskDelay(pdMS_TO_TICKS(200));
-      }
-      xSemaphoreTake(led_mutex, portMAX_DELAY);
-      update_leds(255);
-      xSemaphoreGive(led_mutex);
-      if (!g_ap_disabled_after_connection) {
-        ESP_LOGI(TAG, "Connected to Wi-Fi. Switching to STA only.");
-        esp_wifi_set_mode(WIFI_MODE_STA);
-        g_ap_disabled_after_connection = true;
-      }
-    } else if (m.type == LED_FX_MAX_RETRIES_RED) {
-      for (int k = 0; k < 3; k++) {
-        xSemaphoreTake(led_mutex, portMAX_DELAY);
-        led_strip_fill_logical_rgb(76, 0, 0);
-        xSemaphoreGive(led_mutex);
-        vTaskDelay(pdMS_TO_TICKS(200));
-        xSemaphoreTake(led_mutex, portMAX_DELAY);
-        led_strip_fill_logical_rgb(0, 0, 0);
-        xSemaphoreGive(led_mutex);
-        vTaskDelay(pdMS_TO_TICKS(200));
-      }
-      xSemaphoreTake(led_mutex, portMAX_DELAY);
-      update_leds(0);
-      xSemaphoreGive(led_mutex);
-      esp_wifi_set_mode(WIFI_MODE_APSTA);
-      g_ap_disabled_after_connection = false;
-      if (s_wifi_event_group) {
-        xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-      }
-    } else if (m.type == LED_FX_SAFE_MODE_RED) {
-      for (int k = 0; k < 5; k++) {
-        xSemaphoreTake(led_mutex, portMAX_DELAY);
-        led_strip_fill_logical_rgb(76, 0, 0);
-        xSemaphoreGive(led_mutex);
-        vTaskDelay(pdMS_TO_TICKS(500));
-        xSemaphoreTake(led_mutex, portMAX_DELAY);
-        led_strip_fill_logical_rgb(0, 0, 0);
-        xSemaphoreGive(led_mutex);
-        vTaskDelay(pdMS_TO_TICKS(500));
-      }
-    }
-
-    if (m.done_sem) {
-      xSemaphoreGive(m.done_sem);
-    }
-  }
-}
-
-static void ambilight_led_fx_init(void) {
-  if (s_led_fx_queue) {
-    return;
-  }
-  s_led_fx_queue =
-      xQueueCreate(LED_FX_QUEUE_DEPTH, sizeof(ambilight_led_fx_msg_t));
-  if (!s_led_fx_queue) {
-    ESP_LOGE(TAG, "[led_fx] xQueueCreate failed");
-    return;
-  }
-  if (xTaskCreate(ambilight_led_fx_task, "led_fx", 4096, NULL, 5, NULL) !=
-      pdPASS) {
-    ESP_LOGE(TAG, "[led_fx] xTaskCreate failed");
-    vQueueDelete(s_led_fx_queue);
-    s_led_fx_queue = NULL;
-    return;
-  }
-  ESP_LOGI(TAG, "[led_fx] worker started");
-}
-
-static bool ambilight_led_fx_post(const ambilight_led_fx_msg_t *msg,
-                                  TickType_t wait_ticks) {
-  if (!s_led_fx_queue) {
-    ESP_LOGW(TAG, "[led_fx] post before init");
-    return false;
-  }
-  return xQueueSend(s_led_fx_queue, msg, wait_ticks) == pdTRUE;
 }
 
 // ============ HTTP SERVER ============
@@ -734,8 +422,7 @@ esp_err_t scan_get_handler(httpd_req_t *req) {
         .ssid = 0, .bssid = 0, .channel = 0, .show_hidden = false};
     if (!g_is_provisioned) {
       esp_wifi_disconnect(); // Ensure we are not in a 'Connecting' state
-      vTaskDelay(pdMS_TO_TICKS(30));
-      taskYIELD();
+      vTaskDelay(pdMS_TO_TICKS(100));
     }
 
     // NON-BLOCKING call
@@ -1150,14 +837,25 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t id,
     if (g_connection_retries > MAX_RETRIES) {
       ESP_LOGW(TAG, "Connection Failed (Max Retries). Fallback to APSTA.");
 
-      ambilight_led_fx_msg_t fx = {.type = LED_FX_MAX_RETRIES_RED,
-                                 .done_sem = NULL};
-      if (!ambilight_led_fx_post(&fx, pdMS_TO_TICKS(200))) {
-        ESP_LOGW(TAG, "[led_fx] queue full → APSTA bez animace");
-        esp_wifi_set_mode(WIFI_MODE_APSTA);
-        g_ap_disabled_after_connection = false;
-        xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+      // Visual Feedback: Red Flash (Failure) - 50% Brightness
+      xSemaphoreTake(led_mutex, portMAX_DELAY);
+      for (int k = 0; k < 3; k++) {
+        for (int i = 0; i < LED_STRIP_NUM_LEDS; i++)
+          led_strip_set_pixel(led_strip, i, 76, 0, 0); // 30% RED
+        led_strip_refresh(led_strip);
+        vTaskDelay(pdMS_TO_TICKS(200));
+        led_strip_clear(led_strip);
+        led_strip_refresh(led_strip);
+        vTaskDelay(pdMS_TO_TICKS(200));
       }
+      update_leds(0); // OFF
+      xSemaphoreGive(led_mutex);
+
+      // Fallback to APSTA (Web Server accessible)
+      esp_wifi_set_mode(WIFI_MODE_APSTA);
+      g_ap_disabled_after_connection = false;
+      // Stop Retrying
+      xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
       return;
     }
 
@@ -1212,15 +910,25 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t id,
     // Start MQTT
     start_mqtt();
 
-    /* Zelená + přechod STA-only v [ambilight_led_fx_task] (neblokuje sys_evt). */
-    ambilight_led_fx_msg_t fx = {.type = LED_FX_GOT_IP_GREEN, .done_sem = NULL};
-    if (!ambilight_led_fx_post(&fx, pdMS_TO_TICKS(200))) {
-      ESP_LOGW(TAG, "[led_fx] GOT_IP anim queue full → jen STA switch");
-      if (!g_ap_disabled_after_connection) {
-        ESP_LOGI(TAG, "Connected to Wi-Fi. Switching to STA only.");
-        esp_wifi_set_mode(WIFI_MODE_STA);
-        g_ap_disabled_after_connection = true;
-      }
+    // VISUAL INDICATION: Green Flash (3x) - 50% Brightness
+    xSemaphoreTake(led_mutex, portMAX_DELAY);
+    for (int k = 0; k < 3; k++) {
+      for (int i = 0; i < LED_STRIP_NUM_LEDS; i++)
+        led_strip_set_pixel(led_strip, i, 0, 76, 0); // 30% Green
+      led_strip_refresh(led_strip);
+      vTaskDelay(pdMS_TO_TICKS(200));
+      led_strip_clear(led_strip);
+      led_strip_refresh(led_strip);
+      vTaskDelay(pdMS_TO_TICKS(200));
+    }
+    update_leds(255); // Restore
+    xSemaphoreGive(led_mutex);
+
+    // Switch to STA Mode only to save AP overhead
+    if (!g_ap_disabled_after_connection) {
+      ESP_LOGI(TAG, "Connected to Wi-Fi. Switching to STA only.");
+      esp_wifi_set_mode(WIFI_MODE_STA);
+      g_ap_disabled_after_connection = true;
     }
   } else if (base == WIFI_EVENT) {
     ESP_LOGI(TAG, "[wifi] other event id=%ld", (long)id);
@@ -1270,37 +978,18 @@ void start_wifi_subsystem() {
              "BOOT LOOP DETECTED (Count: %d). Forcing Safe Mode (AP Only).",
              boot_count);
     force_safe_mode = true;
-    SemaphoreHandle_t done = xSemaphoreCreateBinary();
-    if (done) {
-      ambilight_led_fx_msg_t fx = {.type = LED_FX_SAFE_MODE_RED, .done_sem = done};
-      if (ambilight_led_fx_post(&fx, portMAX_DELAY)) {
-        (void)xSemaphoreTake(done, portMAX_DELAY);
-      } else {
-        ESP_LOGW(TAG, "[led_fx] safe mode post failed → inline blink");
-        for (int k = 0; k < 5; k++) {
-          xSemaphoreTake(led_mutex, portMAX_DELAY);
-          led_strip_fill_logical_rgb(76, 0, 0);
-          xSemaphoreGive(led_mutex);
-          vTaskDelay(pdMS_TO_TICKS(500));
-          xSemaphoreTake(led_mutex, portMAX_DELAY);
-          led_strip_fill_logical_rgb(0, 0, 0);
-          xSemaphoreGive(led_mutex);
-          vTaskDelay(pdMS_TO_TICKS(500));
-        }
-      }
-      vSemaphoreDelete(done);
-    } else {
-      for (int k = 0; k < 5; k++) {
-        xSemaphoreTake(led_mutex, portMAX_DELAY);
-        led_strip_fill_logical_rgb(76, 0, 0);
-        xSemaphoreGive(led_mutex);
-        vTaskDelay(pdMS_TO_TICKS(500));
-        xSemaphoreTake(led_mutex, portMAX_DELAY);
-        led_strip_fill_logical_rgb(0, 0, 0);
-        xSemaphoreGive(led_mutex);
-        vTaskDelay(pdMS_TO_TICKS(500));
-      }
+    // Visual Indication: RED Slow Pulse
+    xSemaphoreTake(led_mutex, portMAX_DELAY);
+    for (int k = 0; k < 5; k++) {
+      for (int i = 0; i < LED_STRIP_NUM_LEDS; i++)
+        led_strip_set_pixel(led_strip, i, 76, 0, 0); // 30% Red
+      led_strip_refresh(led_strip);
+      vTaskDelay(pdMS_TO_TICKS(500));
+      led_strip_clear(led_strip);
+      led_strip_refresh(led_strip);
+      vTaskDelay(pdMS_TO_TICKS(500));
     }
+    xSemaphoreGive(led_mutex);
   } else {
     ESP_LOGI(TAG, "Boot Count: %d (Healthy)", boot_count);
   }
@@ -1399,10 +1088,10 @@ void start_wifi_subsystem() {
     strncpy((char *)sta_cfg.sta.password, pass, 64);
     ESP_LOGI(TAG, "Connecting to %s", ssid);
 
-    /* Oranžová „připojuji se“: bez sync bufferů ji temporal timer během
-     * esp_wifi_set_mode / start přepíše na černo během stovek ms. */
     xSemaphoreTake(led_mutex, portMAX_DELAY);
-    led_strip_fill_logical_rgb(76, 40, 0);
+    for (int i = 0; i < LED_STRIP_NUM_LEDS; i++)
+      led_strip_set_pixel(led_strip, i, 76, 40, 0); // 30% Orange
+    led_strip_refresh(led_strip);
     xSemaphoreGive(led_mutex);
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
@@ -1445,54 +1134,6 @@ void stop_wifi_subsystem() {
   esp_wifi_stop(); // Turns off radio
   ESP_LOGI(TAG, "[wifi] radio stopped");
   ambi_log_heap("wifi_stop_done");
-}
-
-// ============ PC → MQTT / Home Assistant handoff ============
-/// Jednobajt `0xF0` po USB nebo UDP: PC ukončil výstup / přepnul „vypnuto“ — okamžitě uvolnit
-/// sériovou prioritu a starý watchdog, publikovat stav na MQTT a obnovit barvu z HA proměnných.
-static void ambilight_pc_release_handoff(const char *reason) {
-  g_last_serial_interaction = 0;
-  g_last_data_interaction = esp_timer_get_time() - (10LL * 1000000LL);
-  g_controller_ip = 0;
-  g_last_controller_time = 0;
-
-  ESP_LOGI(TAG, "[pc_release] %s → handoff MQTT/Home", reason ? reason : "?");
-
-  if (g_mqtt_connected && mqtt_client) {
-    char state_topic[64];
-    snprintf(state_topic, sizeof(state_topic), "alfred/devices/%s/power/state",
-             g_device_id);
-    esp_mqtt_client_publish(mqtt_client, state_topic,
-                            g_home_power ? "true" : "false", 0, 1, 0);
-    snprintf(state_topic, sizeof(state_topic), "alfred/devices/%s/color/state",
-             g_device_id);
-    char c_str[32];
-    snprintf(c_str, sizeof(c_str), "%d,%d,%d", g_home_color.r, g_home_color.g,
-             g_home_color.b);
-    esp_mqtt_client_publish(mqtt_client, state_topic, c_str, 0, 1, 0);
-  }
-
-  if (ambilight_ota_in_progress()) {
-    return;
-  }
-
-  if (!g_mqtt_connected) {
-    return;
-  }
-
-  xSemaphoreTake(led_mutex, portMAX_DELAY);
-  if (g_home_power) {
-    float factor = g_home_bri / 100.0f;
-    uint8_t r = (uint8_t)(g_home_color.r * factor);
-    uint8_t g = (uint8_t)(g_home_color.g * factor);
-    uint8_t b = (uint8_t)(g_home_color.b * factor);
-    led_strip_fill_logical_rgb(r, g, b);
-  } else {
-    led_strip_clear(led_strip);
-    led_strip_refresh(led_strip);
-    ambilight_buffers_all_black();
-  }
-  xSemaphoreGive(led_mutex);
 }
 
 // ============ TASKS ============
@@ -1569,7 +1210,6 @@ void task_monitor(void *arg) {
             } else {
               led_strip_clear(led_strip);
               led_strip_refresh(led_strip);
-              ambilight_buffers_all_black();
             }
             xSemaphoreGive(led_mutex);
             s_has_restored_home = true;
@@ -1610,12 +1250,12 @@ void task_serial(void *arg) {
 
   int a5_stage = 0;
   uint8_t a5_lo = 0;
-  bool serial_expect_f1_mode = false;
 
   while (1) {
     int len = usb_serial_jtag_read_bytes(buf, sizeof(buf), pdMS_TO_TICKS(20));
 
     if (len > 0) {
+      g_last_serial_interaction = esp_timer_get_time();
       ESP_LOGD(TAG, "[serial] rx %d bytes (state=%d a5_stage=%d)", len,
                (int)state, a5_stage);
 
@@ -1646,48 +1286,6 @@ void task_serial(void *arg) {
         }
 
         if (state == ST_IDLE) {
-          /* 0xAA musí být první v IDLE — jinak částečná 0xF1 / 0xA5… sekvence „sežere“
-           * ping a COM/JTAG discovery (0xAA→0xBB) nikdy neodpoví. */
-          if (b == 0xAA) {
-            serial_expect_f1_mode = false;
-            a5_stage = 0;
-            uint8_t pong = 0xBB;
-            usb_serial_jtag_write_bytes(&pong, 1, pdMS_TO_TICKS(10));
-            ESP_LOGI(TAG, "[serial] PING 0xAA → PONG 0xBB");
-            memset(led_colors, 0, sizeof(led_colors));
-            memset(led_display, 0, sizeof(led_display));
-            led_colors[0].g = 50;
-            led_display[0].g = 50;
-            dirty = true;
-            frame_complete = true;
-            if (g_mqtt_connected) {
-              char state_topic[64];
-              snprintf(state_topic, sizeof(state_topic),
-                       "alfred/devices/%s/power/state", g_device_id);
-              esp_mqtt_client_publish(mqtt_client, state_topic, "true", 0, 1,
-                                      0);
-            }
-            continue;
-          }
-          if (serial_expect_f1_mode) {
-            serial_expect_f1_mode = false;
-            uint8_t mode = b;
-            if (mode <= 2) {
-              xSemaphoreTake(led_mutex, portMAX_DELAY);
-              g_amb_temp_mode = mode;
-              (void)ambilight_temporal_save_to_nvs(mode);
-              memcpy(led_display, led_colors, sizeof(led_display));
-              xSemaphoreGive(led_mutex);
-              ambilight_temporal_configure_timer();
-              uint8_t ack[2] = {0xF1, mode};
-              usb_serial_jtag_write_bytes(ack, 2, pdMS_TO_TICKS(10));
-            }
-            continue;
-          }
-          if (b == 0xF1) {
-            serial_expect_f1_mode = true;
-            continue;
-          }
           if (a5_stage == 0 && b == 0xA5) {
             a5_stage = 1;
             continue;
@@ -1721,15 +1319,26 @@ void task_serial(void *arg) {
             continue;
           }
 
-          if (b == 0xF0) {
-            ambilight_pc_release_handoff("serial_0xF0");
-            a5_stage = 0;
+          if (b == 0xAA) {
+            uint8_t pong = 0xBB;
+            usb_serial_jtag_write_bytes(&pong, 1, pdMS_TO_TICKS(10));
+            ESP_LOGI(TAG, "[serial] PING 0xAA → PONG 0xBB");
+            memset(led_colors, 0, sizeof(led_colors));
+            led_colors[0].g = 50;
+            dirty = true;
+            frame_complete = true;
+            if (g_mqtt_connected) {
+              char state_topic[64];
+              snprintf(state_topic, sizeof(state_topic),
+                       "alfred/devices/%s/power/state", g_device_id);
+              esp_mqtt_client_publish(mqtt_client, state_topic, "true", 0, 1,
+                                      0);
+            }
           }
           continue;
         }
 
         if (state == ST_LEGACY) {
-          ambilight_serial_mark_led_stream_activity();
           tuple4[tuple_pos++] = b;
           if (tuple_pos == 4) {
             uint8_t idx = tuple4[0];
@@ -1746,7 +1355,6 @@ void task_serial(void *arg) {
         }
 
         if (state == ST_WIDE) {
-          ambilight_serial_mark_led_stream_activity();
           tuple5[tuple_pos++] = b;
           if (tuple_pos == 5) {
             uint16_t idx = tuple5[0] | ((uint16_t)tuple5[1] << 8);
@@ -1778,7 +1386,6 @@ void task_serial(void *arg) {
     } else {
       if ((state == ST_LEGACY || state == ST_WIDE) && dirty) {
         ESP_LOGD(TAG, "[serial] idle flush legacy/wide partial frame");
-        ambilight_serial_mark_led_stream_activity();
         if (!ambilight_ota_in_progress()) {
           xSemaphoreTake(led_mutex, portMAX_DELAY);
           update_leds(255);
@@ -1802,14 +1409,11 @@ void task_serial(void *arg) {
  *   0x06 | idx_hi idx_lo | (R,G,B)×k → jen zápis do led_colors[], BEZ refresh
  *   0x08 | bri | total_hi total_lo → clear_tail(logical) + update_leds(bri)
  *   0x03 | idx_hi idx_lo | R,G,B   → jeden pixel + refresh (kalibrace)
- *   0xF0 | (jen tento bajt)       → PC uvolní řízení → MQTT / Home Assistant
- *   0xF1 | uint8 mode (0..2)      → časové vyhlazování FW (NVS) + ACK stejnými 2 bajty (UDP i sériově)
  *
  * Proč se data „zahazují“ (paket zpracován bez změny pásku / bez zápisu):
  *   1) OTA probíhá → veškeré RGB příkazy ignorovány.
- *   2) Serial priority: nedávno skutečný LED stream po USB-JTAG (legacy/wide),
- *      ne ping 0xAA / 0xF1 (SERIAL_TIMEOUT_US) → jinak by COM scan v desktopu
- *      zablokoval UDP.
+ *   2) Serial priority: byl nedávno rámec po USB-JTAG (SERIAL_TIMEOUT_US) → UDP
+ *      RGB se ignoruje (USB má přednost).
  *   3) Controller lock: už řídí jiná IP; od té doby max 2 s bez paketu od ní se
  *      lock uvolní. Jiná IP je dropnutá (anti-flicker).
  *   4) Throttle 15 ms: sdílený časovač mezi 0x02 a 0x08 — mezi dvěma refresh
@@ -1937,15 +1541,9 @@ void task_udp(void *arg) {
         ESP_LOGW(TAG, "[udp] recvfrom errno=%d", errno);
       }
 
-      /* Drain jen vysoký tok 0x02/0x06/0x08. Text DISCOVER_ESP32 / 0xF1 / 0x03 …
-       * nesmí přepsat posledním stream paketem — jinak PONG nikdy neodejde. */
       if (len > 0) {
-        const uint8_t b0 = (uint8_t)rx_buffer[0];
-        const bool high_rate_rgb_op = (b0 == 0x02 || b0 == 0x06 || b0 == 0x08);
-        if (high_rate_rgb_op) {
-          udp_drain_recv_queue_to_latest(sock, rx_buffer, sizeof(rx_buffer),
-                                         &source_addr, &socklen, &len);
-        }
+        udp_drain_recv_queue_to_latest(sock, rx_buffer, sizeof(rx_buffer),
+                                       &source_addr, &socklen, &len);
       }
 
       // Check if we need to restore HOME MODE (Silence detected)
@@ -1986,23 +1584,6 @@ void task_udp(void *arg) {
       }
 
       if (len > 0) {
-        if (len == 2 && (uint8_t)rx_buffer[0] == 0xF1) {
-          uint8_t mode = (uint8_t)rx_buffer[1];
-          if (mode <= 2) {
-            xSemaphoreTake(led_mutex, portMAX_DELAY);
-            g_amb_temp_mode = mode;
-            (void)ambilight_temporal_save_to_nvs(mode);
-            memcpy(led_display, led_colors, sizeof(led_display));
-            xSemaphoreGive(led_mutex);
-            ambilight_temporal_configure_timer();
-            uint8_t ack[2] = {0xF1, mode};
-            (void)sendto(sock, ack, sizeof(ack), 0,
-                         (struct sockaddr *)&source_addr, socklen);
-            ESP_LOGI(TAG, "[udp] 0xF1 temporal mode=%u (from %s)", (unsigned)mode,
-                     inet_ntoa(source_addr.sin_addr));
-          }
-          continue;
-        }
         s_udp_rx_total++;
         if ((s_udp_rx_total % 400u) == 0u) {
           ESP_LOGI(TAG, "[udp] rx_total=%lu last_len=%d from=%s",
@@ -2053,21 +1634,15 @@ void task_udp(void *arg) {
           uint8_t mac[6];
           esp_wifi_get_mac(WIFI_IF_STA, mac);
           /* Fixed stack buffer; snprintf bounds; inet_ntoa(struct in_addr) — not .s_addr */
-          char resp[192];
+          char resp[96];
           ESP_LOGI(TAG, "Discovery Broadcast Received from %s",
                    inet_ntoa(source_addr.sin_addr));
-          const esp_app_desc_t *app = esp_app_get_description();
-          const char *fwv =
-              (app != NULL && app->magic_word == ESP_APP_DESC_MAGIC_WORD)
-                  ? app->version
-                  : "?";
-          /* |ledCount|FW_VER z image|2.1|temporal| — dříve 4. pole bylo jen „2.1“ (protokol), UI bralo jako FW. */
-          int plen = snprintf(
-              resp, sizeof(resp),
-              "ESP32_PONG|%02x%02x%02x|Ambilight_%02x|%u|%.31s|2.1|%u",
-              (unsigned)mac[3], (unsigned)mac[4], (unsigned)mac[5],
-              (unsigned)mac[5], (unsigned)g_serial_strip_max, fwv,
-              (unsigned)g_amb_temp_mode);
+          /* ledCount = logická délka z USB 0xA5 0x5A (g_serial_strip_max) */
+          int plen =
+              snprintf(resp, sizeof(resp),
+                       "ESP32_PONG|%02x%02x%02x|Ambilight_%02x|%u|2.0",
+                       (unsigned)mac[3], (unsigned)mac[4], (unsigned)mac[5],
+                       (unsigned)mac[5], (unsigned)g_serial_strip_max);
           if (plen <= 0 || (size_t)plen >= sizeof(resp)) {
             ESP_LOGW(TAG, "Discovery PONG snprintf invalid/truncated plen=%d", plen);
             continue;
@@ -2078,11 +1653,6 @@ void task_udp(void *arg) {
             ESP_LOGE(TAG, "Failed to send PONG: %d", errno);
           else
             ESP_LOGI(TAG, "Sent PONG (%d B): %s", sent, resp);
-          continue;
-        }
-
-        if (len == 1 && (uint8_t)rx_buffer[0] == 0xF0) {
-          ambilight_pc_release_handoff("udp_0xF0");
           continue;
         }
 
@@ -2104,18 +1674,18 @@ void task_udp(void *arg) {
         if (len >= 10 && strncmp(rx_buffer, "RESET_WIFI", 10) == 0) {
           ESP_LOGW(TAG, "RESET_WIFI Requested!");
 
-          /* Rychlé červené bliknutí přes [led_strip_fill_logical_rgb] + mutex jen
-           * na kreslení (soulad s temporal; bez držení mutexu přes delay). */
+          // Visual Feedback: Red Flash (Rapid)
+          xSemaphoreTake(led_mutex, portMAX_DELAY);
           for (int k = 0; k < 5; k++) {
-            xSemaphoreTake(led_mutex, portMAX_DELAY);
-            led_strip_fill_logical_rgb(255, 0, 0);
-            xSemaphoreGive(led_mutex);
+            for (int i = 0; i < LED_STRIP_NUM_LEDS; i++)
+              led_strip_set_pixel(led_strip, i, 255, 0, 0);
+            led_strip_refresh(led_strip);
             vTaskDelay(pdMS_TO_TICKS(100));
-            xSemaphoreTake(led_mutex, portMAX_DELAY);
-            led_strip_fill_logical_rgb(0, 0, 0);
-            xSemaphoreGive(led_mutex);
+            led_strip_clear(led_strip);
+            led_strip_refresh(led_strip);
             vTaskDelay(pdMS_TO_TICKS(100));
           }
+          xSemaphoreGive(led_mutex);
 
           // Erase Credentials
           erase_wifi_creds();
@@ -2165,10 +1735,9 @@ void task_udp(void *arg) {
             led_colors[idx].r = r;
             led_colors[idx].g = g;
             led_colors[idx].b = b_val;
-            memcpy(led_display, led_colors, sizeof(led_display));
-            g_last_pc_brightness = 255;
-            /* Kalibrace: ostrý snímek bez dalšího EMA kroku v tomto volání. */
-            ambilight_push_led_display_to_strip(255);
+            // Update strip immediately with max brightness for calibration
+            // visibility
+            update_leds(255);
             xSemaphoreGive(led_mutex);
             udp_pc_accept(0x03, len, ip_pc, &s_udp_pc_accept_03);
           } else {
@@ -2530,14 +2099,8 @@ void led_init(void) {
   };
   ESP_ERROR_CHECK(
       led_strip_new_spi_device(&strip_config, &spi_config, &led_strip));
-  if (led_mutex != NULL) {
-    xSemaphoreTake(led_mutex, portMAX_DELAY);
-  }
   led_strip_clear(led_strip);
   led_strip_refresh(led_strip);
-  if (led_mutex != NULL) {
-    xSemaphoreGive(led_mutex);
-  }
   ESP_LOGI(TAG, "[led] strip driver ready");
   ambi_log_heap("led_init_done");
 }
@@ -2550,13 +2113,12 @@ void update_leds(uint8_t global_brightness) {
              (unsigned long)s_update_leds_calls,
              (unsigned)global_brightness);
   }
-  g_last_pc_brightness = global_brightness;
-  if (g_amb_temp_mode == 0 || ambilight_ota_in_progress()) {
-    memcpy(led_display, led_colors, sizeof(led_display));
-  } else {
-    ambilight_temporal_blend_tick();
+  float scale = global_brightness / 255.0;
+  for (int i = 0; i < LED_STRIP_NUM_LEDS; i++) {
+    led_strip_set_pixel(led_strip, i, led_colors[i].r * scale,
+                        led_colors[i].g * scale, led_colors[i].b * scale);
   }
-  ambilight_push_led_display_to_strip(global_brightness);
+  led_strip_refresh(led_strip);
 }
 
 void disable_onboard_leds() {
@@ -2594,24 +2156,7 @@ void app_main(void) {
   ESP_LOGI(TAG, "[boot] mutex init heap:");
   ambi_log_heap("app_main_pre_led");
 
-  ambilight_temporal_load_from_nvs();
-  ESP_LOGI(TAG, "[temporal] boot mode=%u smooth_ms=%u",
-           (unsigned)g_amb_temp_mode, (unsigned)g_amb_temp_smooth_ms);
-
   led_init();
-
-  const esp_timer_create_args_t amb_temp_timer_args = {
-      .callback = &ambilight_temporal_timer_cb,
-      .name = "amb_temp",
-  };
-  esp_err_t terr = esp_timer_create(&amb_temp_timer_args, &s_amb_temporal_timer);
-  if (terr != ESP_OK) {
-    ESP_LOGW(TAG, "[temporal] esp_timer_create failed: %s",
-             esp_err_to_name(terr));
-    s_amb_temporal_timer = NULL;
-  }
-  /* Periodic timer nesmí běžet během boot animace v app_main (led_strip_* bez mutexu)
-   * — kolize SPI s ambilight_temporal_timer_cb → spi_master assert ret_trans==trans_desc. */
 
   // Init Wi-Fi Driver once
   esp_netif_init();
@@ -2625,7 +2170,6 @@ void app_main(void) {
   esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
                                       &event_handler, NULL, NULL);
   s_wifi_event_group = xEventGroupCreate();
-  ambilight_led_fx_init();
 
   // Start Tasks MOVED to after Boot Anim to prevent Concurrency Crash
 
@@ -2638,22 +2182,15 @@ void app_main(void) {
     const int n = LED_STRIP_NUM_LEDS;
     ESP_LOGI(TAG, "Boot: modré probliknutí všech %d LED (~%d ms)", n,
              BOOT_POST_FLASH_BLUE_BLINK_ON_MS);
-    xSemaphoreTake(led_mutex, portMAX_DELAY);
     for (int i = 0; i < n; i++) {
       led_strip_set_pixel(led_strip, i, 0, 0, 50);
     }
     led_strip_refresh(led_strip);
-    xSemaphoreGive(led_mutex);
     vTaskDelay(pdMS_TO_TICKS(BOOT_POST_FLASH_BLUE_BLINK_ON_MS));
     taskYIELD();
-    xSemaphoreTake(led_mutex, portMAX_DELAY);
-    led_strip_clear(led_strip);
-    led_strip_refresh(led_strip);
-    /* Po přímém kreslení na pásek srovnat buffery — temporal po startu WiFi
-     * jinak může krátce „vrátit“ starý obsah z [led_display]. */
-    ambilight_buffers_all_black();
-    xSemaphoreGive(led_mutex);
   }
+  led_strip_clear(led_strip);
+  led_strip_refresh(led_strip);
 
   ESP_LOGI(TAG, "Boot LED signál hotový. Spouštím úlohy...");
 
@@ -2669,10 +2206,6 @@ void app_main(void) {
 
   // Start Wi-Fi immediately (Concurrent Mode)
   start_wifi_subsystem();
-
-  /* Temporal timer až po WiFi startu: jinak periodic refresh maže oranžovou
-   * „připojuji se“ indikaci (a další LED stavy) během scanu / STA startu. */
-  ambilight_temporal_configure_timer();
 
   ESP_LOGI(TAG, "System Ready. Serial & Wi-Fi Active.");
   ambi_log_runtime_state("app_main_ready");
@@ -2874,7 +2407,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
       } else {
         led_strip_clear(led_strip);
         led_strip_refresh(led_strip);
-        ambilight_buffers_all_black();
       }
       xSemaphoreGive(led_mutex);
     }
