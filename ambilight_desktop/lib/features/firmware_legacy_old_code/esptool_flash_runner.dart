@@ -211,11 +211,16 @@ abstract final class EsptoolFlashRunner {
     for (final part in ordered) {
       if (part.offset.isEmpty || part.file.isEmpty) continue;
       final offKey = part.offset.trim();
+      final fp = p.normalize(p.join(root, part.file));
       if (completed.contains(offKey)) {
+        if (!File(fp).existsSync()) {
+          await _deleteCheckpoint(root);
+          return (false, '${logBuf}Chybí soubor pro už zapsaný oddíl v checkpointu: $fp\n'
+              'Smaž cache / znovu stáhni binárky a spusť flash znovu.');
+        }
         logBuf.writeln('Přeskakuji $offKey ${part.file} (už v checkpointu).');
         continue;
       }
-      final fp = p.normalize(p.join(root, part.file));
       if (!File(fp).existsSync()) {
         return (false, '${logBuf}Chybí soubor: $fp');
       }
