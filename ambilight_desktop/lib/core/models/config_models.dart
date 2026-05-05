@@ -581,7 +581,7 @@ class ScreenModeSettings {
     this.scanDepthPercent = 10,
     this.paddingPercent = 5,
     this.saturationBoost = 1.2,
-    this.ultraSaturation = false,
+    this.ultraSaturation = true,
     this.ultraSaturationAmount = 2.5,
     this.minBrightness = 10,
     this.interpolationMs = 100,
@@ -687,6 +687,7 @@ class ScreenModeSettings {
       scanDepthPercent: asInt(j['scan_depth_percent'], 10),
       paddingPercent: asInt(j['padding_percent'], 5),
       saturationBoost: asDouble(j['saturation_boost'], 1.2),
+      // Migration safety: legacy saved configs without this key keep historical OFF fallback.
       ultraSaturation: asBool(j['ultra_saturation'], false),
       ultraSaturationAmount: asDouble(j['ultra_saturation_amount'], 2.5),
       minBrightness: asInt(j['min_brightness'], 10),
