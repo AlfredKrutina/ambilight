@@ -233,9 +233,10 @@ class AmbilightAppController extends ChangeNotifier {
   int? _pendingSettingsTabIndex;
 
   /// Indexy záložek [SettingsPage] — musí odpovídat `tabChild` / `_tabCount` v `settings_page.dart`.
-  static const int settingsTabSpotify = 6;
-  static const int settingsTabSmartIntegration = 7;
-  static const int settingsTabFirmware = 8;
+  /// Záložka „Zařízení“ je na stránce [DevicesPage], ne v nastavení.
+  static const int settingsTabSpotify = 5;
+  static const int settingsTabSmartIntegration = 6;
+  static const int settingsTabFirmware = 7;
   int _reconnectCounter = 0;
   final SpotifyService spotify = SpotifyService();
   final SystemMediaNowPlayingService systemMediaNowPlaying = SystemMediaNowPlayingService();
@@ -244,7 +245,8 @@ class AmbilightAppController extends ChangeNotifier {
   PcHealthSnapshot _pcHealthSnapshot = PcHealthSnapshot.empty;
   Timer? _pcHealthTimer;
 
-  /// C11 — zmrazí výstup do zařízení v music módu (parita `AppState.music_color_lock` / tray v PyQt).
+  /// C11 — zmrazí **celý RGB výstup na pásku** (snapshot po zařízeních); hudba se dál analyzuje, jen LED obraz se neposouvá.
+  /// Parita `AppState.music_color_lock` / tray v PyQt — nejde o „vypnutí barev“, ale o držení posledního snímku.
   bool _musicPaletteLockCapturePending = false;
   Map<String, List<(int, int, int)>>? _musicPaletteFrozenDeviceColors;
 
@@ -1022,6 +1024,13 @@ class AmbilightAppController extends ChangeNotifier {
     }
   }
 
+  /// Zruší odložený zápis z [queueConfigApply] a okamžitě uloží profil (např. před [exit] z tray).
+  Future<void> flushPersistToDisk() async {
+    _persistDiskDebounceTimer?.cancel();
+    _persistDiskDebounceTimer = null;
+    await save();
+  }
+
   void setEnabled(bool v) {
     final wasEnabled = _enabled;
     _enabled = v;
@@ -1069,7 +1078,7 @@ class AmbilightAppController extends ChangeNotifier {
     return v;
   }
 
-  /// Index záložky v Nastavení (0 = Globální, 1 = Zařízení, 2 = Světlo, …). Volá [SettingsPage] při startu.
+  /// Index záložky v Nastavení (0 = Globální, 1 = Světlo, … — zařízení jsou na stránce Zařízení).
   int? takePendingSettingsTabIndex() {
     final v = _pendingSettingsTabIndex;
     _pendingSettingsTabIndex = null;
@@ -1094,10 +1103,10 @@ class AmbilightAppController extends ChangeNotifier {
   void requestOpenSettingsForStartMode(String startModeId) {
     _pendingShellIndex = 2;
     _pendingSettingsTabIndex = switch (startModeId) {
-      'light' => 2,
-      'screen' => 3,
-      'music' => 4,
-      'pchealth' => 5,
+      'light' => 1,
+      'screen' => 2,
+      'music' => 3,
+      'pchealth' => 4,
       _ => null,
     };
     notifyListeners();
@@ -1105,10 +1114,10 @@ class AmbilightAppController extends ChangeNotifier {
 
   /// Index záložky Nastavení pro [startModeId] (bez změny stavu).
   static int? settingsTabIndexForStartMode(String startModeId) => switch (startModeId) {
-        'light' => 2,
-        'screen' => 3,
-        'music' => 4,
-        'pchealth' => 5,
+        'light' => 1,
+        'screen' => 2,
+        'music' => 3,
+        'pchealth' => 4,
         _ => null,
       };
 
@@ -1244,6 +1253,7 @@ class AmbilightAppController extends ChangeNotifier {
         mid: patch.mid,
         high: patch.high,
         activePreset: patch.activePresetLabel,
+        effect: patch.effect,
       ),
     );
     notifyListeners();

@@ -1133,19 +1133,19 @@ abstract class AppLocalizations {
   /// No description provided for @trayMusicUnlockColors.
   ///
   /// In en, this message translates to:
-  /// **'Unlock colors (music)'**
+  /// **'Unfreeze strip (music)'**
   String get trayMusicUnlockColors;
 
   /// No description provided for @trayMusicCancelLockPending.
   ///
   /// In en, this message translates to:
-  /// **'Cancel color lock (waiting for frame)'**
+  /// **'Cancel freeze (waiting for frame)'**
   String get trayMusicCancelLockPending;
 
   /// No description provided for @trayMusicLockColorsShort.
   ///
   /// In en, this message translates to:
-  /// **'Lock colors (music)'**
+  /// **'Freeze strip output (music)'**
   String get trayMusicLockColorsShort;
 
   /// No description provided for @traySettingsEllipsis.
@@ -1683,6 +1683,150 @@ abstract class AppLocalizations {
   String zoneEditorSegmentTitle(Object index, Object edge, Object ledStart,
       Object ledEnd, Object monitor);
 
+  /// No description provided for @segGeomWizardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Segment placement wizard'**
+  String get segGeomWizardTitle;
+
+  /// No description provided for @segGeomWizardIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a segment, rotate which screen edge it samples, slide the band along that edge, or flip LED order. Rotating the edge resets the capture band to the full edge (LED indices stay the same).'**
+  String get segGeomWizardIntro;
+
+  /// No description provided for @segGeomWizardEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No segments are configured yet. Run the LED mapping wizard first, then fine‑tune placement here.'**
+  String get segGeomWizardEmpty;
+
+  /// No description provided for @segGeomWizardSegmentPicker.
+  ///
+  /// In en, this message translates to:
+  /// **'Segment'**
+  String get segGeomWizardSegmentPicker;
+
+  /// No description provided for @segGeomWizardSegmentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Segment {index}'**
+  String segGeomWizardSegmentLabel(int index);
+
+  /// No description provided for @segGeomWizardLedRange.
+  ///
+  /// In en, this message translates to:
+  /// **'LEDs {start}–{end}'**
+  String segGeomWizardLedRange(int start, int end);
+
+  /// No description provided for @segGeomWizardRotateCwTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Rotate edge clockwise (top → right → bottom → left)'**
+  String get segGeomWizardRotateCwTooltip;
+
+  /// No description provided for @segGeomWizardRotateCcwTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Rotate edge counter‑clockwise'**
+  String get segGeomWizardRotateCcwTooltip;
+
+  /// No description provided for @segGeomWizardReverse.
+  ///
+  /// In en, this message translates to:
+  /// **'Reverse LED order along strip'**
+  String get segGeomWizardReverse;
+
+  /// No description provided for @segGeomWizardWholeEdge.
+  ///
+  /// In en, this message translates to:
+  /// **'Sample the entire edge'**
+  String get segGeomWizardWholeEdge;
+
+  /// No description provided for @segGeomWizardWholeEdgeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn off to limit sampling to part of the edge with the sliders below.'**
+  String get segGeomWizardWholeEdgeSubtitle;
+
+  /// No description provided for @segGeomWizardBandTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Band along edge (reference pixels)'**
+  String get segGeomWizardBandTitle;
+
+  /// No description provided for @segGeomWizardPresetFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Full edge'**
+  String get segGeomWizardPresetFull;
+
+  /// No description provided for @segGeomWizardPresetStartHalf.
+  ///
+  /// In en, this message translates to:
+  /// **'First half'**
+  String get segGeomWizardPresetStartHalf;
+
+  /// No description provided for @segGeomWizardPresetEndHalf.
+  ///
+  /// In en, this message translates to:
+  /// **'Second half'**
+  String get segGeomWizardPresetEndHalf;
+
+  /// No description provided for @segGeomWizardPresetCenterThird.
+  ///
+  /// In en, this message translates to:
+  /// **'Center third'**
+  String get segGeomWizardPresetCenterThird;
+
+  /// No description provided for @segGeomWizardRefFromCapture.
+  ///
+  /// In en, this message translates to:
+  /// **'Match reference size to last capture'**
+  String get segGeomWizardRefFromCapture;
+
+  /// No description provided for @segGeomWizardPreviewCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Sampling region (approximation)'**
+  String get segGeomWizardPreviewCaption;
+
+  /// No description provided for @segGeomWizardPreviewLive.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview uses live capture dimensions'**
+  String get segGeomWizardPreviewLive;
+
+  /// No description provided for @segGeomWizardPreviewRef.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview uses segment reference size'**
+  String get segGeomWizardPreviewRef;
+
+  /// No description provided for @segGeomWizardOpenMapping.
+  ///
+  /// In en, this message translates to:
+  /// **'LED mapping wizard…'**
+  String get segGeomWizardOpenMapping;
+
+  /// No description provided for @segGeomWizardSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Segment geometry saved.'**
+  String get segGeomWizardSaved;
+
+  /// No description provided for @segGeomWizardMonitorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Monitor index'**
+  String get segGeomWizardMonitorTitle;
+
+  /// No description provided for @segGeomWizardLaunchButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Segment placement'**
+  String get segGeomWizardLaunchButton;
+
   /// No description provided for @refDimsFromCapture.
   ///
   /// In en, this message translates to:
@@ -2138,6 +2282,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'View angle offset toward TV: {deg}°'**
   String virtualRoomFacing(Object deg);
+
+  /// No description provided for @virtualRoomEffectLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Effect on smart lights'**
+  String get virtualRoomEffectLabel;
+
+  /// No description provided for @virtualRoomEffectNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get virtualRoomEffectNone;
+
+  /// No description provided for @virtualRoomEffectWave.
+  ///
+  /// In en, this message translates to:
+  /// **'Wave'**
+  String get virtualRoomEffectWave;
+
+  /// No description provided for @virtualRoomEffectBreath.
+  ///
+  /// In en, this message translates to:
+  /// **'Breath'**
+  String get virtualRoomEffectBreath;
+
+  /// No description provided for @virtualRoomEffectChase.
+  ///
+  /// In en, this message translates to:
+  /// **'Chase'**
+  String get virtualRoomEffectChase;
+
+  /// No description provided for @virtualRoomEffectSparkle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sparkle'**
+  String get virtualRoomEffectSparkle;
+
+  /// No description provided for @virtualRoomEffectHintNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Colors and brightness from the engine only — no extra modulation.'**
+  String get virtualRoomEffectHintNone;
+
+  /// No description provided for @virtualRoomEffectHintWave.
+  ///
+  /// In en, this message translates to:
+  /// **'Smooth wave through the room; geometry sets how distance affects phase.'**
+  String get virtualRoomEffectHintWave;
+
+  /// No description provided for @virtualRoomEffectHintBreath.
+  ///
+  /// In en, this message translates to:
+  /// **'All lights pulse together — good when you do not want a spatial pattern.'**
+  String get virtualRoomEffectHintBreath;
+
+  /// No description provided for @virtualRoomEffectHintChase.
+  ///
+  /// In en, this message translates to:
+  /// **'Lights brighten in order along the chosen axis (sorted left-to-right on that axis).'**
+  String get virtualRoomEffectHintChase;
+
+  /// No description provided for @virtualRoomEffectHintSparkle.
+  ///
+  /// In en, this message translates to:
+  /// **'Each light drifts with a slightly different phase for a lively shimmer.'**
+  String get virtualRoomEffectHintSparkle;
+
+  /// No description provided for @virtualRoomGeometryLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Wave / chase axis'**
+  String get virtualRoomGeometryLabel;
+
+  /// No description provided for @virtualRoomGeometryRadial.
+  ///
+  /// In en, this message translates to:
+  /// **'Radial from TV'**
+  String get virtualRoomGeometryRadial;
+
+  /// No description provided for @virtualRoomGeometryAlongView.
+  ///
+  /// In en, this message translates to:
+  /// **'Across your view (perpendicular to gaze)'**
+  String get virtualRoomGeometryAlongView;
+
+  /// No description provided for @virtualRoomGeometryHorizontal.
+  ///
+  /// In en, this message translates to:
+  /// **'Horizontal (toward TV on X)'**
+  String get virtualRoomGeometryHorizontal;
+
+  /// No description provided for @virtualRoomGeometryVertical.
+  ///
+  /// In en, this message translates to:
+  /// **'Vertical (toward TV on Y)'**
+  String get virtualRoomGeometryVertical;
+
+  /// No description provided for @virtualRoomGeometryCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom angle from TV'**
+  String get virtualRoomGeometryCustom;
+
+  /// No description provided for @virtualRoomCustomAngle.
+  ///
+  /// In en, this message translates to:
+  /// **'Axis angle: {deg}°'**
+  String virtualRoomCustomAngle(Object deg);
+
+  /// No description provided for @virtualRoomBrightnessModLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply modulation to'**
+  String get virtualRoomBrightnessModLabel;
+
+  /// No description provided for @virtualRoomBrightnessBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'Color and brightness'**
+  String get virtualRoomBrightnessBoth;
+
+  /// No description provided for @virtualRoomBrightnessRgb.
+  ///
+  /// In en, this message translates to:
+  /// **'Color only'**
+  String get virtualRoomBrightnessRgb;
+
+  /// No description provided for @virtualRoomBrightnessBri.
+  ///
+  /// In en, this message translates to:
+  /// **'Brightness only'**
+  String get virtualRoomBrightnessBri;
+
+  /// No description provided for @virtualRoomPreviewToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Animated preview'**
+  String get virtualRoomPreviewToggle;
+
+  /// No description provided for @virtualRoomPreviewSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Bulb icons use the same math as Home Assistant / HomeKit output.'**
+  String get virtualRoomPreviewSubtitle;
+
+  /// No description provided for @virtualRoomDragTv.
+  ///
+  /// In en, this message translates to:
+  /// **'TV (drag)'**
+  String get virtualRoomDragTv;
+
+  /// No description provided for @virtualRoomDragUser.
+  ///
+  /// In en, this message translates to:
+  /// **'You (drag)'**
+  String get virtualRoomDragUser;
 
   /// No description provided for @scanOverlaySettingsTitle.
   ///
@@ -3582,25 +3882,25 @@ abstract class AppLocalizations {
   /// No description provided for @musicLockPaletteTitle.
   ///
   /// In en, this message translates to:
-  /// **'Lock color output to strip (music)'**
+  /// **'Freeze strip lights (music)'**
   String get musicLockPaletteTitle;
 
   /// No description provided for @musicLockPaletteFrozen.
   ///
   /// In en, this message translates to:
-  /// **'Sending frozen palette (same as tray item).'**
+  /// **'Frozen: the last captured LED pattern is resent every tick — lights stay still while audio keeps updating internally.'**
   String get musicLockPaletteFrozen;
 
   /// No description provided for @musicLockPalettePending.
   ///
   /// In en, this message translates to:
-  /// **'Waiting for next frame, then palette freezes.'**
+  /// **'Next tick captures the current strip output, then LEDs hold that pattern.'**
   String get musicLockPalettePending;
 
   /// No description provided for @musicLockPaletteIdle.
   ///
   /// In en, this message translates to:
-  /// **'Only meaningful in music mode; switching modes clears the lock.'**
+  /// **'Freezes the physical LED output (whole-strip RGB snapshot), not just color-source logic. Cleared when leaving music mode.'**
   String get musicLockPaletteIdle;
 
   /// No description provided for @musicPreferMicTitle.
@@ -3759,11 +4059,29 @@ abstract class AppLocalizations {
   /// **'rotation_speed: {v}'**
   String musicRotationSpeedValue(Object v);
 
+  /// No description provided for @musicSpectrumRotationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Spectrum rotation (time)'**
+  String get musicSpectrumRotationTitle;
+
+  /// No description provided for @musicSpectrumRotationSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'When off, “Rotating spectrum” stays fixed like plain spectrum; beat-sync gradient step still applies if enabled.'**
+  String get musicSpectrumRotationSubtitle;
+
   /// No description provided for @musicActivePresetField.
   ///
   /// In en, this message translates to:
-  /// **'active_preset'**
+  /// **'Music preset'**
   String get musicActivePresetField;
+
+  /// No description provided for @helperMusicActivePreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick presets, built-in names, and entries from saved user_music_presets.'**
+  String get helperMusicActivePreset;
 
   /// No description provided for @musicFixedColorPickerTitle.
   ///
@@ -3782,6 +4100,264 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'RGB {r} · {g} · {b}'**
   String musicRgbTriple(Object r, Object g, Object b);
+
+  /// No description provided for @musicSpectrumPaletteHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Spectrum band colors'**
+  String get musicSpectrumPaletteHeader;
+
+  /// No description provided for @musicSpectrumPaletteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Seven stops from sub-bass to brilliance. Spectrum, VU+spectrum and Smart Music blend along this path when \"Spectrum from audio\" is selected.'**
+  String get musicSpectrumPaletteHint;
+
+  /// No description provided for @musicSpectrumBandSubBass.
+  ///
+  /// In en, this message translates to:
+  /// **'Sub-bass'**
+  String get musicSpectrumBandSubBass;
+
+  /// No description provided for @musicSpectrumBandBass.
+  ///
+  /// In en, this message translates to:
+  /// **'Bass'**
+  String get musicSpectrumBandBass;
+
+  /// No description provided for @musicSpectrumBandLowMid.
+  ///
+  /// In en, this message translates to:
+  /// **'Low-mid'**
+  String get musicSpectrumBandLowMid;
+
+  /// No description provided for @musicSpectrumBandMid.
+  ///
+  /// In en, this message translates to:
+  /// **'Mid'**
+  String get musicSpectrumBandMid;
+
+  /// No description provided for @musicSpectrumBandHighMid.
+  ///
+  /// In en, this message translates to:
+  /// **'High-mid'**
+  String get musicSpectrumBandHighMid;
+
+  /// No description provided for @musicSpectrumBandPresence.
+  ///
+  /// In en, this message translates to:
+  /// **'Presence'**
+  String get musicSpectrumBandPresence;
+
+  /// No description provided for @musicSpectrumBandBrilliance.
+  ///
+  /// In en, this message translates to:
+  /// **'Brilliance'**
+  String get musicSpectrumBandBrilliance;
+
+  /// No description provided for @musicSpectrumResetBands.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset spectrum colors'**
+  String get musicSpectrumResetBands;
+
+  /// No description provided for @musicSpectrumPickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Spectrum: {band}'**
+  String musicSpectrumPickerTitle(String band);
+
+  /// No description provided for @musicBeatSyncLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Beat sync (visual)'**
+  String get musicBeatSyncLabel;
+
+  /// No description provided for @musicBeatSyncHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Uses beat flags from the analyzer. Gradient step shifts spectrum; color pulse briefly boosts brightness.'**
+  String get musicBeatSyncHint;
+
+  /// No description provided for @musicBeatSyncOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get musicBeatSyncOff;
+
+  /// No description provided for @musicBeatSyncGradientStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Gradient step on beat'**
+  String get musicBeatSyncGradientStep;
+
+  /// No description provided for @musicBeatSyncColorPulse.
+  ///
+  /// In en, this message translates to:
+  /// **'Color pulse on beat'**
+  String get musicBeatSyncColorPulse;
+
+  /// No description provided for @musicMelodySpectrumTintTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Melody + spectrum palette'**
+  String get musicMelodySpectrumTintTitle;
+
+  /// No description provided for @musicMelodySpectrumTintSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'When the color source is spectrum, blend melody HSV toward the band palette (tint strength below).'**
+  String get musicMelodySpectrumTintSubtitle;
+
+  /// No description provided for @musicMelodySpectrumTintAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Tint strength: {p}%'**
+  String musicMelodySpectrumTintAmount(int p);
+
+  /// No description provided for @musicPerBandSensitivityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Per-band sensitivity (advanced)'**
+  String get musicPerBandSensitivityTitle;
+
+  /// No description provided for @musicPerBandSensitivitySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'When enabled, each FFT band has its own 0–100 gain; otherwise bass / mid / high groups apply as before.'**
+  String get musicPerBandSensitivitySubtitle;
+
+  /// No description provided for @musicUserPresetsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved music presets (JSON)'**
+  String get musicUserPresetsTitle;
+
+  /// No description provided for @musicUserPresetsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Save the current music settings under a name, export all user presets, or merge from a JSON file. Selecting a name in “Music preset” loads it.'**
+  String get musicUserPresetsHint;
+
+  /// No description provided for @musicUserPresetsNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Preset name'**
+  String get musicUserPresetsNameLabel;
+
+  /// No description provided for @musicUserPresetsSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save current as preset'**
+  String get musicUserPresetsSave;
+
+  /// No description provided for @musicUserPresetsSavedOk.
+  ///
+  /// In en, this message translates to:
+  /// **'Preset saved.'**
+  String get musicUserPresetsSavedOk;
+
+  /// No description provided for @musicUserPresetsDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get musicUserPresetsDelete;
+
+  /// No description provided for @musicUserPresetsExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy presets JSON'**
+  String get musicUserPresetsExport;
+
+  /// No description provided for @musicUserPresetsImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import JSON…'**
+  String get musicUserPresetsImport;
+
+  /// No description provided for @musicUserPresetsCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Presets JSON copied to clipboard.'**
+  String get musicUserPresetsCopied;
+
+  /// No description provided for @musicUserPresetsMerged.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported presets merged into user list.'**
+  String get musicUserPresetsMerged;
+
+  /// No description provided for @musicUserPresetsBadJson.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not read presets JSON.'**
+  String get musicUserPresetsBadJson;
+
+  /// No description provided for @musicAgcMeterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AGC (auto gain)'**
+  String get musicAgcMeterTitle;
+
+  /// No description provided for @musicAgcMeterPeak.
+  ///
+  /// In en, this message translates to:
+  /// **'Tracked peak: {v}'**
+  String musicAgcMeterPeak(String v);
+
+  /// No description provided for @musicAgcMeterGain.
+  ///
+  /// In en, this message translates to:
+  /// **'Applied gain: {v}'**
+  String musicAgcMeterGain(String v);
+
+  /// No description provided for @musicGuideMacosAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Guide: macOS loopback'**
+  String get musicGuideMacosAudio;
+
+  /// No description provided for @musicMacosLoopbackGuideTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'macOS — system audio to Ambilight'**
+  String get musicMacosLoopbackGuideTitle;
+
+  /// No description provided for @musicMacosLoopbackGuideIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlike Windows WASAPI loopback on the default playback device, macOS does not expose a built-in “what you hear” capture device to all apps.'**
+  String get musicMacosLoopbackGuideIntro;
+
+  /// No description provided for @musicMacosLoopbackGuideSteps.
+  ///
+  /// In en, this message translates to:
+  /// **'1) Install BlackHole (2ch) from existential.audio/blackhole.\n2) Open Audio MIDI Setup → create a Multi-Output Device that includes your speakers/headphones and BlackHole; set it as the system output for listening while routing a copy to BlackHole.\n3) In Ambilight → Music, pick “BlackHole” (or your aggregate) as the input device.'**
+  String get musicMacosLoopbackGuideSteps;
+
+  /// No description provided for @musicMacosLoopbackGuideNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Latency and device names depend on your aggregate. For Spotify-only colors you can also use the in-app Spotify integration.'**
+  String get musicMacosLoopbackGuideNote;
+
+  /// No description provided for @musicMacosLoopbackGuideClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get musicMacosLoopbackGuideClose;
+
+  /// No description provided for @musicMacosLoopbackGuideBlackHole.
+  ///
+  /// In en, this message translates to:
+  /// **'Open BlackHole page'**
+  String get musicMacosLoopbackGuideBlackHole;
+
+  /// No description provided for @musicMacosLoopbackGuideOpenFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the link.'**
+  String get musicMacosLoopbackGuideOpenFailed;
 
   /// No description provided for @musicEffectSmartMusic.
   ///

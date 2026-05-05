@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -11,17 +12,16 @@ import '../l10n/context_ext.dart';
 import '../core/device_bindings_debug.dart';
 import '../core/models/config_models.dart';
 import '../core/protocol/serial_frame.dart';
-import '../data/udp_device_commands.dart';
 import '../services/led_discovery_service.dart';
 import '../services/serial_ambilight_port_discovery.dart';
 import 'wizards/calibration_wizard_dialog.dart';
 import 'wizards/config_profile_wizard_dialog.dart';
 import 'wizards/discovery_wizard_dialog.dart';
-import 'wizards/led_strip_wizard_dialog.dart';
 import 'dashboard_ui.dart';
 import 'responsive_body.dart';
+import 'settings/tabs/devices_tab.dart';
+import 'wizards/segment_geometry_wizard_dialog.dart';
 import 'wizards/zone_editor_wizard_dialog.dart';
-import 'widgets/config_device_list_tile.dart';
 
 bool _isValidIp(String raw) {
   final s = raw.replaceAll(',', '.').trim();
@@ -109,6 +109,32 @@ class _DevicesPageState extends State<DevicesPage> {
 
   Future<void> _discover() async {
     await DiscoveryWizardDialog.show(context);
+  }
+
+  /// Stejná logika jako dříve v Nastavení — změna COM/IP/typu okamžitě přestaví transporty.
+  void _patchDevices(List<DeviceSettings> devices) {
+    final c = context.read<AmbilightAppController>();
+    final prev = c.config.globalSettings.devices;
+    final next = c.config.copyWith(globalSettings: c.config.globalSettings.copyWith(devices: devices));
+    traceDeviceBindings(
+      'DevicesPage._patchDevices: nový seznam (${devices.length}) → ${formatDeviceBindingsList(devices)}',
+    );
+    traceConfigBindings('DevicesPage._patchDevices: snapshot před apply', c.config);
+    final hot = AmbilightAppController.devicesChangeRequiresTransportRebuild(prev, devices);
+    traceDeviceBindings('DevicesPage._patchDevices: transportRebuild=$hot');
+    if (hot) {
+      unawaited(() async {
+        try {
+          await c.applyConfigAndPersist(next);
+          traceDeviceBindings('DevicesPage._patchDevices: applyConfigAndPersist OK');
+        } catch (e, st) {
+          traceDeviceBindingsSevere('DevicesPage._patchDevices: applyConfigAndPersist výjimka', e, st);
+          reportAppFault(AppLocaleBridge.strings.settingsDevicesSaveFailed(e.toString().split('\n').first));
+        }
+      }());
+    } else {
+      c.queueConfigApply(next);
+    }
   }
 
   Future<void> _openSaveDeviceSheet(BuildContext context, {DiscoveredLedController? preset}) async {
@@ -248,93 +274,6 @@ class _DevicesPageState extends State<DevicesPage> {
     ledCtrl.dispose();
   }
 
-  Future<void> _confirmResetWifi(BuildContext context, DeviceSettings dev) async {
-    final go = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(ctx.l10n.resetWifiTitle),
-        content: Text(ctx.l10n.resetWifiContent(dev.name)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.cancel)),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(ctx.l10n.sendResetWifi),
-          ),
-        ],
-      ),
-    );
-    if (go != true || !context.mounted) return;
-    final ok = await UdpDeviceCommands.sendResetWifi(dev.ipAddress, dev.udpPort, logContext: dev.name);
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? context.l10n.resetWifiSent : context.l10n.resetWifiFailed)),
-    );
-  }
-
-  Future<void> _removeDeviceAt(BuildContext context, AmbilightAppController c, int index) async {
-    final list = c.config.globalSettings.devices;
-    if (index < 0 || index >= list.length) return;
-    final dev = list[index];
-    final name = dev.name.trim().isEmpty ? 'Zařízení' : dev.name;
-    final ok = await showConfirmRemoveDeviceDialog(
-      context,
-      deviceName: name,
-      isLast: list.length <= 1,
-    );
-    if (!ok || !context.mounted) return;
-    final next = [...list]..removeAt(index);
-    traceDeviceBindings(
-      'DevicesPage._removeDeviceAt: mažu index=$index id=${dev.id} typ=${dev.type} → zbývá ${next.length}',
-    );
-    traceConfigBindings('DevicesPage._removeDeviceAt PŘED apply', c.config);
-    try {
-      await c.applyConfigAndPersist(
-        c.config.copyWith(globalSettings: c.config.globalSettings.copyWith(devices: next)),
-      );
-    } catch (e, st) {
-      traceDeviceBindingsSevere('DevicesPage._removeDeviceAt: apply selhal', e, st);
-      reportAppFault(AppLocaleBridge.strings.removeDeviceFailed(e.toString().split('\n').first));
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.removeFailed(e.toString()))),
-        );
-      }
-      return;
-    }
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.deviceRemoved(name))),
-    );
-  }
-
-  Future<void> _refreshFirmware(BuildContext context, AmbilightAppController c, int index) async {
-    final dev = c.config.globalSettings.devices[index];
-    if (dev.type != 'wifi' || dev.ipAddress.isEmpty) return;
-    final pong = await LedDiscoveryService.queryPong(dev.ipAddress, udpPort: dev.udpPort);
-    if (!context.mounted) return;
-    if (pong == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.pongMissing)),
-      );
-      return;
-    }
-    final devs = [...c.config.globalSettings.devices];
-    devs[index] = dev.copyWith(
-      firmwareVersion: pong.version,
-      fwTemporalSmoothingMode: pong.fwTemporalSmoothingMode ?? dev.fwTemporalSmoothingMode,
-    );
-    traceDeviceBindings('DevicesPage._refreshFirmware: ${dev.id} → fw ${pong.version}');
-    await c.applyConfigAndPersist(
-      c.config.copyWith(globalSettings: c.config.globalSettings.copyWith(devices: devs)),
-    );
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.firmwareLabel(pong.version))),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final c = context.read<AmbilightAppController>();
@@ -377,6 +316,11 @@ class _DevicesPageState extends State<DevicesPage> {
                 label: Text(context.l10n.segmentsLabel),
               ),
               OutlinedButton.icon(
+                onPressed: () => SegmentGeometryWizardDialog.show(context),
+                icon: const Icon(Icons.screen_rotation_alt_outlined),
+                label: Text(context.l10n.segGeomWizardLaunchButton),
+              ),
+              OutlinedButton.icon(
                 onPressed: () => CalibrationWizardDialog.show(context),
                 icon: const Icon(Icons.tune),
                 label: Text(context.l10n.calibrationLabel),
@@ -416,42 +360,16 @@ class _DevicesPageState extends State<DevicesPage> {
           ),
         ),
         const Divider(height: 32),
-        Text(
-          context.l10n.devicesConfiguredTitle,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        Selector<AmbilightAppController, AppConfig>(
+          selector: (_, ctrl) => ctrl.config,
+          builder: (context, draft, _) {
+            return DevicesTab(
+              draft: draft,
+              maxWidth: constraints.maxWidth,
+              onDevicesChanged: _patchDevices,
+            );
+          },
         ),
-        const SizedBox(height: 8),
-        if (c.config.globalSettings.devices.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: AmbiGlassPanel(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                context.l10n.devicesEmptyStateBody,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-              ),
-            ),
-          ),
-        ...c.config.globalSettings.devices.asMap().entries.map((e) {
-          final i = e.key;
-          final d = e.value;
-          final isWifi = d.type == 'wifi';
-          final ok = c.connectionSnapshot[d.id] ?? false;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: ConfigDeviceListTile(
-              device: d,
-              connected: ok,
-              onEditStrip: () => LedStripWizardDialog.show(context, deviceId: d.id),
-              onIdentify: isWifi && d.ipAddress.isNotEmpty
-                  ? () => UdpDeviceCommands.sendIdentify(d.ipAddress, d.udpPort)
-                  : null,
-              onResetWifi: isWifi && d.ipAddress.isNotEmpty ? () => _confirmResetWifi(context, d) : null,
-              onRefreshFirmware: isWifi && d.ipAddress.isNotEmpty ? () => _refreshFirmware(context, c, i) : null,
-              onRemove: () => _removeDeviceAt(context, c, i),
-            ),
-          );
-        }),
         Theme(
           data: Theme.of(context),
           child: ExpansionTile(

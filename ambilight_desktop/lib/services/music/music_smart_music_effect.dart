@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../../core/models/config_models.dart';
+import 'music_spectrum_palette.dart';
 import 'music_types.dart';
 
 /// Reaktivní „smart“ vizualizace: spektrum, beaty, melodie a plynulý stav mezi snímky
@@ -22,6 +23,7 @@ class MusicSmartMusicEffect {
     required (int, int, int) cBass,
     required (int, int, int) cMid,
     required (int, int, int) cHigh,
+    List<(int, int, int)>? spectrumStops,
     required double vSub,
     required double vBass,
     required double vLowMid,
@@ -123,7 +125,9 @@ class MusicSmartMusicEffect {
 
       final ai = _hsvToRgb(hue, sat, val);
 
-      final cUser = _interpolate3(cBass, cMid, cHigh, pos);
+      final cUser = spectrumStops != null && spectrumStops.length >= 2
+          ? MusicSpectrumPalette.at(spectrumStops, pos)
+          : _interpolate3(cBass, cMid, cHigh, pos);
       final u = _valScale(cUser, local.clamp(0.0, 1.0));
       final mix = (0.26 + 0.34 * _drive + 0.18 * _flash).clamp(0.0, 0.82);
       out[i] = _lerpRgb(ai, u, mix);

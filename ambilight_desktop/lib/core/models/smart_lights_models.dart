@@ -230,6 +230,106 @@ class SmartFixture {
   }
 }
 
+/// Efekt virtuální místnosti pro smart světla (HA / HomeKit).
+enum SmartRoomEffectKind {
+  none,
+  wave,
+  breath,
+  chase,
+  sparkle,
+  ;
+
+  static SmartRoomEffectKind fromJson(String? s) {
+    switch (s) {
+      case 'wave':
+        return SmartRoomEffectKind.wave;
+      case 'breath':
+        return SmartRoomEffectKind.breath;
+      case 'chase':
+        return SmartRoomEffectKind.chase;
+      case 'sparkle':
+        return SmartRoomEffectKind.sparkle;
+      case 'none':
+        return SmartRoomEffectKind.none;
+      default:
+        return SmartRoomEffectKind.wave;
+    }
+  }
+
+  String toJsonValue() => switch (this) {
+        SmartRoomEffectKind.none => 'none',
+        SmartRoomEffectKind.wave => 'wave',
+        SmartRoomEffectKind.breath => 'breath',
+        SmartRoomEffectKind.chase => 'chase',
+        SmartRoomEffectKind.sparkle => 'sparkle',
+      };
+}
+
+/// Geometrie prostorové fáze vlny / chase (řazení podle projekce).
+enum SmartRoomWaveGeometry {
+  /// Kulová vlna od pozice TV (legacy).
+  radialFromTv,
+  /// Fáze podle projekce kolmo na pohled uživatele (uživatel–TV + [userFacingDeg]).
+  alongUserView,
+  /// Projektovat na vodorovnou osu místnosti (relativně k TV).
+  horizontalRoom,
+  /// Projektovat na svislou osu místnosti (relativně k TV).
+  verticalRoom,
+  /// Osa pod úhlem [VirtualRoomLayout.waveExtraAngleDeg] od vodorovné osi (0° = vpravo).
+  customAngle,
+  ;
+
+  static SmartRoomWaveGeometry fromJson(String? s) {
+    switch (s) {
+      case 'along_user_view':
+        return SmartRoomWaveGeometry.alongUserView;
+      case 'horizontal_room':
+        return SmartRoomWaveGeometry.horizontalRoom;
+      case 'vertical_room':
+        return SmartRoomWaveGeometry.verticalRoom;
+      case 'custom_angle':
+        return SmartRoomWaveGeometry.customAngle;
+      case 'radial_from_tv':
+      default:
+        return SmartRoomWaveGeometry.radialFromTv;
+    }
+  }
+
+  String toJsonValue() => switch (this) {
+        SmartRoomWaveGeometry.radialFromTv => 'radial_from_tv',
+        SmartRoomWaveGeometry.alongUserView => 'along_user_view',
+        SmartRoomWaveGeometry.horizontalRoom => 'horizontal_room',
+        SmartRoomWaveGeometry.verticalRoom => 'vertical_room',
+        SmartRoomWaveGeometry.customAngle => 'custom_angle',
+      };
+}
+
+/// Jak efekt mění výstup: jen barva, jen jas HA, nebo obojí.
+enum SmartRoomBrightnessModulate {
+  rgbOnly,
+  brightnessOnly,
+  both,
+  ;
+
+  static SmartRoomBrightnessModulate fromJson(String? s) {
+    switch (s) {
+      case 'rgb_only':
+        return SmartRoomBrightnessModulate.rgbOnly;
+      case 'brightness_only':
+        return SmartRoomBrightnessModulate.brightnessOnly;
+      case 'both':
+      default:
+        return SmartRoomBrightnessModulate.both;
+    }
+  }
+
+  String toJsonValue() => switch (this) {
+        SmartRoomBrightnessModulate.rgbOnly => 'rgb_only',
+        SmartRoomBrightnessModulate.brightnessOnly => 'brightness_only',
+        SmartRoomBrightnessModulate.both => 'both',
+      };
+}
+
 /// Virtuální půdorys: TV, pozice uživatele, směr pohledu, parametry vlnění přes světla.
 class VirtualRoomLayout {
   const VirtualRoomLayout({
@@ -239,12 +339,16 @@ class VirtualRoomLayout {
     this.userY = 0.72,
     /// Odchylka od pohledu „přímo na TV“ (°): 0 = čelem k obrazovce, + = otočení doprava.
     this.userFacingDeg = 0,
-    this.waveEnabled = true,
+    this.roomEffect = SmartRoomEffectKind.wave,
+    this.waveGeometry = SmartRoomWaveGeometry.radialFromTv,
+    /// Pro [SmartRoomWaveGeometry.customAngle]: úhel osy vlnění ve ° (0 = vodorovně vpravo).
+    this.waveExtraAngleDeg = 0,
+    this.brightnessModulation = SmartRoomBrightnessModulate.both,
     /// Násobič [animationTick] — vyšší = rychlejší vlna.
     this.waveSpeed = 0.07,
-    /// 0 = žádný efekt, 1 = plná modulace jasu podle sinusu.
+    /// 0 = žádný efekt, 1 = plná modulace podle průběhu.
     this.waveStrength = 0.38,
-    /// Jak moc vzdálenost od TV posouvá fázi (větší = ostřejší „fronta“ vlny).
+    /// Jak moc prostorová souřadnice posouvá fázi (větší = ostřejší fronta).
     this.waveDistanceScale = 5.5,
   });
 
@@ -253,10 +357,16 @@ class VirtualRoomLayout {
   final double userX;
   final double userY;
   final double userFacingDeg;
-  final bool waveEnabled;
+  final SmartRoomEffectKind roomEffect;
+  final SmartRoomWaveGeometry waveGeometry;
+  final double waveExtraAngleDeg;
+  final SmartRoomBrightnessModulate brightnessModulation;
   final double waveSpeed;
   final double waveStrength;
   final double waveDistanceScale;
+
+  /// Zpětná kompatibilita: `true` když [roomEffect] není [SmartRoomEffectKind.none].
+  bool get waveEnabled => roomEffect != SmartRoomEffectKind.none;
 
   VirtualRoomLayout copyWith({
     double? tvX,
@@ -264,7 +374,10 @@ class VirtualRoomLayout {
     double? userX,
     double? userY,
     double? userFacingDeg,
-    bool? waveEnabled,
+    SmartRoomEffectKind? roomEffect,
+    SmartRoomWaveGeometry? waveGeometry,
+    double? waveExtraAngleDeg,
+    SmartRoomBrightnessModulate? brightnessModulation,
     double? waveSpeed,
     double? waveStrength,
     double? waveDistanceScale,
@@ -275,7 +388,10 @@ class VirtualRoomLayout {
       userX: userX ?? this.userX,
       userY: userY ?? this.userY,
       userFacingDeg: userFacingDeg ?? this.userFacingDeg,
-      waveEnabled: waveEnabled ?? this.waveEnabled,
+      roomEffect: roomEffect ?? this.roomEffect,
+      waveGeometry: waveGeometry ?? this.waveGeometry,
+      waveExtraAngleDeg: waveExtraAngleDeg ?? this.waveExtraAngleDeg,
+      brightnessModulation: brightnessModulation ?? this.brightnessModulation,
       waveSpeed: waveSpeed ?? this.waveSpeed,
       waveStrength: waveStrength ?? this.waveStrength,
       waveDistanceScale: waveDistanceScale ?? this.waveDistanceScale,
@@ -288,6 +404,10 @@ class VirtualRoomLayout {
         'user_x': userX.clamp(0.0, 1.0),
         'user_y': userY.clamp(0.0, 1.0),
         'user_facing_deg': userFacingDeg,
+        'room_effect': roomEffect.toJsonValue(),
+        'wave_geometry': waveGeometry.toJsonValue(),
+        'wave_extra_angle_deg': waveExtraAngleDeg,
+        'brightness_modulation': brightnessModulation.toJsonValue(),
         'wave_enabled': waveEnabled,
         'wave_speed': waveSpeed.clamp(0.01, 0.5),
         'wave_strength': waveStrength.clamp(0.0, 1.0),
@@ -296,13 +416,22 @@ class VirtualRoomLayout {
 
   factory VirtualRoomLayout.fromJson(Map<String, dynamic>? j) {
     if (j == null || j.isEmpty) return const VirtualRoomLayout();
+    SmartRoomEffectKind effect;
+    if (j.containsKey('room_effect')) {
+      effect = SmartRoomEffectKind.fromJson(j['room_effect']?.toString());
+    } else {
+      effect = asBool(j['wave_enabled'], true) ? SmartRoomEffectKind.wave : SmartRoomEffectKind.none;
+    }
     return VirtualRoomLayout(
       tvX: (j['tv_x'] as num?)?.toDouble() ?? 0.5,
       tvY: (j['tv_y'] as num?)?.toDouble() ?? 0.14,
       userX: (j['user_x'] as num?)?.toDouble() ?? 0.5,
       userY: (j['user_y'] as num?)?.toDouble() ?? 0.72,
       userFacingDeg: (j['user_facing_deg'] as num?)?.toDouble() ?? 0.0,
-      waveEnabled: asBool(j['wave_enabled'], true),
+      roomEffect: effect,
+      waveGeometry: SmartRoomWaveGeometry.fromJson(j['wave_geometry']?.toString()),
+      waveExtraAngleDeg: (j['wave_extra_angle_deg'] as num?)?.toDouble() ?? 0.0,
+      brightnessModulation: SmartRoomBrightnessModulate.fromJson(j['brightness_modulation']?.toString()),
       waveSpeed: (j['wave_speed'] as num?)?.toDouble() ?? 0.07,
       waveStrength: (j['wave_strength'] as num?)?.toDouble() ?? 0.38,
       waveDistanceScale: (j['wave_distance_scale'] as num?)?.toDouble() ?? 5.5,

@@ -599,14 +599,13 @@ class AppLocalizationsCs extends AppLocalizations {
   String get trayMusicPresetsSection => 'Hudba — presety';
 
   @override
-  String get trayMusicUnlockColors => 'Odemknout barvy (hudba)';
+  String get trayMusicUnlockColors => 'Odmrazit pásek (hudba)';
 
   @override
-  String get trayMusicCancelLockPending =>
-      'Zrušit zamykání barev (čeká na snímek)';
+  String get trayMusicCancelLockPending => 'Zrušit zmrazení (čeká na snímek)';
 
   @override
-  String get trayMusicLockColorsShort => 'Zamknout barvy (hudba)';
+  String get trayMusicLockColorsShort => 'Zmrazit výstup na pásku (hudba)';
 
   @override
   String get traySettingsEllipsis => 'Nastavení…';
@@ -930,6 +929,88 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String get segGeomWizardTitle => 'Průvodce umístěním segmentů';
+
+  @override
+  String get segGeomWizardIntro =>
+      'Vyber segment, otoč na které hraně monitoru se vzorkuje, posuň pásmo podél hrany nebo převrať pořadí LED. Otočení hrany znovu nastaví pásmo na celý okraj (indexy LED zůstanou).';
+
+  @override
+  String get segGeomWizardEmpty =>
+      'Zatím nemáš žádné segmenty. Nejdřív spusť průvodce mapováním LED, pak tu doladíš geometrii.';
+
+  @override
+  String get segGeomWizardSegmentPicker => 'Segment';
+
+  @override
+  String segGeomWizardSegmentLabel(int index) {
+    return 'Segment $index';
+  }
+
+  @override
+  String segGeomWizardLedRange(int start, int end) {
+    return 'LED $start–$end';
+  }
+
+  @override
+  String get segGeomWizardRotateCwTooltip =>
+      'Otočit hranu po směru hodin (horní → pravá → spodní → levá)';
+
+  @override
+  String get segGeomWizardRotateCcwTooltip => 'Otočit hranu proti směru hodin';
+
+  @override
+  String get segGeomWizardReverse => 'Obrátit pořadí LED na pásku';
+
+  @override
+  String get segGeomWizardWholeEdge => 'Vzorkovat celý okraj';
+
+  @override
+  String get segGeomWizardWholeEdgeSubtitle =>
+      'Vypni a omez pásmo slidery níže.';
+
+  @override
+  String get segGeomWizardBandTitle => 'Pásmo podél hrany (referenční pixely)';
+
+  @override
+  String get segGeomWizardPresetFull => 'Celý okraj';
+
+  @override
+  String get segGeomWizardPresetStartHalf => 'První polovina';
+
+  @override
+  String get segGeomWizardPresetEndHalf => 'Druhá polovina';
+
+  @override
+  String get segGeomWizardPresetCenterThird => 'Prostřední třetina';
+
+  @override
+  String get segGeomWizardRefFromCapture =>
+      'Sladit referenci s posledním snímkem';
+
+  @override
+  String get segGeomWizardPreviewCaption => 'Oblast vzorkování (přibližně)';
+
+  @override
+  String get segGeomWizardPreviewLive => 'Náhled z rozměrů živého snímku';
+
+  @override
+  String get segGeomWizardPreviewRef =>
+      'Náhled z referenční velikosti segmentu';
+
+  @override
+  String get segGeomWizardOpenMapping => 'Průvodce mapováním LED…';
+
+  @override
+  String get segGeomWizardSaved => 'Geometrie segmentů uložena.';
+
+  @override
+  String get segGeomWizardMonitorTitle => 'Index monitoru';
+
+  @override
+  String get segGeomWizardLaunchButton => 'Umístění segmentů';
+
+  @override
   String get refDimsFromCapture => 'Ref. dimensions from last capture';
 
   @override
@@ -1181,6 +1262,92 @@ class AppLocalizationsCs extends AppLocalizations {
   String virtualRoomFacing(Object deg) {
     return 'Úchyl pohledu od osy k TV: $deg°';
   }
+
+  @override
+  String get virtualRoomEffectLabel => 'Efekt na chytrá světla';
+
+  @override
+  String get virtualRoomEffectNone => 'Vypnuto';
+
+  @override
+  String get virtualRoomEffectWave => 'Vlna';
+
+  @override
+  String get virtualRoomEffectBreath => 'Dýchání';
+
+  @override
+  String get virtualRoomEffectChase => 'Běh';
+
+  @override
+  String get virtualRoomEffectSparkle => 'Jiskření';
+
+  @override
+  String get virtualRoomEffectHintNone =>
+      'Jen barvy a jas z enginu — žádná další modulace.';
+
+  @override
+  String get virtualRoomEffectHintWave =>
+      'Plynulá vlna místností; geometrie určuje, jak vzdálenost mění fázi.';
+
+  @override
+  String get virtualRoomEffectHintBreath =>
+      'Všechna světla společně pulzují — když nechceš prostorový vzor.';
+
+  @override
+  String get virtualRoomEffectHintChase =>
+      'Světla se rozsvěcují v pořadí podle zvolené osy (řazení podle projekce).';
+
+  @override
+  String get virtualRoomEffectHintSparkle =>
+      'Každé světlo má mírně jinou fázi pro živý třpyt.';
+
+  @override
+  String get virtualRoomGeometryLabel => 'Osa vlny / běhu';
+
+  @override
+  String get virtualRoomGeometryRadial => 'Radiálně od TV';
+
+  @override
+  String get virtualRoomGeometryAlongView => 'Kolmě na pohled (vlevo–vpravo)';
+
+  @override
+  String get virtualRoomGeometryHorizontal => 'Vodorovně (osa X od TV)';
+
+  @override
+  String get virtualRoomGeometryVertical => 'Svisle (osa Y od TV)';
+
+  @override
+  String get virtualRoomGeometryCustom => 'Vlastní úhel od TV';
+
+  @override
+  String virtualRoomCustomAngle(Object deg) {
+    return 'Úhel osy: $deg°';
+  }
+
+  @override
+  String get virtualRoomBrightnessModLabel => 'Modulace aplikovat na';
+
+  @override
+  String get virtualRoomBrightnessBoth => 'Barvu i jas';
+
+  @override
+  String get virtualRoomBrightnessRgb => 'Jen barvu';
+
+  @override
+  String get virtualRoomBrightnessBri => 'Jen jas';
+
+  @override
+  String get virtualRoomPreviewToggle => 'Animovaný náhled';
+
+  @override
+  String get virtualRoomPreviewSubtitle =>
+      'Ikony žárovek používají stejnou matematiku jako výstup do HA / HomeKit.';
+
+  @override
+  String get virtualRoomDragTv => 'TV (táhni)';
+
+  @override
+  String get virtualRoomDragUser => 'Ty (táhni)';
 
   @override
   String get scanOverlaySettingsTitle => 'Náhled skenu (D-detail)';
@@ -2019,19 +2186,19 @@ class AppLocalizationsCs extends AppLocalizations {
   String get musicGuideMusicArtwork => 'Nápověda: hudba a obaly';
 
   @override
-  String get musicLockPaletteTitle => 'Zamknout výstup barev na pásek (hudba)';
+  String get musicLockPaletteTitle => 'Zmrazit světla na pásku (hudba)';
 
   @override
   String get musicLockPaletteFrozen =>
-      'Posílá se zmrazená paleta (stejné jako položka v tray).';
+      'Zmrazeno: pořád se posílá naposledy zachycený snímek RGB na LED — pásek stojí, hudba uvnitř dál běží.';
 
   @override
   String get musicLockPalettePending =>
-      'Čeká na další snímek, pak se paleta zmrazí.';
+      'Další tick uloží aktuální rozložení LED na pásku a pak už se nemění.';
 
   @override
   String get musicLockPaletteIdle =>
-      'Jen v music módu má smysl; přepnutím režimu se zámek zruší.';
+      'Zmrazí celý fyzický výstup na pásku (ne jen zdroj barev). Jen v music módu; přepnutím režimu se zámek zruší.';
 
   @override
   String get musicPreferMicTitle => 'Preferovat mikrofon';
@@ -2137,7 +2304,18 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get musicActivePresetField => 'active_preset';
+  String get musicSpectrumRotationTitle => 'Rotace spektra (čas)';
+
+  @override
+  String get musicSpectrumRotationSubtitle =>
+      'Vypnuto = „Rotující spektrum“ zůstane statické jako obyčejné spektrum; krok gradientu při beatu (pokud je zapnutý) funguje dál.';
+
+  @override
+  String get musicActivePresetField => 'Preset hudby';
+
+  @override
+  String get helperMusicActivePreset =>
+      'Rychlé presety, vestavěné názvy a uložené user_music_presets.';
 
   @override
   String get musicFixedColorPickerTitle => 'Pevná barva (hudba)';
@@ -2149,6 +2327,154 @@ class AppLocalizationsCs extends AppLocalizations {
   String musicRgbTriple(Object r, Object g, Object b) {
     return 'RGB $r · $g · $b';
   }
+
+  @override
+  String get musicSpectrumPaletteHeader => 'Barvy spektrálních pásem';
+
+  @override
+  String get musicSpectrumPaletteHint =>
+      'Sedm zastávek od sub-basu po brilliance. Spektrum, VU+spektrum a Chytrá hudba po této cestě míchají barvy, když je zdroj „Spektrum zvuku“.';
+
+  @override
+  String get musicSpectrumBandSubBass => 'Sub-bas';
+
+  @override
+  String get musicSpectrumBandBass => 'Bas';
+
+  @override
+  String get musicSpectrumBandLowMid => 'Nízké středy';
+
+  @override
+  String get musicSpectrumBandMid => 'Středy';
+
+  @override
+  String get musicSpectrumBandHighMid => 'Vysoké středy';
+
+  @override
+  String get musicSpectrumBandPresence => 'Presence';
+
+  @override
+  String get musicSpectrumBandBrilliance => 'Brilliance';
+
+  @override
+  String get musicSpectrumResetBands => 'Obnovit výchozí barvy spektra';
+
+  @override
+  String musicSpectrumPickerTitle(String band) {
+    return 'Spektrum: $band';
+  }
+
+  @override
+  String get musicBeatSyncLabel => 'Beat sync (vizuál)';
+
+  @override
+  String get musicBeatSyncHint =>
+      'Použije beat příznaky z analýzy. Posun gradientu posune spektrum; pulz krátce zvýší jas.';
+
+  @override
+  String get musicBeatSyncOff => 'Vypnuto';
+
+  @override
+  String get musicBeatSyncGradientStep => 'Posun gradientu při beatu';
+
+  @override
+  String get musicBeatSyncColorPulse => 'Pulz barvy při beatu';
+
+  @override
+  String get musicMelodySpectrumTintTitle => 'Melodie + spektrální paleta';
+
+  @override
+  String get musicMelodySpectrumTintSubtitle =>
+      'Při zdroji „Spektrum zvuku“ míchá barvu melodie (HSV) směrem k paletě pásem (síla níže).';
+
+  @override
+  String musicMelodySpectrumTintAmount(int p) {
+    return 'Síla tónování: $p %';
+  }
+
+  @override
+  String get musicPerBandSensitivityTitle => 'Citlivost po pásmech (pokročilé)';
+
+  @override
+  String get musicPerBandSensitivitySubtitle =>
+      'Zapnuto = vlastní 0–100 pro každé FFT pásmo; vypnuto = skupiny bas / střed / výška jako dřív.';
+
+  @override
+  String get musicUserPresetsTitle => 'Uložené presety hudby (JSON)';
+
+  @override
+  String get musicUserPresetsHint =>
+      'Ulož aktuální nastavení hudby pod jménem, zkopíruj JSON všech presetů nebo slouč importem. Výběr jména v „Preset hudby“ preset načte.';
+
+  @override
+  String get musicUserPresetsNameLabel => 'Název presetu';
+
+  @override
+  String get musicUserPresetsSave => 'Uložit aktuální jako preset';
+
+  @override
+  String get musicUserPresetsSavedOk => 'Preset uložen.';
+
+  @override
+  String get musicUserPresetsDelete => 'Smazat';
+
+  @override
+  String get musicUserPresetsExport => 'Zkopírovat JSON presetů';
+
+  @override
+  String get musicUserPresetsImport => 'Importovat JSON…';
+
+  @override
+  String get musicUserPresetsCopied => 'JSON presetů zkopírován do schránky.';
+
+  @override
+  String get musicUserPresetsMerged =>
+      'Importované presety sloučeny do seznamu.';
+
+  @override
+  String get musicUserPresetsBadJson => 'JSON presetů nelze načíst.';
+
+  @override
+  String get musicAgcMeterTitle => 'AGC (automatické zesílení)';
+
+  @override
+  String musicAgcMeterPeak(String v) {
+    return 'Sledovaná špička: $v';
+  }
+
+  @override
+  String musicAgcMeterGain(String v) {
+    return 'Aplikovaný gain: $v';
+  }
+
+  @override
+  String get musicGuideMacosAudio => 'Průvodce: macOS loopback';
+
+  @override
+  String get musicMacosLoopbackGuideTitle =>
+      'macOS — systémové audio do Ambilight';
+
+  @override
+  String get musicMacosLoopbackGuideIntro =>
+      'Na rozdíl od Windows WASAPI loopback na výchozím přehrávacím zařízení macOS nemá vestavěné „co slyšíš“ pro každou aplikaci.';
+
+  @override
+  String get musicMacosLoopbackGuideSteps =>
+      '1) Nainstaluj BlackHole (2ch) z existential.audio/blackhole.\n2) Audio MIDI Setup → Multi-Output Device se sluchátky/repro a BlackHole; nastav ho jako systémový výstup pro poslech s kopií do BlackHole.\n3) V Ambilight → Hudba vyber vstup „BlackHole“ (nebo aggregate).';
+
+  @override
+  String get musicMacosLoopbackGuideNote =>
+      'Latence a názvy zařízení závisí na aggregate. Jen barvy ze Spotify řeší také integrace Spotify v aplikaci.';
+
+  @override
+  String get musicMacosLoopbackGuideClose => 'Zavřít';
+
+  @override
+  String get musicMacosLoopbackGuideBlackHole => 'Stránka BlackHole';
+
+  @override
+  String get musicMacosLoopbackGuideOpenFailed =>
+      'Otevření odkazu se nezdařilo.';
 
   @override
   String get musicEffectSmartMusic => 'Chytrá hudba';

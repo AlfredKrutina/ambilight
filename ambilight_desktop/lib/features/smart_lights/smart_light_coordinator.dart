@@ -9,7 +9,7 @@ import '../../engine/screen/screen_frame.dart';
 import 'fixture_color_resolver.dart';
 import 'ha_api_client.dart';
 import 'homekit_bridge.dart';
-import 'virtual_room_wave.dart';
+import 'virtual_room_effects.dart';
 
 final _log = Logger('SmartLights');
 
@@ -64,6 +64,9 @@ class SmartLightCoordinator {
     final minGapMs = (1000 / sl.maxUpdateHzPerFixture.clamp(1, 30)).round();
     final gap = Duration(milliseconds: minGapMs.clamp(16, 1000));
     final now = DateTime.now();
+    final chaseRanks = sl.virtualRoom.roomEffect == SmartRoomEffectKind.chase
+        ? VirtualRoomEffects.chaseRanks(room: sl.virtualRoom, fixtures: sl.fixtures)
+        : null;
 
     for (final fx in sl.fixtures) {
       if (!fx.enabled || fx.mode != SmartFixtureMode.ambient) continue;
@@ -88,15 +91,18 @@ class SmartLightCoordinator {
               frame: frame,
             )
           : (0, 0, 0);
-      final rgb = VirtualRoomWave.apply(
+      final effectOut = VirtualRoomEffects.apply(
         room: sl.virtualRoom,
         fixture: fx,
         base: rgbBase,
         animationTick: animationTick,
+        chaseRanks: chaseRanks,
       );
-      final briPct = appEnabled
+      final rgb = (effectOut.r, effectOut.g, effectOut.b);
+      final baseBri = appEnabled
           ? _brightnessPct(engineBrightness, sl.globalBrightnessCapPct, fx.brightnessPctCap)
           : 0;
+      final briPct = (baseBri * effectOut.brightnessMul).round().clamp(0, 100);
 
       _lastSent[fx.id] = now;
 

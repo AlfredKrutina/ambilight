@@ -172,19 +172,12 @@ class _AmbiColorPickerDialogState extends State<_AmbiColorPickerDialog> {
                           DecoratedBox(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(20),
-                              gradient: const LinearGradient(
+                              gradient: LinearGradient(
+                                /* Stejné pořadí jako [HSVColor.hue] 0→360: červená vlevo, pak OYGCBM a znovu červená. */
                                 colors: [
-                                  Color(0xFFFF0000),
-                                  Color(0xFFFF00FF),
-                                  Color(0xFF8800FF),
-                                  Color(0xFF0000FF),
-                                  Color(0xFF00B4FF),
-                                  Color(0xFF00FFFF),
-                                  Color(0xFF00FF88),
-                                  Color(0xFF88FF00),
-                                  Color(0xFFFFFF00),
-                                  Color(0xFFFF8800),
-                                  Color(0xFFFF0000),
+                                  for (var h = 0.0; h < 360.0; h += 60.0)
+                                    HSVColor.fromAHSV(1, h, 1, 1).toColor(),
+                                  HSVColor.fromAHSV(1, 0, 1, 1).toColor(),
                                 ],
                               ),
                               border: Border.all(color: scheme.outline.withValues(alpha: 0.35)),

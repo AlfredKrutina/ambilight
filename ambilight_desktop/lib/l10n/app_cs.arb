@@ -197,9 +197,9 @@
   },
   "trayScreenPresetsSection": "Obrazovka — presety",
   "trayMusicPresetsSection": "Hudba — presety",
-  "trayMusicUnlockColors": "Odemknout barvy (hudba)",
-  "trayMusicCancelLockPending": "Zrušit zamykání barev (čeká na snímek)",
-  "trayMusicLockColorsShort": "Zamknout barvy (hudba)",
+  "trayMusicUnlockColors": "Odmrazit pásek (hudba)",
+  "trayMusicCancelLockPending": "Zrušit zmrazení (čeká na snímek)",
+  "trayMusicLockColorsShort": "Zmrazit výstup na pásku (hudba)",
   "traySettingsEllipsis": "Nastavení…",
   "trayQuit": "Ukončit",
   "startMinimizedTitle": "Spustit minimalizovaně",
@@ -294,6 +294,47 @@
   "zoneEditorSaved": "Uloženo {count} segmentů.",
   "zoneEditorIntro": "Max LED index: {max}. Každý segment: LED rozsah, hrana, monitor, hloubka skenu, obrácený směr, mapování pixelů a role v hudbě.",
   "zoneEditorSegmentTitle": "Segment {index} · {edge} · LED {ledStart}–{ledEnd} · mon {monitor}",
+  "segGeomWizardTitle": "Průvodce umístěním segmentů",
+  "segGeomWizardIntro": "Vyber segment, otoč na které hraně monitoru se vzorkuje, posuň pásmo podél hrany nebo převrať pořadí LED. Otočení hrany znovu nastaví pásmo na celý okraj (indexy LED zůstanou).",
+  "segGeomWizardEmpty": "Zatím nemáš žádné segmenty. Nejdřív spusť průvodce mapováním LED, pak tu doladíš geometrii.",
+  "segGeomWizardSegmentPicker": "Segment",
+  "segGeomWizardSegmentLabel": "Segment {index}",
+  "@segGeomWizardSegmentLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "segGeomWizardLedRange": "LED {start}–{end}",
+  "@segGeomWizardLedRange": {
+    "placeholders": {
+      "start": {
+        "type": "int"
+      },
+      "end": {
+        "type": "int"
+      }
+    }
+  },
+  "segGeomWizardRotateCwTooltip": "Otočit hranu po směru hodin (horní → pravá → spodní → levá)",
+  "segGeomWizardRotateCcwTooltip": "Otočit hranu proti směru hodin",
+  "segGeomWizardReverse": "Obrátit pořadí LED na pásku",
+  "segGeomWizardWholeEdge": "Vzorkovat celý okraj",
+  "segGeomWizardWholeEdgeSubtitle": "Vypni a omez pásmo slidery níže.",
+  "segGeomWizardBandTitle": "Pásmo podél hrany (referenční pixely)",
+  "segGeomWizardPresetFull": "Celý okraj",
+  "segGeomWizardPresetStartHalf": "První polovina",
+  "segGeomWizardPresetEndHalf": "Druhá polovina",
+  "segGeomWizardPresetCenterThird": "Prostřední třetina",
+  "segGeomWizardRefFromCapture": "Sladit referenci s posledním snímkem",
+  "segGeomWizardPreviewCaption": "Oblast vzorkování (přibližně)",
+  "segGeomWizardPreviewLive": "Náhled z rozměrů živého snímku",
+  "segGeomWizardPreviewRef": "Náhled z referenční velikosti segmentu",
+  "segGeomWizardOpenMapping": "Průvodce mapováním LED…",
+  "segGeomWizardSaved": "Geometrie segmentů uložena.",
+  "segGeomWizardMonitorTitle": "Index monitoru",
+  "segGeomWizardLaunchButton": "Umístění segmentů",
   "refDimsFromCapture": "Ref. dimensions from last capture",
   "dropdownAllDefault": "— all / default —",
   "guideMusicTitle": "Hudba a Spotify",
@@ -377,6 +418,32 @@
   "virtualRoomWaveSpeed": "Rychlost vlny",
   "virtualRoomDistanceSens": "Citlivost na vzdálenost",
   "virtualRoomFacing": "Úchyl pohledu od osy k TV: {deg}°",
+  "virtualRoomEffectLabel": "Efekt na chytrá světla",
+  "virtualRoomEffectNone": "Vypnuto",
+  "virtualRoomEffectWave": "Vlna",
+  "virtualRoomEffectBreath": "Dýchání",
+  "virtualRoomEffectChase": "Běh",
+  "virtualRoomEffectSparkle": "Jiskření",
+  "virtualRoomEffectHintNone": "Jen barvy a jas z enginu — žádná další modulace.",
+  "virtualRoomEffectHintWave": "Plynulá vlna místností; geometrie určuje, jak vzdálenost mění fázi.",
+  "virtualRoomEffectHintBreath": "Všechna světla společně pulzují — když nechceš prostorový vzor.",
+  "virtualRoomEffectHintChase": "Světla se rozsvěcují v pořadí podle zvolené osy (řazení podle projekce).",
+  "virtualRoomEffectHintSparkle": "Každé světlo má mírně jinou fázi pro živý třpyt.",
+  "virtualRoomGeometryLabel": "Osa vlny / běhu",
+  "virtualRoomGeometryRadial": "Radiálně od TV",
+  "virtualRoomGeometryAlongView": "Kolmě na pohled (vlevo–vpravo)",
+  "virtualRoomGeometryHorizontal": "Vodorovně (osa X od TV)",
+  "virtualRoomGeometryVertical": "Svisle (osa Y od TV)",
+  "virtualRoomGeometryCustom": "Vlastní úhel od TV",
+  "virtualRoomCustomAngle": "Úhel osy: {deg}°",
+  "virtualRoomBrightnessModLabel": "Modulace aplikovat na",
+  "virtualRoomBrightnessBoth": "Barvu i jas",
+  "virtualRoomBrightnessRgb": "Jen barvu",
+  "virtualRoomBrightnessBri": "Jen jas",
+  "virtualRoomPreviewToggle": "Animovaný náhled",
+  "virtualRoomPreviewSubtitle": "Ikony žárovek používají stejnou matematiku jako výstup do HA / HomeKit.",
+  "virtualRoomDragTv": "TV (táhni)",
+  "virtualRoomDragUser": "Ty (táhni)",
   "scanOverlaySettingsTitle": "Náhled skenu (D-detail)",
   "scanOverlaySettingsIntro": "Náhled zón na monitoru při ladění režimu Obrazovka.",
   "scanOverlayPreviewTitle": "Náhled zón na monitor při ladění",
@@ -633,10 +700,10 @@
   "musicSettingsHeader": "Hudba",
   "musicSettingsSubtitle": "Zdroj zvuku, efekty a náhled barev. Režim Hudba na přehledu musí být aktivní, aby se výstup promítl na pásky.",
   "musicGuideMusicArtwork": "Nápověda: hudba a obaly",
-  "musicLockPaletteTitle": "Zamknout výstup barev na pásek (hudba)",
-  "musicLockPaletteFrozen": "Posílá se zmrazená paleta (stejné jako položka v tray).",
-  "musicLockPalettePending": "Čeká na další snímek, pak se paleta zmrazí.",
-  "musicLockPaletteIdle": "Jen v music módu má smysl; přepnutím režimu se zámek zruší.",
+  "musicLockPaletteTitle": "Zmrazit světla na pásku (hudba)",
+  "musicLockPaletteFrozen": "Zmrazeno: pořád se posílá naposledy zachycený snímek RGB na LED — pásek stojí, hudba uvnitř dál běží.",
+  "musicLockPalettePending": "Další tick uloží aktuální rozložení LED na pásku a pak už se nemění.",
+  "musicLockPaletteIdle": "Zmrazí celý fyzický výstup na pásku (ne jen zdroj barev). Jen v music módu; přepnutím režimu se zámek zruší.",
   "musicPreferMicTitle": "Preferovat mikrofon",
   "musicPreferMicSubtitle": "Pokud není vybráno zařízení, hledá se vhodný vstup mimo smyčku reproduktorů.",
   "musicColorSourceLabel": "Zdroj barev",
@@ -663,10 +730,84 @@
   "musicSmoothingMs": "Vyhlazení v čase: {v} ms",
   "musicMinBrightnessValue": "min_brightness (music): {v}",
   "musicRotationSpeedValue": "rotation_speed: {v}",
-  "musicActivePresetField": "active_preset",
+  "musicSpectrumRotationTitle": "Rotace spektra (čas)",
+  "musicSpectrumRotationSubtitle": "Vypnuto = „Rotující spektrum“ zůstane statické jako obyčejné spektrum; krok gradientu při beatu (pokud je zapnutý) funguje dál.",
+  "musicActivePresetField": "Preset hudby",
+  "helperMusicActivePreset": "Rychlé presety, vestavěné názvy a uložené user_music_presets.",
   "musicFixedColorPickerTitle": "Pevná barva (hudba)",
   "musicEditColorButton": "Upravit barvu",
   "musicRgbTriple": "RGB {r} · {g} · {b}",
+  "musicSpectrumPaletteHeader": "Barvy spektrálních pásem",
+  "musicSpectrumPaletteHint": "Sedm zastávek od sub-basu po brilliance. Spektrum, VU+spektrum a Chytrá hudba po této cestě míchají barvy, když je zdroj „Spektrum zvuku“.",
+  "musicSpectrumBandSubBass": "Sub-bas",
+  "musicSpectrumBandBass": "Bas",
+  "musicSpectrumBandLowMid": "Nízké středy",
+  "musicSpectrumBandMid": "Středy",
+  "musicSpectrumBandHighMid": "Vysoké středy",
+  "musicSpectrumBandPresence": "Presence",
+  "musicSpectrumBandBrilliance": "Brilliance",
+  "musicSpectrumResetBands": "Obnovit výchozí barvy spektra",
+  "musicSpectrumPickerTitle": "Spektrum: {band}",
+  "@musicSpectrumPickerTitle": {
+    "placeholders": {
+      "band": {
+        "type": "String"
+      }
+    }
+  },
+  "musicBeatSyncLabel": "Beat sync (vizuál)",
+  "musicBeatSyncHint": "Použije beat příznaky z analýzy. Posun gradientu posune spektrum; pulz krátce zvýší jas.",
+  "musicBeatSyncOff": "Vypnuto",
+  "musicBeatSyncGradientStep": "Posun gradientu při beatu",
+  "musicBeatSyncColorPulse": "Pulz barvy při beatu",
+  "musicMelodySpectrumTintTitle": "Melodie + spektrální paleta",
+  "musicMelodySpectrumTintSubtitle": "Při zdroji „Spektrum zvuku“ míchá barvu melodie (HSV) směrem k paletě pásem (síla níže).",
+  "musicMelodySpectrumTintAmount": "Síla tónování: {p} %",
+  "@musicMelodySpectrumTintAmount": {
+    "placeholders": {
+      "p": {
+        "type": "int"
+      }
+    }
+  },
+  "musicPerBandSensitivityTitle": "Citlivost po pásmech (pokročilé)",
+  "musicPerBandSensitivitySubtitle": "Zapnuto = vlastní 0–100 pro každé FFT pásmo; vypnuto = skupiny bas / střed / výška jako dřív.",
+  "musicUserPresetsTitle": "Uložené presety hudby (JSON)",
+  "musicUserPresetsHint": "Ulož aktuální nastavení hudby pod jménem, zkopíruj JSON všech presetů nebo slouč importem. Výběr jména v „Preset hudby“ preset načte.",
+  "musicUserPresetsNameLabel": "Název presetu",
+  "musicUserPresetsSave": "Uložit aktuální jako preset",
+  "musicUserPresetsSavedOk": "Preset uložen.",
+  "musicUserPresetsDelete": "Smazat",
+  "musicUserPresetsExport": "Zkopírovat JSON presetů",
+  "musicUserPresetsImport": "Importovat JSON…",
+  "musicUserPresetsCopied": "JSON presetů zkopírován do schránky.",
+  "musicUserPresetsMerged": "Importované presety sloučeny do seznamu.",
+  "musicUserPresetsBadJson": "JSON presetů nelze načíst.",
+  "musicAgcMeterTitle": "AGC (automatické zesílení)",
+  "musicAgcMeterPeak": "Sledovaná špička: {v}",
+  "@musicAgcMeterPeak": {
+    "placeholders": {
+      "v": {
+        "type": "String"
+      }
+    }
+  },
+  "musicAgcMeterGain": "Aplikovaný gain: {v}",
+  "@musicAgcMeterGain": {
+    "placeholders": {
+      "v": {
+        "type": "String"
+      }
+    }
+  },
+  "musicGuideMacosAudio": "Průvodce: macOS loopback",
+  "musicMacosLoopbackGuideTitle": "macOS — systémové audio do Ambilight",
+  "musicMacosLoopbackGuideIntro": "Na rozdíl od Windows WASAPI loopback na výchozím přehrávacím zařízení macOS nemá vestavěné „co slyšíš“ pro každou aplikaci.",
+  "musicMacosLoopbackGuideSteps": "1) Nainstaluj BlackHole (2ch) z existential.audio/blackhole.\n2) Audio MIDI Setup → Multi-Output Device se sluchátky/repro a BlackHole; nastav ho jako systémový výstup pro poslech s kopií do BlackHole.\n3) V Ambilight → Hudba vyber vstup „BlackHole“ (nebo aggregate).",
+  "musicMacosLoopbackGuideNote": "Latence a názvy zařízení závisí na aggregate. Jen barvy ze Spotify řeší také integrace Spotify v aplikaci.",
+  "musicMacosLoopbackGuideClose": "Zavřít",
+  "musicMacosLoopbackGuideBlackHole": "Stránka BlackHole",
+  "musicMacosLoopbackGuideOpenFailed": "Otevření odkazu se nezdařilo.",
   "musicEffectSmartMusic": "Chytrá hudba",
   "musicEffectEnergy": "Energie",
   "musicEffectSpectrum": "Spektrum",

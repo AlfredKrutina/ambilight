@@ -4,9 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../application/ambilight_app_controller.dart';
-import '../../application/app_error_safety.dart';
-import '../../l10n/app_locale_bridge.dart';
-import '../../core/device_bindings_debug.dart';
 import '../../core/models/config_models.dart';
 import '../../features/pc_health/pc_health_snapshot.dart';
 import '../../core/models/smart_lights_models.dart';
@@ -14,7 +11,6 @@ import '../../l10n/context_ext.dart';
 import '../dashboard_ui.dart';
 import '../layout_breakpoints.dart';
 import '../responsive_body.dart';
-import 'tabs/devices_tab.dart';
 import 'tabs/global_settings_tab.dart';
 import 'tabs/light_settings_tab.dart';
 import 'tabs/music_settings_tab.dart';
@@ -33,7 +29,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  static const _tabCount = 9;
+  static const _tabCount = 8;
 
   @override
   void initState() {
@@ -70,33 +66,6 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
   void _patchLight(LightModeSettings l) {
     final c = context.read<AmbilightAppController>();
     _queue(c.config.copyWith(lightMode: l));
-  }
-
-  /// Při změně COM/IP/typu zařízení okamžitý rebuild transportů; u názvu a počtu LED jen debounce
-  /// ([queueConfigApply]) — opakované zavírání COM při psaní čísla na Windows ničí heap v driveru.
-  void _patchDevices(List<DeviceSettings> devices) {
-    final c = context.read<AmbilightAppController>();
-    final prev = c.config.globalSettings.devices;
-    final next = c.config.copyWith(globalSettings: c.config.globalSettings.copyWith(devices: devices));
-    traceDeviceBindings(
-      'SettingsPage._patchDevices: nový seznam (${devices.length}) → ${formatDeviceBindingsList(devices)}',
-    );
-    traceConfigBindings('SettingsPage._patchDevices: snapshot před apply', c.config);
-    final hot = AmbilightAppController.devicesChangeRequiresTransportRebuild(prev, devices);
-    traceDeviceBindings('SettingsPage._patchDevices: transportRebuild=$hot');
-    if (hot) {
-      unawaited(() async {
-        try {
-          await c.applyConfigAndPersist(next);
-          traceDeviceBindings('SettingsPage._patchDevices: applyConfigAndPersist OK');
-        } catch (e, st) {
-          traceDeviceBindingsSevere('SettingsPage._patchDevices: applyConfigAndPersist výjimka', e, st);
-          reportAppFault(AppLocaleBridge.strings.settingsDevicesSaveFailed(e.toString().split('\n').first));
-        }
-      }());
-    } else {
-      c.queueConfigApply(next);
-    }
   }
 
   void _patchScreen(ScreenModeSettings s) {
@@ -157,30 +126,25 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                     onReplayOnboarding: () => unawaited(_replayOnboarding()),
                   );
                 case 1:
-                  return DevicesTab(
-                    draft: draft,
-                    maxWidth: contentW,
-                    onDevicesChanged: _patchDevices,
-                  );
-                case 2:
                   return LightSettingsTab(
                     draft: draft,
                     maxWidth: contentW,
                     onChanged: _patchLight,
                   );
-                case 3:
+                case 2:
                   return ScreenSettingsTab(
                     draft: draft,
                     maxWidth: contentW,
                     onChanged: _patchScreen,
                   );
-                case 4:
+                case 3:
                   return MusicSettingsTab(
                     draft: draft,
                     maxWidth: contentW,
                     onChanged: _patchMusic,
+                    onAppConfig: _queue,
                   );
-                case 5:
+                case 4:
                   return ValueListenableBuilder<PcHealthSnapshot>(
                     valueListenable: ctrl.pcHealthSnapshotNotifier,
                     builder: (context, _, __) => PcHealthSettingsTab(
@@ -189,7 +153,7 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                       onChanged: _patchPcHealth,
                     ),
                   );
-                case 6:
+                case 5:
                   return SpotifySettingsTab(
                     draft: draft,
                     maxWidth: contentW,
@@ -199,13 +163,13 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                       _queue(c.config.copyWith(systemMediaAlbum: sm));
                     },
                   );
-                case 7:
+                case 6:
                   return SmartIntegrationTab(
                     draft: draft,
                     maxWidth: contentW,
                     onSmartLightsChanged: _patchSmartLights,
                   );
-                case 8:
+                case 7:
                   return FirmwareSettingsTab(
                     draft: draft,
                     maxWidth: contentW,
@@ -310,7 +274,6 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
               isScrollable: true,
               tabs: [
                 Tab(text: context.l10n.tabGlobal),
-                Tab(text: context.l10n.tabDevices),
                 Tab(text: context.l10n.tabLight),
                 Tab(text: context.l10n.tabScreen),
                 Tab(text: context.l10n.tabMusic),
@@ -364,55 +327,49 @@ class _SettingsSidebar extends StatelessWidget {
               selected: selectedIndex == 0,
               onTap: () => onSelect(0),
             ),
-            AmbiSidebarTile(
-              icon: Icons.usb_rounded,
-              label: l10n.tabDevices,
-              selected: selectedIndex == 1,
-              onTap: () => onSelect(1),
-            ),
             AmbiSidebarSectionLabel(l10n.settingsSidebarModes),
             AmbiSidebarTile(
               icon: Icons.palette_rounded,
               label: l10n.tabLight,
-              selected: selectedIndex == 2,
-              onTap: () => onSelect(2),
+              selected: selectedIndex == 1,
+              onTap: () => onSelect(1),
             ),
             AmbiSidebarTile(
               icon: Icons.desktop_windows_rounded,
               label: l10n.tabScreen,
-              selected: selectedIndex == 3,
-              onTap: () => onSelect(3),
+              selected: selectedIndex == 2,
+              onTap: () => onSelect(2),
             ),
             AmbiSidebarTile(
               icon: Icons.graphic_eq_rounded,
               label: l10n.tabMusic,
-              selected: selectedIndex == 4,
-              onTap: () => onSelect(4),
+              selected: selectedIndex == 3,
+              onTap: () => onSelect(3),
             ),
             AmbiSidebarTile(
               icon: Icons.monitor_heart_rounded,
               label: l10n.tabPcHealth,
-              selected: selectedIndex == 5,
-              onTap: () => onSelect(5),
+              selected: selectedIndex == 4,
+              onTap: () => onSelect(4),
             ),
             AmbiSidebarSectionLabel(l10n.settingsSidebarIntegrations),
             AmbiSidebarTile(
               icon: Icons.queue_music_rounded,
               label: l10n.tabSpotify,
-              selected: selectedIndex == 6,
-              onTap: () => onSelect(6),
+              selected: selectedIndex == 5,
+              onTap: () => onSelect(5),
             ),
             AmbiSidebarTile(
               icon: Icons.home_work_outlined,
               label: l10n.tabSmartHome,
-              selected: selectedIndex == 7,
-              onTap: () => onSelect(7),
+              selected: selectedIndex == 6,
+              onTap: () => onSelect(6),
             ),
             AmbiSidebarTile(
               icon: Icons.system_update_alt_rounded,
               label: l10n.tabFirmware,
-              selected: selectedIndex == 8,
-              onTap: () => onSelect(8),
+              selected: selectedIndex == 7,
+              onTap: () => onSelect(7),
             ),
           ],
         ),

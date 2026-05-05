@@ -1,10 +1,14 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
+
+import '../../application/pipeline_diagnostics.dart';
 import '../../core/models/config_models.dart';
 import '../../engine/screen/screen_frame.dart';
 import 'music_melody_smart_effect.dart';
 import 'music_monitor_palette.dart';
 import 'music_smart_music_effect.dart';
+import 'music_spectrum_palette.dart';
 import 'music_types.dart';
 
 /// Port `app.py` `_render_segment_effect` (základní efekty + role podle segmentu).
@@ -12,6 +16,22 @@ class MusicSegmentRenderer {
   MusicSegmentRenderer._();
 
   static double _agcPeak = 0.1;
+  static final ValueNotifier<double> agcPeakNotifier = ValueNotifier<double>(0.1);
+  static final ValueNotifier<double> agcGainNotifier = ValueNotifier<double>(1.0);
+
+  static bool _beatLatchPrev = false;
+  static double _beatGradientNudge = 0;
+  static double _beatColorPulse = 0;
+
+  static const _bandOrder = <String>[
+    'sub_bass',
+    'bass',
+    'low_mid',
+    'mid',
+    'high_mid',
+    'presence',
+    'brilliance',
+  ];
 
   static List<(int, int, int)> render({
     required String effect,
@@ -53,36 +73,83 @@ class MusicSegmentRenderer {
       sensHigh *= 1.0 + (1.0 - t) * 0.5;
     }
 
+    final rawBandsMax = [
+      analysis.subBass.smoothed,
+      analysis.bass.smoothed,
+      analysis.lowMid.smoothed,
+      analysis.mid.smoothed,
+      analysis.highMid.smoothed,
+      analysis.presence.smoothed,
+      analysis.brilliance.smoothed,
+    ].reduce(math.max);
+
     var agcGain = 1.0;
     if (settings.autoGain) {
-      final rawMax = [
-        analysis.subBass.smoothed,
-        analysis.bass.smoothed,
-        analysis.lowMid.smoothed,
-        analysis.mid.smoothed,
-        analysis.highMid.smoothed,
-        analysis.presence.smoothed,
-        analysis.brilliance.smoothed,
-      ].reduce(math.max);
-      _agcPeak = math.max(_agcPeak * 0.96, rawMax);
+      _agcPeak = math.max(_agcPeak * 0.965, rawBandsMax);
       if (_agcPeak < 0.10) {
         _agcPeak = 0.10;
       }
-      agcGain = 1.0 / _agcPeak;
+      final inv = 1.0 / _agcPeak;
+      const knee = 0.28;
+      if (rawBandsMax < knee) {
+        final t = rawBandsMax / knee;
+        agcGain = inv * t + 1.0 * (1.0 - t);
+      } else {
+        agcGain = inv;
+      }
+      if (rawBandsMax > 0.82) {
+        agcGain *= 0.9 + 0.1 * ((1.0 - rawBandsMax) / 0.18).clamp(0.0, 1.0);
+      }
+      agcPeakNotifier.value = _agcPeak.clamp(0.05, 1.0);
+      agcGainNotifier.value = agcGain.clamp(0.35, 6.0);
+      if (ambilightPipelineDiagnosticsEnabled) {
+        pipelineDiagLog(
+          'music_agc',
+          'peak=${_agcPeak.toStringAsFixed(3)} gain=${agcGain.toStringAsFixed(2)} rawMax=${rawBandsMax.toStringAsFixed(3)}',
+        );
+      }
+    } else {
+      agcPeakNotifier.value = rawBandsMax.clamp(0.0, 1.0);
+      agcGainNotifier.value = 1.0;
     }
 
-    double getBand(String name, double mult) {
+    double bandMultFor(String name) {
+      if (!settings.perBandSensitivityEnabled || settings.bandSensitivities.length < 7) {
+        if (name == 'sub_bass' || name == 'bass') {
+          return sensBass;
+        }
+        if (name == 'low_mid' || name == 'mid') {
+          return sensMid;
+        }
+        return sensHigh;
+      }
+      final i = _bandOrder.indexOf(name);
+      final idx = i < 0 ? 3 : i;
+      final v = settings.bandSensitivities[idx].clamp(0, 100);
+      return (v / 50.0) * globalGain;
+    }
+
+    double trebleMult() {
+      if (!settings.perBandSensitivityEnabled || settings.bandSensitivities.length < 7) {
+        return sensHigh;
+      }
+      final b = settings.bandSensitivities;
+      final avg = (b[4] + b[5] + b[6]) / 3.0;
+      return (avg / 50.0) * globalGain;
+    }
+
+    double getBand(String name) {
       var raw = analysis.named(name).smoothed * agcGain;
       if (settings.autoGain && raw < 0.05) {
         raw = 0;
       }
-      return math.min(1.0, raw * mult);
+      return math.min(1.0, raw * bandMultFor(name));
     }
 
-    final vSub = getBand('sub_bass', sensBass);
-    final vBass = getBand('bass', sensBass);
-    final vMid = getBand('mid', sensMid);
-    final vHigh = _trebleSmoothed(analysis) * sensHigh;
+    final vSub = getBand('sub_bass');
+    final vBass = getBand('bass');
+    final vMid = getBand('mid');
+    final vHigh = _trebleSmoothed(analysis) * trebleMult();
 
     var cBass = (255, 255, 255);
     var cMid = (255, 255, 255);
@@ -115,6 +182,26 @@ class MusicSegmentRenderer {
       }
     }
 
+    final spectrumStops = colSource == 'spectrum' ? MusicSpectrumPalette.stopsFrom(settings) : null;
+
+    final beatComposite = settings.beatDetectionEnabled &&
+        (analysis.bass.isBeat ||
+            analysis.lowMid.isBeat ||
+            analysis.mid.isBeat ||
+            analysis.brilliance.isBeat ||
+            analysis.melodyBeat);
+    final beatEdge = beatComposite && !_beatLatchPrev;
+    _beatLatchPrev = beatComposite;
+
+    final syncMode = settings.beatSyncMode;
+    if (syncMode == 'gradient_step' && beatEdge) {
+      _beatGradientNudge = (_beatGradientNudge + 1.0 / 8.0) % 1.0;
+    }
+    if (syncMode == 'color_pulse' && beatEdge) {
+      _beatColorPulse = 1.0;
+    }
+    _beatColorPulse *= 0.88;
+
     int clamp255(num v) => v.round().clamp(0, 255);
 
     (int, int, int) valScale((int, int, int) c, double v) => (
@@ -135,10 +222,10 @@ class MusicSegmentRenderer {
     final targets = List<(int, int, int)>.filled(numLeds, (0, 0, 0), growable: false);
 
     if (effect == 'smart_music') {
-      final vLowMid = getBand('low_mid', sensMid);
-      final vHighMid = getBand('high_mid', sensHigh);
-      final vBril = getBand('brilliance', sensHigh);
-      final vTreble = _trebleSmoothed(analysis) * sensHigh;
+      final vLowMid = getBand('low_mid');
+      final vHighMid = getBand('high_mid');
+      final vBril = getBand('brilliance');
+      final vTreble = _trebleSmoothed(analysis) * trebleMult();
       return MusicSmartMusicEffect.render(
         numLeds: numLeds,
         settings: settings,
@@ -148,6 +235,7 @@ class MusicSegmentRenderer {
         cBass: cBass,
         cMid: cMid,
         cHigh: cHigh,
+        spectrumStops: spectrumStops,
         vSub: vSub,
         vBass: vBass,
         vLowMid: vLowMid,
@@ -163,25 +251,35 @@ class MusicSegmentRenderer {
         numLeds: numLeds,
         vSub: vSub,
         vBass: vBass,
-        vLmid: getBand('low_mid', sensMid),
+        vLmid: getBand('low_mid'),
         vMid: vMid,
-        vHmid: getBand('high_mid', sensHigh),
-        vHigh: _trebleSmoothed(analysis) * sensHigh,
-        vBril: getBand('brilliance', sensHigh),
+        vHmid: getBand('high_mid'),
+        vHigh: _trebleSmoothed(analysis) * trebleMult(),
+        vBril: getBand('brilliance'),
         highSensFactor: settings.highSensitivity.toDouble(),
       );
     }
 
     if (effect.contains('melody')) {
-      final rgb = _melodyNoteRgb(analysis, vBass, vMid, vHigh);
+      final rgb = _melodyNoteRgb(
+        analysis,
+        vBass,
+        vMid,
+        vHigh,
+        spectrumStops: spectrumStops,
+        spectrumTint: settings.melodySpectrumTintEnabled ? settings.melodySpectrumTint.clamp(0.0, 1.0) : 0.0,
+      );
       return List<(int, int, int)>.filled(numLeds, rgb, growable: false);
     }
 
     if (effect.contains('spectrum')) {
       var hueOffset = 0.0;
-      if (effect.contains('rotate')) {
+      if (effect.contains('rotate') && settings.spectrumRotationEnabled) {
         final speed = settings.rotationSpeed / 100.0;
         hueOffset = (timeSec * speed) % 1.0;
+      }
+      if (syncMode == 'gradient_step') {
+        hueOffset = (hueOffset + _beatGradientNudge) % 1.0;
       }
       var contrast = 1.0;
       var preGain = 1.0;
@@ -206,7 +304,9 @@ class MusicSegmentRenderer {
         final absPos = startF + (relPos * rangeF);
         var effPos = (absPos + hueOffset) % 1.0;
         late final (int, int, int) baseC;
-        if (effPos < 0.5) {
+        if (spectrumStops != null) {
+          baseC = MusicSpectrumPalette.at(spectrumStops, effPos);
+        } else if (effPos < 0.5) {
           baseC = interpolate(cBass, cMid, effPos * 2.0);
         } else {
           baseC = interpolate(cMid, cHigh, (effPos - 0.5) * 2.0);
@@ -216,7 +316,10 @@ class MusicSegmentRenderer {
         final wHigh = math.max(0.0, 1.0 - (absPos - 1.0).abs() * 3.0);
         var rawIntensity = (vBass * wBass + vMid * wMid + vHigh * wHigh) * preGain;
         rawIntensity = math.min(1.0, rawIntensity);
-        final intensity = math.pow(rawIntensity, contrast).toDouble();
+        var intensity = math.pow(rawIntensity, contrast).toDouble();
+        if (syncMode == 'color_pulse') {
+          intensity = math.min(1.0, intensity * (1.0 + 0.32 * _beatColorPulse));
+        }
         targets[i] = valScale(baseC, intensity);
       }
       return targets.toList();
@@ -241,6 +344,9 @@ class MusicSegmentRenderer {
         targetVol = math.max(vBass, math.max(vMid, vHigh));
       }
       targetVol = math.min(1.0, targetVol * 1.5);
+      if (syncMode == 'color_pulse') {
+        targetVol = math.min(1.0, targetVol * (1.0 + 0.22 * _beatColorPulse));
+      }
       final fill = (targetVol * numLeds).floor();
       var invertOrder = false;
       if (edge == 'right') {
@@ -255,7 +361,9 @@ class MusicSegmentRenderer {
           final pos = logicalIdx / math.max(1, numLeds - 1);
           if (effect.contains('spectrum')) {
             late final (int, int, int) c;
-            if (pos < 0.5) {
+            if (spectrumStops != null) {
+              c = MusicSpectrumPalette.at(spectrumStops, pos);
+            } else if (pos < 0.5) {
               c = interpolate(cBass, cMid, pos * 2);
             } else {
               c = interpolate(cMid, cHigh, (pos - 0.5) * 2);
@@ -287,6 +395,10 @@ class MusicSegmentRenderer {
       } else {
         val = math.max(vBass, vHigh);
       }
+      if (spectrumStops != null) {
+        final hue = (val * 0.82 + (role == 'mid' ? 0.12 : 0.0)).clamp(0.0, 1.0);
+        strobeColor = MusicSpectrumPalette.at(spectrumStops, hue);
+      }
       if (val > thresh) {
         return List<(int, int, int)>.filled(numLeds, strobeColor, growable: false);
       }
@@ -301,7 +413,11 @@ class MusicSegmentRenderer {
       var intensity = math.pow(vol, gamma).toDouble();
       final minBrite = math.min(0.4, sensHigh * 0.2);
       intensity = minBrite + (intensity * (1.0 - minBrite));
-      final c = valScale(cBass, intensity);
+      if (syncMode == 'color_pulse') {
+        intensity = math.min(1.0, intensity * (1.0 + 0.28 * _beatColorPulse));
+      }
+      final base = spectrumStops != null ? MusicSpectrumPalette.at(spectrumStops, vol.clamp(0.0, 1.0)) : cBass;
+      final c = valScale(base, intensity);
       return List<(int, int, int)>.filled(numLeds, c, growable: false);
     }
 
@@ -319,9 +435,10 @@ class MusicSegmentRenderer {
       const minWidthPct = 0.15;
       final width = (minWidthPct + (intensity * (1.0 - minWidthPct))) * (numLeds / 2);
       final center = numLeds / 2.0;
-      var cShock = cBass;
+      var baseShock = spectrumStops != null ? MusicSpectrumPalette.at(spectrumStops, vBass.clamp(0.0, 1.0)) : cBass;
+      var cShock = baseShock;
       if (vBass > 0.7) {
-        cShock = interpolate(cBass, (255, 255, 255), (vBass - 0.7) * 3);
+        cShock = interpolate(baseShock, (255, 255, 255), (vBass - 0.7) * 3);
       }
       final finalC = valScale(cShock, math.min(1.0, intensity * 2.0));
       for (var i = 0; i < numLeds; i++) {
@@ -347,22 +464,42 @@ class MusicSegmentRenderer {
       final energyBass = vBass * 2.0 * w1;
       final energyMid = vMid * 1.5 * w2;
       final energyHigh = vHigh * 1.5 * w3;
-      var r = 0.0;
-      var g = 0.0;
-      var b = 0.0;
-      final bc = valScale(cBass, energyBass);
-      final mc = valScale(cMid, energyMid);
-      final hc = valScale(cHigh, energyHigh);
-      r += bc.$1;
-      g += bc.$2;
-      b += bc.$3;
-      r += mc.$1;
-      g += mc.$2;
-      b += mc.$3;
-      r += hc.$1;
-      g += hc.$2;
-      b += hc.$3;
-      targets[i] = (clamp255(r), clamp255(g), clamp255(b));
+      if (spectrumStops != null) {
+        final alongB = (0.06 + pos * 0.34 + math.sin(t * 0.7) * 0.04).clamp(0.0, 1.0);
+        final alongM = (0.36 + pos * 0.26 + math.cos(t * 0.9) * 0.04).clamp(0.0, 1.0);
+        final alongH = (0.58 + pos * 0.38 + math.sin(t * 1.1) * 0.04).clamp(0.0, 1.0);
+        var eb = valScale(MusicSpectrumPalette.at(spectrumStops, alongB), energyBass);
+        var em = valScale(MusicSpectrumPalette.at(spectrumStops, alongM), energyMid);
+        var eh = valScale(MusicSpectrumPalette.at(spectrumStops, alongH), energyHigh);
+        if (syncMode == 'color_pulse') {
+          final boost = 1.0 + 0.18 * _beatColorPulse;
+          eb = valScale(eb, boost.clamp(1.0, 1.35));
+          em = valScale(em, boost.clamp(1.0, 1.35));
+          eh = valScale(eh, boost.clamp(1.0, 1.35));
+        }
+        targets[i] = (
+          clamp255(eb.$1 + em.$1 + eh.$1),
+          clamp255(eb.$2 + em.$2 + eh.$2),
+          clamp255(eb.$3 + em.$3 + eh.$3),
+        );
+      } else {
+        var r = 0.0;
+        var g = 0.0;
+        var b = 0.0;
+        final bc = valScale(cBass, energyBass);
+        final mc = valScale(cMid, energyMid);
+        final hc = valScale(cHigh, energyHigh);
+        r += bc.$1;
+        g += bc.$2;
+        b += bc.$3;
+        r += mc.$1;
+        g += mc.$2;
+        b += mc.$3;
+        r += hc.$1;
+        g += hc.$2;
+        b += hc.$3;
+        targets[i] = (clamp255(r), clamp255(g), clamp255(b));
+      }
     }
     return targets.toList();
   }
@@ -372,12 +509,24 @@ class MusicSegmentRenderer {
     return (a.highMid.smoothed + a.presence.smoothed * 1.2 + a.brilliance.smoothed * 1.2) / 2.4;
   }
 
-  static (int, int, int) _melodyNoteRgb(MusicAnalysisSnapshot a, double vBass, double vMid, double vHigh) {
+  static (int, int, int) _melodyNoteRgb(
+    MusicAnalysisSnapshot a,
+    double vBass,
+    double vMid,
+    double vHigh, {
+    List<(int, int, int)>? spectrumStops,
+    double spectrumTint = 0,
+  }) {
     final nc = a.melodyNoteClass;
     if (nc < 0 || nc > 11) {
       final v = (vBass * 0.4 + vMid * 0.35 + vHigh * 0.25).clamp(0.0, 1.0);
       final g = (32 + 80 * v).round().clamp(0, 255);
-      return (g ~/ 3, g ~/ 3, g ~/ 3);
+      var out = (g ~/ 3, g ~/ 3, g ~/ 3);
+      if (spectrumTint > 0 && spectrumStops != null && spectrumStops.length >= 2) {
+        final pal = MusicSpectrumPalette.at(spectrumStops, v);
+        out = MusicSpectrumPalette.lerpRgb(out, pal, spectrumTint);
+      }
+      return out;
     }
     final hue = nc / 12.0;
     final sat = 0.55 + 0.45 * a.melodyPitchConfidence.clamp(0.0, 1.0);
@@ -385,7 +534,12 @@ class MusicSegmentRenderer {
       1.0,
       a.melodyDynamics * 1.8 + vBass * 0.45 + (a.melodyOnset ? 0.25 : 0.0),
     );
-    return _hsvToRgb(hue, sat, val);
+    var rgb = _hsvToRgb(hue, sat, val);
+    if (spectrumTint > 0 && spectrumStops != null && spectrumStops.length >= 2) {
+      final pal = MusicSpectrumPalette.at(spectrumStops, hue);
+      rgb = MusicSpectrumPalette.lerpRgb(rgb, pal, spectrumTint);
+    }
+    return rgb;
   }
 
   static (int, int, int) _hsvToRgb(double h, double s, double v) {

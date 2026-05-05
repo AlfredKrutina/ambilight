@@ -3,9 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../core/models/smart_lights_models.dart';
+import '../../../features/smart_lights/virtual_room_effects.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
-/// Plánek místnosti: TV, uživatel, směr pohledu, tažná světla a parametry vlnění.
-class VirtualRoomEditor extends StatelessWidget {
+/// Plánek místnosti: TV, uživatel, směr pohledu, tažná světla a parametry efektů + živý náhled.
+class VirtualRoomEditor extends StatefulWidget {
   const VirtualRoomEditor({
     super.key,
     required this.sl,
@@ -15,96 +17,233 @@ class VirtualRoomEditor extends StatelessWidget {
   final SmartLightsSettings sl;
   final ValueChanged<SmartLightsSettings> onChanged;
 
-  static const double _roomH = 248;
+  static const double roomPaintHeight = 248;
+
+  @override
+  State<VirtualRoomEditor> createState() => _VirtualRoomEditorState();
+}
+
+class _VirtualRoomEditorState extends State<VirtualRoomEditor> with SingleTickerProviderStateMixin {
+  late final AnimationController _previewTick;
+  bool _previewAnimated = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _previewTick = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 48),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _previewTick.dispose();
+    super.dispose();
+  }
+
+  SmartLightsSettings get sl => widget.sl;
+
+  void _patch(SmartLightsSettings next) => widget.onChanged(next);
+
+  String _effectLabel(AppLocalizations loc, SmartRoomEffectKind k) => switch (k) {
+        SmartRoomEffectKind.none => loc.virtualRoomEffectNone,
+        SmartRoomEffectKind.wave => loc.virtualRoomEffectWave,
+        SmartRoomEffectKind.breath => loc.virtualRoomEffectBreath,
+        SmartRoomEffectKind.chase => loc.virtualRoomEffectChase,
+        SmartRoomEffectKind.sparkle => loc.virtualRoomEffectSparkle,
+      };
+
+  String _effectHint(AppLocalizations loc, SmartRoomEffectKind k) => switch (k) {
+        SmartRoomEffectKind.none => loc.virtualRoomEffectHintNone,
+        SmartRoomEffectKind.wave => loc.virtualRoomEffectHintWave,
+        SmartRoomEffectKind.breath => loc.virtualRoomEffectHintBreath,
+        SmartRoomEffectKind.chase => loc.virtualRoomEffectHintChase,
+        SmartRoomEffectKind.sparkle => loc.virtualRoomEffectHintSparkle,
+      };
+
+  String _geometryLabel(AppLocalizations loc, SmartRoomWaveGeometry g) => switch (g) {
+        SmartRoomWaveGeometry.radialFromTv => loc.virtualRoomGeometryRadial,
+        SmartRoomWaveGeometry.alongUserView => loc.virtualRoomGeometryAlongView,
+        SmartRoomWaveGeometry.horizontalRoom => loc.virtualRoomGeometryHorizontal,
+        SmartRoomWaveGeometry.verticalRoom => loc.virtualRoomGeometryVertical,
+        SmartRoomWaveGeometry.customAngle => loc.virtualRoomGeometryCustom,
+      };
 
   @override
   Widget build(BuildContext context) {
     final vr = sl.virtualRoom;
     final scheme = Theme.of(context).colorScheme;
+    final loc = AppLocalizations.of(context);
+    final showSpatial = vr.roomEffect == SmartRoomEffectKind.wave ||
+        vr.roomEffect == SmartRoomEffectKind.chase ||
+        vr.roomEffect == SmartRoomEffectKind.sparkle;
+    final showDistance = showSpatial;
+    final chaseRanks =
+        vr.roomEffect == SmartRoomEffectKind.chase ? VirtualRoomEffects.chaseRanks(room: vr, fixtures: sl.fixtures) : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         LayoutBuilder(
           builder: (context, constraints) {
             final w = constraints.maxWidth.clamp(280.0, 720.0);
-            final size = Size(w, _roomH);
+            final size = Size(w, VirtualRoomEditor.roomPaintHeight);
             return SizedBox(
               width: w,
-              height: _roomH,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Stack(
-                  clipBehavior: Clip.hardEdge,
-                  children: [
-                    Positioned.fill(
-                      child: ColoredBox(
-                        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    Positioned.fill(
-                      child: CustomPaint(
-                        painter: _RoomGridPainter(
-                          color: scheme.outline.withValues(alpha: 0.22),
+              height: VirtualRoomEditor.roomPaintHeight,
+              child: AnimatedBuilder(
+                animation: _previewTick,
+                builder: (context, _) {
+                  final tick = _previewAnimated ? (DateTime.now().millisecondsSinceEpoch ~/ 48) : 0;
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Stack(
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        Positioned.fill(
+                          child: ColoredBox(
+                            color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          ),
                         ),
-                      ),
-                    ),
-                    Positioned.fill(
-                      child: CustomPaint(
-                        painter: _SightPainter(
-                          vr: vr,
-                          fillColor: scheme.primary.withValues(alpha: 0.14),
-                          strokeColor: scheme.primary.withValues(alpha: 0.55),
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: _RoomGridPainter(
+                              color: scheme.outline.withValues(alpha: 0.22),
+                            ),
+                          ),
                         ),
-                      ),
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: _SightPainter(
+                              vr: vr,
+                              fillColor: scheme.primary.withValues(alpha: 0.14),
+                              strokeColor: scheme.primary.withValues(alpha: 0.55),
+                            ),
+                          ),
+                        ),
+                        _tvMarker(vr, size, scheme, loc),
+                        ..._fixtureMarkers(
+                          size,
+                          scheme,
+                          vr,
+                          tick,
+                          chaseRanks,
+                        ),
+                        _userMarker(vr, size, scheme, loc),
+                      ],
                     ),
-                    _tvMarker(vr, size, scheme),
-                    ..._fixtureMarkers(size, scheme),
-                    _userMarker(vr, size, scheme),
-                  ],
-                ),
+                  );
+                },
               ),
             );
           },
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Vlna přes místnost'),
-          subtitle: const Text('Modulace jasu podle vzdálenosti od TV a času snímku'),
-          value: vr.waveEnabled,
-          onChanged: (v) => onChanged(sl.copyWith(virtualRoom: vr.copyWith(waveEnabled: v))),
+          title: Text(loc.virtualRoomPreviewToggle),
+          subtitle: Text(loc.virtualRoomPreviewSubtitle, style: Theme.of(context).textTheme.bodySmall),
+          value: _previewAnimated,
+          onChanged: (v) => setState(() => _previewAnimated = v),
         ),
-        Text('Síla vlny: ${(vr.waveStrength * 100).round()} %', style: Theme.of(context).textTheme.bodySmall),
-        Slider(
-          value: vr.waveStrength.clamp(0.0, 1.0),
-          onChanged: (v) => onChanged(sl.copyWith(virtualRoom: vr.copyWith(waveStrength: v))),
+        const SizedBox(height: 8),
+        Text(loc.virtualRoomEffectLabel, style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 4),
+        DropdownButtonFormField<SmartRoomEffectKind>(
+          value: vr.roomEffect,
+          decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+          items: [
+            for (final k in SmartRoomEffectKind.values)
+              DropdownMenuItem(value: k, child: Text(_effectLabel(loc, k))),
+          ],
+          onChanged: (k) {
+            if (k == null) return;
+            _patch(sl.copyWith(virtualRoom: vr.copyWith(roomEffect: k)));
+          },
         ),
-        Text('Rychlost vlny', style: Theme.of(context).textTheme.bodySmall),
-        Slider(
-          value: vr.waveSpeed.clamp(0.01, 0.35),
-          min: 0.01,
-          max: 0.35,
-          onChanged: (v) => onChanged(sl.copyWith(virtualRoom: vr.copyWith(waveSpeed: v))),
-        ),
-        Text('Citlivost na vzdálenost', style: Theme.of(context).textTheme.bodySmall),
-        Slider(
-          value: vr.waveDistanceScale.clamp(0.5, 15.0),
-          min: 0.5,
-          max: 15.0,
-          onChanged: (v) => onChanged(sl.copyWith(virtualRoom: vr.copyWith(waveDistanceScale: v))),
-        ),
-        Text('Úchyl pohledu od osy k TV: ${vr.userFacingDeg.round()}°', style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 6),
+        Text(_effectHint(loc, vr.roomEffect), style: Theme.of(context).textTheme.bodySmall),
+        if (vr.roomEffect != SmartRoomEffectKind.none) ...[
+          const SizedBox(height: 12),
+          Text(loc.virtualRoomWaveStrength((vr.waveStrength * 100).round()), style: Theme.of(context).textTheme.bodySmall),
+          Slider(
+            value: vr.waveStrength.clamp(0.0, 1.0),
+            onChanged: (v) => _patch(sl.copyWith(virtualRoom: vr.copyWith(waveStrength: v))),
+          ),
+          Text(loc.virtualRoomWaveSpeed, style: Theme.of(context).textTheme.bodySmall),
+          Slider(
+            value: vr.waveSpeed.clamp(0.01, 0.35),
+            min: 0.01,
+            max: 0.35,
+            onChanged: (v) => _patch(sl.copyWith(virtualRoom: vr.copyWith(waveSpeed: v))),
+          ),
+        ],
+        if (showDistance) ...[
+          Text(loc.virtualRoomDistanceSens, style: Theme.of(context).textTheme.bodySmall),
+          Slider(
+            value: vr.waveDistanceScale.clamp(0.5, 15.0),
+            min: 0.5,
+            max: 15.0,
+            onChanged: (v) => _patch(sl.copyWith(virtualRoom: vr.copyWith(waveDistanceScale: v))),
+          ),
+        ],
+        if (showSpatial) ...[
+          const SizedBox(height: 8),
+          Text(loc.virtualRoomGeometryLabel, style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 4),
+          DropdownButtonFormField<SmartRoomWaveGeometry>(
+            value: vr.waveGeometry,
+            decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+            items: [
+              for (final g in SmartRoomWaveGeometry.values)
+                DropdownMenuItem(value: g, child: Text(_geometryLabel(loc, g))),
+            ],
+            onChanged: (g) {
+              if (g == null) return;
+              _patch(sl.copyWith(virtualRoom: vr.copyWith(waveGeometry: g)));
+            },
+          ),
+        ],
+        if (showSpatial && vr.waveGeometry == SmartRoomWaveGeometry.customAngle) ...[
+          Text(loc.virtualRoomCustomAngle(vr.waveExtraAngleDeg.round()), style: Theme.of(context).textTheme.bodySmall),
+          Slider(
+            value: vr.waveExtraAngleDeg.clamp(-180.0, 180.0),
+            min: -180,
+            max: 180,
+            onChanged: (v) => _patch(sl.copyWith(virtualRoom: vr.copyWith(waveExtraAngleDeg: v))),
+          ),
+        ],
+        if (vr.roomEffect != SmartRoomEffectKind.none) ...[
+          const SizedBox(height: 8),
+          Text(loc.virtualRoomBrightnessModLabel, style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 4),
+          SegmentedButton<SmartRoomBrightnessModulate>(
+            segments: [
+              ButtonSegment(value: SmartRoomBrightnessModulate.both, label: Text(loc.virtualRoomBrightnessBoth)),
+              ButtonSegment(value: SmartRoomBrightnessModulate.rgbOnly, label: Text(loc.virtualRoomBrightnessRgb)),
+              ButtonSegment(value: SmartRoomBrightnessModulate.brightnessOnly, label: Text(loc.virtualRoomBrightnessBri)),
+            ],
+            selected: {vr.brightnessModulation},
+            onSelectionChanged: (s) {
+              if (s.isEmpty) return;
+              _patch(sl.copyWith(virtualRoom: vr.copyWith(brightnessModulation: s.first)));
+            },
+          ),
+        ],
+        const SizedBox(height: 12),
+        Text(loc.virtualRoomFacing(vr.userFacingDeg.round()), style: Theme.of(context).textTheme.bodySmall),
         Slider(
           value: vr.userFacingDeg.clamp(-90.0, 90.0),
           min: -90,
           max: 90,
-          onChanged: (v) => onChanged(sl.copyWith(virtualRoom: vr.copyWith(userFacingDeg: v))),
+          onChanged: (v) => _patch(sl.copyWith(virtualRoom: vr.copyWith(userFacingDeg: v))),
         ),
       ],
     );
   }
 
-  Widget _tvMarker(VirtualRoomLayout vr, Size size, ColorScheme scheme) {
+  Widget _tvMarker(VirtualRoomLayout vr, Size size, ColorScheme scheme, AppLocalizations loc) {
     const tw = 72.0;
     const th = 44.0;
     return Positioned(
@@ -114,10 +253,10 @@ class VirtualRoomEditor extends StatelessWidget {
         onPanUpdate: (d) {
           final nx = (vr.tvX + d.delta.dx / size.width).clamp(0.06, 0.94);
           final ny = (vr.tvY + d.delta.dy / size.height).clamp(0.06, 0.94);
-          onChanged(sl.copyWith(virtualRoom: vr.copyWith(tvX: nx, tvY: ny)));
+          _patch(sl.copyWith(virtualRoom: vr.copyWith(tvX: nx, tvY: ny)));
         },
         child: Tooltip(
-          message: 'TV (táhni)',
+          message: loc.virtualRoomDragTv,
           child: Container(
             width: tw,
             height: th,
@@ -134,7 +273,47 @@ class VirtualRoomEditor extends StatelessWidget {
     );
   }
 
-  List<Widget> _fixtureMarkers(Size size, ColorScheme scheme) {
+  Widget _fixturePreviewIcon({
+    required SmartFixture f,
+    required ColorScheme scheme,
+    required VirtualRoomLayout vr,
+    required (int, int, int) baseRgb,
+    required int tick,
+    required Map<String, int>? chaseRanks,
+  }) {
+    if (!f.enabled || vr.roomEffect == SmartRoomEffectKind.none) {
+      return Icon(
+        Icons.lightbulb_rounded,
+        size: 32,
+        color: f.enabled ? scheme.tertiary : scheme.onSurfaceVariant.withValues(alpha: 0.45),
+      );
+    }
+    final out = VirtualRoomEffects.apply(
+      room: vr,
+      fixture: f,
+      base: baseRgb,
+      animationTick: tick,
+      chaseRanks: chaseRanks,
+    );
+    return Icon(
+      Icons.lightbulb_rounded,
+      size: 32,
+      color: Color.fromARGB(255, out.r, out.g, out.b),
+    );
+  }
+
+  List<Widget> _fixtureMarkers(
+    Size size,
+    ColorScheme scheme,
+    VirtualRoomLayout vr,
+    int tick,
+    Map<String, int>? chaseRanks,
+  ) {
+    final baseRgb = (
+      (scheme.tertiary.r * 255.0).round().clamp(0, 255),
+      (scheme.tertiary.g * 255.0).round().clamp(0, 255),
+      (scheme.tertiary.b * 255.0).round().clamp(0, 255),
+    );
     return [
       for (final f in sl.fixtures)
         Positioned(
@@ -144,7 +323,7 @@ class VirtualRoomEditor extends StatelessWidget {
             onPanUpdate: (d) {
               final nx = (f.roomX + d.delta.dx / size.width).clamp(0.04, 0.96);
               final ny = (f.roomY + d.delta.dy / size.height).clamp(0.04, 0.96);
-              onChanged(sl.copyWith(
+              _patch(sl.copyWith(
                 fixtures: sl.fixtures
                     .map((x) => x.id == f.id ? x.copyWith(roomX: nx, roomY: ny) : x)
                     .toList(),
@@ -152,10 +331,13 @@ class VirtualRoomEditor extends StatelessWidget {
             },
             child: Tooltip(
               message: f.displayName,
-              child: Icon(
-                Icons.lightbulb_rounded,
-                size: 32,
-                color: f.enabled ? scheme.tertiary : scheme.onSurfaceVariant.withValues(alpha: 0.45),
+              child: _fixturePreviewIcon(
+                f: f,
+                scheme: scheme,
+                vr: vr,
+                baseRgb: baseRgb,
+                tick: tick,
+                chaseRanks: chaseRanks,
               ),
             ),
           ),
@@ -163,7 +345,7 @@ class VirtualRoomEditor extends StatelessWidget {
     ];
   }
 
-  Widget _userMarker(VirtualRoomLayout vr, Size size, ColorScheme scheme) {
+  Widget _userMarker(VirtualRoomLayout vr, Size size, ColorScheme scheme, AppLocalizations loc) {
     const r = 22.0;
     final hitBox = 2 * r;
     return Positioned(
@@ -174,10 +356,10 @@ class VirtualRoomEditor extends StatelessWidget {
         onPanUpdate: (details) {
           final nx = (vr.userX + details.delta.dx / size.width).clamp(0.06, 0.94);
           final ny = (vr.userY + details.delta.dy / size.height).clamp(0.06, 0.94);
-          onChanged(sl.copyWith(virtualRoom: vr.copyWith(userX: nx, userY: ny)));
+          _patch(sl.copyWith(virtualRoom: vr.copyWith(userX: nx, userY: ny)));
         },
         child: Tooltip(
-          message: 'Ty (táhni)',
+          message: loc.virtualRoomDragUser,
           child: SizedBox(
             width: hitBox,
             height: hitBox,
@@ -228,14 +410,12 @@ class _SightPainter extends CustomPainter {
   final Color fillColor;
   final Color strokeColor;
 
-  /// Vrchol kužele u „hlavy“ postavy — stejný model jako [VirtualRoomEditor._userMarker] (poloměr 22).
   static const double _userAvatarRadiusPx = 22;
 
   @override
   void paint(Canvas canvas, Size size) {
     final userCx = vr.userX * size.width;
     final userCy = vr.userY * size.height;
-    // Kužel má vycházet z horní části siluety, ne z geometrického středu kruhu (jinak působí „mimo“ ikonu).
     final ux = userCx;
     final uy = userCy - _userAvatarRadiusPx * 0.72;
     final tx = vr.tvX * size.width;

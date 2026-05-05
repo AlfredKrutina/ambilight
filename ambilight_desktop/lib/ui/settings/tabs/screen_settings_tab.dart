@@ -17,6 +17,8 @@ import '../../../features/screen_overlay/screen_scan_settings_tab.dart';
 import '../settings_common.dart';
 import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
+import '../../wizards/segment_geometry_wizard_dialog.dart';
+import '../../wizards/zone_editor_wizard_dialog.dart';
 import '../../widgets/config_drag_slider.dart';
 import '../../../l10n/context_ext.dart';
 
@@ -457,6 +459,62 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
           ),
         ),
       ),
+      Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(l10n.screenPresetLabel, style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: l10n.fieldScreenColorPreset,
+                  helperText: l10n.helperScreenColorPreset,
+                  border: const OutlineInputBorder(),
+                ),
+                value: presetDropdownValue,
+                items: presetDropdownItems
+                    .map(
+                      (e) => DropdownMenuItem<String>(
+                        value: e,
+                        child: Text(e, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) {
+                  if (v == null) return;
+                  _patch(s.copyWith(activePreset: v));
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: l10n.fieldActiveCalibrationProfile,
+                  helperText: l10n.helperCalibrationProfileKeys,
+                  border: const OutlineInputBorder(),
+                ),
+                value: calProfileValue,
+                items: calProfileItems
+                    .map(
+                      (e) => DropdownMenuItem<String>(
+                        value: e,
+                        child: Text(e, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) {
+                  if (v == null) return;
+                  _patch(s.copyWith(activeCalibrationProfile: v));
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
     ];
 
     final simpleExtra = <Widget>[
@@ -546,49 +604,6 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                 divisions: 25,
                 label: '${s.minBrightness}',
                 onChanged: (v) => _patch(s.copyWith(minBrightness: v.round())),
-              ),
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: l10n.fieldScreenColorPreset,
-                  helperText: l10n.helperScreenColorPreset,
-                  border: const OutlineInputBorder(),
-                ),
-                value: presetDropdownValue,
-                items: presetDropdownItems
-                    .map(
-                      (e) => DropdownMenuItem<String>(
-                        value: e,
-                        child: Text(e, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) {
-                  if (v == null) return;
-                  _patch(s.copyWith(activePreset: v));
-                },
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: l10n.fieldActiveCalibrationProfile,
-                  helperText: l10n.helperCalibrationProfileKeys,
-                  border: const OutlineInputBorder(),
-                ),
-                value: calProfileValue,
-                items: calProfileItems
-                    .map(
-                      (e) => DropdownMenuItem<String>(
-                        value: e,
-                        child: Text(e, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) {
-                  if (v == null) return;
-                  _patch(s.copyWith(activeCalibrationProfile: v));
-                },
               ),
             ],
           ),
@@ -703,6 +718,25 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
         contentPadding: EdgeInsets.zero,
         title: Text(l10n.segmentsTileTitle),
         subtitle: Text(l10n.segmentsZoneEditorSubtitle(s.segments.length)),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => ZoneEditorWizardDialog.show(context),
+              icon: const Icon(Icons.border_outer),
+              label: Text(l10n.zoneEditorTitle),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => SegmentGeometryWizardDialog.show(context),
+              icon: const Icon(Icons.screen_rotation_alt_outlined),
+              label: Text(l10n.segGeomWizardLaunchButton),
+            ),
+          ],
+        ),
       ),
       ScreenScanOverlaySection(
         draft: widget.draft,

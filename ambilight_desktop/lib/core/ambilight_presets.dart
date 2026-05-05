@@ -22,12 +22,15 @@ class MusicPresetPatch {
     required this.mid,
     required this.high,
     required this.activePresetLabel,
+    this.effect,
   });
 
   final int bass;
   final int mid;
   final int high;
   final String activePresetLabel;
+  /// Volitelná změna vizuálního efektu (např. Party → rotující spektrum).
+  final String? effect;
 }
 
 class AmbilightPresets {
@@ -100,13 +103,37 @@ class AmbilightPresets {
   static MusicPresetPatch? musicPatch(String name) {
     switch (name) {
       case 'Party':
-        return const MusicPresetPatch(bass: 80, mid: 70, high: 70, activePresetLabel: 'Party');
+        return const MusicPresetPatch(
+          bass: 80,
+          mid: 70,
+          high: 70,
+          activePresetLabel: 'Party',
+          effect: 'spectrum_rotate',
+        );
       case 'Chill':
-        return const MusicPresetPatch(bass: 40, mid: 40, high: 40, activePresetLabel: 'Chill');
+        return const MusicPresetPatch(
+          bass: 40,
+          mid: 40,
+          high: 40,
+          activePresetLabel: 'Chill',
+          effect: 'spectrum',
+        );
       case 'Bass Focus':
-        return const MusicPresetPatch(bass: 90, mid: 30, high: 20, activePresetLabel: 'Bass Focus');
+        return const MusicPresetPatch(
+          bass: 90,
+          mid: 30,
+          high: 20,
+          activePresetLabel: 'Bass Focus',
+          effect: 'reactive_bass',
+        );
       case 'Vocals':
-        return const MusicPresetPatch(bass: 40, mid: 90, high: 40, activePresetLabel: 'Vocals');
+        return const MusicPresetPatch(
+          bass: 40,
+          mid: 90,
+          high: 40,
+          activePresetLabel: 'Vocals',
+          effect: 'vumeter_spectrum',
+        );
       default:
         return null;
     }

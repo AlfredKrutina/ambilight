@@ -598,14 +598,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get trayMusicPresetsSection => 'Music — presets';
 
   @override
-  String get trayMusicUnlockColors => 'Unlock colors (music)';
+  String get trayMusicUnlockColors => 'Unfreeze strip (music)';
 
   @override
-  String get trayMusicCancelLockPending =>
-      'Cancel color lock (waiting for frame)';
+  String get trayMusicCancelLockPending => 'Cancel freeze (waiting for frame)';
 
   @override
-  String get trayMusicLockColorsShort => 'Lock colors (music)';
+  String get trayMusicLockColorsShort => 'Freeze strip output (music)';
 
   @override
   String get traySettingsEllipsis => 'Settings…';
@@ -928,6 +927,87 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get segGeomWizardTitle => 'Segment placement wizard';
+
+  @override
+  String get segGeomWizardIntro =>
+      'Choose a segment, rotate which screen edge it samples, slide the band along that edge, or flip LED order. Rotating the edge resets the capture band to the full edge (LED indices stay the same).';
+
+  @override
+  String get segGeomWizardEmpty =>
+      'No segments are configured yet. Run the LED mapping wizard first, then fine‑tune placement here.';
+
+  @override
+  String get segGeomWizardSegmentPicker => 'Segment';
+
+  @override
+  String segGeomWizardSegmentLabel(int index) {
+    return 'Segment $index';
+  }
+
+  @override
+  String segGeomWizardLedRange(int start, int end) {
+    return 'LEDs $start–$end';
+  }
+
+  @override
+  String get segGeomWizardRotateCwTooltip =>
+      'Rotate edge clockwise (top → right → bottom → left)';
+
+  @override
+  String get segGeomWizardRotateCcwTooltip => 'Rotate edge counter‑clockwise';
+
+  @override
+  String get segGeomWizardReverse => 'Reverse LED order along strip';
+
+  @override
+  String get segGeomWizardWholeEdge => 'Sample the entire edge';
+
+  @override
+  String get segGeomWizardWholeEdgeSubtitle =>
+      'Turn off to limit sampling to part of the edge with the sliders below.';
+
+  @override
+  String get segGeomWizardBandTitle => 'Band along edge (reference pixels)';
+
+  @override
+  String get segGeomWizardPresetFull => 'Full edge';
+
+  @override
+  String get segGeomWizardPresetStartHalf => 'First half';
+
+  @override
+  String get segGeomWizardPresetEndHalf => 'Second half';
+
+  @override
+  String get segGeomWizardPresetCenterThird => 'Center third';
+
+  @override
+  String get segGeomWizardRefFromCapture =>
+      'Match reference size to last capture';
+
+  @override
+  String get segGeomWizardPreviewCaption => 'Sampling region (approximation)';
+
+  @override
+  String get segGeomWizardPreviewLive => 'Preview uses live capture dimensions';
+
+  @override
+  String get segGeomWizardPreviewRef => 'Preview uses segment reference size';
+
+  @override
+  String get segGeomWizardOpenMapping => 'LED mapping wizard…';
+
+  @override
+  String get segGeomWizardSaved => 'Segment geometry saved.';
+
+  @override
+  String get segGeomWizardMonitorTitle => 'Monitor index';
+
+  @override
+  String get segGeomWizardLaunchButton => 'Segment placement';
+
+  @override
   String get refDimsFromCapture => 'Ref. dimensions from last capture';
 
   @override
@@ -1179,6 +1259,93 @@ class AppLocalizationsEn extends AppLocalizations {
   String virtualRoomFacing(Object deg) {
     return 'View angle offset toward TV: $deg°';
   }
+
+  @override
+  String get virtualRoomEffectLabel => 'Effect on smart lights';
+
+  @override
+  String get virtualRoomEffectNone => 'Off';
+
+  @override
+  String get virtualRoomEffectWave => 'Wave';
+
+  @override
+  String get virtualRoomEffectBreath => 'Breath';
+
+  @override
+  String get virtualRoomEffectChase => 'Chase';
+
+  @override
+  String get virtualRoomEffectSparkle => 'Sparkle';
+
+  @override
+  String get virtualRoomEffectHintNone =>
+      'Colors and brightness from the engine only — no extra modulation.';
+
+  @override
+  String get virtualRoomEffectHintWave =>
+      'Smooth wave through the room; geometry sets how distance affects phase.';
+
+  @override
+  String get virtualRoomEffectHintBreath =>
+      'All lights pulse together — good when you do not want a spatial pattern.';
+
+  @override
+  String get virtualRoomEffectHintChase =>
+      'Lights brighten in order along the chosen axis (sorted left-to-right on that axis).';
+
+  @override
+  String get virtualRoomEffectHintSparkle =>
+      'Each light drifts with a slightly different phase for a lively shimmer.';
+
+  @override
+  String get virtualRoomGeometryLabel => 'Wave / chase axis';
+
+  @override
+  String get virtualRoomGeometryRadial => 'Radial from TV';
+
+  @override
+  String get virtualRoomGeometryAlongView =>
+      'Across your view (perpendicular to gaze)';
+
+  @override
+  String get virtualRoomGeometryHorizontal => 'Horizontal (toward TV on X)';
+
+  @override
+  String get virtualRoomGeometryVertical => 'Vertical (toward TV on Y)';
+
+  @override
+  String get virtualRoomGeometryCustom => 'Custom angle from TV';
+
+  @override
+  String virtualRoomCustomAngle(Object deg) {
+    return 'Axis angle: $deg°';
+  }
+
+  @override
+  String get virtualRoomBrightnessModLabel => 'Apply modulation to';
+
+  @override
+  String get virtualRoomBrightnessBoth => 'Color and brightness';
+
+  @override
+  String get virtualRoomBrightnessRgb => 'Color only';
+
+  @override
+  String get virtualRoomBrightnessBri => 'Brightness only';
+
+  @override
+  String get virtualRoomPreviewToggle => 'Animated preview';
+
+  @override
+  String get virtualRoomPreviewSubtitle =>
+      'Bulb icons use the same math as Home Assistant / HomeKit output.';
+
+  @override
+  String get virtualRoomDragTv => 'TV (drag)';
+
+  @override
+  String get virtualRoomDragUser => 'You (drag)';
 
   @override
   String get scanOverlaySettingsTitle => 'Scan overlay (detail)';
@@ -2020,19 +2187,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get musicGuideMusicArtwork => 'Guide: music & artwork';
 
   @override
-  String get musicLockPaletteTitle => 'Lock color output to strip (music)';
+  String get musicLockPaletteTitle => 'Freeze strip lights (music)';
 
   @override
   String get musicLockPaletteFrozen =>
-      'Sending frozen palette (same as tray item).';
+      'Frozen: the last captured LED pattern is resent every tick — lights stay still while audio keeps updating internally.';
 
   @override
   String get musicLockPalettePending =>
-      'Waiting for next frame, then palette freezes.';
+      'Next tick captures the current strip output, then LEDs hold that pattern.';
 
   @override
   String get musicLockPaletteIdle =>
-      'Only meaningful in music mode; switching modes clears the lock.';
+      'Freezes the physical LED output (whole-strip RGB snapshot), not just color-source logic. Cleared when leaving music mode.';
 
   @override
   String get musicPreferMicTitle => 'Prefer microphone';
@@ -2138,7 +2305,18 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get musicActivePresetField => 'active_preset';
+  String get musicSpectrumRotationTitle => 'Spectrum rotation (time)';
+
+  @override
+  String get musicSpectrumRotationSubtitle =>
+      'When off, “Rotating spectrum” stays fixed like plain spectrum; beat-sync gradient step still applies if enabled.';
+
+  @override
+  String get musicActivePresetField => 'Music preset';
+
+  @override
+  String get helperMusicActivePreset =>
+      'Quick presets, built-in names, and entries from saved user_music_presets.';
 
   @override
   String get musicFixedColorPickerTitle => 'Fixed color (music)';
@@ -2150,6 +2328,153 @@ class AppLocalizationsEn extends AppLocalizations {
   String musicRgbTriple(Object r, Object g, Object b) {
     return 'RGB $r · $g · $b';
   }
+
+  @override
+  String get musicSpectrumPaletteHeader => 'Spectrum band colors';
+
+  @override
+  String get musicSpectrumPaletteHint =>
+      'Seven stops from sub-bass to brilliance. Spectrum, VU+spectrum and Smart Music blend along this path when \"Spectrum from audio\" is selected.';
+
+  @override
+  String get musicSpectrumBandSubBass => 'Sub-bass';
+
+  @override
+  String get musicSpectrumBandBass => 'Bass';
+
+  @override
+  String get musicSpectrumBandLowMid => 'Low-mid';
+
+  @override
+  String get musicSpectrumBandMid => 'Mid';
+
+  @override
+  String get musicSpectrumBandHighMid => 'High-mid';
+
+  @override
+  String get musicSpectrumBandPresence => 'Presence';
+
+  @override
+  String get musicSpectrumBandBrilliance => 'Brilliance';
+
+  @override
+  String get musicSpectrumResetBands => 'Reset spectrum colors';
+
+  @override
+  String musicSpectrumPickerTitle(String band) {
+    return 'Spectrum: $band';
+  }
+
+  @override
+  String get musicBeatSyncLabel => 'Beat sync (visual)';
+
+  @override
+  String get musicBeatSyncHint =>
+      'Uses beat flags from the analyzer. Gradient step shifts spectrum; color pulse briefly boosts brightness.';
+
+  @override
+  String get musicBeatSyncOff => 'Off';
+
+  @override
+  String get musicBeatSyncGradientStep => 'Gradient step on beat';
+
+  @override
+  String get musicBeatSyncColorPulse => 'Color pulse on beat';
+
+  @override
+  String get musicMelodySpectrumTintTitle => 'Melody + spectrum palette';
+
+  @override
+  String get musicMelodySpectrumTintSubtitle =>
+      'When the color source is spectrum, blend melody HSV toward the band palette (tint strength below).';
+
+  @override
+  String musicMelodySpectrumTintAmount(int p) {
+    return 'Tint strength: $p%';
+  }
+
+  @override
+  String get musicPerBandSensitivityTitle => 'Per-band sensitivity (advanced)';
+
+  @override
+  String get musicPerBandSensitivitySubtitle =>
+      'When enabled, each FFT band has its own 0–100 gain; otherwise bass / mid / high groups apply as before.';
+
+  @override
+  String get musicUserPresetsTitle => 'Saved music presets (JSON)';
+
+  @override
+  String get musicUserPresetsHint =>
+      'Save the current music settings under a name, export all user presets, or merge from a JSON file. Selecting a name in “Music preset” loads it.';
+
+  @override
+  String get musicUserPresetsNameLabel => 'Preset name';
+
+  @override
+  String get musicUserPresetsSave => 'Save current as preset';
+
+  @override
+  String get musicUserPresetsSavedOk => 'Preset saved.';
+
+  @override
+  String get musicUserPresetsDelete => 'Remove';
+
+  @override
+  String get musicUserPresetsExport => 'Copy presets JSON';
+
+  @override
+  String get musicUserPresetsImport => 'Import JSON…';
+
+  @override
+  String get musicUserPresetsCopied => 'Presets JSON copied to clipboard.';
+
+  @override
+  String get musicUserPresetsMerged =>
+      'Imported presets merged into user list.';
+
+  @override
+  String get musicUserPresetsBadJson => 'Could not read presets JSON.';
+
+  @override
+  String get musicAgcMeterTitle => 'AGC (auto gain)';
+
+  @override
+  String musicAgcMeterPeak(String v) {
+    return 'Tracked peak: $v';
+  }
+
+  @override
+  String musicAgcMeterGain(String v) {
+    return 'Applied gain: $v';
+  }
+
+  @override
+  String get musicGuideMacosAudio => 'Guide: macOS loopback';
+
+  @override
+  String get musicMacosLoopbackGuideTitle =>
+      'macOS — system audio to Ambilight';
+
+  @override
+  String get musicMacosLoopbackGuideIntro =>
+      'Unlike Windows WASAPI loopback on the default playback device, macOS does not expose a built-in “what you hear” capture device to all apps.';
+
+  @override
+  String get musicMacosLoopbackGuideSteps =>
+      '1) Install BlackHole (2ch) from existential.audio/blackhole.\n2) Open Audio MIDI Setup → create a Multi-Output Device that includes your speakers/headphones and BlackHole; set it as the system output for listening while routing a copy to BlackHole.\n3) In Ambilight → Music, pick “BlackHole” (or your aggregate) as the input device.';
+
+  @override
+  String get musicMacosLoopbackGuideNote =>
+      'Latency and device names depend on your aggregate. For Spotify-only colors you can also use the in-app Spotify integration.';
+
+  @override
+  String get musicMacosLoopbackGuideClose => 'Close';
+
+  @override
+  String get musicMacosLoopbackGuideBlackHole => 'Open BlackHole page';
+
+  @override
+  String get musicMacosLoopbackGuideOpenFailed => 'Could not open the link.';
 
   @override
   String get musicEffectSmartMusic => 'Smart Music';

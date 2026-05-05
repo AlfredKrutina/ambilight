@@ -60,6 +60,21 @@ abstract final class UdpDeviceCommands {
     return InternetAddress.tryParse(ip);
   }
 
+  /// Odpověď z lampy na stejné IPv4 — na Windows může `InternetAddress ==` selhat i při shodné adrese.
+  static bool _udpSourceMatchesTarget(InternetAddress target, InternetAddress source) {
+    if (target.type == InternetAddressType.IPv4 && source.type == InternetAddressType.IPv4) {
+      final a = target.rawAddress;
+      final b = source.rawAddress;
+      if (a.length == 4 && b.length == 4) {
+        for (var i = 0; i < 4; i++) {
+          if (a[i] != b[i]) return false;
+        }
+        return true;
+      }
+    }
+    return target.address == source.address;
+  }
+
   /// Jednorázové odeslání UTF-8 řetězce na [ip]:[port] (ephemeral socket).
   static Future<bool> sendUtf8Text(
     String ip,
@@ -158,8 +173,7 @@ abstract final class UdpDeviceCommands {
             }
             final t = text.trim();
             if (!t.startsWith('DEBUG_REJ88_ACK')) continue;
-            final sameHost = dg.address == addr || dg.address.address == addr.address;
-            if (!sameHost) continue;
+            if (!_udpSourceMatchesTarget(addr, dg.address)) continue;
             final parts = t.split(RegExp(r'\s+'));
             if (parts.length >= 2) {
               final v = int.tryParse(parts[1]);
@@ -201,7 +215,7 @@ abstract final class UdpDeviceCommands {
   static Future<bool?> queryDebugRejectSubnet88(
     String ip,
     int port, {
-    Duration timeout = const Duration(milliseconds: 900),
+    Duration timeout = const Duration(milliseconds: 1200),
     String? logContext,
   }) =>
       _debugReject88Transaction(ip, port, _debugReject88Query, timeout, logContext ?? 'DEBUG_REJ88?');
@@ -211,7 +225,7 @@ abstract final class UdpDeviceCommands {
     String ip,
     int port,
     bool on, {
-    Duration timeout = const Duration(milliseconds: 900),
+    Duration timeout = const Duration(milliseconds: 1200),
     String? logContext,
   }) async {
     final ack = await _debugReject88Transaction(
@@ -231,7 +245,7 @@ abstract final class UdpDeviceCommands {
     String ip,
     int port,
     int mode, {
-    Duration timeout = const Duration(milliseconds: 900),
+    Duration timeout = const Duration(milliseconds: 1200),
     String? logContext,
   }) async {
     final m = mode.clamp(0, 2);
@@ -263,10 +277,7 @@ abstract final class UdpDeviceCommands {
             if (d[0] != UdpAmbilightProtocol.firmwareTemporalModeOpcode || d[1] != m) {
               continue;
             }
-            /* Na některých Windows buildích != [InternetAddress] selže i pro stejný host. */
-            final sameHost =
-                dg.address == addr || dg.address.address == addr.address;
-            if (!sameHost) continue;
+            if (!_udpSourceMatchesTarget(addr, dg.address)) continue;
             acked = true;
             if (!completer.isCompleted) completer.complete();
             break;
