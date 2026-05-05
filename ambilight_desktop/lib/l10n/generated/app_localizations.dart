@@ -3552,7 +3552,7 @@ abstract class AppLocalizations {
   /// No description provided for @musicSystemLoopbackHint.
   ///
   /// In en, this message translates to:
-  /// **'With no device selected, AmbiLight prefers a loopback / “what you hear” input so system audio can drive the visualizer. Windows: Stereo Mix, VB-Audio Cable, or similar. macOS: install BlackHole from existential.audio/blackhole, create a Multi-Output Device in Audio MIDI Setup, then pick “BlackHole” (or Aggregate) here.'**
+  /// **'With no device selected and “Prefer microphone” off, AmbiLight drives the visualizer from system-side audio. On Windows 10+, the app uses WASAPI loopback on the default playback device (browser, games, Spotify — not just a physical mic). You can still pick Stereo Mix, VB-Audio Cable, etc. from the list. macOS: install BlackHole from existential.audio/blackhole, create a Multi-Output Device in Audio MIDI Setup, then pick “BlackHole” (or Aggregate) here.'**
   String get musicSystemLoopbackHint;
 
   /// No description provided for @musicRefreshDeviceListTooltip.
@@ -5481,6 +5481,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Copy IP and UDP port from the first Wi-Fi device in your list (Devices tab).'**
   String get fwFillFromDevicesTooltip;
+
+  /// No description provided for @fwDebugToolsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Debugging tools (lamp)'**
+  String get fwDebugToolsTitle;
+
+  /// No description provided for @fwDebugReject88Body.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject DHCP addresses in 192.168.88.0/24 (third octet .88). Stored on the device (NVS key dbg_rej88). Same toggle exists on the lamp’s SoftAP setup page and via UDP DEBUG_REJ88 0|1|?.'**
+  String get fwDebugReject88Body;
+
+  /// No description provided for @fwDebugReject88Query.
+  ///
+  /// In en, this message translates to:
+  /// **'Query lamp'**
+  String get fwDebugReject88Query;
+
+  /// No description provided for @fwDebugReject88Enable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable reject'**
+  String get fwDebugReject88Enable;
+
+  /// No description provided for @fwDebugReject88Disable.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable reject'**
+  String get fwDebugReject88Disable;
+
+  /// No description provided for @fwDebugReject88Unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'unknown (no reply or old firmware)'**
+  String get fwDebugReject88Unknown;
+
+  /// No description provided for @fwDebugReject88On.
+  ///
+  /// In en, this message translates to:
+  /// **'on'**
+  String get fwDebugReject88On;
+
+  /// No description provided for @fwDebugReject88Off.
+  ///
+  /// In en, this message translates to:
+  /// **'off'**
+  String get fwDebugReject88Off;
+
+  /// No description provided for @fwDebugReject88Current.
+  ///
+  /// In en, this message translates to:
+  /// **'On device: {state}'**
+  String fwDebugReject88Current(String state);
+
+  /// No description provided for @fwDebugReject88SetOk.
+  ///
+  /// In en, this message translates to:
+  /// **'Setting applied (NVS on lamp).'**
+  String get fwDebugReject88SetOk;
+
+  /// No description provided for @fwDebugReject88SetFail.
+  ///
+  /// In en, this message translates to:
+  /// **'UDP command failed (offline, wrong IP/port, or firmware without DEBUG_REJ88).'**
+  String get fwDebugReject88SetFail;
+
+  /// No description provided for @fwStatusProbeRejectOn.
+  ///
+  /// In en, this message translates to:
+  /// **' · reject 192.168.88.x: on'**
+  String get fwStatusProbeRejectOn;
+
+  /// No description provided for @fwStatusProbeRejectOff.
+  ///
+  /// In en, this message translates to:
+  /// **' · reject 192.168.88.x: off'**
+  String get fwStatusProbeRejectOff;
 
   /// No description provided for @fwStatusNoWifiDevice.
   ///

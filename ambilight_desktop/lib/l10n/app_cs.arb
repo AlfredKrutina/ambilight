@@ -628,7 +628,7 @@
   "musicDeviceError": "Zařízení: {error}",
   "musicInputDeviceLabel": "Vstupní zvukové zařízení",
   "musicDefaultInputDevice": "Automaticky: mix ze systému (loopback)",
-  "musicSystemLoopbackHint": "Bez vybraného zařízení aplikace upřednostní loopback / „co hraje reproduktory“, aby šel vizualizovat zvuk systému. Windows: Stereo Mix, VB-Audio Cable apod. macOS: nainstaluj BlackHole (existential.audio/blackhole), v Audio MIDI Setup slož Multi-Output Device a sem vyber vstup „BlackHole“ nebo Aggregate.",
+  "musicSystemLoopbackHint": "Bez vybraného zařízení a s vypnutým „Preferovat mikrofon“ jde vizualizovat zvuk ze systému. Na Windows 10+ aplikace použije WASAPI loopback na výchozím přehrávacím zařízení (prohlížeč, hry, Spotify — ne nutně fyzický mikrofon). Ze seznamu lze dál zvolit Stereo Mix, VB-Audio Cable apod. macOS: BlackHole (existential.audio/blackhole), Multi-Output Device v Audio MIDI Setup, pak vstup „BlackHole“ nebo Aggregate.",
   "musicRefreshDeviceListTooltip": "Obnovit seznam",
   "musicSettingsHeader": "Hudba",
   "musicSettingsSubtitle": "Zdroj zvuku, efekty a náhled barev. Režim Hudba na přehledu musí být aktivní, aby se výstup promítl na pásky.",
@@ -959,6 +959,26 @@
   "fwStatusOtaPayloadInvalid": "Příkaz OTA neprojde kontrolou na straně zařízení.",
   "fwFillFromDevices": "Doplnit ze Zařízení",
   "fwFillFromDevicesTooltip": "Zkopíruje IP a UDP port z prvního Wi‑Fi zařízení v seznamu (záložka Zařízení).",
+  "fwDebugToolsTitle": "Ladicí nástroje (lampa)",
+  "fwDebugReject88Body": "Odmítnout DHCP adresy v 192.168.88.0/24 (3. oktet .88). Uloženo v lampě (NVS dbg_rej88). Stejný přepínač je na konfigurační stránce SoftAP a přes UDP DEBUG_REJ88 0|1|?.",
+  "fwDebugReject88Query": "Dotázat lampu",
+  "fwDebugReject88Enable": "Zapnout odmítání",
+  "fwDebugReject88Disable": "Vypnout odmítání",
+  "fwDebugReject88Unknown": "neznámé (bez odpovědi nebo starý firmware)",
+  "fwDebugReject88On": "zapnuto",
+  "fwDebugReject88Off": "vypnuto",
+  "fwDebugReject88Current": "Na lampě: {state}",
+  "@fwDebugReject88Current": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "fwDebugReject88SetOk": "Nastavení zapsáno (NVS v lampě).",
+  "fwDebugReject88SetFail": "UDP příkaz selhal (offline, špatná IP/port nebo firmware bez DEBUG_REJ88).",
+  "fwStatusProbeRejectOn": " · odmítnout 192.168.88.x: zapnuto",
+  "fwStatusProbeRejectOff": " · odmítnout 192.168.88.x: vypnuto",
   "fwStatusNoWifiDevice": "V seznamu není Wi‑Fi zařízení s vyplněnou IP — přidej ho v záložce Zařízení.",
   "fwStatusFilledFromDevice": "Doplněno z „{name}“: {ip}:{port}.",
   "pcHealthHeaderTitle": "PC Health",

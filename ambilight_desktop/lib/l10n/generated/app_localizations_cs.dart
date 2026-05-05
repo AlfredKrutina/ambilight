@@ -2003,7 +2003,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get musicSystemLoopbackHint =>
-      'Bez vybraného zařízení aplikace upřednostní loopback / „co hraje reproduktory“, aby šel vizualizovat zvuk systému. Windows: Stereo Mix, VB-Audio Cable apod. macOS: nainstaluj BlackHole (existential.audio/blackhole), v Audio MIDI Setup slož Multi-Output Device a sem vyber vstup „BlackHole“ nebo Aggregate.';
+      'Bez vybraného zařízení a s vypnutým „Preferovat mikrofon“ jde vizualizovat zvuk ze systému. Na Windows 10+ aplikace použije WASAPI loopback na výchozím přehrávacím zařízení (prohlížeč, hry, Spotify — ne nutně fyzický mikrofon). Ze seznamu lze dál zvolit Stereo Mix, VB-Audio Cable apod. macOS: BlackHole (existential.audio/blackhole), Multi-Output Device v Audio MIDI Setup, pak vstup „BlackHole“ nebo Aggregate.';
 
   @override
   String get musicRefreshDeviceListTooltip => 'Obnovit seznam';
@@ -3168,6 +3168,50 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String get fwFillFromDevicesTooltip =>
       'Zkopíruje IP a UDP port z prvního Wi‑Fi zařízení v seznamu (záložka Zařízení).';
+
+  @override
+  String get fwDebugToolsTitle => 'Ladicí nástroje (lampa)';
+
+  @override
+  String get fwDebugReject88Body =>
+      'Odmítnout DHCP adresy v 192.168.88.0/24 (3. oktet .88). Uloženo v lampě (NVS dbg_rej88). Stejný přepínač je na konfigurační stránce SoftAP a přes UDP DEBUG_REJ88 0|1|?.';
+
+  @override
+  String get fwDebugReject88Query => 'Dotázat lampu';
+
+  @override
+  String get fwDebugReject88Enable => 'Zapnout odmítání';
+
+  @override
+  String get fwDebugReject88Disable => 'Vypnout odmítání';
+
+  @override
+  String get fwDebugReject88Unknown =>
+      'neznámé (bez odpovědi nebo starý firmware)';
+
+  @override
+  String get fwDebugReject88On => 'zapnuto';
+
+  @override
+  String get fwDebugReject88Off => 'vypnuto';
+
+  @override
+  String fwDebugReject88Current(String state) {
+    return 'Na lampě: $state';
+  }
+
+  @override
+  String get fwDebugReject88SetOk => 'Nastavení zapsáno (NVS v lampě).';
+
+  @override
+  String get fwDebugReject88SetFail =>
+      'UDP příkaz selhal (offline, špatná IP/port nebo firmware bez DEBUG_REJ88).';
+
+  @override
+  String get fwStatusProbeRejectOn => ' · odmítnout 192.168.88.x: zapnuto';
+
+  @override
+  String get fwStatusProbeRejectOff => ' · odmítnout 192.168.88.x: vypnuto';
 
   @override
   String get fwStatusNoWifiDevice =>

@@ -65,6 +65,7 @@ class DiscoveredLedController {
     required this.ledCount,
     required this.version,
     this.fwTemporalSmoothingMode,
+    this.fwDebugRejectSubnet19216888,
   });
 
   final String ip;
@@ -74,6 +75,8 @@ class DiscoveredLedController {
   final String version;
   /// Z nového `ESP32_PONG|…|FW_VER|2.1|<0–2>`; u starého FW (`…|2.1|mode` bez FW pole) je `null`.
   final int? fwTemporalSmoothingMode;
+  /// Z 8‑polového PONG (`…|2.2|0|0|0|1`); u starších odpovědí `null`.
+  final bool? fwDebugRejectSubnet19216888;
 
   @override
   String toString() => '$name ($ip) leds=$ledCount';
@@ -83,6 +86,7 @@ class DiscoveredLedController {
 ///
 /// Nový tvar (7+ polí): `…|ledCount|FW_VER|2.1|temporal` — [version] = FW z image.
 /// Legacy (5–6 polí): `…|ledCount|2.0` nebo `…|ledCount|2.1|temporal` — [version] bylo pole protokolu.
+/// 8 polí: `…|led|2.2|0|0|temporal|rej88` — ladící přepínač odmítnutí 192.168.88.0/24.
 DiscoveredLedController? parseEsp32PongDatagram(String sourceIp, String utf8Text) {
   final text = utf8Text.trim();
   if (!text.startsWith('ESP32_PONG')) return null;
@@ -91,12 +95,26 @@ DiscoveredLedController? parseEsp32PongDatagram(String sourceIp, String utf8Text
 
   final String versionStr;
   final int? temporal;
-  if (parts.length >= 7) {
+  bool? reject88;
+  if (parts.length >= 8) {
     versionStr = parts[4].trim();
     temporal = int.tryParse(parts[6].trim());
+    final r = int.tryParse(parts[7].trim());
+    if (r == 0) {
+      reject88 = false;
+    } else if (r == 1) {
+      reject88 = true;
+    } else {
+      reject88 = null;
+    }
+  } else if (parts.length >= 7) {
+    versionStr = parts[4].trim();
+    temporal = int.tryParse(parts[6].trim());
+    reject88 = null;
   } else {
     versionStr = parts[4].trim();
     temporal = parts.length >= 6 ? int.tryParse(parts[5].trim()) : null;
+    reject88 = null;
   }
 
   return DiscoveredLedController(
@@ -106,6 +124,7 @@ DiscoveredLedController? parseEsp32PongDatagram(String sourceIp, String utf8Text
     ledCount: int.tryParse(parts[3]) ?? 0,
     version: versionStr,
     fwTemporalSmoothingMode: temporal != null && temporal >= 0 && temporal <= 2 ? temporal : null,
+    fwDebugRejectSubnet19216888: reject88,
   );
 }
 

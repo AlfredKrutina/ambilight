@@ -45,6 +45,8 @@ class _FirmwareSettingsTabState extends State<FirmwareSettingsTab> {
   String? _selectedCom;
   List<String> _serialPortsCache = const [];
   String? _serialPortsError;
+  /// Poslední známý stav `DEBUG_REJ88` na lampě (`null` = ještě nečteno / neznámé).
+  bool? _dbgRej88Last;
 
   @override
   void initState() {
@@ -223,7 +225,70 @@ class _FirmwareSettingsTabState extends State<FirmwareSettingsTab> {
       if (pong == null) {
         _status = l10n.fwStatusProbeTimeout;
       } else {
-        _status = l10n.fwStatusProbeOnline(pong.name, pong.ledCount, pong.version);
+        var line = l10n.fwStatusProbeOnline(pong.name, pong.ledCount, pong.version);
+        if (pong.fwDebugRejectSubnet19216888 == true) {
+          line = '$line${l10n.fwStatusProbeRejectOn}';
+        } else if (pong.fwDebugRejectSubnet19216888 == false) {
+          line = '$line${l10n.fwStatusProbeRejectOff}';
+        }
+        _status = line;
+      }
+    });
+  }
+
+  String _dbgRej88StateWord() {
+    final l = context.l10n;
+    final v = _dbgRej88Last;
+    if (v == null) return l.fwDebugReject88Unknown;
+    return v ? l.fwDebugReject88On : l.fwDebugReject88Off;
+  }
+
+  Future<void> _queryDebugReject88() async {
+    final l10n = context.l10n;
+    final ip = _otaIpCtrl.text.trim();
+    final port = int.tryParse(_otaPortCtrl.text.trim()) ?? 4210;
+    if (ip.isEmpty) {
+      setState(() => _status = l10n.fwStatusEnterIpProbe);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _status = l10n.fwStatusProbing;
+    });
+    final v = await UdpDeviceCommands.queryDebugRejectSubnet88(ip, port);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (v == null) {
+        _status = l10n.fwDebugReject88SetFail;
+      } else {
+        _dbgRej88Last = v;
+        _status = l10n.fwDebugReject88Current(_dbgRej88StateWord());
+      }
+    });
+  }
+
+  Future<void> _setDebugReject88(bool on) async {
+    final l10n = context.l10n;
+    final ip = _otaIpCtrl.text.trim();
+    final port = int.tryParse(_otaPortCtrl.text.trim()) ?? 4210;
+    if (ip.isEmpty) {
+      setState(() => _status = l10n.fwStatusEnterIpProbe);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _status = l10n.fwStatusProbing;
+    });
+    final ok = await UdpDeviceCommands.setDebugRejectSubnet88(ip, port, on);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (ok) {
+        _dbgRej88Last = on;
+        _status = l10n.fwDebugReject88SetOk;
+      } else {
+        _status = l10n.fwDebugReject88SetFail;
       }
     });
   }
@@ -539,6 +604,58 @@ class _FirmwareSettingsTabState extends State<FirmwareSettingsTab> {
                           onPressed: (_busy || !otaReady) ? null : _otaWifi,
                           icon: const Icon(Icons.system_update_alt),
                           label: Text(l10n.fwSendOtaHttp),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              _card(
+                context,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.bug_report_outlined, size: 22, color: scheme.primary),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            l10n.fwDebugToolsTitle,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      l10n.fwDebugReject88Body,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      l10n.fwDebugReject88Current(_dbgRej88StateWord()),
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _busy ? null : _queryDebugReject88,
+                          icon: const Icon(Icons.help_outline),
+                          label: Text(l10n.fwDebugReject88Query),
+                        ),
+                        FilledButton.tonalIcon(
+                          onPressed: _busy ? null : () => unawaited(_setDebugReject88(true)),
+                          icon: const Icon(Icons.block_flipped),
+                          label: Text(l10n.fwDebugReject88Enable),
+                        ),
+                        FilledButton.tonalIcon(
+                          onPressed: _busy ? null : () => unawaited(_setDebugReject88(false)),
+                          icon: const Icon(Icons.check_circle_outline),
+                          label: Text(l10n.fwDebugReject88Disable),
                         ),
                       ],
                     ),

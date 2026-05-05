@@ -37,6 +37,20 @@ void main() {
       expect(p.ledCount, 2000);
       expect(p.version, '1.12.0');
       expect(p.fwTemporalSmoothingMode, 0);
+      expect(p.fwDebugRejectSubnet19216888, isNull);
+    });
+
+    test('parses PONG with debug reject 192.168.88 flag (8 fields)', () {
+      final p = parseEsp32PongDatagram(
+        '10.0.0.5',
+        'ESP32_PONG|aabbcc|Lamp|144|2.2|0|0|1',
+      );
+      expect(p, isNotNull);
+      expect(p!.version, '2.2');
+      expect(p.fwTemporalSmoothingMode, 0);
+      expect(p.fwDebugRejectSubnet19216888, true);
+      final off = parseEsp32PongDatagram('10.0.0.5', 'ESP32_PONG|aabbcc|Lamp|144|2.2|0|0|0');
+      expect(off!.fwDebugRejectSubnet19216888, false);
     });
 
     test('rejects short string', () {

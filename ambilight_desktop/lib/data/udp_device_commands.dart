@@ -26,6 +26,10 @@ enum OtaHttpCommandRejectReason {
 abstract final class UdpDeviceCommands {
   static const String identifyPayload = 'IDENTIFY';
   static const String resetWifiPayload = 'RESET_WIFI';
+  static const String _debugReject88Query = 'DEBUG_REJ88?';
+
+  /// FW [`ambilight.c`] `DEBUG_REJ88 0|1` — NVS `dbg_rej88`, ovlivní odmítnutí DHCP 192.168.88.0/24.
+  static String debugReject88SetPayload(bool on) => on ? 'DEBUG_REJ88 1' : 'DEBUG_REJ88 0';
 
   /// Horní mez UTF‑8 payloadu pro jeden datagram — ESP `rx_buffer` / bez fragmentace UDP.
   static const int maxSafeUtf8PayloadBytes = 1400;
@@ -111,6 +115,116 @@ abstract final class UdpDeviceCommands {
 
   static Future<bool> sendResetWifi(String ip, int port, {String? logContext}) =>
       sendUtf8Text(ip, port, resetWifiPayload, logContext: logContext ?? 'RESET_WIFI');
+
+  static Future<bool?> _debugReject88Transaction(
+    String ip,
+    int port,
+    String payloadUtf8,
+    Duration timeout,
+    String? logContext,
+  ) async {
+    final addr = _parseIp(ip);
+    if (addr == null) {
+      _log.warning('_debugReject88Transaction: invalid IP "$ip" ${logContext ?? ''}');
+      return null;
+    }
+    final safePort = port.clamp(1, 65535);
+    final bytes = utf8.encode(payloadUtf8);
+    if (!isUtf8DatagramCompatibleWithLampTaskUdp(payloadUtf8)) {
+      _log.warning('_debugReject88Transaction: invalid payload ${logContext ?? ''}');
+      return null;
+    }
+    RawDatagramSocket? socket;
+    try {
+      final bindAddr = addr.type == InternetAddressType.IPv6
+          ? InternetAddress.anyIPv6
+          : await udpBindAddressForOutgoingTo(addr, probeDestinationPort: safePort);
+      socket = await RawDatagramSocket.bind(bindAddr, 0);
+      socket.broadcastEnabled = false;
+      bool? result;
+      final completer = Completer<void>();
+      late StreamSubscription<RawSocketEvent> sub;
+      sub = socket.listen((event) {
+        try {
+          if (event != RawSocketEvent.read) return;
+          for (;;) {
+            final dg = socket!.receive();
+            if (dg == null) break;
+            String text;
+            try {
+              text = utf8.decode(dg.data);
+            } catch (_) {
+              continue;
+            }
+            final t = text.trim();
+            if (!t.startsWith('DEBUG_REJ88_ACK')) continue;
+            final sameHost = dg.address == addr || dg.address.address == addr.address;
+            if (!sameHost) continue;
+            final parts = t.split(RegExp(r'\s+'));
+            if (parts.length >= 2) {
+              final v = int.tryParse(parts[1]);
+              if (v == 0) {
+                result = false;
+              } else if (v == 1) {
+                result = true;
+              }
+            }
+            if (!completer.isCompleted) completer.complete();
+            break;
+          }
+        } catch (e, st) {
+          _log.fine('_debugReject88Transaction listen: $e', e, st);
+        }
+      });
+      var n = socket.send(bytes, addr, safePort);
+      if (n == 0) {
+        n = socket.send(bytes, addr, safePort);
+      }
+      if (n != bytes.length) {
+        await sub.cancel();
+        _log.warning('_debugReject88Transaction: send $n/${bytes.length} ${logContext ?? ''}');
+        return null;
+      }
+      await completer.future.timeout(timeout, onTimeout: () {});
+      await sub.cancel();
+      _log.fine('_debugReject88Transaction ack=$result ${logContext ?? ''}');
+      return result;
+    } catch (e, st) {
+      _log.warning('_debugReject88Transaction failed $e ${logContext ?? ''}', e, st);
+      return null;
+    } finally {
+      socket?.close();
+    }
+  }
+
+  /// `DEBUG_REJ88?` → odpověď `DEBUG_REJ88_ACK 0|1` (ladící přepínač na lampě).
+  static Future<bool?> queryDebugRejectSubnet88(
+    String ip,
+    int port, {
+    Duration timeout = const Duration(milliseconds: 900),
+    String? logContext,
+  }) =>
+      _debugReject88Transaction(ip, port, _debugReject88Query, timeout, logContext ?? 'DEBUG_REJ88?');
+
+  /// Nastaví `DEBUG_REJ88 0|1` a počká na `DEBUG_REJ88_ACK` se stejnou hodnotou.
+  static Future<bool> setDebugRejectSubnet88(
+    String ip,
+    int port,
+    bool on, {
+    Duration timeout = const Duration(milliseconds: 900),
+    String? logContext,
+  }) async {
+    final ack = await _debugReject88Transaction(
+      ip,
+      port,
+      debugReject88SetPayload(on),
+      timeout,
+      logContext ?? 'DEBUG_REJ88 set',
+    );
+    final ok = ack == on;
+    _log.fine('setDebugRejectSubnet88 want=$on ack=$ack ok=$ok');
+    return ok;
+  }
 
   /// Binární `0xF1` + mode (0…2); lampa FW odpoví stejnými 2 bajty (ACK).
   static Future<bool> sendTemporalModeWithAck(

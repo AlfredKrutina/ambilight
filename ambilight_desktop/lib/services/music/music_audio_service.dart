@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 
+import 'package:desktop_audio_capture/audio_capture.dart' hide InputDevice;
 import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:record/record.dart';
@@ -15,6 +17,10 @@ import 'music_types.dart';
 final _log = Logger('MusicAudio');
 
 /// Capture přes `record` + FFT analýza v samostatném izolátu (fallback na hlavní izolát při selhání spawn).
+///
+/// Na **Windows** lze při výchozím vstupu (bez výběru zařízení) a vypnutém „preferovat mikrofon“
+/// zachytit **výstup výchozího přehrávacího zařízení** (WASAPI loopback) — zvuk z aplikací / prohlížeče,
+/// ne nutně fyzický mikrofon ani Stereo Mix.
 class MusicAudioService {
   MusicAudioService();
 
@@ -24,6 +30,8 @@ class MusicAudioService {
 
   AudioRecorder? _recorder;
   StreamSubscription<Uint8List>? _sub;
+  SystemAudioCapture? _systemCapture;
+  StreamSubscription<Uint8List>? _systemSub;
   MusicAnalysisSnapshot _latest = MusicAnalysisSnapshot.silent();
   AppConfig? _lastConfig;
   bool _running = false;
@@ -93,6 +101,16 @@ class MusicAudioService {
         label.contains('stereo out');
   }
 
+  static bool _shouldUseWindowsWasapiLoopback(MusicModeSettings mm) {
+    if (kIsWeb) return false;
+    try {
+      if (!Platform.isWindows) return false;
+    } catch (_) {
+      return false;
+    }
+    return !mm.micEnabled && mm.audioDeviceIndex == null;
+  }
+
   static Future<List<MusicCaptureDeviceInfo>> listDevices() async {
     try {
       final r = AudioRecorder();
@@ -136,6 +154,52 @@ class MusicAudioService {
     }
   }
 
+  Future<bool> _tryStartWindowsWasapiLoopback(MusicModeSettings mm) async {
+    try {
+      final cap = SystemAudioCapture(
+        config: SystemAudioConfig(sampleRate: 48000, channels: 1),
+      );
+      await cap.startCapture(
+        config: SystemAudioConfig(sampleRate: 48000, channels: 1),
+      );
+      final stream = cap.audioStream;
+      if (stream == null) {
+        await cap.stopCapture();
+        return false;
+      }
+      _systemCapture = cap;
+      _systemSub = stream.listen(
+        _onPcm,
+        onError: (Object e, StackTrace st) {
+          if (kDebugMode || ambilightVerboseLogsEnabled) {
+            _log.warning('music WASAPI stream: $e', e, st);
+          }
+        },
+      );
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.info('music: Windows WASAPI loopback capture started (default render device)');
+      }
+      return true;
+    } catch (e, st) {
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
+        _log.warning('music: WASAPI loopback start failed, falling back to record: $e', e, st);
+      }
+      await _disposeWindowsWasapiOnly();
+      return false;
+    }
+  }
+
+  Future<void> _disposeWindowsWasapiOnly() async {
+    await _systemSub?.cancel();
+    _systemSub = null;
+    try {
+      if (_systemCapture != null && _systemCapture!.isRecording) {
+        await _systemCapture!.stopCapture();
+      }
+    } catch (_) {}
+    _systemCapture = null;
+  }
+
   Future<void> _restartCapture(MusicModeSettings mm) async {
     await _stopInternal();
     _running = true;
@@ -143,81 +207,16 @@ class MusicAudioService {
       await _ensureFftIsolate();
       _pushAnalyzerConfig(mm);
 
-      _recorder = AudioRecorder();
-      final has = await _recorder!.hasPermission();
-      if (has != true) {
-        if (kDebugMode) {
-          _log.warning('music: microphone permission denied');
+      if (_shouldUseWindowsWasapiLoopback(mm)) {
+        final ok = await _tryStartWindowsWasapiLoopback(mm);
+        if (ok) {
+          _pcmAcc.clear();
+          _audioStartFaultBannerShown = false;
+          return;
         }
-        if (!_audioStartFaultBannerShown) {
-          _audioStartFaultBannerShown = true;
-          reportAppFault(
-            'Záznam zvuku pro hudbu není povolený (oprávnění mikrofonu). Režim hudba poběží bez analýzy.',
-          );
-        }
-        _running = false;
-        return;
       }
 
-      InputDevice? device;
-      final inputs = await _recorder!.listInputDevices();
-      if (inputs.isNotEmpty) {
-        MusicCaptureDeviceInfo? preferred;
-        final listed = await MusicAudioService.listDevices();
-        if (mm.audioDeviceIndex != null &&
-            mm.audioDeviceIndex! >= 0 &&
-            mm.audioDeviceIndex! < listed.length) {
-          preferred = listed[mm.audioDeviceIndex!];
-        }
-        if (preferred != null) {
-          for (final d in inputs) {
-            if (d.id == preferred.id) {
-              device = d;
-              break;
-            }
-          }
-        }
-        if (device == null && mm.micEnabled) {
-          for (final d in inputs) {
-            if (!labelLooksLikeSystemLoopback(d.label)) {
-              device = d;
-              break;
-            }
-          }
-        }
-        if (device == null) {
-          for (final d in inputs) {
-            if (labelLooksLikeSystemLoopback(d.label)) {
-              device = d;
-              break;
-            }
-          }
-        }
-        device ??= inputs.first;
-      }
-
-      const channels = 1;
-
-      final stream = await _recorder!.startStream(
-        RecordConfig(
-          encoder: AudioEncoder.pcm16bits,
-          numChannels: channels,
-          sampleRate: 48000,
-          device: device,
-        ),
-      );
-
-      if (kDebugMode) {
-        _log.fine('music stream started device=${device?.label} mic=${mm.micEnabled}');
-      }
-
-      _pcmAcc.clear();
-      _audioStartFaultBannerShown = false;
-      _sub = stream.listen(_onPcm, onError: (Object e, StackTrace st) {
-        if (kDebugMode) {
-          _log.warning('music stream: $e', e, st);
-        }
-      });
+      await _startRecordCapture(mm);
     } catch (e, st) {
       if (kDebugMode) {
         _log.warning('music start failed: $e', e, st);
@@ -230,6 +229,84 @@ class MusicAudioService {
       }
       _running = false;
     }
+  }
+
+  Future<void> _startRecordCapture(MusicModeSettings mm) async {
+    _recorder = AudioRecorder();
+    final has = await _recorder!.hasPermission();
+    if (has != true) {
+      if (kDebugMode) {
+        _log.warning('music: microphone permission denied');
+      }
+      if (!_audioStartFaultBannerShown) {
+        _audioStartFaultBannerShown = true;
+        reportAppFault(
+          'Záznam zvuku pro hudbu není povolený (oprávnění mikrofonu). Režim hudba poběží bez analýzy.',
+        );
+      }
+      _running = false;
+      return;
+    }
+
+    InputDevice? device;
+    final inputs = await _recorder!.listInputDevices();
+    if (inputs.isNotEmpty) {
+      MusicCaptureDeviceInfo? preferred;
+      final listed = await MusicAudioService.listDevices();
+      if (mm.audioDeviceIndex != null &&
+          mm.audioDeviceIndex! >= 0 &&
+          mm.audioDeviceIndex! < listed.length) {
+        preferred = listed[mm.audioDeviceIndex!];
+      }
+      if (preferred != null) {
+        for (final d in inputs) {
+          if (d.id == preferred.id) {
+            device = d;
+            break;
+          }
+        }
+      }
+      if (device == null && mm.micEnabled) {
+        for (final d in inputs) {
+          if (!labelLooksLikeSystemLoopback(d.label)) {
+            device = d;
+            break;
+          }
+        }
+      }
+      if (device == null) {
+        for (final d in inputs) {
+          if (labelLooksLikeSystemLoopback(d.label)) {
+            device = d;
+            break;
+          }
+        }
+      }
+      device ??= inputs.first;
+    }
+
+    const channels = 1;
+
+    final stream = await _recorder!.startStream(
+      RecordConfig(
+        encoder: AudioEncoder.pcm16bits,
+        numChannels: channels,
+        sampleRate: 48000,
+        device: device,
+      ),
+    );
+
+    if (kDebugMode) {
+      _log.fine('music stream started device=${device?.label} mic=${mm.micEnabled}');
+    }
+
+    _pcmAcc.clear();
+    _audioStartFaultBannerShown = false;
+    _sub = stream.listen(_onPcm, onError: (Object e, StackTrace st) {
+      if (kDebugMode) {
+        _log.warning('music stream: $e', e, st);
+      }
+    });
   }
 
   void _onPcm(Uint8List data) {
@@ -258,6 +335,7 @@ class MusicAudioService {
 
   Future<void> _stopInternal() async {
     _running = false;
+    await _disposeWindowsWasapiOnly();
     await _sub?.cancel();
     _sub = null;
     try {

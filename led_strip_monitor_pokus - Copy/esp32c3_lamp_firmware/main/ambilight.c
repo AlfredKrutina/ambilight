@@ -89,6 +89,35 @@ static char g_device_id[32] = {0}; // Unique ID generated from MAC
 static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
 
+/** NVS: ladící odmítnutí DHCP v 192.168.88.0/24 (1=zapnuto výchozí při chybě klíče). */
+#define NVS_KEY_DBG_REJ88 "dbg_rej88"
+static bool g_debug_reject_192_168_88 = true;
+
+static void ambilight_debug_rej88_load(void) {
+  uint8_t v = 1;
+  nvs_handle_t h;
+  if (nvs_open("storage", NVS_READONLY, &h) == ESP_OK) {
+    if (nvs_get_u8(h, NVS_KEY_DBG_REJ88, &v) != ESP_OK) {
+      v = 1;
+    }
+    nvs_close(h);
+  }
+  g_debug_reject_192_168_88 = (v != 0);
+  ESP_LOGI(TAG, "[debug] reject_192_168_88 subnet=%d (NVS %s)",
+           (int)g_debug_reject_192_168_88, NVS_KEY_DBG_REJ88);
+}
+
+static void ambilight_debug_rej88_save(bool on) {
+  g_debug_reject_192_168_88 = on;
+  nvs_handle_t h;
+  if (nvs_open("storage", NVS_READWRITE, &h) == ESP_OK) {
+    (void)nvs_set_u8(h, NVS_KEY_DBG_REJ88, on ? 1u : 0u);
+    (void)nvs_commit(h);
+    nvs_close(h);
+  }
+  ESP_LOGI(TAG, "[debug] reject_192_168_88 saved=%d", (int)on);
+}
+
 static inline void ambi_log_heap(const char *ctx) {
   ESP_LOGI(TAG,
            "[heap] %s: free=%u largest_block=%u min_free=%u "
@@ -307,6 +336,15 @@ static const char *config_page_html =
     "placeholder='User'>"
     "<label>Password</label><input id='m_pass' name='m_pass' type='password' "
     "value='mqtt' placeholder='Password'>"
+    "<hr style='margin:20px 0;border:none;border-top:1px solid rgba(255,255,255,0.15)'>"
+    "<div class='subtitle' style='margin-top:0'>Debugging</div>"
+    "<label style='text-transform:none;font-weight:500;letter-spacing:0'>"
+    "<input type='checkbox' id='rej88cb' name='reject_88' value='1' "
+    "style='width:auto;margin-right:10px;accent-color:#0A84FF'>"
+    "Reject STA IP in <code>192.168.88.0/24</code> (third octet .88)</label>"
+    "<p style='font-size:12px;color:rgba(255,255,255,0.55);margin:8px 0 0 0'>"
+    "When enabled, the lamp disconnects if DHCP assigns that subnet. "
+    "Also configurable via UDP <code>DEBUG_REJ88 0|1|?</code> from the desktop app.</p>"
 
     "<button type='submit'>Save & Connect</button>"
     "</form>"
@@ -328,6 +366,9 @@ static const char *config_page_html =
     "style='height:${(i+1)*3}px' class='bar "
     "${i<n?'active':''}'></div>`).join('')+`</div>`;"
     "}"
+    "fetch('/api/debug').then(function(r){return r.json();}).then(function(j){"
+    "var e=document.getElementById('rej88cb');if(e&&typeof j.reject_88==='boolean')e.checked=j.reject_88;"
+    "}).catch(function(){});"
     "function scanWifi(){"
     "const "
     "b=document.getElementById('scanBtn'),s=document.getElementById('spinner'),"
@@ -632,6 +673,47 @@ esp_err_t erase_wifi_creds() {
 
 // ============ HTTP HANDLERS ============
 
+static esp_err_t api_debug_get_handler(httpd_req_t *req) {
+  ESP_LOGI(TAG, "[http] GET /api/debug");
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+  char j[48];
+  const int n = snprintf(j, sizeof(j), "{\"reject_88\":%s}",
+                         g_debug_reject_192_168_88 ? "true" : "false");
+  if (n <= 0 || (size_t)n >= sizeof(j)) {
+    return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "overflow");
+  }
+  return httpd_resp_send(req, j, (size_t)n);
+}
+
+static esp_err_t save_debug_post_handler(httpd_req_t *req) {
+  ESP_LOGI(TAG, "[http] POST /save_debug len=%d", req->content_len);
+  char buf[128];
+  int ret = 0;
+  int remaining = req->content_len;
+  if (remaining < 0) {
+    remaining = 0;
+  }
+  if (remaining >= (int)sizeof(buf)) {
+    remaining = (int)sizeof(buf) - 1;
+  }
+  if (remaining > 0) {
+    ret = httpd_req_recv(req, buf, remaining);
+    if (ret <= 0) {
+      ESP_LOGE(TAG, "[http] POST /save_debug recv failed ret=%d", ret);
+      return ESP_FAIL;
+    }
+    buf[ret] = '\0';
+  } else {
+    buf[0] = '\0';
+  }
+  const bool on = (strstr(buf, "rej88=1") != NULL) || (strstr(buf, "rej88=on") != NULL);
+  ambilight_debug_rej88_save(on);
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+  return httpd_resp_send(req, "{\"ok\":true}", HTTPD_RESP_USE_STRLEN);
+}
+
 esp_err_t root_get_handler(httpd_req_t *req) {
   ESP_LOGI(TAG, "[http] GET / (config page) heap_free=%u",
            (unsigned)esp_get_free_heap_size());
@@ -685,6 +767,10 @@ esp_err_t save_post_handler(httpd_req_t *req) {
   url_decode(muri_dec, muri_enc);
   url_decode(muser_dec, muser_enc);
   url_decode(mpass_dec, mpass_enc);
+
+  const bool rej88 = (strstr(buf, "reject_88=1") != NULL);
+  ambilight_debug_rej88_save(rej88);
+  ESP_LOGI(TAG, "[http] reject_192_168_88 (debug)=%d", (int)rej88);
 
   save_wifi_creds(ssid_dec, pass_dec, muri_dec, muser_dec, mpass_dec);
   ESP_LOGI(TAG, "[http] credentials saved, reboot in 1s (ssid=\"%s\")",
@@ -760,6 +846,15 @@ void start_webserver(void) {
         .uri = "/scan", .method = HTTP_GET, .handler = scan_get_handler};
     httpd_register_uri_handler(server, &sc);
 
+    httpd_uri_t api_dbg = {.uri = "/api/debug",
+                           .method = HTTP_GET,
+                           .handler = api_debug_get_handler};
+    httpd_register_uri_handler(server, &api_dbg);
+    httpd_uri_t save_dbg = {.uri = "/save_debug",
+                            .method = HTTP_POST,
+                            .handler = save_debug_post_handler};
+    httpd_register_uri_handler(server, &save_dbg);
+
     // Common Captive Portal Probe URIs
     const char *captive_uris[] = {"/generate_204",   "/gen_204",
                                   "/ncsi.txt",       "/hotspot-detect.html",
@@ -789,6 +884,19 @@ void stop_webserver(void) {
     httpd_stop(server);
     server = NULL;
   }
+}
+
+/** Odmítnout STA adresu 192.168.88.0/24 (3. oktet nesmí být 88). */
+static bool ambilight_sta_ipv4_is_rejected_subnet(const esp_ip4_addr_t *ip) {
+  if (ip == NULL) {
+    return false;
+  }
+  /* esp_ip4_addr_t.addr (lwIP): síťové pořadí oktetů v MSB..LSB u uint32. */
+  const uint32_t a = ip->addr;
+  const uint8_t o1 = (uint8_t)((a >> 24) & 0xFFu);
+  const uint8_t o2 = (uint8_t)((a >> 16) & 0xFFu);
+  const uint8_t o3 = (uint8_t)((a >> 8) & 0xFFu);
+  return (o1 == 192U && o2 == 168U && o3 == 88U);
 }
 
 static void event_handler(void *arg, esp_event_base_t base, int32_t id,
@@ -881,6 +989,16 @@ static void event_handler(void *arg, esp_event_base_t base, int32_t id,
                "[ip] STA_GOT_IP ip=" IPSTR " mask=" IPSTR " gw=" IPSTR,
                IP2STR(&ev->ip_info.ip), IP2STR(&ev->ip_info.netmask),
                IP2STR(&ev->ip_info.gw));
+      if (g_debug_reject_192_168_88 &&
+          ambilight_sta_ipv4_is_rejected_subnet(&ev->ip_info.ip)) {
+        ESP_LOGW(TAG,
+                 "[ip] STA odmítnuto: adresa v 192.168.88.0/24 (3. oktet .88) — "
+                 "odpojuji (IP=" IPSTR ")",
+                 IP2STR(&ev->ip_info.ip));
+        xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+        (void)esp_wifi_disconnect();
+        return;
+      }
     }
     // Connected!
     g_connection_retries = 0;    // Reset retries
@@ -1630,19 +1748,42 @@ void task_udp(void *arg) {
           }
         }
 
+        if (len >= 12 && strncmp(rx_buffer, "DEBUG_REJ88", 11) == 0) {
+          if (len >= 13 && rx_buffer[11] == '?') {
+            char ack[24];
+            const int an = snprintf(ack, sizeof(ack), "DEBUG_REJ88_ACK %d",
+                                    g_debug_reject_192_168_88 ? 1 : 0);
+            if (an > 0 && (size_t)an < sizeof(ack)) {
+              (void)sendto(sock, ack, (size_t)an, 0,
+                           (struct sockaddr *)&source_addr, socklen);
+            }
+          } else if (len >= 13 && rx_buffer[11] == ' ' &&
+                     (rx_buffer[12] == '0' || rx_buffer[12] == '1')) {
+            const bool on = (rx_buffer[12] == '1');
+            ambilight_debug_rej88_save(on);
+            const char *ack = on ? "DEBUG_REJ88_ACK 1" : "DEBUG_REJ88_ACK 0";
+            (void)sendto(sock, ack, strlen(ack), 0,
+                         (struct sockaddr *)&source_addr, socklen);
+            ESP_LOGI(TAG, "[udp] DEBUG_REJ88 set=%d (from %s)", (int)on,
+                     inet_ntoa(source_addr.sin_addr));
+          }
+          continue;
+        }
+
         if (len >= 14 && strncmp(rx_buffer, "DISCOVER_ESP32", 14) == 0) {
           uint8_t mac[6];
           esp_wifi_get_mac(WIFI_IF_STA, mac);
-          /* Fixed stack buffer; snprintf bounds; inet_ntoa(struct in_addr) — not .s_addr */
-          char resp[96];
+          /* 8 polí: …|led|pong|pad|temp|rej88| — desktop parseEsp32PongDatagram */
+          char resp[128];
           ESP_LOGI(TAG, "Discovery Broadcast Received from %s",
                    inet_ntoa(source_addr.sin_addr));
           /* ledCount = logická délka z USB 0xA5 0x5A (g_serial_strip_max) */
-          int plen =
-              snprintf(resp, sizeof(resp),
-                       "ESP32_PONG|%02x%02x%02x|Ambilight_%02x|%u|2.0",
-                       (unsigned)mac[3], (unsigned)mac[4], (unsigned)mac[5],
-                       (unsigned)mac[5], (unsigned)g_serial_strip_max);
+          int plen = snprintf(
+              resp, sizeof(resp),
+              "ESP32_PONG|%02x%02x%02x|Ambilight_%02x|%u|2.2|0|0|%u",
+              (unsigned)mac[3], (unsigned)mac[4], (unsigned)mac[5],
+              (unsigned)mac[5], (unsigned)g_serial_strip_max,
+              g_debug_reject_192_168_88 ? 1u : 0u);
           if (plen <= 0 || (size_t)plen >= sizeof(resp)) {
             ESP_LOGW(TAG, "Discovery PONG snprintf invalid/truncated plen=%d", plen);
             continue;
@@ -2145,6 +2286,8 @@ void app_main(void) {
     nvs_flash_erase();
     nvs_flash_init();
   }
+
+  ambilight_debug_rej88_load();
 
   ESP_LOGW(TAG, "Reset Reason: %d", esp_reset_reason()); // Log why we rebooted
   ESP_LOGE(TAG,

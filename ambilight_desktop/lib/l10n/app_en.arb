@@ -862,7 +862,7 @@
   "musicDeviceError": "Device: {error}",
   "musicInputDeviceLabel": "Audio input device",
   "musicDefaultInputDevice": "Automatic: system mix (loopback)",
-  "musicSystemLoopbackHint": "With no device selected, AmbiLight prefers a loopback / “what you hear” input so system audio can drive the visualizer. Windows: Stereo Mix, VB-Audio Cable, or similar. macOS: install BlackHole from existential.audio/blackhole, create a Multi-Output Device in Audio MIDI Setup, then pick “BlackHole” (or Aggregate) here.",
+  "musicSystemLoopbackHint": "With no device selected and “Prefer microphone” off, AmbiLight drives the visualizer from system-side audio. On Windows 10+, the app uses WASAPI loopback on the default playback device (browser, games, Spotify — not just a physical mic). You can still pick Stereo Mix, VB-Audio Cable, etc. from the list. macOS: install BlackHole from existential.audio/blackhole, create a Multi-Output Device in Audio MIDI Setup, then pick “BlackHole” (or Aggregate) here.",
   "musicRefreshDeviceListTooltip": "Refresh device list",
   "musicSettingsHeader": "Music",
   "musicSettingsSubtitle": "Audio source, effects and color preview. Music mode must be active on the overview for output to reach strips.",
@@ -1487,6 +1487,26 @@
   "fwStatusOtaPayloadInvalid": "OTA command does not pass device-side checks.",
   "fwFillFromDevices": "Fill from Devices",
   "fwFillFromDevicesTooltip": "Copy IP and UDP port from the first Wi-Fi device in your list (Devices tab).",
+  "fwDebugToolsTitle": "Debugging tools (lamp)",
+  "fwDebugReject88Body": "Reject DHCP addresses in 192.168.88.0/24 (third octet .88). Stored on the device (NVS key dbg_rej88). Same toggle exists on the lamp’s SoftAP setup page and via UDP DEBUG_REJ88 0|1|?.",
+  "fwDebugReject88Query": "Query lamp",
+  "fwDebugReject88Enable": "Enable reject",
+  "fwDebugReject88Disable": "Disable reject",
+  "fwDebugReject88Unknown": "unknown (no reply or old firmware)",
+  "fwDebugReject88On": "on",
+  "fwDebugReject88Off": "off",
+  "fwDebugReject88Current": "On device: {state}",
+  "@fwDebugReject88Current": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "fwDebugReject88SetOk": "Setting applied (NVS on lamp).",
+  "fwDebugReject88SetFail": "UDP command failed (offline, wrong IP/port, or firmware without DEBUG_REJ88).",
+  "fwStatusProbeRejectOn": " · reject 192.168.88.x: on",
+  "fwStatusProbeRejectOff": " · reject 192.168.88.x: off",
   "fwStatusNoWifiDevice": "No Wi-Fi device with an IP in your list — add one under Devices.",
   "fwStatusFilledFromDevice": "Filled from “{name}”: {ip}:{port}.",
   "pcHealthHeaderTitle": "PC Health",

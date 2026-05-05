@@ -2004,7 +2004,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get musicSystemLoopbackHint =>
-      'With no device selected, AmbiLight prefers a loopback / “what you hear” input so system audio can drive the visualizer. Windows: Stereo Mix, VB-Audio Cable, or similar. macOS: install BlackHole from existential.audio/blackhole, create a Multi-Output Device in Audio MIDI Setup, then pick “BlackHole” (or Aggregate) here.';
+      'With no device selected and “Prefer microphone” off, AmbiLight drives the visualizer from system-side audio. On Windows 10+, the app uses WASAPI loopback on the default playback device (browser, games, Spotify — not just a physical mic). You can still pick Stereo Mix, VB-Audio Cable, etc. from the list. macOS: install BlackHole from existential.audio/blackhole, create a Multi-Output Device in Audio MIDI Setup, then pick “BlackHole” (or Aggregate) here.';
 
   @override
   String get musicRefreshDeviceListTooltip => 'Refresh device list';
@@ -3165,6 +3165,49 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get fwFillFromDevicesTooltip =>
       'Copy IP and UDP port from the first Wi-Fi device in your list (Devices tab).';
+
+  @override
+  String get fwDebugToolsTitle => 'Debugging tools (lamp)';
+
+  @override
+  String get fwDebugReject88Body =>
+      'Reject DHCP addresses in 192.168.88.0/24 (third octet .88). Stored on the device (NVS key dbg_rej88). Same toggle exists on the lamp’s SoftAP setup page and via UDP DEBUG_REJ88 0|1|?.';
+
+  @override
+  String get fwDebugReject88Query => 'Query lamp';
+
+  @override
+  String get fwDebugReject88Enable => 'Enable reject';
+
+  @override
+  String get fwDebugReject88Disable => 'Disable reject';
+
+  @override
+  String get fwDebugReject88Unknown => 'unknown (no reply or old firmware)';
+
+  @override
+  String get fwDebugReject88On => 'on';
+
+  @override
+  String get fwDebugReject88Off => 'off';
+
+  @override
+  String fwDebugReject88Current(String state) {
+    return 'On device: $state';
+  }
+
+  @override
+  String get fwDebugReject88SetOk => 'Setting applied (NVS on lamp).';
+
+  @override
+  String get fwDebugReject88SetFail =>
+      'UDP command failed (offline, wrong IP/port, or firmware without DEBUG_REJ88).';
+
+  @override
+  String get fwStatusProbeRejectOn => ' · reject 192.168.88.x: on';
+
+  @override
+  String get fwStatusProbeRejectOff => ' · reject 192.168.88.x: off';
 
   @override
   String get fwStatusNoWifiDevice =>
