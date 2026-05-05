@@ -4,7 +4,7 @@ import 'package:ambilight_desktop/features/smart_lights/virtual_room_effects.dar
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('none passes through rgb and brightness 1', () {
+  test('none without music timing passes through rgb and brightness 1', () {
     const room = VirtualRoomLayout(roomEffect: SmartRoomEffectKind.none);
     const fx = SmartFixture(id: 'a', displayName: 'L', roomX: 0.2, roomY: 0.3);
     final out = VirtualRoomEffects.apply(
@@ -17,6 +17,22 @@ void main() {
     expect(out.g, 90);
     expect(out.b, 80);
     expect(out.brightnessMul, 1.0);
+  });
+
+  test('none with active music timing keeps rgb, modulates brightness', () {
+    const room = VirtualRoomLayout(roomEffect: SmartRoomEffectKind.none);
+    const fx = SmartFixture(id: 'a', displayName: 'L', roomX: 0.2, roomY: 0.3);
+    final out = VirtualRoomEffects.apply(
+      room: room,
+      fixture: fx,
+      base: (100, 90, 80),
+      animationTick: 99,
+      musicTiming: const SmartLightsMusicTiming(active: true, beatEnvelope: 0.5, beatEdge: false),
+    );
+    expect(out.r, 100);
+    expect(out.g, 90);
+    expect(out.b, 80);
+    expect(out.brightnessMul, closeTo(1.15, 1e-9));
   });
 
   test('breath ignores fixture position', () {

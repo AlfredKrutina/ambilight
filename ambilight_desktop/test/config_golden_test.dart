@@ -13,7 +13,7 @@ void main() {
   test('normalizeAmbilightPerformanceScreenLoopPeriodMs clamps', () {
     expect(normalizeAmbilightPerformanceScreenLoopPeriodMs(40), 40);
     expect(normalizeAmbilightPerformanceScreenLoopPeriodMs(10), 16);
-    expect(normalizeAmbilightPerformanceScreenLoopPeriodMs(99), 40);
+    expect(normalizeAmbilightPerformanceScreenLoopPeriodMs(99), 50);
   });
 
   test('normalizeAmbilightUiTheme: legacy dark → dark_blue, snowrunner zůstane', () {

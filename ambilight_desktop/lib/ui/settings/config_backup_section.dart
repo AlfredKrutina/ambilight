@@ -1,12 +1,18 @@
+import 'dart:convert' show utf8;
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../application/ambilight_app_controller.dart';
 import '../../l10n/context_ext.dart';
+
+/// macOS: vlastní NSOpenPanel — file_picker + sandbox bez entitlementů často neukáže Finder.
+const MethodChannel _kMacConfigBackupChannel =
+    MethodChannel('ambilight/config_backup');
 
 /// Export / import JSON konfigurace (parita PyQt + `importConfigFromJsonString`).
 class ConfigBackupSection extends StatelessWidget {
@@ -60,23 +66,69 @@ class ConfigBackupSection extends StatelessWidget {
 
   Future<void> _import(BuildContext context) async {
     final c = context.read<AmbilightAppController>();
-    final r = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['json'],
-      withData: false,
-    );
-    if (r == null || r.files.isEmpty) return;
-    final p = r.files.single.path;
-    if (p == null) {
-      if (context.mounted) {
+    final initialDirectory = Platform.environment['HOME'];
+
+    Future<String?> textFromFilePickerResult(FilePickerResult? r) async {
+      if (r == null || r.files.isEmpty) return null;
+      final picked = r.files.single;
+      if (picked.bytes != null && picked.bytes!.isNotEmpty) {
+        return utf8.decode(picked.bytes!);
+      }
+      final p = picked.path;
+      if (p != null) {
+        return File(p).readAsString();
+      }
+      return null;
+    }
+
+    Future<String?> pickViaFilePicker() async {
+      final r = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['json'],
+        withData: true,
+        initialDirectory: initialDirectory,
+      );
+      if (r == null || r.files.isEmpty) return null;
+      final s = await textFromFilePickerResult(r);
+      if (s == null && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.l10n.importReadError)),
         );
       }
-      return;
+      return s;
     }
+
+    late final String text;
+    if (Platform.isMacOS) {
+      try {
+        final path =
+            await _kMacConfigBackupChannel.invokeMethod<String>('pickImportJsonPath');
+        if (path == null || path.isEmpty) return;
+        try {
+          text = await File(path).readAsString();
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(context.l10n.importFailed(e.toString()))),
+            );
+          }
+          return;
+        }
+      } catch (e, st) {
+        if (kDebugMode) {
+          debugPrint('[ConfigBackup] mac native picker fallback: $e\n$st');
+        }
+        final fallback = await pickViaFilePicker();
+        if (fallback == null) return;
+        text = fallback;
+      }
+    } else {
+      final s = await pickViaFilePicker();
+      if (s == null) return;
+      text = s;
+    }
+
     try {
-      final text = await File(p).readAsString();
       await c.importConfigFromJsonString(text);
       onImported?.call();
       if (context.mounted) {

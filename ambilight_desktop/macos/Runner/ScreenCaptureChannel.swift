@@ -30,7 +30,8 @@ enum ScreenCaptureChannel {
       case "capture":
         let args = call.arguments as? [String: Any]
         let monitorIndex = (args?["monitorIndex"] as? NSNumber)?.intValue ?? 1
-        DispatchQueue.global(qos: .userInitiated).async {
+        // Ambilight snímá opakovaně na pozadí — utility šetří CPU/thermal oproti userInitiated.
+        DispatchQueue.global(qos: .utility).async {
           let payload = Self.capturePayload(monitorIndex: monitorIndex)
           DispatchQueue.main.async {
             if let payload = payload {
@@ -113,12 +114,13 @@ enum ScreenCaptureChannel {
       for p in sorted.dropFirst() {
         union = union.union(p.1)
       }
+      // nominalResolution: Retina bez 2×/3× pixelů — výrazně méně dat než bestResolution.
       let img =
         CGWindowListCreateImage(
           union,
           .optionOnScreenOnly,
           kCGNullWindowID,
-          [.bestResolution]
+          [.nominalResolution]
         )
         ?? CGDisplayCreateImage(CGMainDisplayID())
       guard let imgUnwrapped = img else { return nil }
@@ -138,11 +140,42 @@ enum ScreenCaptureChannel {
     return encode(image: img, resolvedMonitorIndex: resolvedIndex)
   }
 
-  private static func encode(image: CGImage, resolvedMonitorIndex: Int) -> [String: Any]? {
+  /// Omezí delší hranu snímku (Retina / velké displeje) — méně RGBA přes most do Flutteru.
+  private static let maxCaptureEdgePixels = 1920
+
+  private static func rgbImageScaledDownIfNeeded(_ image: CGImage) -> CGImage {
     let w = image.width
     let h = image.height
+    let maxDim = max(w, h)
+    guard maxDim > maxCaptureEdgePixels else { return image }
+    let scale = CGFloat(maxCaptureEdgePixels) / CGFloat(maxDim)
+    let nw = max(1, Int((CGFloat(w) * scale).rounded()))
+    let nh = max(1, Int((CGFloat(h) * scale).rounded()))
+    let colorSpace = CGColorSpaceCreateDeviceRGB()
+    let bytesPerPixel = 4
+    let bytesPerRow = bytesPerPixel * nw
+    guard let ctx = CGContext(
+      data: nil,
+      width: nw,
+      height: nh,
+      bitsPerComponent: 8,
+      bytesPerRow: bytesPerRow,
+      space: colorSpace,
+      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    ) else {
+      return image
+    }
+    ctx.interpolationQuality = .low
+    ctx.draw(image, in: CGRect(x: 0, y: 0, width: nw, height: nh))
+    return ctx.makeImage() ?? image
+  }
+
+  private static func encode(image: CGImage, resolvedMonitorIndex: Int) -> [String: Any]? {
+    let scaled = rgbImageScaledDownIfNeeded(image)
+    let w = scaled.width
+    let h = scaled.height
     guard w > 0, h > 0 else { return nil }
-    guard let rgba = rgbaData(from: image) else { return nil }
+    guard let rgba = rgbaData(from: scaled) else { return nil }
     return [
       "width": w,
       "height": h,

@@ -12,6 +12,7 @@ import '../../../l10n/context_ext.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
+import '../../widgets/config_drag_slider.dart';
 import '../widgets/virtual_room_editor.dart';
 
 /// Home Assistant (REST), Apple HomeKit (macOS), návod na Google Home přes HA.
@@ -218,6 +219,39 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                 subtitle: Text(context.l10n.smartHaTrustCertSubtitle),
                 value: sl.haAllowInsecureCert,
                 onChanged: (v) => _patch(sl.copyWith(haAllowInsecureCert: v)),
+              ),
+              SwitchListTile(
+                title: Text(context.l10n.smartHaHsColorTile),
+                subtitle: Text(context.l10n.smartHaHsColorSubtitle),
+                value: sl.haColorUseHsPath,
+                onChanged: (v) => _patch(sl.copyWith(haColorUseHsPath: v)),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      context.l10n.smartHaSaturationGainLabel(sl.haSaturationGain.toStringAsFixed(2)),
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    const SizedBox(height: 4),
+                    Opacity(
+                      opacity: sl.haColorUseHsPath ? 1 : 0.45,
+                      child: IgnorePointer(
+                        ignoring: !sl.haColorUseHsPath,
+                        child: ConfigDragSlider(
+                          value: sl.haSaturationGain,
+                          min: 1.0,
+                          max: 2.0,
+                          divisions: 20,
+                          label: sl.haSaturationGain.toStringAsFixed(2),
+                          onChanged: (v) => _patch(sl.copyWith(haSaturationGain: v)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               Row(
                 children: [

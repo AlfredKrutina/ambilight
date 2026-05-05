@@ -41,7 +41,7 @@ class SystemMediaNowPlayingService extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    final intervalSec = config.globalSettings.performanceMode ? 12 : 5;
+    final intervalSec = config.globalSettings.performanceMode ? 20 : 5;
     _pollTimer = Timer.periodic(Duration(seconds: intervalSec), (_) {
       unawaited(_pollTick());
     });

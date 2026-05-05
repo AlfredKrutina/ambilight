@@ -44,7 +44,7 @@ String normalizeAmbilightUiControlLevel(String raw) {
 
 /// UI jazyk: [`system`] podle OS, nebo vynucená [`en`] / [`cs`].
 /// Povolené hodnoty Hz hlavní smyčky mimo [GlobalSettings.performanceMode].
-const kAmbilightScreenRefreshRatesHz = <int>[60, 120, 240];
+const kAmbilightScreenRefreshRatesHz = <int>[30, 60, 120, 240];
 
 int normalizeAmbilightScreenRefreshRateHz(num? raw) {
   final v = raw == null ? 60 : raw.round();
@@ -56,7 +56,7 @@ int normalizeAmbilightScreenRefreshRateHz(num? raw) {
 /// Nižší hodnota = vyšší FPS na pásek a vyšší zátěž CPU.
 int normalizeAmbilightPerformanceScreenLoopPeriodMs(num? raw) {
   final v = raw == null ? 40 : raw.round();
-  return v.clamp(16, 40);
+  return v.clamp(16, 50);
 }
 
 /// Windows: `gdi` (CPU BitBlt), `dxgi` (GPU Desktop Duplication). Ostatní OS ignorují.

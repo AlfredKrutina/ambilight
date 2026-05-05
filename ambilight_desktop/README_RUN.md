@@ -52,6 +52,7 @@ flutter run -d macos
 
 ## macOS
 
+- **Minimální systém:** cíl buildu je **macOS 13.0+** (kvůli závislosti `desktop_audio_capture` / CocoaPods). Starší verze OS aplikaci nespustí.
 - **Code signing (lokální `flutter run`):** Sandbox + sériový port (a další capability v entitlements) vyžadují vývojářský podpis. Zkopíruj `macos/Runner/Configs/LocalSigning.xcconfig.example` → `LocalSigning.xcconfig` (gitignored) a v novém souboru **nahraď `__EDIT_ME__` skutečným Team ID** (10 znaků z **Xcode → Signing**, často stejné jako u tvého iOS projektu). Jen `cp` bez úpravy skončí chybou „No Account for Team …“. V `AppInfo.xcconfig` je `#include? "LocalSigning.xcconfig"`.
 - **Chyba „No profiles … pass -allowProvisioningUpdates“:** Flutter u macOS tento příznak `xcodebuild` neposílá. Po přihlášení Apple ID v **Xcode → Settings → Accounts** jednou spusť z kořene `ambilight_desktop`:  
   `bash tool/macos_provision_profiles_once.sh`  

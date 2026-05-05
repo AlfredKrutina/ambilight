@@ -53,7 +53,7 @@ class SpotifyService extends ChangeNotifier {
     if (!config.spotify.enabled) return;
     final cid = config.spotify.clientId;
     if (cid == null || cid.isEmpty) return;
-    final intervalSec = config.globalSettings.performanceMode ? 12 : 5;
+    final intervalSec = config.globalSettings.performanceMode ? 20 : 5;
     _pollTimer = Timer.periodic(Duration(seconds: intervalSec), (_) {
       unawaited(_pollTick());
     });

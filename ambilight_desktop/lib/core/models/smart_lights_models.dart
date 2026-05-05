@@ -439,6 +439,11 @@ class VirtualRoomLayout {
   }
 }
 
+double normalizeHaSaturationGain(num? raw) {
+  final v = raw == null ? 1.38 : raw.toDouble();
+  return v.clamp(1.0, 2.0);
+}
+
 /// Integrace Home Assistant + volitelně Apple HomeKit (macOS) + návod na Google Home přes HA.
 class SmartLightsSettings {
   const SmartLightsSettings({
@@ -447,6 +452,8 @@ class SmartLightsSettings {
     this.haLongLivedToken = '',
     this.haAllowInsecureCert = false,
     this.haTimeoutSeconds = 12,
+    this.haColorUseHsPath = true,
+    this.haSaturationGain = 1.38,
     this.maxUpdateHzPerFixture = 8,
     this.globalBrightnessCapPct = 100,
     this.fixtures = const [],
@@ -460,6 +467,10 @@ class SmartLightsSettings {
   final String haLongLivedToken;
   final bool haAllowInsecureCert;
   final int haTimeoutSeconds;
+  /// Ambientní příkazy na HA: `hs_color` + jas (lepší sytost než `rgb_color` + `brightness_pct`).
+  final bool haColorUseHsPath;
+  /// Násobek saturace v HA rozsahu 0–100 ([normalizeHaSaturationGain]); jen pokud [haColorUseHsPath].
+  final double haSaturationGain;
   final int maxUpdateHzPerFixture;
   final int globalBrightnessCapPct;
   final List<SmartFixture> fixtures;
@@ -474,6 +485,8 @@ class SmartLightsSettings {
     bool clearHaToken = false,
     bool? haAllowInsecureCert,
     int? haTimeoutSeconds,
+    bool? haColorUseHsPath,
+    double? haSaturationGain,
     int? maxUpdateHzPerFixture,
     int? globalBrightnessCapPct,
     List<SmartFixture>? fixtures,
@@ -485,6 +498,9 @@ class SmartLightsSettings {
       haLongLivedToken: clearHaToken ? '' : (haLongLivedToken ?? this.haLongLivedToken),
       haAllowInsecureCert: haAllowInsecureCert ?? this.haAllowInsecureCert,
       haTimeoutSeconds: haTimeoutSeconds ?? this.haTimeoutSeconds,
+      haColorUseHsPath: haColorUseHsPath ?? this.haColorUseHsPath,
+      haSaturationGain:
+          haSaturationGain != null ? normalizeHaSaturationGain(haSaturationGain) : this.haSaturationGain,
       maxUpdateHzPerFixture: maxUpdateHzPerFixture ?? this.maxUpdateHzPerFixture,
       globalBrightnessCapPct: globalBrightnessCapPct ?? this.globalBrightnessCapPct,
       fixtures: fixtures ?? this.fixtures,
@@ -498,6 +514,8 @@ class SmartLightsSettings {
         'ha_long_lived_token': haLongLivedToken,
         'ha_allow_insecure_cert': haAllowInsecureCert,
         'ha_timeout_seconds': haTimeoutSeconds.clamp(3, 120),
+        'ha_color_use_hs_path': haColorUseHsPath,
+        'ha_saturation_gain': normalizeHaSaturationGain(haSaturationGain),
         'max_update_hz_per_fixture': maxUpdateHzPerFixture.clamp(1, 30),
         'global_brightness_cap_pct': globalBrightnessCapPct.clamp(1, 100),
         'fixtures': fixtures.map((e) => e.toJson()).toList(),
@@ -516,6 +534,8 @@ class SmartLightsSettings {
       haLongLivedToken: asString(j['ha_long_lived_token'], ''),
       haAllowInsecureCert: asBool(j['ha_allow_insecure_cert'], false),
       haTimeoutSeconds: asInt(j['ha_timeout_seconds'], 12).clamp(3, 120),
+      haColorUseHsPath: asBool(j['ha_color_use_hs_path'], true),
+      haSaturationGain: normalizeHaSaturationGain(j['ha_saturation_gain'] as num?),
       maxUpdateHzPerFixture: asInt(j['max_update_hz_per_fixture'], 8).clamp(1, 30),
       globalBrightnessCapPct: asInt(j['global_brightness_cap_pct'], 100).clamp(1, 100),
       fixtures: fx,

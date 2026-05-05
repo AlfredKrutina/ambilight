@@ -1326,7 +1326,7 @@ abstract class AppLocalizations {
   /// No description provided for @performanceModeSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'When the app captures the monitor (Screen mode or Music with “monitor” colors), the main loop is capped (default ~25 FPS); use “Performance screen tick” below to trade CPU for smoother LEDs. Spotify / PC Health intervals are longer and the USB queue is gentler. Light-only mode stays faster (~62 Hz). When performance mode is off, set the refresh rate below (60 / 120 / 240 FPS). “UI animations” only affects Material transitions.'**
+  /// **'When the app captures the monitor (Screen mode or Music with “monitor” colors), the main loop is capped (default ~25 FPS); use “Performance screen tick” below to trade CPU for smoother LEDs. Spotify / PC Health intervals are longer and the USB queue is gentler. Light-only mode stays faster (~30 Hz). When performance mode is off, set the refresh rate below (30 / 60 / 120 / 240 FPS). “UI animations” only affects Material transitions.'**
   String get performanceModeSubtitle;
 
   /// No description provided for @performanceScreenLoopPeriodLabel.
@@ -1338,7 +1338,7 @@ abstract class AppLocalizations {
   /// No description provided for @performanceScreenLoopPeriodHint.
   ///
   /// In en, this message translates to:
-  /// **'Lower ms = higher FPS to the strip and higher CPU use (16–40 ms). Applies only when performance mode is on and the app captures the monitor.'**
+  /// **'Lower ms = higher FPS to the strip and higher CPU use (16–50 ms). Applies only when performance mode is on and the app captures the monitor.'**
   String get performanceScreenLoopPeriodHint;
 
   /// No description provided for @screenRefreshRateTitle.
@@ -1358,6 +1358,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Turn off performance mode to change this (while performance is on, tune “Performance screen tick” above instead).'**
   String get screenRefreshRateDisabledHint;
+
+  /// No description provided for @screenRefreshRateHz30.
+  ///
+  /// In en, this message translates to:
+  /// **'30 FPS (lighter on CPU / battery)'**
+  String get screenRefreshRateHz30;
 
   /// No description provided for @screenRefreshRateHz60.
   ///
@@ -1380,7 +1386,7 @@ abstract class AppLocalizations {
   /// No description provided for @autostartTitle.
   ///
   /// In en, this message translates to:
-  /// **'Launch with Windows'**
+  /// **'Launch at login'**
   String get autostartTitle;
 
   /// No description provided for @autostartSubtitle.
@@ -6802,6 +6808,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Only for local HA with self-signed certs.'**
   String get smartHaTrustCertSubtitle;
+
+  /// No description provided for @smartHaHsColorTile.
+  ///
+  /// In en, this message translates to:
+  /// **'Richer HA colors (hue/saturation)'**
+  String get smartHaHsColorTile;
+
+  /// No description provided for @smartHaHsColorSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Uses hs_color with brightness — usually more saturated than rgb_color + brightness. Turn off for plain RGB. Restore-after-quit still uses exact RGB.'**
+  String get smartHaHsColorSubtitle;
+
+  /// No description provided for @smartHaSaturationGainLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'HA saturation boost: {gain}'**
+  String smartHaSaturationGainLabel(Object gain);
 
   /// No description provided for @smartTestConnection.
   ///

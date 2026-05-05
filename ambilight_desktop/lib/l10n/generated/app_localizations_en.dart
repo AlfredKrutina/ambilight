@@ -732,7 +732,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get performanceModeSubtitle =>
-      'When the app captures the monitor (Screen mode or Music with “monitor” colors), the main loop is capped (default ~25 FPS); use “Performance screen tick” below to trade CPU for smoother LEDs. Spotify / PC Health intervals are longer and the USB queue is gentler. Light-only mode stays faster (~62 Hz). When performance mode is off, set the refresh rate below (60 / 120 / 240 FPS). “UI animations” only affects Material transitions.';
+      'When the app captures the monitor (Screen mode or Music with “monitor” colors), the main loop is capped (default ~25 FPS); use “Performance screen tick” below to trade CPU for smoother LEDs. Spotify / PC Health intervals are longer and the USB queue is gentler. Light-only mode stays faster (~30 Hz). When performance mode is off, set the refresh rate below (30 / 60 / 120 / 240 FPS). “UI animations” only affects Material transitions.';
 
   @override
   String performanceScreenLoopPeriodLabel(Object ms) {
@@ -741,7 +741,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get performanceScreenLoopPeriodHint =>
-      'Lower ms = higher FPS to the strip and higher CPU use (16–40 ms). Applies only when performance mode is on and the app captures the monitor.';
+      'Lower ms = higher FPS to the strip and higher CPU use (16–50 ms). Applies only when performance mode is on and the app captures the monitor.';
 
   @override
   String get screenRefreshRateTitle => 'Ambilight refresh rate';
@@ -755,6 +755,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Turn off performance mode to change this (while performance is on, tune “Performance screen tick” above instead).';
 
   @override
+  String get screenRefreshRateHz30 => '30 FPS (lighter on CPU / battery)';
+
+  @override
   String get screenRefreshRateHz60 => '60 FPS';
 
   @override
@@ -764,7 +767,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get screenRefreshRateHz240 => '240 FPS';
 
   @override
-  String get autostartTitle => 'Launch with Windows';
+  String get autostartTitle => 'Launch at login';
 
   @override
   String get autostartSubtitle => 'Start the app after signing in.';
@@ -3946,6 +3949,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get smartHaTrustCertSubtitle =>
       'Only for local HA with self-signed certs.';
+
+  @override
+  String get smartHaHsColorTile => 'Richer HA colors (hue/saturation)';
+
+  @override
+  String get smartHaHsColorSubtitle =>
+      'Uses hs_color with brightness — usually more saturated than rgb_color + brightness. Turn off for plain RGB. Restore-after-quit still uses exact RGB.';
+
+  @override
+  String smartHaSaturationGainLabel(Object gain) {
+    return 'HA saturation boost: $gain';
+  }
 
   @override
   String get smartTestConnection => 'Test connection';

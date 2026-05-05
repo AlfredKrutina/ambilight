@@ -134,8 +134,8 @@ List<Widget> globalSettingsFields(
         ConfigDragSlider(
           value: g.performanceScreenLoopPeriodMs.toDouble(),
           min: 16,
-          max: 40,
-          divisions: 24,
+          max: 50,
+          divisions: 34,
           label: '${g.performanceScreenLoopPeriodMs}',
           onChanged: (v) => onChanged(
             g.copyWith(performanceScreenLoopPeriodMs: v.round()),
@@ -159,6 +159,7 @@ List<Widget> globalSettingsFields(
               value: hz,
               child: Text(
                 switch (hz) {
+                  30 => l10n.screenRefreshRateHz30,
                   60 => l10n.screenRefreshRateHz60,
                   120 => l10n.screenRefreshRateHz120,
                   _ => l10n.screenRefreshRateHz240,

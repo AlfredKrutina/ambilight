@@ -232,6 +232,7 @@ class SmartLightCoordinator {
             b: base.b,
             brightnessPct: base.brightnessPct,
             transitionSeconds: 0.35,
+            haPreferHsColor: false,
           );
           if (!on.$1 && kDebugMode) {
             _log.fine('HA restore on ${fx.haEntityId}: ${on.$2}');
@@ -289,15 +290,11 @@ class SmartLightCoordinator {
     _syncHaClient(sl);
     final baseGapMs = (1000 / sl.maxUpdateHzPerFixture.clamp(1, 30)).round().clamp(16, 1000);
     final musicTiming = _musicTiming(config, musicSnapshot);
-    final vrEffect = sl.virtualRoom.roomEffect;
-    final effectUsesMusic =
-        musicTiming.active &&
-            (vrEffect == SmartRoomEffectKind.breath ||
-                vrEffect == SmartRoomEffectKind.chase ||
-                vrEffect == SmartRoomEffectKind.wave ||
-                vrEffect == SmartRoomEffectKind.sparkle);
+    // Režim hudba + beat: častější push na HA/HomeKit i bez vlnového efektu (barvy z FFT mění rychle).
+    final musicBeatSyncedUpdates =
+        musicTiming.active && config.globalSettings.startMode == 'music';
     var effGapMs = baseGapMs;
-    if (effectUsesMusic) {
+    if (musicBeatSyncedUpdates) {
       if (musicTiming.beatEdge) {
         effGapMs = math.max(8, (baseGapMs * 0.28).round());
       } else if (musicTiming.beatEnvelope > 0.18) {
@@ -332,6 +329,7 @@ class SmartLightCoordinator {
         config: config,
         perDevice: perDevice,
         frame: frame,
+        musicSnapshot: musicSnapshot,
       );
       final effectOut = VirtualRoomEffects.apply(
         room: sl.virtualRoom,
@@ -339,7 +337,7 @@ class SmartLightCoordinator {
         base: rgbBase,
         animationTick: animationTick,
         chaseRanks: chaseRanks,
-        musicTiming: effectUsesMusic ? musicTiming : null,
+        musicTiming: musicTiming,
       );
       final rgb = (effectOut.r, effectOut.g, effectOut.b);
       final baseBri = _brightnessPct(engineBrightness, sl.globalBrightnessCapPct, fx.brightnessPctCap);
@@ -359,6 +357,8 @@ class SmartLightCoordinator {
               g: rgb.$2,
               b: rgb.$3,
               brightnessPct: briPct,
+              haPreferHsColor: sl.haColorUseHsPath,
+              haSaturationGain: sl.haSaturationGain,
             );
             if (!res.$1 && kDebugMode) {
               _log.fine('HA ${fx.haEntityId}: ${res.$2}');

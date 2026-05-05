@@ -337,9 +337,9 @@
   "uiAnimationsTitle": "UI animations",
   "uiAnimationsSubtitle": "Short transitions between sections. Disable when tweaking repeatedly; also respects system reduced motion.",
   "performanceModeTitle": "Performance mode",
-  "performanceModeSubtitle": "When the app captures the monitor (Screen mode or Music with “monitor” colors), the main loop is capped (default ~25 FPS); use “Performance screen tick” below to trade CPU for smoother LEDs. Spotify / PC Health intervals are longer and the USB queue is gentler. Light-only mode stays faster (~62 Hz). When performance mode is off, set the refresh rate below (60 / 120 / 240 FPS). “UI animations” only affects Material transitions.",
+  "performanceModeSubtitle": "When the app captures the monitor (Screen mode or Music with “monitor” colors), the main loop is capped (default ~25 FPS); use “Performance screen tick” below to trade CPU for smoother LEDs. Spotify / PC Health intervals are longer and the USB queue is gentler. Light-only mode stays faster (~30 Hz). When performance mode is off, set the refresh rate below (30 / 60 / 120 / 240 FPS). “UI animations” only affects Material transitions.",
   "performanceScreenLoopPeriodLabel": "Performance screen tick (ms): {ms}",
-  "performanceScreenLoopPeriodHint": "Lower ms = higher FPS to the strip and higher CPU use (16–40 ms). Applies only when performance mode is on and the app captures the monitor.",
+  "performanceScreenLoopPeriodHint": "Lower ms = higher FPS to the strip and higher CPU use (16–50 ms). Applies only when performance mode is on and the app captures the monitor.",
   "@performanceScreenLoopPeriodLabel": {
     "placeholders": {
       "ms": {}
@@ -348,10 +348,11 @@
   "screenRefreshRateTitle": "Ambilight refresh rate",
   "screenRefreshRateSubtitle": "Main loop when performance mode is off — applies to capture and LED output.",
   "screenRefreshRateDisabledHint": "Turn off performance mode to change this (while performance is on, tune “Performance screen tick” above instead).",
+  "screenRefreshRateHz30": "30 FPS (lighter on CPU / battery)",
   "screenRefreshRateHz60": "60 FPS",
   "screenRefreshRateHz120": "120 FPS",
   "screenRefreshRateHz240": "240 FPS",
-  "autostartTitle": "Launch with Windows",
+  "autostartTitle": "Launch at login",
   "autostartSubtitle": "Start the app after signing in.",
   "trayDisableOutput": "Disable output",
   "trayEnableOutput": "Enable output",
@@ -1793,6 +1794,14 @@
   "smartHaTokenHelper": "Stored outside default.json (application support / ha_long_lived_token.txt).",
   "smartHaTrustCertTile": "Trust custom HTTPS certificate",
   "smartHaTrustCertSubtitle": "Only for local HA with self-signed certs.",
+  "smartHaHsColorTile": "Richer HA colors (hue/saturation)",
+  "smartHaHsColorSubtitle": "Uses hs_color with brightness — usually more saturated than rgb_color + brightness. Turn off for plain RGB. Restore-after-quit still uses exact RGB.",
+  "smartHaSaturationGainLabel": "HA saturation boost: {gain}",
+  "@smartHaSaturationGainLabel": {
+    "placeholders": {
+      "gain": {}
+    }
+  },
   "smartTestConnection": "Test connection",
   "smartAddHaLight": "Add light from HA",
   "smartHaFillUrlToken": "Fill URL and Home Assistant token first.",

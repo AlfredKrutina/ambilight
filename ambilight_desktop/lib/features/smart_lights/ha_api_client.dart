@@ -1,7 +1,32 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:http/io_client.dart';
+
+/// RGB → Home Assistant `hs_color`: hue [0,360), saturation [0,100].
+/// Stejný model jako ve screen pipeline (H,S,V ∈ [0,1] pro výpočet, pak převod do HA jednotek).
+List<double> haRgbToHsColor(int r, int g, int b) {
+  final rn = r.clamp(0, 255) / 255.0;
+  final gn = g.clamp(0, 255) / 255.0;
+  final bn = b.clamp(0, 255) / 255.0;
+  final maxc = math.max(rn, math.max(gn, bn));
+  final minc = math.min(rn, math.min(gn, bn));
+  final d = maxc - minc;
+  double hDeg;
+  if (d < 1e-10) {
+    hDeg = 0;
+  } else if (maxc == rn) {
+    hDeg = 60 * (((gn - bn) / d) % 6);
+  } else if (maxc == gn) {
+    hDeg = 60 * (((bn - rn) / d) + 2);
+  } else {
+    hDeg = 60 * (((rn - gn) / d) + 4);
+  }
+  if (hDeg < 0) hDeg += 360;
+  final sPct = maxc <= 0 ? 0.0 : (d / maxc) * 100.0;
+  return [hDeg, sPct];
+}
 
 /// Minimální Home Assistant Core REST klient (bez WebSocket — dostačující pro ambient).
 class HaApiClient {
@@ -89,6 +114,11 @@ class HaApiClient {
     required int b,
     required int brightnessPct,
     double transitionSeconds = 0,
+    /// `true` pro ambient z PC: HA u `rgb_color` + `brightness_pct` často sníží sytost;
+    /// `hs_color` + mírný boost drží barvu živější.
+    bool haPreferHsColor = true,
+    /// Jen pokud [haPreferHsColor]; násobitel saturace [0,100] z RGB (typicky 1.25–1.45).
+    double haSaturationGain = 1.38,
   }) async {
     if (_base.isEmpty || _token.isEmpty) {
       return (false, 'Missing URL or token');
@@ -96,12 +126,39 @@ class HaApiClient {
     if (!entityId.startsWith('light.')) {
       return (false, 'Not a light entity');
     }
-    final body = jsonEncode({
+    final bp = brightnessPct.clamp(0, 100);
+    final tr = transitionSeconds.clamp(0.0, 10.0);
+    final rc = r.clamp(0, 255);
+    final gc = g.clamp(0, 255);
+    final bc = b.clamp(0, 255);
+
+    final Map<String, Object?> payload = {
       'entity_id': entityId,
-      'rgb_color': [r.clamp(0, 255), g.clamp(0, 255), b.clamp(0, 255)],
-      'brightness_pct': brightnessPct.clamp(0, 100),
-      'transition': transitionSeconds.clamp(0.0, 10.0),
-    });
+      'brightness_pct': bp,
+      'transition': tr,
+    };
+
+    // U téměř černé nemá HS stabilní odstín — držíme přesné RGB.
+    final useHs = haPreferHsColor &&
+        bp > 0 &&
+        math.max(rc, math.max(gc, bc)) >= 6;
+
+    if (useHs) {
+      final hs = haRgbToHsColor(rc, gc, bc);
+      var hue = hs[0];
+      var sat = hs[1];
+      final gain = haSaturationGain.clamp(1.0, 2.0);
+      // Část „zbývající“ nesytosti přidá i při už vysoké S — přirozenější než čistý násobek.
+      sat = math.min(100.0, sat * gain + (100.0 - sat) * 0.06 * (gain - 1.0));
+      payload['hs_color'] = [
+        double.parse(hue.toStringAsFixed(2)),
+        double.parse(sat.toStringAsFixed(2)),
+      ];
+    } else {
+      payload['rgb_color'] = [rc, gc, bc];
+    }
+
+    final body = jsonEncode(payload);
     try {
       final r = await _client
           .post(

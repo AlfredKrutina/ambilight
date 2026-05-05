@@ -99,11 +99,11 @@ AppConfig stripOrphanScreenSegmentDeviceIds(AppConfig cfg) {
   return cfg.copyWith(screenMode: cfg.screenMode.copyWith(segments: out));
 }
 
-/// Globální stav: konfigurace, transporty, hlavní smyčka (60–240 Hz dle nastavení; při snímání ve výkonu 25 FPS).
+/// Globální stav: konfigurace, transporty, hlavní smyčka (30–240 Hz dle nastavení; při snímání ve výkonu 25 FPS).
 ///
 /// Když je hlavní okno skryté (tray) nebo minimalizované, [syncAmbilightOcclusionFromShell]
 /// zapne „boost“ — nevypíná se přeskakování snímku obrazovky ani výkonová fronta sériového portu.
-/// Perioda hlavní smyčky — při snímání monitoru ve výkonovém režimu fixně 40 ms (25 FPS); jinak dle [GlobalSettings.screenRefreshRateHz].
+/// Perioda hlavní smyčky — při snímání monitoru ve výkonovém režimu dle [GlobalSettings.performanceScreenLoopPeriodMs]; jinak dle [GlobalSettings.screenRefreshRateHz].
 class AmbilightAppController extends ChangeNotifier {
   AppConfig _config = AppConfig.defaults();
   /// Po každém úspěšném [applyConfigAndPersist] — pro remount záložek s `TextFormField.initialValue`.
@@ -229,6 +229,8 @@ class AmbilightAppController extends ChangeNotifier {
   DateTime? _lastScreenFrameUiNotify;
   static const Duration _minScreenFrameUiNotifyGap = Duration(milliseconds: 33);
   static const Duration _minScreenFrameUiNotifyGapHighFidelity = Duration(milliseconds: 16);
+  /// Okno v tray / minimalizované — náhled v UI netřeba často obnovovat (šetří práci Flutteru).
+  static const Duration _minScreenFrameUiNotifyGapOccluded = Duration(milliseconds: 500);
   int _highFidelityPreviewUiRefCount = 0;
 
   /// Vyšší frekvence [previewFrameNotifier] pro otevřené náhledové dialogy — párovat s [releaseHighFidelityPreviewUi].
@@ -240,9 +242,15 @@ class AmbilightAppController extends ChangeNotifier {
     if (_highFidelityPreviewUiRefCount > 0) _highFidelityPreviewUiRefCount--;
   }
 
-  Duration get _effectiveScreenFrameUiNotifyGap => _highFidelityPreviewUiRefCount > 0
-      ? _minScreenFrameUiNotifyGapHighFidelity
-      : _minScreenFrameUiNotifyGap;
+  Duration get _effectiveScreenFrameUiNotifyGap {
+    if (_highFidelityPreviewUiRefCount > 0) {
+      return _minScreenFrameUiNotifyGapHighFidelity;
+    }
+    if (_shellOcclusionBoost) {
+      return _minScreenFrameUiNotifyGapOccluded;
+    }
+    return _minScreenFrameUiNotifyGap;
+  }
   ScreenFrame? _screenFrameLatest;
   ScreenSessionInfo _captureSessionInfo = ScreenSessionInfo.unknown;
   final MusicAudioService _musicAudio = MusicAudioService();
@@ -1885,7 +1893,8 @@ class AmbilightAppController extends ChangeNotifier {
         return gs.performanceScreenLoopPeriodMs;
       }
       if (gs.startMode == 'light') {
-        return 16;
+        // ~30 Hz stačí pro plynulost světelných efektů; 16 ms by zdvojnásobilo wakeups oproti 33 ms.
+        return 33;
       }
       return 40;
     }
@@ -2047,7 +2056,10 @@ class AmbilightAppController extends ChangeNotifier {
     }
     unawaited(_stopWindowsPushCapture());
     // Pull (Linux/macOS / music+monitor): timer driver.
-    final ms = _effectiveThrottlePerformance ? 8 : _mainLoopPeriodMs().clamp(8, 500);
+    // Ve výkonovém režimu nesnímat častěji než hlavní smyčka — dříve 8 ms zbytečně budilo CPU (~125×/s).
+    final ms = _effectiveThrottlePerformance
+        ? _mainLoopPeriodMs().clamp(16, 500)
+        : _mainLoopPeriodMs().clamp(8, 500);
     _screenCaptureDriverTimer = Timer.periodic(Duration(milliseconds: ms), (_) => _screenCaptureDriverFire());
   }
 
@@ -2061,7 +2073,7 @@ class AmbilightAppController extends ChangeNotifier {
       unawaited(_captureScreenFrameAsync());
       return;
     }
-    // Výkonový režim: při běžícím nativním capture jen vynechat tick; další pokus do 8 ms po uvolnění inFlight.
+    // Výkonový režim: při běžícím nativním capture jen vynechat tick; další pokus na další beat driveru ([_ensureScreenCaptureDriverTimer]) nebo [replay].
     if (_screenCaptureInFlight) {
       return;
     }

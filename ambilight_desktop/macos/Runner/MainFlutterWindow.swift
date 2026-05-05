@@ -12,6 +12,7 @@ class MainFlutterWindow: NSWindow {
 
     ScreenCaptureChannel.register(binaryMessenger: flutterViewController.engine.binaryMessenger)
     HomeKitChannel.register(binaryMessenger: flutterViewController.engine.binaryMessenger)
+    ConfigBackupChannel.register(binaryMessenger: flutterViewController.engine.binaryMessenger)
 
     super.awakeFromNib()
   }

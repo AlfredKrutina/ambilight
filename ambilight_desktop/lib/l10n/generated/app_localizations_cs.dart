@@ -734,7 +734,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get performanceModeSubtitle =>
-      'Při snímání monitoru (Obrazovka nebo Hudba se zdrojem „monitor“) je hlavní smyčka omezená (výchozí ~25 FPS); níže „Tick obrazovky ve výkonu“ vyměníš CPU za plynulejší pásek. Delší intervaly Spotify / PC Health a šetrnější USB fronta. Čistě režim Světlo zůstává rychlejší (~62 Hz). Bez výkonového režimu nastav frekvenci níže (60 / 120 / 240 FPS). „Animace rozhraní“ mění jen Material přechody.';
+      'Při snímání monitoru (Obrazovka nebo Hudba se zdrojem „monitor“) je hlavní smyčka omezená (výchozí ~25 FPS); níže „Tick obrazovky ve výkonu“ vyměníš CPU za plynulejší pásek. Delší intervaly Spotify / PC Health a šetrnější USB fronta. Čistě režim Světlo zůstává rychlejší (~30 Hz). Bez výkonového režimu nastav frekvenci níže (30 / 60 / 120 / 240 FPS). „Animace rozhraní“ mění jen Material přechody.';
 
   @override
   String performanceScreenLoopPeriodLabel(Object ms) {
@@ -743,7 +743,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get performanceScreenLoopPeriodHint =>
-      'Nižší ms = vyšší FPS na pásek a vyšší zátěž CPU (16–40 ms). Platí jen ve výkonovém režimu při snímání monitoru.';
+      'Nižší ms = vyšší FPS na pásek a vyšší zátěž CPU (16–50 ms). Platí jen ve výkonovém režimu při snímání monitoru.';
 
   @override
   String get screenRefreshRateTitle => 'Frekvence Ambilight smyčky';
@@ -757,6 +757,9 @@ class AppLocalizationsCs extends AppLocalizations {
       'Vypni výkonový režim pro změnu (ve výkonu uprav „Tick obrazovky ve výkonu“ výše).';
 
   @override
+  String get screenRefreshRateHz30 => '30 FPS (šetrnější k Macu / baterii)';
+
+  @override
   String get screenRefreshRateHz60 => '60 FPS';
 
   @override
@@ -766,7 +769,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get screenRefreshRateHz240 => '240 FPS';
 
   @override
-  String get autostartTitle => 'Spustit s Windows';
+  String get autostartTitle => 'Spustit při přihlášení';
 
   @override
   String get autostartSubtitle => 'Autostart aplikace po přihlášení k účtu.';
@@ -3951,6 +3954,18 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get smartHaTrustCertSubtitle => 'Jen lokální HA s self-signed certem.';
+
+  @override
+  String get smartHaHsColorTile => 'Živější barvy na HA (odstín/sytost)';
+
+  @override
+  String get smartHaHsColorSubtitle =>
+      'Posílá hs_color a jas — obvykle sytější než rgb_color + jas. Vypni pro čisté RGB. Obnova stavu po ukončení mirroringu zůstává přesné RGB.';
+
+  @override
+  String smartHaSaturationGainLabel(Object gain) {
+    return 'Posílení saturace (HA): $gain';
+  }
 
   @override
   String get smartTestConnection => 'Test spojení';

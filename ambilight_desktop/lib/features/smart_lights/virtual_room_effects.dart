@@ -51,6 +51,18 @@ abstract final class VirtualRoomEffects {
     SmartLightsMusicTiming? musicTiming,
   }) {
     if (room.roomEffect == SmartRoomEffectKind.none) {
+      final mt = musicTiming;
+      if (mt != null && mt.active) {
+        final env = mt.beatEnvelope;
+        final edge = mt.beatEdge;
+        final mul = (1.0 + env * 0.30 + (edge ? 0.14 : 0.0)).clamp(0.66, 1.44);
+        return SmartEffectOutput(
+          r: base.$1,
+          g: base.$2,
+          b: base.$3,
+          brightnessMul: mul,
+        );
+      }
       return SmartEffectOutput(
         r: base.$1,
         g: base.$2,
