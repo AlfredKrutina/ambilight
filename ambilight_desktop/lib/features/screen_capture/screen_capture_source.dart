@@ -101,7 +101,13 @@ abstract class ScreenCaptureSource {
   /// Snímek jednoho monitoru / virtuální plochy. `monitorIndex` ve stylu MSS (viz [ScreenFrame]).
   ///
   /// Windows: [windowsCaptureBackend] je `gdi` (CPU) nebo `dxgi` (GPU); jinde se ignoruje.
-  Future<ScreenFrame?> captureFrame(int monitorIndex, {String? windowsCaptureBackend});
+  /// [windowsCaptureExtras]: volitelné klíče stejné jako u Event streamu (`cropLeft`…, `dxgiAcquireTimeoutMs`);
+  /// mimo Windows se ignorují.
+  Future<ScreenFrame?> captureFrame(
+    int monitorIndex, {
+    String? windowsCaptureBackend,
+    Map<String, Object?>? windowsCaptureExtras,
+  });
 
   /// Seznam monitorů pro UI / validaci [monitorIndex].
   Future<List<MonitorInfo>> listMonitors();

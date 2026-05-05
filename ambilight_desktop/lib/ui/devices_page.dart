@@ -63,20 +63,47 @@ class _DevicesPageState extends State<DevicesPage> {
       );
       return;
     }
-    final devs = c.config.globalSettings.devices
-        .map((d) => d.type == 'serial' ? d.copyWith(port: port) : d)
-        .toList();
+    final existing = c.config.globalSettings.devices;
+    final hadSerialRow = existing.any((d) => d.type == 'serial');
+    final wifiDevices = existing.where((d) => d.type == 'wifi');
+    final ledHint = wifiDevices.isEmpty
+        ? c.config.globalSettings.ledCount
+        : wifiDevices.first.ledCount;
+    final devs = hadSerialRow
+        ? existing.map((d) => d.type == 'serial' ? d.copyWith(port: port) : d).toList()
+        : [
+            ...existing,
+            DeviceSettings(
+              id: 'd${DateTime.now().millisecondsSinceEpoch % 100000000}',
+              name: context.l10n.comScanUsbDeviceDefaultName(port),
+              type: 'serial',
+              port: port,
+              ledCount: ledHint.clamp(1, SerialAmbilightProtocol.maxLedsPerDevice),
+            ),
+          ];
     final next = c.config.copyWith(
       globalSettings: c.config.globalSettings.copyWith(
         devices: devs,
         serialPort: port,
       ),
     );
-    traceDeviceBindings('DevicesPage._findAmbilightCom: nastavuji COM $port na všech serial řádcích');
+    traceDeviceBindings(
+      'DevicesPage._findAmbilightCom: COM=$port hadSerialRow=$hadSerialRow → '
+      '${hadSerialRow ? "update serial ports" : "append USB device row"}',
+    );
     traceConfigBindings('DevicesPage._findAmbilightCom před apply', c.config);
+    // Krátká prodleva po zavření portu ve discovery — stabilnější první connect bez hard resetu ESP.
+    await Future<void>.delayed(const Duration(milliseconds: 180));
+    if (!mounted) return;
     await c.applyConfigAndPersist(next);
     if (mounted) {
-      messenger.showSnackBar(SnackBar(content: Text(context.l10n.serialPortSet(port))));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            hadSerialRow ? context.l10n.serialPortSet(port) : context.l10n.comScanUsbDeviceAdded(port),
+          ),
+        ),
+      );
     }
   }
 

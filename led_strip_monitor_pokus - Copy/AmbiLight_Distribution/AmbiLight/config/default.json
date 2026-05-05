@@ -7,8 +7,8 @@
             {
                 "id": "cbada4",
                 "name": "Ambilight_a4",
-                "type": "wifi",
-                "port": "COM5",
+                "type": "serial",
+                "port": "COM17",
                 "ip_address": "192.168.1.207",
                 "udp_port": 4210,
                 "led_count": 200,
@@ -71,7 +71,7 @@
     },
     "screen_mode": {
         "monitor_index": 1,
-        "scan_depth_percent": 8,
+        "scan_depth_percent": 11,
         "padding_percent": 0,
         "saturation_boost": 2.2,
         "ultra_saturation": true,
@@ -144,10 +144,10 @@
         "padding_bottom": 0,
         "padding_left": 0,
         "padding_right": 0,
-        "scan_depth_top": 8,
-        "scan_depth_bottom": 8,
-        "scan_depth_left": 8,
-        "scan_depth_right": 8,
+        "scan_depth_top": 11,
+        "scan_depth_bottom": 11,
+        "scan_depth_left": 11,
+        "scan_depth_right": 11,
         "segments": [
             {
                 "led_start": 0,

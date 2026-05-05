@@ -16,7 +16,7 @@ import 'udp_socket_bind.dart';
 final _log = Logger('UdpTransport');
 
 /// I při stejném hash pošli znovu, aby LED nestárly (plynulý pohyb při pomalé změně průměru).
-const int _kUdpDedupeMaxSkipAgeMs = 80;
+const int _kUdpDedupeMaxSkipAgeMs = 50;
 
 int _udpRgbFrameHash(List<(int r, int g, int b)> colors, int bri) {
   var h = bri ^ (colors.length * 0x9E3779B9);

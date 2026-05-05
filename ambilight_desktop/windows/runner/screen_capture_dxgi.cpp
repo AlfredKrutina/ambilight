@@ -119,32 +119,33 @@ bool BuildDuplicationForRect(const RECT& target) {
 
 }  // namespace
 
-bool AmbilightDxgiCaptureRect(const RECT& src_rect,
+bool AmbilightDxgiCaptureRect(const RECT& output_desktop_rect,
+                              const RECT& capture_desktop_rect,
                               std::vector<uint8_t>& out_rgba,
                               int& out_w,
                               int& out_h,
-                              bool* out_wait_timeout) {
+                              bool* out_wait_timeout,
+                              UINT acquire_timeout_ms) {
   if (out_wait_timeout) {
     *out_wait_timeout = false;
   }
-  const int cw = src_rect.right - src_rect.left;
-  const int ch = src_rect.bottom - src_rect.top;
+  const int cw = capture_desktop_rect.right - capture_desktop_rect.left;
+  const int ch = capture_desktop_rect.bottom - capture_desktop_rect.top;
   if (cw <= 0 || ch <= 0) {
     return false;
   }
 
   std::lock_guard<std::mutex> lock(g_mu);
 
-  if (!g_dup || !SameRect(g_dup_bounds, src_rect)) {
-    if (!BuildDuplicationForRect(src_rect)) {
+  if (!g_dup || !SameRect(g_dup_bounds, output_desktop_rect)) {
+    if (!BuildDuplicationForRect(output_desktop_rect)) {
       return false;
     }
   }
 
   IDXGIResource* desktop_resource = nullptr;
   DXGI_OUTDUPL_FRAME_INFO fi{};
-  // 0 ms — neblokuje na kompozitor; při WAIT_TIMEOUT vracíme false (Dart ponechá poslední snímek).
-  HRESULT hr = g_dup->AcquireNextFrame(0, &fi, &desktop_resource);
+  HRESULT hr = g_dup->AcquireNextFrame(acquire_timeout_ms, &fi, &desktop_resource);
   if (hr == DXGI_ERROR_WAIT_TIMEOUT) {
     if (out_wait_timeout) {
       *out_wait_timeout = true;
@@ -177,8 +178,16 @@ bool AmbilightDxgiCaptureRect(const RECT& src_rect,
     return false;
   }
 
-  const UINT off_x = static_cast<UINT>(src_rect.left - g_dup_bounds.left);
-  const UINT off_y = static_cast<UINT>(src_rect.top - g_dup_bounds.top);
+  const int rel_left = capture_desktop_rect.left - g_dup_bounds.left;
+  const int rel_top = capture_desktop_rect.top - g_dup_bounds.top;
+  if (rel_left < 0 || rel_top < 0) {
+    acquired->Release();
+    g_dup->ReleaseFrame();
+    ReleaseDupLocked();
+    return false;
+  }
+  const UINT off_x = static_cast<UINT>(rel_left);
+  const UINT off_y = static_cast<UINT>(rel_top);
   if (off_x + static_cast<UINT>(cw) > td.Width || off_y + static_cast<UINT>(ch) > td.Height) {
     acquired->Release();
     g_dup->ReleaseFrame();

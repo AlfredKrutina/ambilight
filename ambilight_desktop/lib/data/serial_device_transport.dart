@@ -34,6 +34,9 @@ Future<void> disposeSerialPortNativeOnce(SerialPort port) async {
   try {
     try {
       if (port.isOpen) {
+        try {
+          SerialDeviceTransport.stabilizeEspressifUsbLinesBeforeClose(port);
+        } catch (_) {}
         port.close();
       }
     } catch (e, st) {
@@ -144,22 +147,7 @@ class SerialDeviceTransport extends DeviceTransport {
           provisional = null;
           return;
         }
-        // ESP32-C3 USB-JTAG CDC: RTS i DTR musí být asserted, jinak host nepřijímá RX.
-        // Klasické USB-UART bridge často stačí RTS on + DTR off (Python); zde výchozí oba ON.
-        _applySerialConfig(p);
-        try {
-          final usbLines = p.config;
-          usbLines.rts = SerialPortRts.on;
-          usbLines.dtr = SerialPortDtr.on;
-          p.config = usbLines;
-        } catch (e, st) {
-          _log.fine('USB-JTAG DTR/RTS reassert: $e', e, st);
-        }
-        try {
-          p.flush(SerialPortBuffer.both);
-        } catch (e, st) {
-          _log.fine('flush after open: $e', e, st);
-        }
+        applyAmbilightPortPolicyAfterOpen(p, baudRate);
         opened = p;
       });
       if (opened == null) {
@@ -167,6 +155,7 @@ class SerialDeviceTransport extends DeviceTransport {
         return;
       }
       final port = opened!;
+      final nativeEspUsb = looksLikeEspressifUsbSerialJtag(port);
       _closingPort = false;
       await Future<void>.delayed(const Duration(milliseconds: 100));
       if (gen != _lifecycleGen) {
@@ -180,7 +169,19 @@ class SerialDeviceTransport extends DeviceTransport {
         provisional = null;
         return;
       }
-      if (!okHs) {
+      // Po krátkém open/close (např. COM discovery) první handshake často selže — zkusit znovu,
+      // než spustíme DTR/RTS hard reset (u klasického bridge; u Espressif USB-JTAG ne).
+      final softRetries = nativeEspUsb ? 8 : 3;
+      for (var retry = 0; !okHs && retry < softRetries; retry++) {
+        await Future<void>.delayed(Duration(milliseconds: nativeEspUsb ? 280 : 220));
+        if (gen != _lifecycleGen) {
+          await releaseSerialPortOnce(port);
+          provisional = null;
+          return;
+        }
+        okHs = await _handshakeAsync(port);
+      }
+      if (!okHs && !nativeEspUsb) {
         await _hardResetEspSerial(port);
         if (gen != _lifecycleGen) {
           await releaseSerialPortOnce(port);
@@ -200,6 +201,15 @@ class SerialDeviceTransport extends DeviceTransport {
           _armReconnectBackoff();
           return;
         }
+      } else if (!okHs && nativeEspUsb) {
+        _log.info(
+          'Serial: handshake failed on $portName (Espressif USB VID=0x303A) — '
+          'skipping DTR/RTS hard reset (would reset chip / JTAG). Check cable or close other tools using this COM.',
+        );
+        await releaseSerialPortOnce(port);
+        provisional = null;
+        _armReconnectBackoff();
+        return;
       }
       if (gen != _lifecycleGen) {
         await releaseSerialPortOnce(port);
@@ -218,8 +228,8 @@ class SerialDeviceTransport extends DeviceTransport {
       if (ambilightPipelineDiagnosticsEnabled) {
         pipelineDiagLog(
           'serial_open',
-          'dev=${device.id} port=$portName baud=$baudRate wire=8N1 flow=none intended_Rts=on Dtr=on '
-          '(ESP USB-JTAG CDC; viz [_applySerialConfig])',
+          'dev=${device.id} port=$portName baud=$baudRate wire=8N1 flow=none '
+          'espUsbJtag=$nativeEspUsb (VID=0x${port.vendorId?.toRadixString(16) ?? "?"})',
         );
         final ping = Uint8List.fromList([SerialAmbilightProtocol.ping]);
         pipelineDiagLog('serial_handshake', 'ping_hex=${pipelineDiagHexPrefix(ping)} pong_expected=0x${SerialAmbilightProtocol.pong.toRadixString(16)}');
@@ -270,7 +280,7 @@ class SerialDeviceTransport extends DeviceTransport {
       ..stopBits = 1
       ..setFlowControl(SerialPortFlowControl.none)
       ..rts = rts ?? SerialPortRts.on
-      ..dtr = dtr ?? SerialPortDtr.on;
+      ..dtr = dtr ?? SerialPortDtr.off;
     try {
       port.config = cfg;
     } catch (e, st) {
@@ -309,6 +319,76 @@ class SerialDeviceTransport extends DeviceTransport {
     if (p.isEmpty) return true;
     if (p.toUpperCase() == 'COMX') return true;
     return false;
+  }
+
+  /// Vestavěný USB Serial/JTAG (Espressif VID) nebo stejný device podle popisu — na Windows
+  /// nesahat zbytečně na DTR (EN / GPIO0) ani při baudu ani při close.
+  static bool looksLikeEspressifUsbSerialJtag(SerialPort port) {
+    try {
+      if (port.vendorId == 0x303A) return true;
+      final s = '${port.description ?? ''} ${port.productName ?? ''}'.toLowerCase();
+      if (s.contains('usb jtag') || s.contains('usb serial/jtag')) return true;
+      if (s.contains('serial debug unit')) return true;
+      if (s.contains('espressif') && s.contains('jtag')) return true;
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Po [openReadWrite]: u ESP USB-JTAG jen baud/8N1 bez přepisování modemových linek (driver default).
+  /// U CP210x/CH340: RTS on + DTR off (klasické ESP desky — DTR často na EN přes kondenzátor).
+  static void applyAmbilightPortPolicyAfterOpen(SerialPort port, int baudRate) {
+    final br = baudRate.clamp(9600, 921600);
+    final jtag = looksLikeEspressifUsbSerialJtag(port);
+    try {
+      if (jtag) {
+        final cfg = port.config;
+        cfg.baudRate = br;
+        cfg.bits = 8;
+        cfg.parity = SerialPortParity.none;
+        cfg.stopBits = 1;
+        cfg.setFlowControl(SerialPortFlowControl.none);
+        port.config = cfg;
+        try {
+          port.flush(SerialPortBuffer.input);
+        } catch (e, st) {
+          _log.fine('flush input after open (esp usb): $e', e, st);
+        }
+      } else {
+        final cfg = SerialPortConfig()
+          ..baudRate = br
+          ..bits = 8
+          ..parity = SerialPortParity.none
+          ..stopBits = 1
+          ..setFlowControl(SerialPortFlowControl.none)
+          ..rts = SerialPortRts.on
+          ..dtr = SerialPortDtr.off;
+        port.config = cfg;
+        try {
+          port.flush(SerialPortBuffer.both);
+        } catch (e, st) {
+          _log.fine('flush after open (bridge): $e', e, st);
+        }
+      }
+    } catch (e, st) {
+      _log.fine('applyAmbilightPortPolicyAfterOpen: $e', e, st);
+      rethrow;
+    }
+  }
+
+  /// Před [close] snížit riziko náhodného pulsu na EN při uvolnění CDC driveru (Windows).
+  static void stabilizeEspressifUsbLinesBeforeClose(SerialPort port) {
+    if (!looksLikeEspressifUsbSerialJtag(port)) return;
+    try {
+      if (!port.isOpen) return;
+      final cfg = port.config;
+      cfg.dtr = SerialPortDtr.off;
+      cfg.rts = SerialPortRts.on;
+      port.config = cfg;
+    } catch (e, st) {
+      _log.fine('stabilizeEspressifUsbLinesBeforeClose: $e', e, st);
+    }
   }
 
   Future<bool> _handshakeAsync(SerialPort port) async {

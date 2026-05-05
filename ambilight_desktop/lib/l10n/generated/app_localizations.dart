@@ -1466,6 +1466,18 @@ abstract class AppLocalizations {
   /// **'Serial port set: {port}'**
   String serialPortSet(Object port);
 
+  /// No description provided for @comScanUsbDeviceDefaultName.
+  ///
+  /// In en, this message translates to:
+  /// **'USB ({port})'**
+  String comScanUsbDeviceDefaultName(Object port);
+
+  /// No description provided for @comScanUsbDeviceAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'USB device added on {port}. You can rename it in the list.'**
+  String comScanUsbDeviceAdded(Object port);
+
   /// No description provided for @firmwareLabel.
   ///
   /// In en, this message translates to:

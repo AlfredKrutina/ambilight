@@ -4,6 +4,8 @@ Tento dokument **doplňuje** [AmbiLight-MASTER-PLAN.md](./AmbiLight-MASTER-PLAN.
 
 **Paralelní běh (9 agentů):** aktuální sprint a vlastnictví souborů jsou v [AGENT_PARALLEL_9.md](./AGENT_PARALLEL_9.md); feedback agenty zapisují do [agent_feedback/](./agent_feedback/). Tento soubor (P0–P14) zůstává referencí závislostí a detailních úkolů.
 
+**Výkon LED / latence / screen pipeline:** iterované prompty a ověřený stav jsou v [PERF_LED_AGENT_HANDOFF.md](./PERF_LED_AGENT_HANDOFF.md) (copy-paste Prompt #2–#3, backlog, baseline testů).
+
 **Tvrdá pravidla pro všechny agenty**
 
 - **Firmware neměň bez pokynu** — protokoly drž kompatibilní s lampou `esp32c3_lamp_firmware/main/ambilight.c`.

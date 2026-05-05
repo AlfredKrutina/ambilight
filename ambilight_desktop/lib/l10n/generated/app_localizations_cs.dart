@@ -784,6 +784,16 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String comScanUsbDeviceDefaultName(Object port) {
+    return 'USB ($port)';
+  }
+
+  @override
+  String comScanUsbDeviceAdded(Object port) {
+    return 'Přidáno USB zařízení na $port. Název můžeš změnit v seznamu.';
+  }
+
+  @override
   String firmwareLabel(Object version) {
     return 'Firmware: $version';
   }

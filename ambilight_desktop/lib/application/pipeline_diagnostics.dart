@@ -23,6 +23,23 @@ void pipelineDiagIsolatePrint(String message) {
   print('[PIPELINE_DIAG] $message');
 }
 
+/// Push stream z Windows EventChannel — pro baseline / porovnání s pull capture.
+class PipelineStreamDiagStats {
+  PipelineStreamDiagStats._();
+
+  static int framesReceived = 0;
+  static int noUpdateEvents = 0;
+
+  static void resetWindow() {
+    framesReceived = 0;
+    noUpdateEvents = 0;
+  }
+
+  static String formatWindowSummary() {
+    return 'stream_frames=$framesReceived stream_noUpdate=$noUpdateEvents';
+  }
+}
+
 /// Poslední [markCapture] — pro odhad mezery capture → UDP v hláškách `udp_emit_done`.
 class PipelineDiagCaptureTimeline {
   PipelineDiagCaptureTimeline._();

@@ -19,11 +19,14 @@ class MethodChannelScreenCaptureSource implements ScreenCaptureSource {
   MethodChannelScreenCaptureSource({
     MethodChannel channel = ScreenCaptureSource.defaultChannel,
     BinaryMessenger? messenger,
-  }) : _channel = messenger != null
+    EventChannel? captureStreamChannel,
+  })  : _channel = messenger != null
             ? MethodChannel(channel.name, channel.codec, messenger)
-            : channel;
+            : channel,
+        _captureStream = captureStreamChannel ?? const EventChannel('ambilight/screen_capture_stream');
 
   final MethodChannel _channel;
+  final EventChannel _captureStream;
 
   String? _lastError;
 
@@ -72,8 +75,90 @@ class MethodChannelScreenCaptureSource implements ScreenCaptureSource {
     }
   }
 
+  /// Windows: DXGI push stream (EventChannel). Argumenty viz C++ `InternalRegister…`.
+  Stream<Object?> windowsCaptureBroadcastStream(Map<String, Object?> arguments) {
+    if (kIsWeb || !Platform.isWindows) {
+      return const Stream<Object?>.empty();
+    }
+    return _captureStream.receiveBroadcastStream(arguments);
+  }
+
+  /// Parsování výsledku `capture` / stream eventu → [ScreenFrame]; `noUpdate` → `null`.
+  static ScreenFrame? parseCaptureMap(Map<Object?, Object?> map, {required bool markDiagTimeline}) {
+    void dbgCapture(String msg) {
+      if (!kIsWeb && Platform.isWindows) {
+        print('[CAPTURE Dart] $msg');
+      }
+    }
+
+    final noUpdateRaw = map['noUpdate'];
+    if (noUpdateRaw == true || noUpdateRaw == 1) {
+      if (ambilightPipelineDiagnosticsEnabled) {
+        PipelineStreamDiagStats.noUpdateEvents++;
+        pipelineDiagLog('capture_stream_noop', '');
+      }
+      return null;
+    }
+    final w = _asInt(map['width']);
+    final h = _asInt(map['height']);
+    final idx = _asInt(map['monitorIndex']);
+    final bytes = map['rgba'];
+    if (w == null || h == null || idx == null) {
+      dbgCapture('parseCaptureMap: missing width/height/monitorIndex');
+      return null;
+    }
+    Uint8List? rgba;
+    if (bytes is Uint8List) {
+      rgba = bytes;
+    } else if (bytes is List) {
+      rgba = Uint8List.fromList(bytes.cast<int>());
+    }
+    if (rgba == null) {
+      dbgCapture('parseCaptureMap: rgba missing');
+      return null;
+    }
+    final lw = _asInt(map['layoutWidth']);
+    final lh = _asInt(map['layoutHeight']);
+    final ox = _asInt(map['bufferOriginX']);
+    final oy = _asInt(map['bufferOriginY']);
+    final nbw = _asInt(map['nativeBufferWidth']);
+    final nbh = _asInt(map['nativeBufferHeight']);
+    final hasLayout = lw != null && lh != null && nbw != null && nbh != null;
+    final frame = ScreenFrame(
+      width: w,
+      height: h,
+      monitorIndex: idx,
+      rgba: rgba,
+      layoutWidth: hasLayout ? lw : null,
+      layoutHeight: hasLayout ? lh : null,
+      bufferOriginX: ox ?? 0,
+      bufferOriginY: oy ?? 0,
+      nativeBufferWidth: hasLayout ? nbw : null,
+      nativeBufferHeight: hasLayout ? nbh : null,
+    );
+    if (ambilightPipelineDiagnosticsEnabled && frame.isValid) {
+      var rgbSum = 0;
+      for (var i = 0; i < rgba.length; i += 4) {
+        rgbSum += rgba[i] + rgba[i + 1] + rgba[i + 2];
+      }
+      if (markDiagTimeline) {
+        PipelineDiagCaptureTimeline.markCapture();
+      }
+      pipelineDiagLog(
+        'capture_frame',
+        'w=$w h=$h monitorIndex=$idx rgbaBytes=${rgba.length} rgbSum=$rgbSum '
+        'layout=${frame.layoutW}x${frame.layoutH} cropMeta=${frame.hasBufferLayoutMeta}',
+      );
+    }
+    return frame;
+  }
+
   @override
-  Future<ScreenFrame?> captureFrame(int monitorIndex, {String? windowsCaptureBackend}) async {
+  Future<ScreenFrame?> captureFrame(
+    int monitorIndex, {
+    String? windowsCaptureBackend,
+    Map<String, Object?>? windowsCaptureExtras,
+  }) async {
     _clearError();
     try {
       final args = <String, Object?>{'monitorIndex': monitorIndex};
@@ -81,6 +166,9 @@ class MethodChannelScreenCaptureSource implements ScreenCaptureSource {
         args['captureBackend'] = normalizeWindowsScreenCaptureBackend(
           windowsCaptureBackend ?? 'dxgi',
         );
+        if (windowsCaptureExtras != null && windowsCaptureExtras.isNotEmpty) {
+          args.addAll(windowsCaptureExtras);
+        }
       }
       final Object? raw = await _channel.invokeMethod<Object?>('capture', args);
       void dbgCapture(String msg) {
@@ -97,64 +185,9 @@ class MethodChannelScreenCaptureSource implements ScreenCaptureSource {
       }
       final map = Map<Object?, Object?>.from(raw);
       dbgCapture('map keys: ${map.keys.map((k) => "${k.runtimeType}:$k").join(", ")}');
-      final noUpdateRaw = map['noUpdate'];
-      if (noUpdateRaw == true || noUpdateRaw == 1) {
-        return null;
-      }
-      final w = _asInt(map['width']);
-      final h = _asInt(map['height']);
-      final idx = _asInt(map['monitorIndex']);
-      final bytes = map['rgba'];
-      if (w == null) {
-        dbgCapture('width missing or not int (raw=${map['width']} type=${map['width']?.runtimeType})');
-        return null;
-      }
-      if (h == null) {
-        dbgCapture('height missing or not int (raw=${map['height']} type=${map['height']?.runtimeType})');
-        return null;
-      }
-      if (idx == null) {
-        dbgCapture(
-          'monitorIndex missing or not int (raw=${map['monitorIndex']} type=${map['monitorIndex']?.runtimeType})',
-        );
-        return null;
-      }
-      Uint8List? rgba;
-      if (bytes is Uint8List) {
-        rgba = bytes;
-      } else if (bytes is List) {
-        rgba = Uint8List.fromList(bytes.cast<int>());
-      }
-      if (rgba == null) {
-        dbgCapture(
-          'rgba missing / wrong type: type=${bytes?.runtimeType} (need Uint8List or List<int>)',
-        );
-        return null;
-      }
-      final expected = w * h * 4;
-      dbgCapture(
-        'parsed width=$w height=$h monitorIndex=$idx rgba.length=${rgba.length} expectedBytes=$expected',
-      );
-      if (rgba.length != expected) {
-        dbgCapture(
-          'WARNING: rgba length mismatch — ScreenFrame.isValid will be false '
-          '(got ${rgba.length}, need $expected)',
-        );
-      }
-      final frame = ScreenFrame(width: w, height: h, monitorIndex: idx, rgba: rgba);
-      if (!frame.isValid) {
-        dbgCapture('ScreenFrame.isValid == false (see lengths above)');
-      }
-      if (ambilightPipelineDiagnosticsEnabled && frame.isValid) {
-        var rgbSum = 0;
-        for (var i = 0; i < rgba.length; i += 4) {
-          rgbSum += rgba[i] + rgba[i + 1] + rgba[i + 2];
-        }
-        PipelineDiagCaptureTimeline.markCapture();
-        pipelineDiagLog(
-          'capture_frame',
-          'w=$w h=$h monitorIndex=$idx rgbaBytes=${rgba.length} rgbSum=$rgbSum',
-        );
+      final frame = parseCaptureMap(map, markDiagTimeline: true);
+      if (frame != null && !frame.isValid) {
+        dbgCapture('ScreenFrame.isValid == false');
       }
       return frame;
     } on MissingPluginException catch (e) {

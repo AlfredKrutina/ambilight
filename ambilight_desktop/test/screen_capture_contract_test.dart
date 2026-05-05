@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import 'package:ambilight_desktop/features/screen_capture/screen_capture.dart';
@@ -32,6 +33,11 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (MethodCall call) async {
         if (call.method == 'capture') {
+          if (Platform.isWindows) {
+            final args = call.arguments as Map<dynamic, dynamic>?;
+            expect(args?['cropWidth'], 10);
+            expect(args?['dxgiAcquireTimeoutMs'], 16);
+          }
           return <String, Object?>{
             'width': 1,
             'height': 1,
@@ -43,7 +49,18 @@ void main() {
       });
 
       final src = MethodChannelScreenCaptureSource(channel: channel);
-      final frame = await src.captureFrame(1);
+      final frame = await src.captureFrame(
+        1,
+        windowsCaptureExtras: Platform.isWindows
+            ? const <String, Object?>{
+                'cropLeft': 0,
+                'cropTop': 0,
+                'cropWidth': 10,
+                'cropHeight': 10,
+                'dxgiAcquireTimeoutMs': 16,
+              }
+            : null,
+      );
       expect(frame, isNotNull);
       expect(frame!.width, 1);
       expect(frame.height, 1);

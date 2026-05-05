@@ -125,25 +125,31 @@ final class ScreenPipelineIsolateBridge {
     send.send(<String, Object?>{'t': 'reset'});
   }
 
-  /// `rgba` se zkopíruje — volající si drží původní buffer pro náhled UI.
+  /// Jedna kopie pixelů napříč hranicí izolátů ([TransferableTypedData.fromList]); na workeru
+  /// se po [materialize] použije přímo materializovaný buffer bez druhé plné kopie.
   void submitFrame({
     required int seq,
-    required int width,
-    required int height,
-    required int monitorIndex,
-    required Uint8List rgba,
+    required ScreenFrame frame,
   }) {
     final send = _workerSend;
     if (send == null || _dead) return;
-    final copy = Uint8List.fromList(rgba);
-    final td = TransferableTypedData.fromList(<TypedData>[copy]);
+    if (!frame.isValid) {
+      return;
+    }
+    final td = TransferableTypedData.fromList(<TypedData>[frame.rgba]);
     send.send(<String, Object?>{
       't': 'frame',
       'seq': seq,
-      'w': width,
-      'h': height,
-      'mon': monitorIndex,
+      'w': frame.width,
+      'h': frame.height,
+      'mon': frame.monitorIndex,
       'td': td,
+      if (frame.layoutWidth != null) 'lw': frame.layoutWidth,
+      if (frame.layoutHeight != null) 'lh': frame.layoutHeight,
+      'bx': frame.bufferOriginX,
+      'by': frame.bufferOriginY,
+      if (frame.nativeBufferWidth != null) 'nbw': frame.nativeBufferWidth,
+      if (frame.nativeBufferHeight != null) 'nbh': frame.nativeBufferHeight,
     });
   }
 
@@ -270,8 +276,37 @@ void _screenPipelineIsolateEntry(SendPort replyToMain) {
           return;
         }
         final mat = td.materialize();
-        final rgba = Uint8List.fromList(mat.asUint8List());
-        final frame = ScreenFrame(width: w, height: h, monitorIndex: mon, rgba: rgba);
+        final view = mat.asUint8List();
+        final need = w * h * 4;
+        if (view.lengthInBytes < need) {
+          ackSkip('materialized buffer too short (${view.lengthInBytes} < $need)');
+          return;
+        }
+        final Uint8List rgba =
+            view.lengthInBytes == need ? view : Uint8List.sublistView(view, 0, need);
+        final lw = m['lw'];
+        final lh = m['lh'];
+        final bx = m['bx'];
+        final by = m['by'];
+        final nbw = m['nbw'];
+        final nbh = m['nbh'];
+        int? asIntOrNull(Object? o) {
+          if (o is int) return o;
+          if (o is num) return o.toInt();
+          return null;
+        }
+        final frame = ScreenFrame(
+          width: w,
+          height: h,
+          monitorIndex: mon,
+          rgba: rgba,
+          layoutWidth: asIntOrNull(lw),
+          layoutHeight: asIntOrNull(lh),
+          bufferOriginX: asIntOrNull(bx) ?? 0,
+          bufferOriginY: asIntOrNull(by) ?? 0,
+          nativeBufferWidth: asIntOrNull(nbw),
+          nativeBufferHeight: asIntOrNull(nbh),
+        );
         if (!frame.isValid) {
           final expected = w * h * 4;
           ackSkip(

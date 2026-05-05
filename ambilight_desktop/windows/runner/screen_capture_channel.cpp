@@ -2,10 +2,14 @@
 #include "screen_capture_dxgi.h"
 
 #include <flutter/encodable_value.h>
+#include <flutter/event_channel.h>
+#include <flutter/event_sink.h>
+#include <flutter/event_stream_handler_functions.h>
 #include <flutter/method_channel.h>
 #include <flutter/standard_method_codec.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <condition_variable>
 #include <cstddef>
@@ -18,11 +22,14 @@
 #include <utility>
 #include <vector>
 
-namespace {
+namespace ambilight_native_capture {
 
 constexpr UINT kAmbilightCaptureDone = WM_APP + 64;
 // Oddělení od jiných WM_APP zpráv; nezávislé na [g_window] při unregister.
 constexpr WPARAM kAmbilightCaptureMagic = 0x414d4243u;  // 'AMBC'
+
+constexpr UINT kAmbilightStreamFrame = WM_APP + 66;
+constexpr WPARAM kAmbilightStreamMagic = 0x414d5354u;  // 'AMST'
 
 struct MonitorRect {
   RECT rect{};
@@ -37,6 +44,14 @@ struct CaptureDonePayload {
   int monitor_index = 0;
   /// DXGI [AcquireNextFrame(0)] — žádný nový frame; Dart má ponechat poslední snímek.
   bool no_update = false;
+  /// Nativní rozměry monitoru (MSS index [resolved]); ROI výpočty v Dartu.
+  int layout_width = 0;
+  int layout_height = 0;
+  /// Levý horní roh snímku v souřadnicích monitoru (0…layout), před downscale.
+  int buffer_origin_x = 0;
+  int buffer_origin_y = 0;
+  int native_buffer_width = 0;
+  int native_buffer_height = 0;
 };
 
 HWND g_window = nullptr;
@@ -47,6 +62,9 @@ struct CaptureJob {
   std::string capture_backend;
   std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result;
   HWND reply_hwnd = nullptr;
+  bool has_crop = false;
+  RECT crop_desktop{};
+  UINT dxgi_acquire_timeout_ms = 0;
 };
 
 std::mutex g_capture_queue_mu;
@@ -55,12 +73,32 @@ std::deque<CaptureJob> g_capture_queue;
 bool g_capture_worker_shutdown = false;
 std::thread g_capture_worker;
 
+std::mutex g_stream_sink_mu;
+std::unique_ptr<flutter::EventSink<flutter::EncodableValue>> g_stream_sink;
+
+struct StreamParams {
+  int monitor_index = 1;
+  std::string capture_backend = "dxgi";
+  bool has_crop = false;
+  RECT crop_desktop{};
+  UINT dxgi_acquire_timeout_ms = 16;
+};
+std::mutex g_stream_params_mu;
+StreamParams g_stream_params;
+
+std::atomic<bool> g_stream_thread_stop{true};
+std::thread g_stream_thread;
+
+std::unique_ptr<flutter::EventChannel<flutter::EncodableValue>> g_evt_channel;
+
 // Jedno worker vlákno — bez mutexu. Po řadě DXGI WAIT_TIMEOUT bez nového snímku DWM často „mlčí“
 // i přes změny na obrazovce; GDI pojistka obnoví pixely (viz ExecuteCaptureJob).
 static int g_dxgi_timeout_streak = 0;
 static uint64_t g_last_successful_capture_tick64 = 0;
 
 bool ResolveCaptureRect(int mss_style_index, RECT& out_rect, int& out_resolved_index);
+int RectWidth(const RECT& r);
+int RectHeight(const RECT& r);
 bool RectToRgba(const RECT& src_rect, std::vector<uint8_t>& out_rgba, int& out_w, int& out_h);
 void DownscaleRgbaForAmbilight(const std::vector<uint8_t>& src_rgba,
                                 int src_w,
@@ -89,19 +127,30 @@ void PostCapturePayloadToUi(HWND hwnd, std::unique_ptr<CaptureDonePayload> paylo
   (void)payload.release();
 }
 
-/// Jedno zpracování — běží na dedikovaném worker vlákně (žádný `std::thread::detach` na snímek).
-void ExecuteCaptureJob(CaptureJob job) {
-  HWND hwnd = job.reply_hwnd;
-  const int monitor_index = job.monitor_index;
-  const std::string& capture_backend = job.capture_backend;
+/// Společné jádro snímku (pull MethodChannel i push stream). [payload] bez [result] pro stream.
+void AmbilightExecuteCaptureCore(int monitor_index,
+                                 const std::string& capture_backend,
+                                 bool has_crop,
+                                 const RECT& crop_desktop,
+                                 UINT dxgi_acquire_timeout_ms,
+                                 CaptureDonePayload& payload,
+                                 int diag_kind) {
   const uint64_t tick_now = ::GetTickCount64();
-
   RECT rc{};
   int resolved = monitor_index;
   std::vector<uint8_t> rgba;
   int w = 0;
   int h = 0;
   bool ok = ResolveCaptureRect(monitor_index, rc, resolved);
+  RECT capture_rc = rc;
+  if (ok && has_crop) {
+    RECT inter{};
+    if (!::IntersectRect(&inter, &rc, &crop_desktop)) {
+      ok = false;
+    } else {
+      capture_rc = inter;
+    }
+  }
   bool got = false;
   const bool want_dxgi = ok && capture_backend == "dxgi" && resolved > 0;
   bool dxgi_ok = false;
@@ -109,7 +158,8 @@ void ExecuteCaptureJob(CaptureJob job) {
   std::string path_tag = !ok ? "resolve_fail" : "pending";
 
   if (want_dxgi) {
-    dxgi_ok = AmbilightDxgiCaptureRect(rc, rgba, w, h, &dxgi_wait_timeout);
+    dxgi_ok = AmbilightDxgiCaptureRect(rc, capture_rc, rgba, w, h, &dxgi_wait_timeout,
+                                       dxgi_acquire_timeout_ms);
     got = dxgi_ok;
     if (dxgi_ok) {
       path_tag = "dxgi";
@@ -122,8 +172,6 @@ void ExecuteCaptureJob(CaptureJob job) {
     }
   }
 
-  // DXGI s timeoutem 0 ms často nevrátí nový frame (statická plocha / některé fullscreény) — bez GDI
-  // zůstane Dart minuty na starém snímku. Pojistka: GDI po N timeoutech nebo po >400 ms bez úspěchu.
   constexpr int kGdiAfterDxgiTimeouts = 6;
   constexpr uint64_t kStaleNoSuccessMs = 400;
   const bool stale_wall = g_last_successful_capture_tick64 != 0 &&
@@ -133,7 +181,7 @@ void ExecuteCaptureJob(CaptureJob job) {
       (g_dxgi_timeout_streak >= kGdiAfterDxgiTimeouts || stale_wall);
 
   if (!got && ok && (!(want_dxgi && dxgi_wait_timeout) || force_gdi_insurance)) {
-    const bool gdi_ok = RectToRgba(rc, rgba, w, h);
+    const bool gdi_ok = RectToRgba(capture_rc, rgba, w, h);
     got = gdi_ok;
     if (gdi_ok) {
       if (force_gdi_insurance) {
@@ -169,26 +217,42 @@ void ExecuteCaptureJob(CaptureJob job) {
     std::lock_guard<std::mutex> lock(capture_diag_mu);
     if (now - capture_diag_last_tick >= 2000) {
       capture_diag_last_tick = now;
+      const char* wtag = diag_kind == 1 ? "stream=1" : "worker=1";
       std::string msg = std::string("[ambilight] CAPTURE path=") + path_tag +
                         " requested=" + capture_backend + " final_ok=" + (got ? "1" : "0");
       if (want_dxgi && !dxgi_ok && dxgi_wait_timeout && ok && !got) {
         msg += " dxgi_noop=1";
       }
-      msg += " worker=1\n";
+      msg += " ";
+      msg += wtag;
+      msg += "\n";
       ::OutputDebugStringA(msg.c_str());
     }
   }
 
+  if (!got && want_dxgi && !dxgi_ok && dxgi_wait_timeout && ok) {
+    payload.no_update = true;
+  } else if (got) {
+    payload.rgba = std::move(rgba);
+    payload.width = w;
+    payload.height = h;
+    payload.monitor_index = resolved;
+    payload.layout_width = RectWidth(rc);
+    payload.layout_height = RectHeight(rc);
+    payload.buffer_origin_x = capture_rc.left - rc.left;
+    payload.buffer_origin_y = capture_rc.top - rc.top;
+    payload.native_buffer_width = RectWidth(capture_rc);
+    payload.native_buffer_height = RectHeight(capture_rc);
+  }
+}
+
+/// Jedno zpracování — běží na dedikovaném worker vlákně (žádný `std::thread::detach` na snímek).
+void ExecuteCaptureJob(CaptureJob job) {
+  HWND hwnd = job.reply_hwnd;
   auto payload = std::make_unique<CaptureDonePayload>();
   payload->result = std::move(job.result);
-  if (!got && want_dxgi && !dxgi_ok && dxgi_wait_timeout && ok) {
-    payload->no_update = true;
-  } else if (got) {
-    payload->rgba = std::move(rgba);
-    payload->width = w;
-    payload->height = h;
-    payload->monitor_index = resolved;
-  }
+  AmbilightExecuteCaptureCore(job.monitor_index, job.capture_backend, job.has_crop, job.crop_desktop,
+                              job.dxgi_acquire_timeout_ms, *payload, 0);
   PostCapturePayloadToUi(hwnd, std::move(payload));
 }
 
@@ -246,6 +310,8 @@ void StopCaptureWorkerAndDrain() {
     payload->no_update = true;
     PostCapturePayloadToUi(j.reply_hwnd, std::move(payload));
   }
+  g_dxgi_timeout_streak = 0;
+  g_last_successful_capture_tick64 = 0;
 }
 
 int RectWidth(const RECT& r) { return r.right - r.left; }
@@ -469,18 +535,72 @@ bool ResolveCaptureRect(int mss_style_index, RECT& out_rect, int& out_resolved_i
   return RectWidth(out_rect) > 0 && RectHeight(out_rect) > 0;
 }
 
-void DispatchCaptureAsync(int monitor_index,
-                          const std::string& capture_backend,
-                          std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
-  HWND hwnd = g_window;
-  if (!hwnd) {
-    result->Error("no_window", "Capture window not ready", flutter::EncodableValue());
+/// Stejné volitelné klíče jako u Event streamu (`cropLeft` … `cropHeight`).
+void ParseCropFromEncodableMap(const flutter::EncodableMap& args,
+                               bool& has_crop,
+                               RECT& crop_desktop) {
+  has_crop = false;
+  auto ic = args.find(flutter::EncodableValue("cropLeft"));
+  auto itc = args.find(flutter::EncodableValue("cropTop"));
+  auto iw = args.find(flutter::EncodableValue("cropWidth"));
+  auto ih = args.find(flutter::EncodableValue("cropHeight"));
+  if (ic == args.end() || itc == args.end() || iw == args.end() || ih == args.end()) {
     return;
   }
-  CaptureJob job;
-  job.monitor_index = monitor_index;
-  job.capture_backend = capture_backend;
-  job.result = std::move(result);
+  int cl = 0, ct = 0, cw = 0, ch = 0;
+  if (const int32_t* v = std::get_if<int32_t>(&ic->second)) {
+    cl = static_cast<int>(*v);
+  } else if (const int64_t* v64 = std::get_if<int64_t>(&ic->second)) {
+    cl = static_cast<int>(*v64);
+  }
+  if (const int32_t* v = std::get_if<int32_t>(&itc->second)) {
+    ct = static_cast<int>(*v);
+  } else if (const int64_t* v64 = std::get_if<int64_t>(&itc->second)) {
+    ct = static_cast<int>(*v64);
+  }
+  if (const int32_t* v = std::get_if<int32_t>(&iw->second)) {
+    cw = static_cast<int>(*v);
+  } else if (const int64_t* v64 = std::get_if<int64_t>(&iw->second)) {
+    cw = static_cast<int>(*v64);
+  }
+  if (const int32_t* v = std::get_if<int32_t>(&ih->second)) {
+    ch = static_cast<int>(*v);
+  } else if (const int64_t* v64 = std::get_if<int64_t>(&ih->second)) {
+    ch = static_cast<int>(*v64);
+  }
+  if (cw > 0 && ch > 0) {
+    has_crop = true;
+    crop_desktop.left = cl;
+    crop_desktop.top = ct;
+    crop_desktop.right = cl + cw;
+    crop_desktop.bottom = ct + ch;
+  }
+}
+
+bool TryParseDxgiTimeoutMsFromEncodableMap(const flutter::EncodableMap& args, UINT& out_ms) {
+  auto ito = args.find(flutter::EncodableValue("dxgiAcquireTimeoutMs"));
+  if (ito == args.end()) {
+    return false;
+  }
+  if (const int32_t* v = std::get_if<int32_t>(&ito->second)) {
+    out_ms = static_cast<UINT>(std::max(0, static_cast<int>(*v)));
+    return true;
+  }
+  if (const int64_t* v64 = std::get_if<int64_t>(&ito->second)) {
+    out_ms = static_cast<UINT>(std::max<int64_t>(0, *v64));
+    return true;
+  }
+  return false;
+}
+
+void EnqueueCaptureJob(CaptureJob job) {
+  HWND hwnd = g_window;
+  if (!hwnd) {
+    if (job.result) {
+      job.result->Error("no_window", "Capture window not ready", flutter::EncodableValue());
+    }
+    return;
+  }
   job.reply_hwnd = hwnd;
   {
     std::lock_guard<std::mutex> lk(g_capture_queue_mu);
@@ -523,10 +643,100 @@ flutter::EncodableList BuildMonitorListEncodable() {
   return list;
 }
 
-}  // namespace
+void PostStreamPayloadToUi(HWND hwnd, std::unique_ptr<CaptureDonePayload> payload) {
+  if (!hwnd || !::IsWindow(hwnd)) {
+    return;
+  }
+  CaptureDonePayload* raw = payload.get();
+  if (!::PostMessageW(hwnd, kAmbilightStreamFrame, kAmbilightStreamMagic,
+                       reinterpret_cast<LPARAM>(raw))) {
+    return;
+  }
+  (void)payload.release();
+}
 
-bool TryHandleAmbilightWindowMessage(HWND /*hwnd*/, UINT message,
-                                     WPARAM wparam, LPARAM lparam) {
+void StreamCaptureWorkerLoop() {
+  (void)::SetThreadPriority(::GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+  while (!g_stream_thread_stop.load()) {
+    StreamParams sp;
+    {
+      std::lock_guard<std::mutex> lk(g_stream_params_mu);
+      sp = g_stream_params;
+    }
+    HWND hwnd = g_window;
+    if (!hwnd || !::IsWindow(hwnd)) {
+      ::Sleep(50);
+      continue;
+    }
+    auto posted = std::make_unique<CaptureDonePayload>();
+    posted->result = nullptr;
+    AmbilightExecuteCaptureCore(sp.monitor_index, sp.capture_backend, sp.has_crop, sp.crop_desktop,
+                                sp.dxgi_acquire_timeout_ms, *posted, 1);
+    if (posted->no_update) {
+      PostStreamPayloadToUi(hwnd, std::move(posted));
+    } else if (!posted->rgba.empty() && posted->width > 0 && posted->height > 0) {
+      PostStreamPayloadToUi(hwnd, std::move(posted));
+    } else {
+      posted.reset();
+      ::Sleep(1);
+    }
+    // Po zrušení streamu se vlákno ukončí; mezitím vyhnout se busy-spin při rychlých smyčkách bez bloku v DXGI.
+    ::Sleep(0);
+  }
+}
+
+void StopStreamCaptureWorker() {
+  g_stream_thread_stop.store(true);
+  if (g_stream_thread.joinable()) {
+    g_stream_thread.join();
+  }
+  // Uvolnit duplikaci dřív, než znovu naběhne pull capture nebo jiný stream (žádné držení DXGI „naprázdno“).
+  AmbilightDxgiShutdown();
+}
+
+bool InternalTryHandleHostWindowMessage(HWND /*hwnd*/, UINT message,
+                                        WPARAM wparam, LPARAM lparam) {
+  if (message == kAmbilightStreamFrame && wparam == kAmbilightStreamMagic) {
+    auto* raw = reinterpret_cast<CaptureDonePayload*>(lparam);
+    if (!raw) {
+      return true;
+    }
+    std::unique_ptr<CaptureDonePayload> payload(raw);
+    std::lock_guard<std::mutex> lk(g_stream_sink_mu);
+    if (!g_stream_sink) {
+      return true;
+    }
+    if (payload->no_update) {
+      flutter::EncodableMap map;
+      map[flutter::EncodableValue("noUpdate")] = flutter::EncodableValue(true);
+      g_stream_sink->Success(flutter::EncodableValue(std::move(map)));
+      return true;
+    }
+    if (payload->rgba.empty() || payload->width <= 0 || payload->height <= 0) {
+      return true;
+    }
+    flutter::EncodableMap map;
+    map[flutter::EncodableValue("width")] = flutter::EncodableValue(payload->width);
+    map[flutter::EncodableValue("height")] = flutter::EncodableValue(payload->height);
+    map[flutter::EncodableValue("monitorIndex")] =
+        flutter::EncodableValue(payload->monitor_index);
+    map[flutter::EncodableValue("rgba")] = flutter::EncodableValue(std::move(payload->rgba));
+    if (payload->layout_width > 0 && payload->layout_height > 0) {
+      map[flutter::EncodableValue("layoutWidth")] = flutter::EncodableValue(payload->layout_width);
+      map[flutter::EncodableValue("layoutHeight")] = flutter::EncodableValue(payload->layout_height);
+      map[flutter::EncodableValue("bufferOriginX")] =
+          flutter::EncodableValue(payload->buffer_origin_x);
+      map[flutter::EncodableValue("bufferOriginY")] =
+          flutter::EncodableValue(payload->buffer_origin_y);
+      map[flutter::EncodableValue("nativeBufferWidth")] =
+          flutter::EncodableValue(payload->native_buffer_width);
+      map[flutter::EncodableValue("nativeBufferHeight")] =
+          flutter::EncodableValue(payload->native_buffer_height);
+    }
+    g_stream_sink->Success(flutter::EncodableValue(std::move(map)));
+    return true;
+  }
+
   if (message != kAmbilightCaptureDone || wparam != kAmbilightCaptureMagic) {
     return false;
   }
@@ -556,12 +766,48 @@ bool TryHandleAmbilightWindowMessage(HWND /*hwnd*/, UINT message,
       flutter::EncodableValue(payload->monitor_index);
   map[flutter::EncodableValue("rgba")] =
       flutter::EncodableValue(std::move(payload->rgba));
+  if (payload->layout_width > 0 && payload->layout_height > 0) {
+    map[flutter::EncodableValue("layoutWidth")] = flutter::EncodableValue(payload->layout_width);
+    map[flutter::EncodableValue("layoutHeight")] = flutter::EncodableValue(payload->layout_height);
+    map[flutter::EncodableValue("bufferOriginX")] =
+        flutter::EncodableValue(payload->buffer_origin_x);
+    map[flutter::EncodableValue("bufferOriginY")] =
+        flutter::EncodableValue(payload->buffer_origin_y);
+    map[flutter::EncodableValue("nativeBufferWidth")] =
+        flutter::EncodableValue(payload->native_buffer_width);
+    map[flutter::EncodableValue("nativeBufferHeight")] =
+        flutter::EncodableValue(payload->native_buffer_height);
+  }
   payload->result->Success(flutter::EncodableValue(std::move(map)));
   return true;
 }
 
-void RegisterAmbilightScreenCapture(HWND window_handle,
-                                    flutter::FlutterEngine* engine) {
+void InternalUnregisterAmbilightScreenCapture() {
+  HWND hwnd = g_window;
+  StopStreamCaptureWorker();
+  if (g_evt_channel) {
+    g_evt_channel->SetStreamHandler(nullptr);
+    g_evt_channel.reset();
+  }
+  StopCaptureWorkerAndDrain();
+  AmbilightDxgiShutdown();
+  if (g_channel) {
+    g_channel->SetMethodCallHandler(nullptr);
+    g_channel.reset();
+  }
+  if (hwnd && ::IsWindow(hwnd)) {
+    MSG msg{};
+    while (::PeekMessageW(&msg, hwnd, kAmbilightStreamFrame, kAmbilightStreamFrame, PM_REMOVE)) {
+      InternalTryHandleHostWindowMessage(hwnd, msg.message, msg.wParam, msg.lParam);
+    }
+    while (::PeekMessageW(&msg, hwnd, kAmbilightCaptureDone, kAmbilightCaptureDone, PM_REMOVE)) {
+      InternalTryHandleHostWindowMessage(hwnd, msg.message, msg.wParam, msg.lParam);
+    }
+  }
+  g_window = nullptr;
+}
+
+void InternalRegisterAmbilightScreenCapture(HWND window_handle, flutter::FlutterEngine* engine) {
   g_window = window_handle;
   EnsureCaptureWorkerStarted();
   g_channel = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
@@ -595,40 +841,109 @@ void RegisterAmbilightScreenCapture(HWND window_handle,
           return;
         }
         if (call.method_name() == "capture") {
-          int monitor_index = 1;
-          std::string capture_backend = "dxgi";
           const flutter::EncodableValue* root = call.arguments();
           const auto* args =
               root ? std::get_if<flutter::EncodableMap>(root) : nullptr;
+          CaptureJob job;
+          job.monitor_index = 1;
+          job.capture_backend = "dxgi";
+          job.result = std::move(result);
           if (args) {
             auto it = args->find(flutter::EncodableValue("monitorIndex"));
             if (it != args->end()) {
               if (const int32_t* v = std::get_if<int32_t>(&it->second)) {
-                monitor_index = static_cast<int>(*v);
+                job.monitor_index = static_cast<int>(*v);
               } else if (const int64_t* v64 = std::get_if<int64_t>(&it->second)) {
-                monitor_index = static_cast<int>(*v64);
+                job.monitor_index = static_cast<int>(*v64);
               }
             }
             auto itb = args->find(flutter::EncodableValue("captureBackend"));
             if (itb != args->end()) {
               if (const auto* s = std::get_if<std::string>(&itb->second)) {
-                capture_backend = *s;
+                job.capture_backend = *s;
               }
             }
+            ParseCropFromEncodableMap(*args, job.has_crop, job.crop_desktop);
+            UINT dxgi = 0;
+            if (TryParseDxgiTimeoutMsFromEncodableMap(*args, dxgi)) {
+              job.dxgi_acquire_timeout_ms = dxgi;
+            }
           }
-          DispatchCaptureAsync(monitor_index, capture_backend, std::move(result));
+          EnqueueCaptureJob(std::move(job));
           return;
         }
         result->NotImplemented();
       });
+
+  g_evt_channel = std::make_unique<flutter::EventChannel<flutter::EncodableValue>>(
+      engine->messenger(), "ambilight/screen_capture_stream",
+      &flutter::StandardMethodCodec::GetInstance());
+
+  auto stream_handler = std::make_unique<flutter::StreamHandlerFunctions<flutter::EncodableValue>>(
+      [](const flutter::EncodableValue* arguments,
+         std::unique_ptr<flutter::EventSink<flutter::EncodableValue>>&& events)
+          -> std::unique_ptr<flutter::StreamHandlerError<flutter::EncodableValue>> {
+        StreamParams sp;
+        sp.dxgi_acquire_timeout_ms = 16;
+        if (arguments) {
+          if (const auto* args = std::get_if<flutter::EncodableMap>(arguments)) {
+            auto it = args->find(flutter::EncodableValue("monitorIndex"));
+            if (it != args->end()) {
+              if (const int32_t* v = std::get_if<int32_t>(&it->second)) {
+                sp.monitor_index = static_cast<int>(*v);
+              } else if (const int64_t* v64 = std::get_if<int64_t>(&it->second)) {
+                sp.monitor_index = static_cast<int>(*v64);
+              }
+            }
+            auto itb = args->find(flutter::EncodableValue("captureBackend"));
+            if (itb != args->end()) {
+              if (const auto* s = std::get_if<std::string>(&itb->second)) {
+                sp.capture_backend = *s;
+              }
+            }
+            ParseCropFromEncodableMap(*args, sp.has_crop, sp.crop_desktop);
+            UINT dxgi = sp.dxgi_acquire_timeout_ms;
+            if (TryParseDxgiTimeoutMsFromEncodableMap(*args, dxgi)) {
+              sp.dxgi_acquire_timeout_ms = dxgi;
+            }
+          }
+        }
+        {
+          std::lock_guard<std::mutex> lk(g_stream_params_mu);
+          g_stream_params = sp;
+        }
+        {
+          std::lock_guard<std::mutex> lk(g_stream_sink_mu);
+          g_stream_sink = std::move(events);
+        }
+        g_stream_thread_stop.store(false);
+        if (g_stream_thread.joinable()) {
+          g_stream_thread.join();
+        }
+        g_stream_thread = std::thread(StreamCaptureWorkerLoop);
+        return nullptr;
+      },
+      [](const flutter::EncodableValue* /*arguments*/)
+          -> std::unique_ptr<flutter::StreamHandlerError<flutter::EncodableValue>> {
+        StopStreamCaptureWorker();
+        std::lock_guard<std::mutex> lk(g_stream_sink_mu);
+        g_stream_sink.reset();
+        return nullptr;
+      });
+
+  g_evt_channel->SetStreamHandler(std::move(stream_handler));
+}
+
+}  // namespace ambilight_native_capture
+
+bool TryHandleAmbilightWindowMessage(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
+  return ambilight_native_capture::InternalTryHandleHostWindowMessage(hwnd, message, wparam, lparam);
+}
+
+void RegisterAmbilightScreenCapture(HWND window_handle, flutter::FlutterEngine* engine) {
+  ambilight_native_capture::InternalRegisterAmbilightScreenCapture(window_handle, engine);
 }
 
 void UnregisterAmbilightScreenCapture() {
-  StopCaptureWorkerAndDrain();
-  AmbilightDxgiShutdown();
-  if (g_channel) {
-    g_channel->SetMethodCallHandler(nullptr);
-    g_channel.reset();
-  }
-  g_window = nullptr;
+  ambilight_native_capture::InternalUnregisterAmbilightScreenCapture();
 }

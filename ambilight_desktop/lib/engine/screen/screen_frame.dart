@@ -7,18 +7,49 @@ import 'dart:typed_data';
 /// Shodně s [ScreenCaptureSource.captureFrame].
 /// Segmenty z legacy Python často mají `monitor_idx` o 1 menší než tento index — řeší
 /// [ScreenColorPipeline.segmentMatchesCaptureFrame].
+///
+/// Volitelně [layoutWidth]/[layoutHeight] = nativní rozměry monitoru a [bufferOriginX]…
+/// pro výřez (souřadnice v prostoru layoutu) — viz nativní klíče `layoutWidth` … `nativeBufferHeight`.
 class ScreenFrame {
   const ScreenFrame({
     required this.monitorIndex,
     required this.width,
     required this.height,
     required this.rgba,
+    this.layoutWidth,
+    this.layoutHeight,
+    this.bufferOriginX = 0,
+    this.bufferOriginY = 0,
+    this.nativeBufferWidth,
+    this.nativeBufferHeight,
   }) : assert(width >= 0 && height >= 0);
 
   final int monitorIndex;
   final int width;
   final int height;
   final Uint8List rgba;
+
+  /// Nativní šířka/výška monitoru pro výpočet ROI (segmenty v %). Pokud null, použije se [width]/[height].
+  final int? layoutWidth;
+  final int? layoutHeight;
+
+  /// Levý horní roh [rgba] v souřadnicích layoutu (0…layoutW).
+  final int bufferOriginX;
+  final int bufferOriginY;
+
+  /// Rozměry výřezu před downscale (pixely layoutu). Null = celý layout.
+  final int? nativeBufferWidth;
+  final int? nativeBufferHeight;
+
+  int get layoutW => layoutWidth ?? width;
+  int get layoutH => layoutHeight ?? height;
+
+  bool get hasBufferLayoutMeta =>
+      layoutWidth != null &&
+      layoutHeight != null &&
+      nativeBufferWidth != null &&
+      nativeBufferHeight != null &&
+      (nativeBufferWidth! > 0 && nativeBufferHeight! > 0);
 
   int get byteLength => rgba.length;
 
@@ -29,12 +60,13 @@ class ScreenFrame {
 
   int pixelOffset(int x, int y) => (y * width + x) * 4;
 
-  /// Předání pixelů do jiného isolatu bez kopírování (po [detachForIsolate] už nelze číst [rgba]).
+  /// Serializace pixelů pro přenos do jiného isolatu ([TransferableTypedData.fromList] zkopíruje
+  /// bytes do transferable bufferu; původní [rgba] na odesílatelském izolátu zůstává platná).
   TransferableTypedData detachForIsolate() {
     return TransferableTypedData.fromList(<TypedData>[rgba]);
   }
 
-  /// Opak [detachForIsolate] na cílovém isolatu (kopie pixelů).
+  /// Materializace transferable na cílovém izolátu — vrací vlastní [Uint8List] (kopie).
   static Uint8List importFromIsolate(TransferableTypedData transferable) {
     final mat = transferable.materialize();
     final view = mat.asUint8List();

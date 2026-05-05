@@ -43,6 +43,10 @@ Doporučené klíče: `os` (`windows` \| `linux` \| `macos`), `sessionType`, `ca
 |------|-----|--------|
 | `monitorIndex` | `int` | `0` = celá virtuální plocha. `>= 1` = konkrétní monitor podle `listMonitors`. Mimo rozsah: chování jako Windows — použije se první monitor a vrátí se korigovaný `monitorIndex`. |
 
+**Volitelné argumenty (jen Windows nativní runner):** stejné jako u Event kanálu `ambilight/screen_capture_stream` — `cropLeft`, `cropTop`, `cropWidth`, `cropHeight` (desktop souřadnice), `dxgiAcquireTimeoutMs`. Dart je posílá při pull `capture` pro paritu s push streamem.
+
+**Linux a macOS:** volitelné klíče v mapě argumentů **ignorují** se (žádná chyba); snímek zůstává celý monitor / výřez daný jen implementací backendu. Parita cropu na Linuxu není v tomto kanálu implementovaná — rozšíření by patřilo do `linux/runner/screen_capture_linux.cc`.
+
 **Návratová hodnota (úspěch):** `Map`:
 
 | Klíč | Typ | Význam |

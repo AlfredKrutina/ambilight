@@ -139,11 +139,11 @@ abstract final class ScreenColorPipeline {
         continue;
       }
       matched++;
-      final roi = segmentRoi(seg, sm, frame.width, frame.height);
+      final roi = segmentRoiInFrameBuffer(seg, sm, frame);
       pipelineDiagLog(
         'segment_roi',
         'i=$i edge=${seg.edge} led=${seg.ledStart}-${seg.ledEnd} px=${seg.pixelStart}-${seg.pixelEnd} '
-        'ref=${seg.refWidth}x${seg.refHeight} roi=${roi.x},${roi.y} ${roi.w}x${roi.h} empty=${roi.isEmpty}',
+        'ref=${seg.refWidth}x${seg.refHeight} roiBuf=${roi.x},${roi.y} ${roi.w}x${roi.h} empty=${roi.isEmpty}',
       );
     }
     pipelineDiagLog(
@@ -323,6 +323,53 @@ abstract final class ScreenColorPipeline {
           monH,
         );
     }
+  }
+
+  static SegmentRoiRect _intersectRoiRects(SegmentRoiRect a, SegmentRoiRect b) {
+    final x0 = math.max(a.x, b.x);
+    final y0 = math.max(a.y, b.y);
+    final x1 = math.min(a.x + a.w, b.x + b.w);
+    final y1 = math.min(a.y + a.h, b.y + b.h);
+    final w = x1 - x0;
+    final h = y1 - y0;
+    if (w <= 0 || h <= 0) {
+      return const SegmentRoiRect(x: 0, y: 0, w: 0, h: 0);
+    }
+    return SegmentRoiRect(x: x0, y: y0, w: w, h: h);
+  }
+
+  /// ROI ve souřadnicích [frame.rgba] (výřez + layout meta z nativního capture).
+  static SegmentRoiRect segmentRoiInFrameBuffer(
+    LedSegment seg,
+    ScreenModeSettings sm,
+    ScreenFrame frame,
+  ) {
+    if (!frame.hasBufferLayoutMeta) {
+      return segmentRoi(seg, sm, frame.width, frame.height);
+    }
+    final lw = frame.layoutW;
+    final lh = frame.layoutH;
+    final roiLayout = segmentRoi(seg, sm, lw, lh);
+    final ox = frame.bufferOriginX;
+    final oy = frame.bufferOriginY;
+    final nw = frame.nativeBufferWidth!;
+    final nh = frame.nativeBufferHeight!;
+    final buf = SegmentRoiRect(x: ox, y: oy, w: nw, h: nh);
+    final inter = _intersectRoiRects(roiLayout, buf);
+    if (inter.isEmpty) {
+      return inter;
+    }
+    final sx = frame.width / nw;
+    final sy = frame.height / nh;
+    int clampFloor(num v, int lo, int hi) => v.floor().clamp(lo, hi).toInt();
+    int clampCeil(num v, int lo, int hi) => v.ceil().clamp(lo, hi).toInt();
+    final x0 = clampFloor((inter.x - ox) * sx, 0, math.max(0, frame.width - 1));
+    final y0 = clampFloor((inter.y - oy) * sy, 0, math.max(0, frame.height - 1));
+    final x1 = clampCeil((inter.x + inter.w - ox) * sx, 0, frame.width);
+    final y1 = clampCeil((inter.y + inter.h - oy) * sy, 0, frame.height);
+    final rw = math.max(1, x1 - x0);
+    final rh = math.max(1, y1 - y0);
+    return _roiClampMin1(SegmentRoiRect(x: x0, y: y0, w: rw, h: rh), frame.width, frame.height);
   }
 
   /// Agregace ROI → [ledCount] RGB (0–255), downsampling: sloupec/řádek průměr + box přes osu segmentu.
@@ -669,7 +716,7 @@ abstract final class ScreenColorPipeline {
 
     for (final seg in segments) {
       if (!segmentMatchesCaptureFrame(seg, frame)) continue;
-      final roi = segmentRoi(seg, sm, frame.width, frame.height);
+      final roi = segmentRoiInFrameBuffer(seg, sm, frame);
       final cnt = (seg.ledEnd - seg.ledStart).abs() + 1;
       if (cnt <= 0 || roi.isEmpty) continue;
 

@@ -238,6 +238,8 @@
   "comScanHandshake": "Hledám COM s handshake 0xAA / 0xBB…",
   "comScanNoReply": "Žádný port neodpověděl (Ambilight handshake).",
   "serialPortSet": "Nastaven sériový port: {port}",
+  "comScanUsbDeviceDefaultName": "USB ({port})",
+  "comScanUsbDeviceAdded": "Přidáno USB zařízení na {port}. Název můžeš změnit v seznamu.",
   "firmwareLabel": "Firmware: {version}",
   "discoveryTitle": "Discovery (D9)",
   "discoveryRescan": "Scan again",

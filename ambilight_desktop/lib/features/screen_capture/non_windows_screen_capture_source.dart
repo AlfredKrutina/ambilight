@@ -16,7 +16,11 @@ class NonWindowsScreenCaptureSource implements ScreenCaptureSource {
   }
 
   @override
-  Future<ScreenFrame?> captureFrame(int monitorIndex, {String? windowsCaptureBackend}) async {
+  Future<ScreenFrame?> captureFrame(
+    int monitorIndex, {
+    String? windowsCaptureBackend,
+    Map<String, Object?>? windowsCaptureExtras,
+  }) async {
     _warnOnce();
     return null;
   }

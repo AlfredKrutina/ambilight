@@ -18,6 +18,7 @@ List<Widget> globalSettingsFields(
 
   return [
     DropdownButtonFormField<String>(
+      isExpanded: true,
       decoration: InputDecoration(
         labelText: l10n.languageLabel,
         border: const OutlineInputBorder(),
@@ -34,6 +35,7 @@ List<Widget> globalSettingsFields(
       },
     ),
     DropdownButtonFormField<String>(
+      isExpanded: true,
       decoration: InputDecoration(
         labelText: l10n.startModeLabel,
         border: const OutlineInputBorder(),
@@ -51,6 +53,7 @@ List<Widget> globalSettingsFields(
       },
     ),
     DropdownButtonFormField<String>(
+      isExpanded: true,
       decoration: InputDecoration(
         labelText: l10n.themeLabel,
         border: const OutlineInputBorder(),
@@ -81,6 +84,7 @@ List<Widget> globalSettingsFields(
       onChanged: (v) => onChanged(g.copyWith(performanceMode: v)),
     ),
     DropdownButtonFormField<int>(
+      isExpanded: true,
       decoration: InputDecoration(
         labelText: l10n.screenRefreshRateTitle,
         border: const OutlineInputBorder(),
@@ -131,6 +135,7 @@ List<Widget> globalSettingsFields(
             ),
         ];
         return DropdownButtonFormField<String>(
+          isExpanded: true,
           decoration: InputDecoration(
             labelText: l10n.captureMethodLabel,
             border: const OutlineInputBorder(),

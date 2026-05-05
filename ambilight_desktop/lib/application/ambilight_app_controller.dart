@@ -24,6 +24,8 @@ import '../engine/screen/screen_color_pipeline.dart';
 import '../engine/screen/screen_frame.dart';
 import '../engine/light_pc_engine_isolate.dart';
 import '../engine/screen/screen_pipeline_isolate.dart';
+import '../features/screen_capture/method_channel_screen_capture_source.dart';
+import '../features/screen_capture/screen_capture_crop.dart';
 import '../features/screen_capture/screen_capture_source.dart';
 import '../features/pc_health/pc_health_collector.dart';
 import '../features/pc_health/pc_health_smoother.dart';
@@ -119,6 +121,15 @@ class AmbilightAppController extends ChangeNotifier {
   Timer? _timer;
   /// Samostatný driver snímání obrazovky — nezávislý na délce [_tick] / výpočtech izolátu.
   Timer? _screenCaptureDriverTimer;
+  StreamSubscription<Object?>? _windowsScreenCaptureStreamSub;
+  String? _windowsPushCaptureSig;
+  /// Cache [computeStreamCropUnion] + extras pro MethodChannel `capture` (pull).
+  /// Odděleně [screenMode]+backend vs. signatura [listMonitors] — změna rozlišení bez změny JSON invaliduje crop.
+  String? _pullCaptureCachedCfgOnly;
+  String? _pullCaptureCachedMonSig;
+  Map<String, Object?>? _pullCaptureExtras;
+  DateTime? _pullCaptureMonLastFetch;
+  static const Duration _pullCaptureMonRefreshMin = Duration(seconds: 2);
   DateTime? _screenPipelineSubmitSince;
   /// Perioda hlavní smyčky (ms); null = timer ještě neběžel.
   int? _loopPeriodMs;
@@ -155,6 +166,7 @@ class AmbilightAppController extends ChangeNotifier {
 
   /// Max. jobů „na cestě“ do izolátu bez odpovědi — `submitSeq - lastAckSeq` musí zůstat ≤ tomuto číslu.
   static const int _isolateQueueDepthMaxPending = 2;
+  static const int _screenPipelineGateMaxPending = 4;
 
   MusicFlatStripIsolateBridge? _musicFlatIsolate;
   String? _lastMusicFlatIsolatePushSig;
@@ -538,8 +550,16 @@ class AmbilightAppController extends ChangeNotifier {
 
   Future<void> _submitScreenPipelineFrameAsync(ScreenFrame f) async {
     _recoverScreenPipelineIfStuck();
+    if (!f.isValid) {
+      if (kDebugMode) {
+        _log.fine(
+          'screen pipeline: přeskakuji neplatný snímek (${f.width}x${f.height} rgba=${f.rgba.length})',
+        );
+      }
+      return;
+    }
     final depth = _screenPipelineSubmitSeq - _screenPipelineLastAckSeq;
-    if (depth > _isolateQueueDepthMaxPending) {
+    if (depth > _screenPipelineGateMaxPending) {
       _screenPipelineGateDropCount++;
       if (kDebugMode || ambilightVerboseLogsEnabled) {
         _log.warning(
@@ -550,7 +570,7 @@ class AmbilightAppController extends ChangeNotifier {
       if (ambilightPipelineDiagnosticsEnabled) {
         pipelineDiagLog(
           'isolate_submit_drop',
-          'gateDepth=$depth max=$_isolateQueueDepthMaxPending submit=$_screenPipelineSubmitSeq '
+          'gateDepth=$depth max=$_screenPipelineGateMaxPending submit=$_screenPipelineSubmitSeq '
           'lastAck=$_screenPipelineLastAckSeq dropsTotal=$_screenPipelineGateDropCount '
           'frame=${f.width}x${f.height} mon=${f.monitorIndex}',
         );
@@ -570,13 +590,7 @@ class AmbilightAppController extends ChangeNotifier {
         'seq=$seqOut gateDepth=${seqOut - _screenPipelineLastAckSeq} frame=${f.width}x${f.height} mon=${f.monitorIndex}',
       );
     }
-    bridge.submitFrame(
-      seq: seqOut,
-      width: f.width,
-      height: f.height,
-      monitorIndex: f.monitorIndex,
-      rgba: f.rgba,
-    );
+    bridge.submitFrame(seq: seqOut, frame: f);
   }
 
   @override
@@ -817,6 +831,7 @@ class AmbilightAppController extends ChangeNotifier {
   Future<void> load() async {
     _transportsRebuilding = true;
     try {
+      _invalidateWindowsPullCaptureExtrasCache();
       final loaded = await ConfigRepository.loadDetailed();
       _config = stripOrphanScreenSegmentDeviceIds(loaded.config);
       logEspTransportBindingWarnings(_config);
@@ -1141,6 +1156,7 @@ class AmbilightAppController extends ChangeNotifier {
     spotify.startPollingIfNeeded(_config);
     systemMediaNowPlaying.startPollingIfNeeded(_config);
     notifyListeners();
+    _ensureScreenCaptureDriverTimer();
     await save();
   }
 
@@ -1163,6 +1179,7 @@ class AmbilightAppController extends ChangeNotifier {
       if (_timer != null) {
         _ensureMainLoopTimer();
       }
+      _ensureScreenCaptureDriverTimer();
     }
   }
 
@@ -1214,6 +1231,7 @@ class AmbilightAppController extends ChangeNotifier {
       );
       if (clearTransient) _clearTransientLedOutputs();
       _config = stripOrphanScreenSegmentDeviceIds(next);
+      _invalidateWindowsPullCaptureExtrasCache();
       traceConfigBindings('_applyConfigCore: po stripOrphan', _config);
       logEspTransportBindingWarnings(_config);
       _clearMusicPaletteLockOutsideMusicMode(_config.globalSettings.startMode);
@@ -1393,9 +1411,11 @@ class AmbilightAppController extends ChangeNotifier {
     _log.info(
       '[PIPELINE_DIAG summary] gateDrops_total=$_screenPipelineGateDropCount '
       'submit=$_screenPipelineSubmitSeq lastAck=$_screenPipelineLastAckSeq applied=$_screenPipelineAppliedSeq '
-      '${PipelineUdpDiagStats.formatWindowSummary()}',
+      '${PipelineUdpDiagStats.formatWindowSummary()} '
+      '${PipelineStreamDiagStats.formatWindowSummary()}',
     );
     PipelineUdpDiagStats.resetWindow();
+    PipelineStreamDiagStats.resetWindow();
   }
 
   /// Když nepřijde ACK z workeru (kanál / pád), neblokovat další snímky navěky.
@@ -1630,7 +1650,7 @@ class AmbilightAppController extends ChangeNotifier {
         (gs.startMode == 'music' && _config.musicMode.colorSource == 'monitor');
   }
 
-  /// Výkonový režim při snímání monitoru = 25 FPS; světlo bez capture zůstává ~62 Hz. Mimo výkon: [GlobalSettings.screenRefreshRateHz].
+  /// Výkonový režim: hlavní tick 40 ms při screen (≈25 Hz); capture driver běží zvlášť každých 8 ms (viz [_ensureScreenCaptureDriverTimer]). Mimo výkon: [GlobalSettings.screenRefreshRateHz].
   int _mainLoopPeriodMs() {
     final gs = _config.globalSettings;
     if (_effectiveThrottlePerformance) {
@@ -1661,13 +1681,146 @@ class AmbilightAppController extends ChangeNotifier {
     _ensureScreenCaptureDriverTimer();
   }
 
+  bool _eligibleForWindowsScreenPush() {
+    if (kIsWeb || !Platform.isWindows) {
+      return false;
+    }
+    if (_config.globalSettings.startMode != 'screen') {
+      return false;
+    }
+    return _screenCapture is MethodChannelScreenCaptureSource;
+  }
+
+  void _invalidateWindowsPullCaptureExtrasCache() {
+    _pullCaptureCachedCfgOnly = null;
+    _pullCaptureCachedMonSig = null;
+    _pullCaptureExtras = null;
+    _pullCaptureMonLastFetch = null;
+  }
+
+  /// Stejné crop + DXGI timeout jako u push streamu — jen pro pull `capture` (music+monitor, …).
+  Future<Map<String, Object?>?> _windowsMethodCapturePullExtras() async {
+    if (kIsWeb || !Platform.isWindows) return null;
+    final src = _screenCapture;
+    if (src is! MethodChannelScreenCaptureSource) return null;
+    final cfgOnly =
+        '${jsonEncode(_config.screenMode.toJson())}|${normalizeWindowsScreenCaptureBackend(_config.screenMode.windowsCaptureBackend)}';
+    final now = DateTime.now();
+    final monStale = _pullCaptureMonLastFetch == null ||
+        now.difference(_pullCaptureMonLastFetch!) >= _pullCaptureMonRefreshMin;
+    if (_pullCaptureCachedCfgOnly == cfgOnly && !monStale) {
+      return _pullCaptureExtras;
+    }
+    final monitors = await src.listMonitors();
+    _pullCaptureMonLastFetch = now;
+    final monSig =
+        monitors.map((m) => '${m.mssStyleIndex}:${m.width}x${m.height}').join('|');
+    if (_pullCaptureCachedCfgOnly == cfgOnly && _pullCaptureCachedMonSig == monSig) {
+      return _pullCaptureExtras;
+    }
+    final crop = computeStreamCropUnion(_config, monitors);
+    _pullCaptureCachedCfgOnly = cfgOnly;
+    _pullCaptureCachedMonSig = monSig;
+    if (crop == null) {
+      _pullCaptureExtras = null;
+      return null;
+    }
+    _pullCaptureExtras = <String, Object?>{
+      ...crop.toStreamArguments(),
+      'dxgiAcquireTimeoutMs': 16,
+    };
+    return _pullCaptureExtras;
+  }
+
+  Future<void> _stopWindowsPushCapture() async {
+    _windowsPushCaptureSig = null;
+    await _windowsScreenCaptureStreamSub?.cancel();
+    _windowsScreenCaptureStreamSub = null;
+  }
+
+  void _onWindowsPushFrame(ScreenFrame f) {
+    _screenFrameLatest = f;
+    _consecutiveScreenCaptureFailures = 0;
+    _screenCaptureFaultBannerShown = false;
+    final now = DateTime.now();
+    if (_lastScreenFrameUiNotify == null ||
+        now.difference(_lastScreenFrameUiNotify!) >= _minScreenFrameUiNotifyGap) {
+      _lastScreenFrameUiNotify = now;
+      previewFrameNotifier.value = f;
+    }
+    unawaited(_submitScreenPipelineFrameAsync(f));
+  }
+
+  Future<void> _ensureWindowsPushScreenCaptureIfNeeded() async {
+    if (!_eligibleForWindowsScreenPush()) {
+      await _stopWindowsPushCapture();
+      return;
+    }
+    _ensureScreenCapture();
+    final src = _screenCapture;
+    if (src is! MethodChannelScreenCaptureSource) {
+      return;
+    }
+    final monitors = await src.listMonitors();
+    final crop = computeStreamCropUnion(_config, monitors);
+    final backend = normalizeWindowsScreenCaptureBackend(_config.screenMode.windowsCaptureBackend);
+    final sig =
+        '${_config.screenMode.monitorIndex}|$backend|${crop?.cropLeft},${crop?.cropTop},${crop?.cropWidth}x${crop?.cropHeight}';
+    if (_windowsScreenCaptureStreamSub != null && sig == _windowsPushCaptureSig) {
+      return;
+    }
+    await _stopWindowsPushCapture();
+    _windowsPushCaptureSig = sig;
+    final args = <String, Object?>{
+      'monitorIndex': _config.screenMode.monitorIndex,
+      'captureBackend': backend,
+      'dxgiAcquireTimeoutMs': 16,
+      if (crop != null) ...crop.toStreamArguments(),
+    };
+    _windowsScreenCaptureStreamSub = src.windowsCaptureBroadcastStream(args).listen(
+      (Object? ev) {
+        if (_controllerDisposed || !_mainLoopUsesScreenCapture()) {
+          return;
+        }
+        if (_config.globalSettings.startMode != 'screen') {
+          return;
+        }
+        if (ev is! Map) {
+          return;
+        }
+        final f = MethodChannelScreenCaptureSource.parseCaptureMap(
+          Map<Object?, Object?>.from(ev),
+          markDiagTimeline: true,
+        );
+        if (ambilightPipelineDiagnosticsEnabled && f != null) {
+          PipelineStreamDiagStats.framesReceived++;
+        }
+        if (f != null && f.isValid) {
+          _onWindowsPushFrame(f);
+        }
+      },
+      onError: (Object e, StackTrace st) {
+        if (kDebugMode) {
+          _log.fine('screen capture stream: $e', e, st);
+        }
+      },
+    );
+  }
+
   void _ensureScreenCaptureDriverTimer() {
     _screenCaptureDriverTimer?.cancel();
     _screenCaptureDriverTimer = null;
     if (!_mainLoopUsesScreenCapture()) {
+      unawaited(_stopWindowsPushCapture());
       return;
     }
-    final ms = _effectiveThrottlePerformance ? 40 : _mainLoopPeriodMs().clamp(8, 500);
+    if (_eligibleForWindowsScreenPush()) {
+      unawaited(_ensureWindowsPushScreenCaptureIfNeeded());
+      return;
+    }
+    unawaited(_stopWindowsPushCapture());
+    // Pull (Linux/macOS / music+monitor): timer driver.
+    final ms = _effectiveThrottlePerformance ? 8 : _mainLoopPeriodMs().clamp(8, 500);
     _screenCaptureDriverTimer = Timer.periodic(Duration(milliseconds: ms), (_) => _screenCaptureDriverFire());
   }
 
@@ -1681,12 +1834,8 @@ class AmbilightAppController extends ChangeNotifier {
       unawaited(_captureScreenFrameAsync());
       return;
     }
-    // Výkonový režim: driver běží typicky každých 40 ms, ale nativní capture (DXGI/GDI + downscale)
-    // často trvá déle → překryv není „přetížení“, ale normál. Dříve se zvyšoval adaptive stride a při
-    // skip ticku se ani nevolalo [_captureScreenFrameAsync], takže se nezapnulo replay — uměle ~80 ms
-    // mezi snímky. Stačí při běžícím capture jen držet replay a necpat další invoke.
+    // Výkonový režim: při běžícím nativním capture jen vynechat tick; další pokus do 8 ms po uvolnění inFlight.
     if (_screenCaptureInFlight) {
-      _screenCaptureReplayPending = true;
       return;
     }
     unawaited(_captureScreenFrameAsync());
@@ -1704,6 +1853,7 @@ class AmbilightAppController extends ChangeNotifier {
     _loopPeriodMs = null;
     _screenCaptureDriverTimer?.cancel();
     _screenCaptureDriverTimer = null;
+    unawaited(_stopWindowsPushCapture());
   }
 
   void _ensureScreenCapture() {
@@ -1729,10 +1879,15 @@ class AmbilightAppController extends ChangeNotifier {
       _ensureScreenCapture();
       if (_screenCapture == null) return;
       final idx = _config.screenMode.monitorIndex;
+      Map<String, Object?>? winExtras;
+      if (!kIsWeb && Platform.isWindows && _screenCapture is MethodChannelScreenCaptureSource) {
+        winExtras = await _windowsMethodCapturePullExtras();
+      }
       final f = await _screenCapture!.captureFrame(
         idx,
         windowsCaptureBackend:
             (!kIsWeb && Platform.isWindows) ? _config.screenMode.windowsCaptureBackend : null,
+        windowsCaptureExtras: winExtras,
       );
       final mode2 = _config.globalSettings.startMode;
       final musicMon2 = mode2 == 'music' && _config.musicMode.colorSource == 'monitor';
@@ -1815,12 +1970,18 @@ class AmbilightAppController extends ChangeNotifier {
       _shutdownLightPcEngineIsolate();
     }
 
+    // Push stream (Windows screen) už volá [_submitScreenPipelineFrameAsync] z [_onWindowsPushFrame];
+    // [_tick] by jinak duplikoval submit každou periodu hlavní smyčky → gate / zbytečná zátěž isolátu.
     if (modeForSubmit == 'screen' &&
         capFrame != null &&
         capFrame.isValid &&
         !startupBlackout &&
         _enabled) {
-      unawaited(_submitScreenPipelineFrameAsync(capFrame));
+      final pushActive =
+          _eligibleForWindowsScreenPush() && _windowsScreenCaptureStreamSub != null;
+      if (!pushActive) {
+        unawaited(_submitScreenPipelineFrameAsync(capFrame));
+      }
     }
 
     if (wantMusicFlatWorker &&
@@ -2040,11 +2201,13 @@ class AmbilightAppController extends ChangeNotifier {
             flushImmediately: true,
           );
         } else {
+          // Screen izolát: okamžitý výstup místo čekání na microtask z [_distribute] — méně jitter vůči výsledku workeru.
           _distribute(
             perDevice,
             bri,
             smartLightsFrame: _screenFrameLatest,
             smartLightsAppEnabled: _enabled,
+            flushImmediately: useScreenIsolate,
           );
         }
       }
@@ -2317,6 +2480,7 @@ class AmbilightAppController extends ChangeNotifier {
   void dispose() {
     try {
       _controllerDisposed = true;
+      _invalidateWindowsPullCaptureExtrasCache();
       _distributeFlushScheduled = false;
       final pend = _distributePending;
       _distributePending = null;

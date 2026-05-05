@@ -361,6 +361,18 @@
       "port": {}
     }
   },
+  "comScanUsbDeviceDefaultName": "USB ({port})",
+  "@comScanUsbDeviceDefaultName": {
+    "placeholders": {
+      "port": {}
+    }
+  },
+  "comScanUsbDeviceAdded": "USB device added on {port}. You can rename it in the list.",
+  "@comScanUsbDeviceAdded": {
+    "placeholders": {
+      "port": {}
+    }
+  },
   "firmwareLabel": "Firmware: {version}",
   "@firmwareLabel": {
     "placeholders": {
