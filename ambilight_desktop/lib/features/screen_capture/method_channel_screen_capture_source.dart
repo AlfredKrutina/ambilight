@@ -7,6 +7,8 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 
+import '../../application/pipeline_diagnostics.dart';
+import '../../core/models/config_models.dart';
 import 'screen_capture_source.dart';
 import 'screen_frame.dart';
 
@@ -75,11 +77,10 @@ class MethodChannelScreenCaptureSource implements ScreenCaptureSource {
     _clearError();
     try {
       final args = <String, Object?>{'monitorIndex': monitorIndex};
-      if (!kIsWeb &&
-          Platform.isWindows &&
-          windowsCaptureBackend != null &&
-          windowsCaptureBackend.isNotEmpty) {
-        args['captureBackend'] = windowsCaptureBackend;
+      if (!kIsWeb && Platform.isWindows) {
+        args['captureBackend'] = normalizeWindowsScreenCaptureBackend(
+          windowsCaptureBackend ?? 'dxgi',
+        );
       }
       final Object? raw = await _channel.invokeMethod<Object?>('capture', args);
       void dbgCapture(String msg) {
@@ -96,6 +97,10 @@ class MethodChannelScreenCaptureSource implements ScreenCaptureSource {
       }
       final map = Map<Object?, Object?>.from(raw);
       dbgCapture('map keys: ${map.keys.map((k) => "${k.runtimeType}:$k").join(", ")}');
+      final noUpdateRaw = map['noUpdate'];
+      if (noUpdateRaw == true || noUpdateRaw == 1) {
+        return null;
+      }
       final w = _asInt(map['width']);
       final h = _asInt(map['height']);
       final idx = _asInt(map['monitorIndex']);
@@ -139,6 +144,17 @@ class MethodChannelScreenCaptureSource implements ScreenCaptureSource {
       final frame = ScreenFrame(width: w, height: h, monitorIndex: idx, rgba: rgba);
       if (!frame.isValid) {
         dbgCapture('ScreenFrame.isValid == false (see lengths above)');
+      }
+      if (ambilightPipelineDiagnosticsEnabled && frame.isValid) {
+        var rgbSum = 0;
+        for (var i = 0; i < rgba.length; i += 4) {
+          rgbSum += rgba[i] + rgba[i + 1] + rgba[i + 2];
+        }
+        PipelineDiagCaptureTimeline.markCapture();
+        pipelineDiagLog(
+          'capture_frame',
+          'w=$w h=$h monitorIndex=$idx rgbaBytes=${rgba.length} rgbSum=$rgbSum',
+        );
       }
       return frame;
     } on MissingPluginException catch (e) {

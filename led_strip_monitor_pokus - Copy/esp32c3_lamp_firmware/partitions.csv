@@ -1,6 +1,8 @@
 # Name,   Type, SubType, Offset,   Size,     Flags
-# 4 MB flash: NVS + 2× OTA app. První přechod z jednoho „factory“ oddílu = plný přeflash (tabulka + erase).
+# 4 MB flash: NVS + otadata + 2× OTA app. „otadata“ je povinný pro esp_https_ota / esp_ota_set_boot_partition.
+# Po doplnění otadata: jednou přeflashovat tabulku oddílů (+ bootloader), ideálně celý obraz z manifestu / esptool.
 nvs,      data, nvs,     0x9000,   0x6000,
 phy_init, data, phy,     0xf000,   0x1000,
+otadata,  data, ota,     0x10000,  0x2000,
 ota_0,    app,  ota_0,   0x20000,  0x1E0000,
 ota_1,    app,  ota_1,   0x200000, 0x1E0000,

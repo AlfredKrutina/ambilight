@@ -4504,6 +4504,66 @@ abstract class AppLocalizations {
   /// **'UDP send failed.'**
   String get fwStatusUdpFailed;
 
+  /// No description provided for @fwStatusOtaInvalidTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid device IP address.'**
+  String get fwStatusOtaInvalidTarget;
+
+  /// No description provided for @fwStatusOtaUrlTooShort.
+  ///
+  /// In en, this message translates to:
+  /// **'OTA URL is too short (firmware requires at least 12 characters).'**
+  String get fwStatusOtaUrlTooShort;
+
+  /// No description provided for @fwStatusOtaUrlTooLong.
+  ///
+  /// In en, this message translates to:
+  /// **'OTA URL is too long for the device (max 1300 characters).'**
+  String get fwStatusOtaUrlTooLong;
+
+  /// No description provided for @fwStatusOtaInvalidChars.
+  ///
+  /// In en, this message translates to:
+  /// **'OTA URL contains characters the device rejects (control codes, etc.).'**
+  String get fwStatusOtaInvalidChars;
+
+  /// No description provided for @fwStatusOtaBadScheme.
+  ///
+  /// In en, this message translates to:
+  /// **'OTA URL must start with https:// or http:// (same rule as the device).'**
+  String get fwStatusOtaBadScheme;
+
+  /// No description provided for @fwStatusOtaPayloadInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'OTA command does not pass device-side checks.'**
+  String get fwStatusOtaPayloadInvalid;
+
+  /// No description provided for @fwFillFromDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill from Devices'**
+  String get fwFillFromDevices;
+
+  /// No description provided for @fwFillFromDevicesTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy IP and UDP port from the first Wi-Fi device in your list (Devices tab).'**
+  String get fwFillFromDevicesTooltip;
+
+  /// No description provided for @fwStatusNoWifiDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'No Wi-Fi device with an IP in your list — add one under Devices.'**
+  String get fwStatusNoWifiDevice;
+
+  /// No description provided for @fwStatusFilledFromDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Filled from “{name}”: {ip}:{port}.'**
+  String fwStatusFilledFromDevice(Object name, Object ip, Object port);
+
   /// No description provided for @pcHealthHeaderTitle.
   ///
   /// In en, this message translates to:

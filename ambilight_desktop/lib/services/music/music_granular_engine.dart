@@ -1,4 +1,6 @@
 import '../../core/models/config_models.dart';
+import '../../core/protocol/serial_frame.dart';
+import '../../engine/screen/screen_color_pipeline.dart';
 import '../../engine/screen/screen_frame.dart';
 import 'music_segment_renderer.dart';
 import 'music_types.dart';
@@ -16,7 +18,7 @@ class MusicGranularEngine {
   }) {
     final devices = config.globalSettings.devices;
     if (devices.isEmpty) {
-      final n = config.globalSettings.ledCount.clamp(1, 512);
+      final n = config.globalSettings.ledCount.clamp(1, SerialAmbilightProtocol.maxLedsPerDevice);
       return MusicSegmentRenderer.render(
         effect: config.musicMode.effect,
         numLeds: n,
@@ -30,7 +32,8 @@ class MusicGranularEngine {
 
     final buffers = <String, List<(int, int, int)>>{};
     for (final d in devices) {
-      buffers[d.id] = List<(int, int, int)>.filled(d.ledCount, (0, 0, 0), growable: false);
+      final dn = ScreenColorPipeline.effectiveDeviceLedCount(config, d);
+      buffers[d.id] = List<(int, int, int)>.filled(dn, (0, 0, 0), growable: false);
     }
 
     final segments = config.screenMode.segments;
@@ -45,7 +48,7 @@ class MusicGranularEngine {
         if (buffers[devId] == null) continue;
         final pixels = MusicSegmentRenderer.render(
           effect: settings.effect,
-          numLeds: d.ledCount,
+          numLeds: ScreenColorPipeline.effectiveDeviceLedCount(config, d),
           settings: settings,
           analysis: analysis,
           seg: null,
@@ -94,7 +97,8 @@ class MusicGranularEngine {
     final out = <(int, int, int)>[];
     for (final d in devices) {
       final b = buffers[d.id]!;
-      for (var i = 0; i < d.ledCount; i++) {
+      final dn = ScreenColorPipeline.effectiveDeviceLedCount(config, d);
+      for (var i = 0; i < dn; i++) {
         out.add(i < b.length ? b[i] : (0, 0, 0));
       }
     }

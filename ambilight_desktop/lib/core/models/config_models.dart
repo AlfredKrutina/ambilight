@@ -559,7 +559,7 @@ class ScreenModeSettings {
     this.scanDepthRight = 10,
     this.segments = const [],
     /// Jen Windows — viz [normalizeWindowsScreenCaptureBackend].
-    this.windowsCaptureBackend = 'gdi',
+    this.windowsCaptureBackend = 'dxgi',
   });
 
   final int monitorIndex;
@@ -661,7 +661,7 @@ class ScreenModeSettings {
       scanDepthRight: asInt(j['scan_depth_right'], 10),
       segments: segList,
       windowsCaptureBackend:
-          normalizeWindowsScreenCaptureBackend(asString(j['windows_capture_backend'], 'gdi')),
+          normalizeWindowsScreenCaptureBackend(asString(j['windows_capture_backend'], 'dxgi')),
     );
   }
 

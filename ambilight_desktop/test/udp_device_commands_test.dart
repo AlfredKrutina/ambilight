@@ -7,6 +7,18 @@ void main() {
     expect(ok, isFalse);
   });
 
+  test('rejectReason flags non-http(s) schemes like firmware', () {
+    expect(
+      UdpDeviceCommands.rejectReasonForOtaHttpCommand(
+        '127.0.0.1',
+        4210,
+        'ftp://example.com/file.bin',
+      ),
+      OtaHttpCommandRejectReason.urlSchemeNotHttp,
+    );
+    expect(UdpDeviceCommands.rejectReasonForOtaHttpCommand('127.0.0.1', 4210, 'https://ex.com/x.bin'), isNull);
+  });
+
   test('sendOtaHttpUrl rejects URL over 1300 chars', () async {
     final long = 'https://example.com/${'a' * 1300}';
     expect(long.length, greaterThan(1300));

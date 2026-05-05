@@ -33,11 +33,12 @@
 // ============ CONFIG ============
 #define LED_STRIP_GPIO_PIN 8
 #define LED_STRIP_NUM_LEDS 2000
-/// Po resetu / přeflashování: postupné rozsvícení modré „vlny“ (ne IDENTIFY UDP).
-#define BOOT_POST_FLASH_BLUE_WAVE_LEDS 500
-/// Cílové tempo vlny (~LED/s; čekání dopočítává čas za refresh pásku).
-#define BOOT_POST_FLASH_BLUE_WAVE_LEDS_PER_SEC 4000
+/// Po startu ESP: jedno krátké modré probliknutí všech LED (stejná intenzita B jako dřív u vlny).
+#define BOOT_POST_FLASH_BLUE_BLINK_ON_MS 250
 #define UDP_PORT 4210
+#ifndef MSG_DONTWAIT
+#define MSG_DONTWAIT 0x40
+#endif
 #define AP_SSID "Ambilight_Setup"
 #define SERIAL_TIMEOUT_US (25 * 100000LL) // 2.5 seconds (Faster Auto-Off)
 
@@ -1450,6 +1451,37 @@ static void udp_pc_accept(uint8_t op, int len, uint32_t ip_net,
   }
 }
 
+/// Vyprázdnění fronty LwIP — po blokujícím recv nechat jen poslední datagram (nízká latence).
+static void udp_drain_recv_queue_to_latest(int sock, char *rx_buf, size_t rx_sz,
+                                           struct sockaddr_in *from,
+                                           socklen_t *socklen_io, int *len_io) {
+  if (*len_io <= 0 || rx_sz < 2) {
+    return;
+  }
+  int guard = 0;
+  for (;;) {
+    if (++guard > 128) {
+      break;
+    }
+    struct sockaddr_in tmp;
+    socklen_t sl = sizeof(tmp);
+    int n = recvfrom(sock, rx_buf, rx_sz - 1, MSG_DONTWAIT,
+                     (struct sockaddr *)&tmp, &sl);
+    if (n < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        break;
+      }
+      break;
+    }
+    if (n > 0) {
+      *len_io = n;
+      *from = tmp;
+      *socklen_io = sl;
+      rx_buf[n] = '\0';
+    }
+  }
+}
+
 void task_udp(void *arg) {
   ESP_LOGI(TAG, "[udp] task start port=%d", UDP_PORT);
   char rx_buffer[1500];
@@ -1497,8 +1529,6 @@ void task_udp(void *arg) {
 
     while (g_wifi_enabled) { // Inner loop checks flag
       static uint32_t s_udp_rx_total;
-      static int64_t s_udp_rgb_display_throttle_us =
-          0; /* sdílené mezi 0x02 a 0x08 (ambilight_desktop) */
       struct sockaddr_in source_addr;
       socklen_t socklen = sizeof(source_addr);
       int len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0,
@@ -1506,6 +1536,11 @@ void task_udp(void *arg) {
 
       if (len < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
         ESP_LOGW(TAG, "[udp] recvfrom errno=%d", errno);
+      }
+
+      if (len > 0) {
+        udp_drain_recv_queue_to_latest(sock, rx_buffer, sizeof(rx_buffer),
+                                       &source_addr, &socklen, &len);
       }
 
       // Check if we need to restore HOME MODE (Silence detected)
@@ -1528,8 +1563,8 @@ void task_udp(void *arg) {
             snprintf(state_topic, sizeof(state_topic),
                      "alfred/devices/%s/color/state", g_device_id);
             char c_str[32];
-            sprintf(c_str, "%d,%d,%d", g_home_color.r, g_home_color.g,
-                    g_home_color.b);
+            snprintf(c_str, sizeof(c_str), "%d,%d,%d", g_home_color.r,
+                     g_home_color.g, g_home_color.b);
             esp_mqtt_client_publish(mqtt_client, state_topic, c_str, 0, 1, 0);
           }
 
@@ -1582,24 +1617,39 @@ void task_udp(void *arg) {
         }
         was_pc_mode = true;
         rx_buffer[len] = 0;
+        /* Znovu vyprázdnit frontu jen pro okamžitý barevný rámec (0x02 / 0x08). */
+        if (len >= 2 && ((uint8_t)rx_buffer[0] == 0x02 ||
+                         ((uint8_t)rx_buffer[0] == 0x08 && len >= 4))) {
+          udp_drain_recv_queue_to_latest(sock, rx_buffer, sizeof(rx_buffer),
+                                         &source_addr, &socklen, &len);
+          if (len > 0 && len < (int)sizeof(rx_buffer)) {
+            rx_buffer[len] = '\0';
+          }
+        }
 
         if (len >= 14 && strncmp(rx_buffer, "DISCOVER_ESP32", 14) == 0) {
           uint8_t mac[6];
           esp_wifi_get_mac(WIFI_IF_STA, mac);
-          char resp[128];
+          /* Fixed stack buffer; snprintf bounds; inet_ntoa(struct in_addr) — not .s_addr */
+          char resp[96];
           ESP_LOGI(TAG, "Discovery Broadcast Received from %s",
-                   inet_ntoa(source_addr.sin_addr.s_addr));
-          /* ledCount = logická délka z USB 0xA5 0x5A (g_serial_strip_max), ne compile-time max */
-          snprintf(resp, sizeof(resp),
-                   "ESP32_PONG|%02x%02x%02x|Ambilight_%02x|%u|2.0", mac[3],
-                   mac[4], mac[5], mac[5], (unsigned)g_serial_strip_max);
-          int sent =
-              sendto(sock, resp, strlen(resp), 0,
-                     (struct sockaddr *)&source_addr, sizeof(source_addr));
+                   inet_ntoa(source_addr.sin_addr));
+          /* ledCount = logická délka z USB 0xA5 0x5A (g_serial_strip_max) */
+          int plen =
+              snprintf(resp, sizeof(resp),
+                       "ESP32_PONG|%02x%02x%02x|Ambilight_%02x|%u|2.0",
+                       (unsigned)mac[3], (unsigned)mac[4], (unsigned)mac[5],
+                       (unsigned)mac[5], (unsigned)g_serial_strip_max);
+          if (plen <= 0 || (size_t)plen >= sizeof(resp)) {
+            ESP_LOGW(TAG, "Discovery PONG snprintf invalid/truncated plen=%d", plen);
+            continue;
+          }
+          int sent = sendto(sock, resp, (size_t)plen, 0,
+                            (struct sockaddr *)&source_addr, socklen);
           if (sent < 0)
             ESP_LOGE(TAG, "Failed to send PONG: %d", errno);
           else
-            ESP_LOGI(TAG, "Sent PONG: %s", resp);
+            ESP_LOGI(TAG, "Sent PONG (%d B): %s", sent, resp);
           continue;
         }
 
@@ -1649,7 +1699,7 @@ void task_udp(void *arg) {
             u++;
           }
           ESP_LOGI(TAG, "OTA_HTTP (UDP) z %s",
-                   inet_ntoa(source_addr.sin_addr.s_addr));
+                   inet_ntoa(source_addr.sin_addr));
           ambilight_start_ota(u);
           continue;
         }
@@ -1773,13 +1823,6 @@ void task_udp(void *arg) {
           g_last_controller_time = now_us;
           g_last_data_interaction = esp_timer_get_time();
 
-          if (now_us - s_udp_rgb_display_throttle_us < 15000) {
-            udp_pc_drop("throttle_min_15ms_sdileno_0x02", &s_udp_pc_drop_throttle,
-                        0x08, len, sender_ip);
-            continue;
-          }
-          s_udp_rgb_display_throttle_us = now_us;
-
           if (!g_has_received_data) {
             g_has_received_data = true;
             nvs_handle_t nvs_handle;
@@ -1855,13 +1898,6 @@ void task_udp(void *arg) {
                         sender_ip);
             continue;
           }
-
-          if (now_us - s_udp_rgb_display_throttle_us < 15000) {
-            udp_pc_drop("throttle_min_15ms_sdileno_0x08", &s_udp_pc_drop_throttle,
-                        0x02, len, sender_ip);
-            continue; // Limit to ~66 FPS to prevent LED latching issues
-          }
-          s_udp_rgb_display_throttle_us = now_us;
 
           // Boot Loop Protection Reset
           // If we receive valid data, the system is working. Reset crash
@@ -2082,22 +2118,6 @@ void update_leds(uint8_t global_brightness) {
   led_strip_refresh(led_strip);
 }
 
-static void boot_blue_wave_wait_until(int64_t deadline_us) {
-  for (;;) {
-    const int64_t now = esp_timer_get_time();
-    const int64_t remain = deadline_us - now;
-    if (remain <= 0) {
-      return;
-    }
-    if (remain >= 2000) {
-      vTaskDelay(pdMS_TO_TICKS((uint32_t)(remain / 1000)));
-    } else {
-      esp_rom_delay_us((uint32_t)remain);
-      return;
-    }
-  }
-}
-
 void disable_onboard_leds() {
   // Common Blue/Warm LED pins on C3 boards
   // Configured as OUTPUT and set HIGH (assuming active low)
@@ -2154,31 +2174,22 @@ void app_main(void) {
   // If no Serial comes in 10s, Monitor will enable it.
   // If Serial works, Monitor will keep it off.
 
-  // Boot: post-flash modrá vlna (sekvenční náběh po BOOT_POST_FLASH_BLUE_WAVE_LEDS)
+  // Boot: modré probliknutí všech LED najednou (místo postupné modré vlny)
   {
-    const int wave_len = (LED_STRIP_NUM_LEDS < BOOT_POST_FLASH_BLUE_WAVE_LEDS)
-                             ? LED_STRIP_NUM_LEDS
-                             : BOOT_POST_FLASH_BLUE_WAVE_LEDS;
-    ESP_LOGI(TAG, "Boot anim: post-flash blue wave, %d LED @ ~%d/s", wave_len,
-             BOOT_POST_FLASH_BLUE_WAVE_LEDS_PER_SEC);
-    const int64_t step_us =
-        1000000LL / (int64_t)BOOT_POST_FLASH_BLUE_WAVE_LEDS_PER_SEC;
-    for (int i = 0; i < wave_len; i++) {
+    const int n = LED_STRIP_NUM_LEDS;
+    ESP_LOGI(TAG, "Boot: modré probliknutí všech %d LED (~%d ms)", n,
+             BOOT_POST_FLASH_BLUE_BLINK_ON_MS);
+    for (int i = 0; i < n; i++) {
       led_strip_set_pixel(led_strip, i, 0, 0, 50);
-      led_strip_refresh(led_strip);
-      /* Deadline až po refresh: při dlouhém SPI přenosu celého pásu by kumulovaný
-       * next_us zůstával v minulosti → žádné čekání → desítky LED „skočí“ najednou. */
-      boot_blue_wave_wait_until(esp_timer_get_time() + step_us);
-      taskYIELD();
     }
+    led_strip_refresh(led_strip);
+    vTaskDelay(pdMS_TO_TICKS(BOOT_POST_FLASH_BLUE_BLINK_ON_MS));
+    taskYIELD();
   }
   led_strip_clear(led_strip);
   led_strip_refresh(led_strip);
 
-  led_strip_clear(led_strip);
-  led_strip_refresh(led_strip);
-
-  ESP_LOGI(TAG, "Boot Anim Complete. Starting High Priority Tasks...");
+  ESP_LOGI(TAG, "Boot LED signál hotový. Spouštím úlohy...");
 
   // Start Tasks NOW (After LED mutex is safe)
   // 1. Serial (Priority 10) - High enough for data, but yields to Wi-Fi/IDLE
@@ -2348,7 +2359,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
       snprintf(state_topic, sizeof(state_topic),
                "alfred/devices/%s/brightness/state", g_device_id);
       char b_str[8];
-      sprintf(b_str, "%d", g_home_bri);
+      snprintf(b_str, sizeof(b_str), "%d", g_home_bri);
       esp_mqtt_client_publish(mqtt_client, state_topic, b_str, 0, 1, 0);
     }
     // 3. COLOR COMMAND
@@ -2363,8 +2374,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
       snprintf(state_topic, sizeof(state_topic),
                "alfred/devices/%s/color/state", g_device_id);
       char c_str[32];
-      sprintf(c_str, "%d,%d,%d", g_home_color.r, g_home_color.g,
-              g_home_color.b);
+      snprintf(c_str, sizeof(c_str), "%d,%d,%d", g_home_color.r,
+               g_home_color.g, g_home_color.b);
       esp_mqtt_client_publish(mqtt_client, state_topic, c_str, 0, 1, 0);
     }
 

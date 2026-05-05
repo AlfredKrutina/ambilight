@@ -1,4 +1,5 @@
 import '../core/models/config_models.dart';
+import '../core/protocol/serial_frame.dart';
 import '../features/pc_health/pc_health_frame.dart';
 import '../features/pc_health/pc_health_snapshot.dart';
 import '../services/music/music_granular_engine.dart';
@@ -19,11 +20,12 @@ class AmbilightEngine {
   static int combinedDeviceLedLength(AppConfig config) {
     final ds = config.globalSettings.devices;
     if (ds.isEmpty) {
-      return config.globalSettings.ledCount.clamp(1, 512);
+      return config.globalSettings.ledCount
+          .clamp(1, SerialAmbilightProtocol.maxLedsPerDevice);
     }
     var s = 0;
     for (final d in ds) {
-      s += d.ledCount;
+      s += ScreenColorPipeline.effectiveDeviceLedCount(config, d);
     }
     return s.clamp(1, 4096);
   }
@@ -31,7 +33,8 @@ class AmbilightEngine {
   static Map<String, List<(int, int, int)>> _blackPerDevice(AppConfig config) {
     final m = <String, List<(int, int, int)>>{};
     for (final d in config.globalSettings.devices) {
-      m[d.id] = List<(int, int, int)>.filled(d.ledCount, (0, 0, 0), growable: false);
+      final n = ScreenColorPipeline.effectiveDeviceLedCount(config, d);
+      m[d.id] = List<(int, int, int)>.filled(n, (0, 0, 0), growable: false);
     }
     return m;
   }
@@ -41,21 +44,23 @@ class AmbilightEngine {
       _blackPerDevice(config);
 
   static Map<String, List<(int, int, int)>> _mapFlatToDevices(
+    AppConfig config,
     List<(int, int, int)> flat,
     List<DeviceSettings> devices,
   ) {
     var offset = 0;
     final out = <String, List<(int, int, int)>>{};
     for (final d in devices) {
+      final n = ScreenColorPipeline.effectiveDeviceLedCount(config, d);
       out[d.id] = List<(int, int, int)>.generate(
-        d.ledCount,
+        n,
         (i) {
           final idx = offset + i;
           return idx < flat.length ? flat[idx] : (0, 0, 0);
         },
         growable: false,
       );
-      offset += d.ledCount;
+      offset += n;
     }
     return out;
   }
@@ -73,7 +78,7 @@ class AmbilightEngine {
       timeSec,
       monitorSample: monitorSample,
     );
-    return _mapFlatToDevices(flat, config.globalSettings.devices);
+    return _mapFlatToDevices(config, flat, config.globalSettings.devices);
   }
 
   /// [screenFrame] jen pro `startMode == screen`; jinak ignorováno.
@@ -106,7 +111,7 @@ class AmbilightEngine {
           animationTick,
           virtualLedCount: n,
         );
-        return _mapFlatToDevices(flat, config.globalSettings.devices);
+        return _mapFlatToDevices(config, flat, config.globalSettings.devices);
       case 'screen':
         final frame = screenFrame ??
             MockScreenFrame.gradient(
@@ -117,16 +122,13 @@ class AmbilightEngine {
           return _blackPerDevice(config);
         }
         final raw = ScreenColorPipeline.processFrameToDevices(config, frame, screenPipeline);
-        return screenPipeline.applyTemporalSmoothing(
-          targets: raw,
-          smoothMs: config.screenMode.interpolationMs,
-        );
+        return raw;
       case 'music':
         final nMusic = combinedDeviceLedLength(config);
         if (musicAlbumDominantRgb != null) {
           final flat =
               List<(int, int, int)>.filled(nMusic, musicAlbumDominantRgb, growable: false);
-          return _mapFlatToDevices(flat, config.globalSettings.devices);
+          return _mapFlatToDevices(config, flat, config.globalSettings.devices);
         }
         final snap = musicSnapshot ?? MusicAnalysisSnapshot.silent();
         final t = DateTime.now().millisecondsSinceEpoch / 1000.0;
@@ -149,7 +151,7 @@ class AmbilightEngine {
           pcHealthSnapshot,
           virtualLedCount: n,
         );
-        return _mapFlatToDevices(flat, config.globalSettings.devices);
+        return _mapFlatToDevices(config, flat, config.globalSettings.devices);
       default:
         return _blackPerDevice(config);
     }

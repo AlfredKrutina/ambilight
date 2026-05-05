@@ -10,6 +10,7 @@ import 'app_error_safety.dart';
 import 'async_failure.dart';
 import 'build_environment.dart';
 import 'debug_trace.dart';
+import 'pipeline_diagnostics.dart';
 import '../core/device_bindings_debug.dart';
 import '../core/models/config_models.dart';
 import '../core/protocol/serial_frame.dart';
@@ -118,7 +119,6 @@ class AmbilightAppController extends ChangeNotifier {
   Timer? _timer;
   /// Samostatný driver snímání obrazovky — nezávislý na délce [_tick] / výpočtech izolátu.
   Timer? _screenCaptureDriverTimer;
-  int _captureDriverTick = 0;
   DateTime? _screenPipelineSubmitSince;
   /// Perioda hlavní smyčky (ms); null = timer ještě neběžel.
   int? _loopPeriodMs;
@@ -144,6 +144,9 @@ class AmbilightAppController extends ChangeNotifier {
   int _screenPipelineAppliedSeq = 0;
   /// Poslední seq, na který worker odpověl ([out] nebo [skip]); pro gate fronty (applied roste jen u [out]).
   int _screenPipelineLastAckSeq = 0;
+  /// Počet zahozených submitů kvůli gate ([AMBI_PIPELINE_DIAGNOSTICS] souhrn).
+  int _screenPipelineGateDropCount = 0;
+  DateTime? _lastPipelineDiagSummaryUtc;
   Map<String, List<(int, int, int)>>? _asyncScreenColors;
 
   /// Obnova UDP toku na lampě (FW „PC Data Stopped“) — periodický flush posledního platného snímku.
@@ -190,12 +193,6 @@ class AmbilightAppController extends ChangeNotifier {
   /// Po řadě výjimek ze snímání — jeden banner, reset při úspěchu.
   int _consecutiveScreenCaptureFailures = 0;
   bool _screenCaptureFaultBannerShown = false;
-  /// Fáze 5.4 — při výkonovém throttlingu rozšiřuje krok snímání (max), když předchozí capture ještě běží.
-  static const int _captureStrideMin = 3;
-  static const int _captureStrideMax = 6;
-  int _adaptiveCaptureStrideMod = _captureStrideMin;
-  int _captureOverloadStreak = 0;
-  int _captureIdleStreak = 0;
   /// Cache připojení transportů — přepočítává se ve smyčce; [notifyListeners] jen při změně (méně janku v UI).
   Map<String, bool> _connectionSnapshotCache = const {};
   DateTime? _lastScreenFrameUiNotify;
@@ -298,6 +295,12 @@ class AmbilightAppController extends ChangeNotifier {
     _screenPipelineLastAckSeq = r.seq;
     _screenPipelineSubmitSince = null;
     _asyncScreenColors = unpackDeviceColors(_config, r.packed);
+    if (ambilightPipelineDiagnosticsEnabled && r.seq % 25 == 0) {
+      pipelineDiagLog(
+        'isolate_main_out',
+        'seq=${r.seq} applied=$_screenPipelineAppliedSeq pendingSubmit=$_screenPipelineSubmitSeq',
+      );
+    }
   }
 
   void _onScreenPipelineIsolateSkip(int seq) {
@@ -307,6 +310,9 @@ class AmbilightAppController extends ChangeNotifier {
     }
     if (seq == _screenPipelineSubmitSeq) {
       _screenPipelineSubmitSince = null;
+    }
+    if (ambilightPipelineDiagnosticsEnabled) {
+      pipelineDiagLog('isolate_main_skip', 'seq=$seq lastAck=$_screenPipelineLastAckSeq');
     }
   }
 
@@ -532,11 +538,21 @@ class AmbilightAppController extends ChangeNotifier {
 
   Future<void> _submitScreenPipelineFrameAsync(ScreenFrame f) async {
     _recoverScreenPipelineIfStuck();
-    if (_screenPipelineSubmitSeq - _screenPipelineLastAckSeq > _isolateQueueDepthMaxPending) {
+    final depth = _screenPipelineSubmitSeq - _screenPipelineLastAckSeq;
+    if (depth > _isolateQueueDepthMaxPending) {
+      _screenPipelineGateDropCount++;
       if (kDebugMode || ambilightVerboseLogsEnabled) {
         _log.warning(
           'screen pipeline: izolát nestíhá — zahazuji snímek (submit=$_screenPipelineSubmitSeq '
           'lastAck=$_screenPipelineLastAckSeq)',
+        );
+      }
+      if (ambilightPipelineDiagnosticsEnabled) {
+        pipelineDiagLog(
+          'isolate_submit_drop',
+          'gateDepth=$depth max=$_isolateQueueDepthMaxPending submit=$_screenPipelineSubmitSeq '
+          'lastAck=$_screenPipelineLastAckSeq dropsTotal=$_screenPipelineGateDropCount '
+          'frame=${f.width}x${f.height} mon=${f.monitorIndex}',
         );
       }
       return;
@@ -547,8 +563,15 @@ class AmbilightAppController extends ChangeNotifier {
     _syncScreenIsolateConfigIfNeeded();
     _screenPipelineSubmitSeq++;
     _screenPipelineSubmitSince = DateTime.now();
+    final seqOut = _screenPipelineSubmitSeq;
+    if (ambilightPipelineDiagnosticsEnabled && seqOut % 25 == 0) {
+      pipelineDiagLog(
+        'isolate_submit_accept',
+        'seq=$seqOut gateDepth=${seqOut - _screenPipelineLastAckSeq} frame=${f.width}x${f.height} mon=${f.monitorIndex}',
+      );
+    }
     bridge.submitFrame(
-      seq: _screenPipelineSubmitSeq,
+      seq: seqOut,
       width: f.width,
       height: f.height,
       monitorIndex: f.monitorIndex,
@@ -1358,6 +1381,23 @@ class AmbilightAppController extends ChangeNotifier {
     });
   }
 
+  /// Každých ~5 s při [AMBI_PIPELINE_DIAGNOSTICS]: souhrn gate + UDP okénko.
+  void _emitPipelineDiagnosticSummary() {
+    if (!ambilightPipelineDiagnosticsEnabled) return;
+    final now = DateTime.now().toUtc();
+    if (_lastPipelineDiagSummaryUtc != null &&
+        now.difference(_lastPipelineDiagSummaryUtc!) < const Duration(seconds: 5)) {
+      return;
+    }
+    _lastPipelineDiagSummaryUtc = now;
+    _log.info(
+      '[PIPELINE_DIAG summary] gateDrops_total=$_screenPipelineGateDropCount '
+      'submit=$_screenPipelineSubmitSeq lastAck=$_screenPipelineLastAckSeq applied=$_screenPipelineAppliedSeq '
+      '${PipelineUdpDiagStats.formatWindowSummary()}',
+    );
+    PipelineUdpDiagStats.resetWindow();
+  }
+
   /// Když nepřijde ACK z workeru (kanál / pád), neblokovat další snímky navěky.
   void _recoverScreenPipelineIfStuck() {
     if (_screenPipelineSubmitSeq <= _screenPipelineAppliedSeq) {
@@ -1625,7 +1665,6 @@ class AmbilightAppController extends ChangeNotifier {
     _screenCaptureDriverTimer?.cancel();
     _screenCaptureDriverTimer = null;
     if (!_mainLoopUsesScreenCapture()) {
-      _captureDriverTick = 0;
       return;
     }
     final ms = _effectiveThrottlePerformance ? 40 : _mainLoopPeriodMs().clamp(8, 500);
@@ -1639,44 +1678,18 @@ class AmbilightAppController extends ChangeNotifier {
     _recoverScreenPipelineIfStuck();
     _recoverMusicFlatStripIfStuck();
     if (!_effectiveThrottlePerformance) {
-      _adaptiveCaptureStrideMod = _captureStrideMin;
-      _captureOverloadStreak = 0;
-      _captureIdleStreak = 0;
       unawaited(_captureScreenFrameAsync());
       return;
     }
+    // Výkonový režim: driver běží typicky každých 40 ms, ale nativní capture (DXGI/GDI + downscale)
+    // často trvá déle → překryv není „přetížení“, ale normál. Dříve se zvyšoval adaptive stride a při
+    // skip ticku se ani nevolalo [_captureScreenFrameAsync], takže se nezapnulo replay — uměle ~80 ms
+    // mezi snímky. Stačí při běžícím capture jen držet replay a necpat další invoke.
     if (_screenCaptureInFlight) {
-      _captureOverloadStreak++;
-      _captureIdleStreak = 0;
-      if (_captureOverloadStreak >= 8) {
-        _captureOverloadStreak = 0;
-        if (_adaptiveCaptureStrideMod < _captureStrideMax) {
-          _adaptiveCaptureStrideMod++;
-          if (kDebugMode || ambilightVerboseLogsEnabled) {
-            _log.fine(
-              '[adaptive] screen capture stride → $_adaptiveCaptureStrideMod (capture overlap)',
-            );
-          }
-        }
-      }
-    } else {
-      _captureOverloadStreak = 0;
-      _captureIdleStreak++;
-      if (_captureIdleStreak >= 180 && _adaptiveCaptureStrideMod > _captureStrideMin) {
-        _captureIdleStreak = 0;
-        _adaptiveCaptureStrideMod--;
-        if (kDebugMode || ambilightVerboseLogsEnabled) {
-          _log.fine(
-            '[adaptive] screen capture stride → $_adaptiveCaptureStrideMod (idle recovery)',
-          );
-        }
-      }
+      _screenCaptureReplayPending = true;
+      return;
     }
-    _captureDriverTick++;
-    final skipCap = (_captureDriverTick % _adaptiveCaptureStrideMod) != 0;
-    if (!skipCap) {
-      unawaited(_captureScreenFrameAsync());
-    }
+    unawaited(_captureScreenFrameAsync());
   }
 
   void startLoop() {
@@ -1773,10 +1786,6 @@ class AmbilightAppController extends ChangeNotifier {
     if (!needScreenCapture) {
       _screenFrameLatest = null;
       previewFrameNotifier.value = null;
-      _adaptiveCaptureStrideMod = _captureStrideMin;
-      _captureOverloadStreak = 0;
-      _captureIdleStreak = 0;
-      _captureDriverTick = 0;
       _shutdownScreenPipelineIsolate();
     }
 
@@ -2004,6 +2013,15 @@ class AmbilightAppController extends ChangeNotifier {
         perDevice = _dimRedErrorStripMap();
       }
       if (!skipAllSends) {
+        if (ambilightPipelineDiagnosticsEnabled &&
+            useScreenIsolate &&
+            _animationTick % 60 == 0) {
+          pipelineDiagLog(
+            'tick_distribute_screen',
+            'animationTick=$_animationTick appliedSeq=$_screenPipelineAppliedSeq '
+            'submit=$_screenPipelineSubmitSeq lastAck=$_screenPipelineLastAckSeq',
+          );
+        }
         final isolatePcStream =
             useScreenIsolate || useMusicIsolate || useLightPcIsolate;
         final nowHb = DateTime.now();
@@ -2048,6 +2066,7 @@ class AmbilightAppController extends ChangeNotifier {
         }
       }
     }
+    _emitPipelineDiagnosticSummary();
     _advanceTickPhase();
     } catch (e, st) {
       _log.warning('_tick: $e', e, st);
@@ -2241,19 +2260,15 @@ class AmbilightAppController extends ChangeNotifier {
           final g = pv.$4;
           final b = pv.$5;
           if (dev.type == 'wifi') {
-            final zeros = List<(int, int, int)>.filled(
-              dev.ledCount,
-              (0, 0, 0),
-              growable: false,
-            );
-            unawaited(() async {
-              try {
-                await t.sendColorsNow(zeros, brightnessScalar);
-                t.sendPixel(idx, r, g, b);
-              } catch (e, st) {
-                _log.fine('wizard wifi preview: $e', e, st);
-              }
-            }());
+            final n = dev.ledCount.clamp(1, SerialAmbilightProtocol.maxLedsPerDevice);
+            final buf = List<(int, int, int)>.filled(n, (0, 0, 0), growable: false);
+            final clamped = idx.clamp(0, n - 1);
+            buf[clamped] = (r, g, b);
+            try {
+              t.sendColors(buf, brightnessScalar);
+            } catch (e, st) {
+              _log.fine('wizard wifi preview: $e', e, st);
+            }
             continue;
           }
           // Serial: buffer až do [maxLedsPerDevice] (legacy / wide rámec podle délky).

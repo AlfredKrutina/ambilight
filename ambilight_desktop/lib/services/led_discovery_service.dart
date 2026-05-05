@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:logging/logging.dart';
 
 import '../core/protocol/udp_frame.dart';
+import '../data/udp_socket_bind.dart';
 
 final _log = Logger('LedDiscovery');
 
@@ -137,8 +138,9 @@ class LedDiscoveryService {
     if (addr == null) return null;
     RawDatagramSocket? socket;
     try {
-      final bindAddr =
-          addr.type == InternetAddressType.IPv6 ? InternetAddress.anyIPv6 : InternetAddress.anyIPv4;
+      final bindAddr = addr.type == InternetAddressType.IPv6
+          ? InternetAddress.anyIPv6
+          : await udpBindAddressForOutgoingTo(addr, probeDestinationPort: udpPort);
       socket = await RawDatagramSocket.bind(bindAddr, 0);
       socket.broadcastEnabled = true;
       DiscoveredLedController? found;

@@ -9,6 +9,17 @@ import 'udp_socket_bind.dart';
 
 final _log = Logger('UdpCommands');
 
+/// Důvod zamítnutí `OTA_HTTP` před odesláním — shodné kontroly jako [`ota_update.c`] `ambilight_start_ota`
+/// + platná cílová IP pro socket.
+enum OtaHttpCommandRejectReason {
+  invalidTargetIp,
+  urlTooShort,
+  urlTooLong,
+  urlSchemeNotHttp,
+  invalidUrlCharacters,
+  commandPayloadInvalid,
+}
+
 /// Textové UDP příkazy z `ambilight.c` `task_udp` (port dle zařízení, výchozí 4210).
 abstract final class UdpDeviceCommands {
   static const String identifyPayload = 'IDENTIFY';
@@ -99,6 +110,38 @@ abstract final class UdpDeviceCommands {
   static Future<bool> sendResetWifi(String ip, int port, {String? logContext}) =>
       sendUtf8Text(ip, port, resetWifiPayload, logContext: logContext ?? 'RESET_WIFI');
 
+  /// Vrací důvod zamítnutí, nebo `null` pokud je v pořádku pokračovat na [sendOtaHttpUrl].
+  static OtaHttpCommandRejectReason? rejectReasonForOtaHttpCommand(
+    String ip,
+    int port,
+    String url,
+  ) {
+    if (port < 1 || port > 65535) {
+      return OtaHttpCommandRejectReason.invalidTargetIp;
+    }
+    if (_parseIp(ip) == null) {
+      return OtaHttpCommandRejectReason.invalidTargetIp;
+    }
+    final u = url.trim();
+    if (u.length < 12) {
+      return OtaHttpCommandRejectReason.urlTooShort;
+    }
+    if (u.length > 1300) {
+      return OtaHttpCommandRejectReason.urlTooLong;
+    }
+    if (!u.startsWith('https://') && !u.startsWith('http://')) {
+      return OtaHttpCommandRejectReason.urlSchemeNotHttp;
+    }
+    if (!isOtaUrlCompatibleWithLampFirmware(u)) {
+      return OtaHttpCommandRejectReason.invalidUrlCharacters;
+    }
+    final payload = 'OTA_HTTP $u';
+    if (!isUtf8DatagramCompatibleWithLampTaskUdp(payload)) {
+      return OtaHttpCommandRejectReason.commandPayloadInvalid;
+    }
+    return null;
+  }
+
   /// Příkaz `OTA_HTTP <url>` — lamp firmware (`esp32c3_lamp_firmware/main/ota_update.c`).
   /// [url] typicky přímý odkaz na `.bin` z manifestu (`ota_http_url`).
   static Future<bool> sendOtaHttpUrl(
@@ -107,20 +150,13 @@ abstract final class UdpDeviceCommands {
     String url, {
     String? logContext,
   }) {
+    final reject = rejectReasonForOtaHttpCommand(ip, port, url);
+    if (reject != null) {
+      _log.warning('sendOtaHttpUrl: rejected $reject');
+      return Future.value(false);
+    }
     final u = url.trim();
-    if (u.length < 12 || u.length > 1300) {
-      _log.warning('sendOtaHttpUrl: URL příliš krátká nebo dlouhá');
-      return Future.value(false);
-    }
-    if (!isOtaUrlCompatibleWithLampFirmware(u)) {
-      _log.warning('sendOtaHttpUrl: URL obsahuje znaky které lamp FW odmítne (řídicí / NUL / jen whitespace)');
-      return Future.value(false);
-    }
     final payload = 'OTA_HTTP $u';
-    if (!isUtf8DatagramCompatibleWithLampTaskUdp(payload)) {
-      _log.warning('sendOtaHttpUrl: celý payload neprošel kontrolou kompatibility s FW');
-      return Future.value(false);
-    }
     return sendUtf8Text(ip, port, payload, logContext: logContext ?? 'OTA_HTTP');
   }
 }

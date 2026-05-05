@@ -1181,6 +1181,16 @@
   "fwStatusSendingOta": "Sending OTA_HTTP to {ip}:{port}…",
   "fwStatusOtaSent": "Command sent. ESP downloads firmware and reboots (check log / LEDs).",
   "fwStatusUdpFailed": "UDP send failed.",
+  "fwStatusOtaInvalidTarget": "Invalid device IP address.",
+  "fwStatusOtaUrlTooShort": "OTA URL is too short (firmware requires at least 12 characters).",
+  "fwStatusOtaUrlTooLong": "OTA URL is too long for the device (max 1300 characters).",
+  "fwStatusOtaInvalidChars": "OTA URL contains characters the device rejects (control codes, etc.).",
+  "fwStatusOtaBadScheme": "OTA URL must start with https:// or http:// (same rule as the device).",
+  "fwStatusOtaPayloadInvalid": "OTA command does not pass device-side checks.",
+  "fwFillFromDevices": "Fill from Devices",
+  "fwFillFromDevicesTooltip": "Copy IP and UDP port from the first Wi-Fi device in your list (Devices tab).",
+  "fwStatusNoWifiDevice": "No Wi-Fi device with an IP in your list — add one under Devices.",
+  "fwStatusFilledFromDevice": "Filled from “{name}”: {ip}:{port}.",
   "pcHealthHeaderTitle": "PC Health",
   "pcHealthHeaderSubtitle": "Strip edge colors from system metrics. Pick PC Health on the overview to drive outputs.",
   "pcHealthHintWeb": "System metrics are not read on the web.",
@@ -1421,6 +1431,13 @@
   },
   "@fwStatusSendingOta": {
     "placeholders": {
+      "ip": {},
+      "port": {}
+    }
+  },
+  "@fwStatusFilledFromDevice": {
+    "placeholders": {
+      "name": {},
       "ip": {},
       "port": {}
     }

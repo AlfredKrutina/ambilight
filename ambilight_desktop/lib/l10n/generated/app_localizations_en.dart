@@ -2575,6 +2575,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fwStatusUdpFailed => 'UDP send failed.';
 
   @override
+  String get fwStatusOtaInvalidTarget => 'Invalid device IP address.';
+
+  @override
+  String get fwStatusOtaUrlTooShort =>
+      'OTA URL is too short (firmware requires at least 12 characters).';
+
+  @override
+  String get fwStatusOtaUrlTooLong =>
+      'OTA URL is too long for the device (max 1300 characters).';
+
+  @override
+  String get fwStatusOtaInvalidChars =>
+      'OTA URL contains characters the device rejects (control codes, etc.).';
+
+  @override
+  String get fwStatusOtaBadScheme =>
+      'OTA URL must start with https:// or http:// (same rule as the device).';
+
+  @override
+  String get fwStatusOtaPayloadInvalid =>
+      'OTA command does not pass device-side checks.';
+
+  @override
+  String get fwFillFromDevices => 'Fill from Devices';
+
+  @override
+  String get fwFillFromDevicesTooltip =>
+      'Copy IP and UDP port from the first Wi-Fi device in your list (Devices tab).';
+
+  @override
+  String get fwStatusNoWifiDevice =>
+      'No Wi-Fi device with an IP in your list — add one under Devices.';
+
+  @override
+  String fwStatusFilledFromDevice(Object name, Object ip, Object port) {
+    return 'Filled from “$name”: $ip:$port.';
+  }
+
+  @override
   String get pcHealthHeaderTitle => 'PC Health';
 
   @override

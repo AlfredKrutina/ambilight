@@ -7,6 +7,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 
+import '../../application/pipeline_diagnostics.dart';
 import '../../core/models/config_models.dart';
 import '../ambilight_engine.dart';
 import 'screen_color_pipeline.dart';
@@ -102,6 +103,16 @@ final class ScreenPipelineIsolateBridge {
   void pushConfig(AppConfig config) {
     final send = _workerSend;
     if (send == null || _dead) return;
+    if (ambilightPipelineDiagnosticsEnabled) {
+      final ds = config.globalSettings.devices;
+      final summary =
+          ds.map((d) => '${d.id}:lc=${d.ledCount}:ha=${d.controlViaHa}').join('|');
+      pipelineDiagLog(
+        'isolate_cfg_push_main',
+        'devices=${ds.length} {$summary} segments=${config.screenMode.segments.length} '
+        'screenMon=${config.screenMode.monitorIndex}',
+      );
+    }
     send.send(<String, Object?>{
       't': 'cfg',
       'cfg': config.toJson(),
@@ -209,7 +220,18 @@ void _screenPipelineIsolateEntry(SendPort replyToMain) {
       case 'cfg':
         final raw = m['cfg'];
         if (raw is Map) {
-          cfg = AppConfig.fromJson(Map<String, dynamic>.from(raw));
+          final parsed = AppConfig.fromJson(Map<String, dynamic>.from(raw));
+          cfg = parsed;
+          if (ambilightPipelineDiagnosticsEnabled) {
+            final ds = parsed.globalSettings.devices;
+            final summary =
+                ds.map((d) => '${d.id}:lc=${d.ledCount}').join('|');
+            pipelineDiagIsolatePrint(
+              'isolate_cfg_rx devices=${ds.length} {$summary} '
+              'segments=${parsed.screenMode.segments.length} '
+              'screenMon=${parsed.screenMode.monitorIndex}',
+            );
+          }
         }
         return;
       case 'reset':
@@ -258,13 +280,14 @@ void _screenPipelineIsolateEntry(SendPort replyToMain) {
           );
           return;
         }
+        final isolateSw = ambilightPipelineDiagnosticsEnabled ? (Stopwatch()..start()) : null;
+        if (ambilightPipelineDiagnosticsEnabled && seq % 30 == 0) {
+          ScreenColorPipeline.logSegmentDiagnosticsForFrame(c, frame);
+        }
         try {
           final rawColors = ScreenColorPipeline.processFrameToDevices(c, frame, runtime);
-          final smoothed = runtime.applyTemporalSmoothing(
-            targets: rawColors,
-            smoothMs: c.screenMode.interpolationMs,
-          );
-          final packed = packDeviceRgbMap(smoothed);
+          // Zero-latency diagnostika: bez časového EMA ([interpolationMs] ignorováno).
+          final packed = packDeviceRgbMap(rawColors);
           var rgbSum = 0;
           for (final buf in packed.values) {
             for (var i = 0; i < buf.length; i++) {
@@ -275,12 +298,19 @@ void _screenPipelineIsolateEntry(SendPort replyToMain) {
             'ISOLATE OUTPUT SUM: $rgbSum (packedRgbBytes=${packed.values.fold<int>(0, (a, b) => a + b.length)} '
             'devices=${packed.length})',
           );
+          if (isolateSw != null) {
+            isolateSw.stop();
+            pipelineDiagIsolatePrint(
+              'isolate_frame_done seq=$seq processMs=${isolateSw.elapsedMilliseconds} rgbSum=$rgbSum',
+            );
+          }
           replyToMain.send(<String, Object?>{
             't': 'out',
             'seq': seq,
             'packed': packed,
           });
         } catch (e, st) {
+          isolateSw?.stop();
           print('ISOLATE EXCEPTION seq=$seq: $e');
           print('ISOLATE STACK: $st');
           ackSkip('exception in processFrameToDevices / smoothing (see ISOLATE EXCEPTION)');

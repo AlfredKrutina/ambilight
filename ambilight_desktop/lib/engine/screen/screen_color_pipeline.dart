@@ -3,8 +3,13 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 
+import '../../application/pipeline_diagnostics.dart';
 import '../../core/models/config_models.dart';
+import '../../core/protocol/serial_frame.dart';
 import 'screen_frame.dart';
+
+/// Throttle [processFrameToDevices] H1/H2 diagnostic prints (isolate / sync path).
+int _processFrameDiagThrottle = 0;
 
 typedef CaptureLedKey = (String?, int);
 
@@ -24,7 +29,7 @@ abstract final class ScreenColorPipeline {
   static int combinedDeviceLedCount(AppConfig config) {
     final ds = config.globalSettings.devices;
     if (ds.isEmpty) {
-      return config.globalSettings.ledCount.clamp(1, 512);
+      return config.globalSettings.ledCount.clamp(1, SerialAmbilightProtocol.maxLedsPerDevice);
     }
     var s = 0;
     for (final d in ds) {
@@ -41,6 +46,32 @@ abstract final class ScreenColorPipeline {
   }
 
   /// Rozdělí LED indexy 0…N−1 na levou / horní / pravou / spodní hranu (plný ROI, `ref_*` = 0).
+  /// Nejvyšší LED index + 1 ze segmentů pro [deviceId] (`primary` → první zařízení).
+  static int impliedLedCountFromSegments(AppConfig config, String deviceId) {
+    final devices = config.globalSettings.devices;
+    if (devices.isEmpty) return 0;
+    final primaryId = devices.first.id;
+    var hi = -1;
+    for (final seg in effectiveScreenSegments(config)) {
+      var tid = seg.deviceId;
+      if (tid == null || tid.isEmpty || tid == 'primary') {
+        tid = primaryId;
+      }
+      if (tid != deviceId) continue;
+      hi = math.max(hi, math.max(seg.ledStart, seg.ledEnd));
+    }
+    return hi < 0 ? 0 : hi + 1;
+  }
+
+  /// Délka výstupního bufferu: nesklízí starý discovery počet (např. 512), když segmenty sahají jen do 99.
+  static int effectiveDeviceLedCount(AppConfig config, DeviceSettings dev) {
+    final cap = SerialAmbilightProtocol.maxLedsPerDevice;
+    final stored = dev.ledCount.clamp(1, cap);
+    final implied = impliedLedCountFromSegments(config, dev.id);
+    if (implied <= 0) return stored;
+    return math.min(stored, implied).clamp(1, cap);
+  }
+
   static List<LedSegment> implicitScreenSegments(AppConfig config) {
     final n = combinedDeviceLedCount(config);
     final mi = config.screenMode.monitorIndex;
@@ -87,6 +118,73 @@ abstract final class ScreenColorPipeline {
     return false;
   }
 
+  /// Diagnostika ([AMBI_PIPELINE_DIAGNOSTICS]): shoda segmentů s [frame] a ROI v pixelech snímku (např. po downscale).
+  static void logSegmentDiagnosticsForFrame(AppConfig config, ScreenFrame frame) {
+    if (!ambilightPipelineDiagnosticsEnabled) return;
+    final sm = config.screenMode;
+    pipelineDiagLog(
+      'segment_cfg',
+      'minBrightness=${sm.minBrightness} interpolationMs=${sm.interpolationMs}',
+    );
+    final segs = effectiveScreenSegments(config);
+    var matched = 0;
+    for (var i = 0; i < segs.length; i++) {
+      final seg = segs[i];
+      final ok = segmentMatchesCaptureFrame(seg, frame);
+      if (!ok) {
+        pipelineDiagLog(
+          'segment_skip',
+          'i=$i edge=${seg.edge} monSeg=${seg.monitorIdx} monFrame=${frame.monitorIndex}',
+        );
+        continue;
+      }
+      matched++;
+      final roi = segmentRoi(seg, sm, frame.width, frame.height);
+      pipelineDiagLog(
+        'segment_roi',
+        'i=$i edge=${seg.edge} led=${seg.ledStart}-${seg.ledEnd} px=${seg.pixelStart}-${seg.pixelEnd} '
+        'ref=${seg.refWidth}x${seg.refHeight} roi=${roi.x},${roi.y} ${roi.w}x${roi.h} empty=${roi.isEmpty}',
+      );
+    }
+    pipelineDiagLog(
+      'segment_summary',
+      'segments=${segs.length} matched=$matched frame=${frame.width}x${frame.height} mon=${frame.monitorIndex}',
+    );
+  }
+
+  static const int _kDefaultSegmentRefWidth = 1920;
+  static const int _kDefaultSegmentRefHeight = 1080;
+
+  /// ROI v [0 .. monW-1] × [0 .. monH-1], vždy aspoň 1×1 pokud je snímek neprázdný.
+  static SegmentRoiRect _roiClampMin1(SegmentRoiRect r, int monW, int monH) {
+    if (monW < 1 || monH < 1) {
+      return const SegmentRoiRect(x: 0, y: 0, w: 0, h: 0);
+    }
+    final maxX = monW - 1;
+    final maxY = monH - 1;
+    var x0 = r.x.clamp(0, maxX);
+    var y0 = r.y.clamp(0, maxY);
+    var x1 = r.x + r.w - 1;
+    var y1 = r.y + r.h - 1;
+    x1 = x1.clamp(0, maxX);
+    y1 = y1.clamp(0, maxY);
+    var w = x1 - x0 + 1;
+    var h = y1 - y0 + 1;
+    if (w < 1) {
+      w = 1;
+      x0 = x0.clamp(0, maxX);
+    }
+    if (h < 1) {
+      h = 1;
+      y0 = y0.clamp(0, maxY);
+    }
+    if (x0 + w > monW) x0 = monW - w;
+    if (y0 + h > monH) y0 = monH - h;
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    return SegmentRoiRect(x: x0, y: y0, w: w, h: h);
+  }
+
   /// ROI jako v Python `CaptureThread._recalc_geometry_cache` (per-edge scan depth + padding).
   static SegmentRoiRect segmentRoi(
     LedSegment seg,
@@ -111,7 +209,9 @@ abstract final class ScreenColorPipeline {
 
     var pS = seg.pixelStart;
     var pE = seg.pixelEnd;
+    var skipRefScale = false;
     if (pS == 0 && pE == 0) {
+      skipRefScale = true;
       if (seg.edge == 'top' || seg.edge == 'bottom') {
         pS = 0;
         pE = monW;
@@ -119,67 +219,109 @@ abstract final class ScreenColorPipeline {
         pS = 0;
         pE = monH;
       }
-    } else {
-      pS = seg.pixelStart;
-      pE = seg.pixelEnd;
     }
 
-    // Horizontální rozsah (horní/spodní okraj): škálovat podle šířky referenčního snímku.
-    // Vertikální rozsah (levý/pravý okraj): podle výšky — starší konfigurace mívají jen ref_width;
-    // pak použijeme ref_height nebo ref_width jako fallback pro poměr výšky.
-    if (seg.edge == 'top' || seg.edge == 'bottom') {
-      if (seg.refWidth > 0) {
-        final scale = monW / seg.refWidth;
-        pS = (pS * scale).floor();
-        pE = (pE * scale).floor();
-      }
-    } else {
-      final refV = seg.refHeight > 0 ? seg.refHeight : seg.refWidth;
-      if (refV > 0) {
-        final scale = monH / refV;
-        pS = (pS * scale).floor();
-        pE = (pE * scale).floor();
+    // pixelStart/End v referenčním rozlišení; při ref 0 fallback 1920×1080. Plný okraj (0,0) už je v pixelech snímku.
+    if (!skipRefScale) {
+      if (seg.edge == 'top' || seg.edge == 'bottom') {
+        final refSpan = seg.refWidth > 0 ? seg.refWidth : _kDefaultSegmentRefWidth;
+        final inv = 1.0 / refSpan;
+        var f0 = pS * inv;
+        var f1 = pE * inv;
+        if (f0 > f1) {
+          final t = f0;
+          f0 = f1;
+          f1 = t;
+        }
+        f0 = f0.clamp(0.0, 1.0);
+        f1 = f1.clamp(0.0, 1.0);
+        pS = (f0 * monW).floor();
+        pE = (f1 * monW).ceil();
+        if (pE <= pS) pE = math.min(monW, pS + 1);
+      } else {
+        final refSpan = seg.refHeight > 0
+            ? seg.refHeight
+            : (seg.refWidth > 0 ? seg.refWidth : _kDefaultSegmentRefHeight);
+        final inv = 1.0 / refSpan;
+        var f0 = pS * inv;
+        var f1 = pE * inv;
+        if (f0 > f1) {
+          final t = f0;
+          f0 = f1;
+          f1 = t;
+        }
+        f0 = f0.clamp(0.0, 1.0);
+        f1 = f1.clamp(0.0, 1.0);
+        pS = (f0 * monH).floor();
+        pE = (f1 * monH).ceil();
+        if (pE <= pS) pE = math.min(monH, pS + 1);
       }
     }
+
+    int iclamp(int v, int lo, int hi) => v < lo ? lo : (v > hi ? hi : v);
 
     switch (seg.edge) {
       case 'top':
         final depth = math.max(10, (monH * (scanTop / 100.0)).floor());
-        var roiY0 = padTopPx;
-        var roiY1 = padTopPx + depth;
-        roiY0 = roiY0.clamp(0, monH - 1);
-        roiY1 = math.max(roiY0 + 1, roiY1.clamp(0, monH));
-        var x0 = pS.clamp(padLeftPx, monW - padRightPx - 1);
-        var x1 = math.max(x0 + 1, pE.clamp(0, monW - padRightPx));
-        return SegmentRoiRect(x: x0, y: roiY0, w: x1 - x0, h: roiY1 - roiY0);
+        int roiY0 = iclamp(padTopPx, 0, math.max(0, monH - 1));
+        int roiY1 = iclamp(padTopPx + depth, 0, monH);
+        roiY1 = math.max(roiY0 + 1, roiY1);
+        if (roiY1 > monH) roiY1 = monH;
+        int x0 = iclamp(pS, 0, math.max(0, monW - 1));
+        int x1 = iclamp(pE, 0, monW);
+        x1 = math.max(x0 + 1, x1);
+        if (x1 > monW) x1 = monW;
+        return _roiClampMin1(
+          SegmentRoiRect(x: x0, y: roiY0, w: x1 - x0, h: roiY1 - roiY0),
+          monW,
+          monH,
+        );
       case 'bottom':
         final depth = math.max(10, (monH * (scanBottom / 100.0)).floor());
-        var roiY0 = monH - padBottomPx - depth;
-        var roiY1 = monH - padBottomPx;
-        roiY0 = roiY0.clamp(0, monH - 1);
-        roiY1 = math.max(roiY0 + 1, roiY1.clamp(0, monH));
-        var x0 = pS.clamp(padLeftPx, monW - padRightPx - 1);
-        var x1 = math.max(x0 + 1, pE.clamp(0, monW - padRightPx));
-        return SegmentRoiRect(x: x0, y: roiY0, w: x1 - x0, h: roiY1 - roiY0);
+        int roiY1 = iclamp(monH - padBottomPx, 0, monH);
+        int roiY0 = iclamp(monH - padBottomPx - depth, 0, math.max(0, monH - 1));
+        roiY1 = math.max(roiY0 + 1, roiY1);
+        if (roiY1 > monH) roiY1 = monH;
+        int x0 = iclamp(pS, 0, math.max(0, monW - 1));
+        int x1 = iclamp(pE, 0, monW);
+        x1 = math.max(x0 + 1, x1);
+        if (x1 > monW) x1 = monW;
+        return _roiClampMin1(
+          SegmentRoiRect(x: x0, y: roiY0, w: x1 - x0, h: roiY1 - roiY0),
+          monW,
+          monH,
+        );
       case 'left':
         final depth = math.max(10, (monW * (scanLeft / 100.0)).floor());
-        var roiX0 = padLeftPx;
-        var roiX1 = padLeftPx + depth;
-        roiX0 = roiX0.clamp(0, monW - 1);
-        roiX1 = math.max(roiX0 + 1, roiX1.clamp(0, monW));
-        var y0 = pS.clamp(padTopPx, monH - padBottomPx - 1);
-        var y1 = math.max(y0 + 1, pE.clamp(0, monH - padBottomPx));
-        return SegmentRoiRect(x: roiX0, y: y0, w: roiX1 - roiX0, h: y1 - y0);
+        int roiX0 = iclamp(padLeftPx, 0, math.max(0, monW - 1));
+        int roiX1 = iclamp(padLeftPx + depth, 0, monW);
+        roiX1 = math.max(roiX0 + 1, roiX1);
+        if (roiX1 > monW) roiX1 = monW;
+        int y0 = iclamp(pS, 0, math.max(0, monH - 1));
+        int y1 = iclamp(pE, 0, monH);
+        y1 = math.max(y0 + 1, y1);
+        if (y1 > monH) y1 = monH;
+        return _roiClampMin1(
+          SegmentRoiRect(x: roiX0, y: y0, w: roiX1 - roiX0, h: y1 - y0),
+          monW,
+          monH,
+        );
       case 'right':
       default:
         final depth = math.max(10, (monW * (scanRight / 100.0)).floor());
-        var roiX0 = monW - padRightPx - depth;
-        var roiX1 = monW - padRightPx;
-        roiX0 = roiX0.clamp(0, monW - 1);
-        roiX1 = math.max(roiX0 + 1, roiX1.clamp(0, monW));
-        var y0 = pS.clamp(padTopPx, monH - padBottomPx - 1);
-        var y1 = math.max(y0 + 1, pE.clamp(0, monH - padBottomPx));
-        return SegmentRoiRect(x: roiX0, y: y0, w: roiX1 - roiX0, h: y1 - y0);
+        int roiX1 = iclamp(monW - padRightPx, 0, monW);
+        int roiX0 = iclamp(monW - padRightPx - depth, 0, math.max(0, monW - 1));
+        roiX1 = math.max(roiX0 + 1, roiX1);
+        if (roiX1 > monW) roiX1 = monW;
+        int y0 = iclamp(pS, 0, math.max(0, monH - 1));
+        int y1 = iclamp(pE, 0, monH);
+        y1 = math.max(y0 + 1, y1);
+        if (y1 > monH) y1 = monH;
+        return _roiClampMin1(
+          SegmentRoiRect(x: roiX0, y: y0, w: roiX1 - roiX0, h: y1 - y0),
+          monW,
+          monH,
+        );
     }
   }
 
@@ -556,7 +698,8 @@ abstract final class ScreenColorPipeline {
     final devices = config.globalSettings.devices;
     final out = <String, List<(int, int, int)>>{};
     for (final dev in devices) {
-      out[dev.id] = List<(int, int, int)>.filled(dev.ledCount, (0, 0, 0), growable: false);
+      final n = effectiveDeviceLedCount(config, dev);
+      out[dev.id] = List<(int, int, int)>.filled(n, (0, 0, 0), growable: false);
     }
     if (devices.isEmpty) return out;
 
@@ -586,6 +729,7 @@ abstract final class ScreenColorPipeline {
     ScreenFrame frame,
     ScreenPipelineRuntime runtime,
   ) {
+    final devices = config.globalSettings.devices;
     final segs = effectiveScreenSegments(config);
     final maxLeds = segs.isEmpty
         ? 1
@@ -597,6 +741,30 @@ abstract final class ScreenColorPipeline {
       segments: segs,
       reusableRgbStrip: runtime.rgbStripWork,
     );
+
+    if (ambilightPipelineDiagnosticsEnabled) {
+      var segMatchMon = 0;
+      var segMissMon = 0;
+      for (final seg in segs) {
+        if (segmentMatchesCaptureFrame(seg, frame)) {
+          segMatchMon++;
+        } else {
+          segMissMon++;
+        }
+      }
+      final shouldLog = devices.isEmpty ||
+          (captured.isEmpty && devices.isNotEmpty && segs.isNotEmpty);
+      if (shouldLog && (++_processFrameDiagThrottle % 30 == 1)) {
+        pipelineDiagIsolatePrint(
+          'process_frame '
+          '${devices.isEmpty ? 'H1_devices_empty' : 'H2_captured_empty_or_no_samples'} '
+          'devices=${devices.length} segs=${segs.length} segMatchMon=$segMatchMon '
+          'segMissMon=$segMissMon capturedKeys=${captured.length} '
+          'frameMon=${frame.monitorIndex} ${frame.width}x${frame.height}',
+        );
+      }
+    }
+
     return mergeCaptureToDeviceBuffers(config, captured);
   }
 }

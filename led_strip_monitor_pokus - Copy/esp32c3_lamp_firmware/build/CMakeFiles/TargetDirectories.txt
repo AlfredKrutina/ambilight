@@ -151,6 +151,13 @@ D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lam
 D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/esp_bootloader_format/CMakeFiles/install/local.dir
 D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/esp_bootloader_format/CMakeFiles/install/strip.dir
 D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/app_update/CMakeFiles/__idf_app_update.dir
+D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/app_update/CMakeFiles/blank_ota_data.dir
+D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/app_update/CMakeFiles/read-otadata.dir
+D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/app_update/CMakeFiles/read_otadata.dir
+D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/app_update/CMakeFiles/erase-otadata.dir
+D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/app_update/CMakeFiles/erase_otadata.dir
+D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/app_update/CMakeFiles/otadata-flash.dir
+D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/app_update/CMakeFiles/encrypted-otadata-flash.dir
 D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/app_update/CMakeFiles/edit_cache.dir
 D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/app_update/CMakeFiles/rebuild_cache.dir
 D:/projects/Programming/Git/ambilight/led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/build/esp-idf/app_update/CMakeFiles/list_install_components.dir

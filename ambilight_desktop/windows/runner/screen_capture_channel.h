@@ -5,7 +5,7 @@
 
 #include <windows.h>
 
-/// Registruje method channel `ambilight/screen_capture` (GDI BitBlt, worker thread).
+/// Registruje method channel `ambilight/screen_capture` (Windows: DXGI + GDI fallback, worker thread).
 /// Kontrakt metod: viz `context/SCREEN_CAPTURE_CHANNEL.md`.
 void RegisterAmbilightScreenCapture(HWND window_handle, flutter::FlutterEngine* engine);
 

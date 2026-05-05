@@ -185,10 +185,31 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
     return _monitorMss.clamp(1, 32);
   }
 
+  /// Odhad délky pásu během průvodce: max z doposud zadaných indexů (+1), v append režimu i existující segmenty zařízení.
+  int _previewStripLedCount(AppConfig cfg) {
+    final targetId = _resolvedDeviceId(cfg);
+    final d = _findDevice(cfg);
+    final fallback = (d?.ledCount ?? cfg.globalSettings.ledCount)
+        .clamp(1, SerialAmbilightProtocol.maxLedsPerDevice);
+    var maxCap = 0;
+    for (final v in _captured.values) {
+      if (v > maxCap) maxCap = v;
+    }
+    var base = _captured.isNotEmpty ? math.max(1, maxCap + 1) : fallback;
+    if (_append && targetId != null) {
+      for (final seg in cfg.screenMode.segments) {
+        if (seg.deviceId != targetId) continue;
+        final hi = math.max(seg.ledStart, seg.ledEnd);
+        base = math.max(base, hi + 1);
+      }
+    }
+    return base.clamp(1, SerialAmbilightProtocol.maxLedsPerDevice);
+  }
+
   void _syncSliderFromDevice(AmbilightAppController c) {
     final d = _findDevice(c.config);
     final maxIdx = _sliderMaxForDevice(d);
-    final ledN = d?.ledCount ?? c.config.globalSettings.ledCount;
+    final ledN = _previewStripLedCount(c.config);
     final v = (ledN ~/ 2).clamp(0, maxIdx).toDouble();
     setState(() => _sliderValue = v);
     _pushPreview(c);
@@ -309,7 +330,15 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
       ));
     }
 
-    final newLedCount = math.max(dev.ledCount, maxLedIdx + 1);
+    var maxIdxAll = maxLedIdx;
+    if (_append) {
+      for (final seg in c.config.screenMode.segments) {
+        if (seg.deviceId != targetId) continue;
+        maxIdxAll = math.max(maxIdxAll, math.max(seg.ledStart, seg.ledEnd));
+      }
+    }
+    final newLedCount = math
+        .min(SerialAmbilightProtocol.maxLedsPerDevice, math.max(1, maxIdxAll + 1));
     final devs = c.config.globalSettings.devices
         .map((d) => d.id == targetId ? d.copyWith(ledCount: newLedCount) : d)
         .toList();
@@ -331,6 +360,7 @@ class _LedStripWizardDialogState extends State<LedStripWizardDialog> {
         globalSettings: c.config.globalSettings.copyWith(
           devices: devs,
           startMode: 'screen',
+          ledCount: newLedCount,
         ),
         screenMode: c.config.screenMode.copyWith(
           segments: merged,

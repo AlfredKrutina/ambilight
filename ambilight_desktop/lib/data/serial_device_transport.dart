@@ -9,6 +9,7 @@ import 'package:logging/logging.dart';
 
 import '../application/build_environment.dart';
 import '../application/debug_trace.dart';
+import '../application/pipeline_diagnostics.dart';
 import '../core/models/config_models.dart';
 import '../core/protocol/serial_frame.dart';
 import 'device_transport.dart';
@@ -76,6 +77,9 @@ class SerialDeviceTransport extends DeviceTransport {
   /// Perioda vyprázdnění fronty zápisů (ms); v performance módu vyšší = méně wake-upů.
   int _writeQueuePeriodMs;
 
+  /// Řídký vzorek rámců při [AMBI_PIPELINE_DIAGNOSTICS].
+  int _diagSerialColorSampleCounter = 0;
+
   /// Jednorázový odběh [_drain] hned po enqueue — bez čekání na periodic timer (nižší latence na pásku).
   bool _drainKickScheduled = false;
 
@@ -140,9 +144,17 @@ class SerialDeviceTransport extends DeviceTransport {
           provisional = null;
           return;
         }
-        // Stejné signály jako Python `SerialHandler._connect`: RTS on, DTR off,
-        // plná 8N1 + bez flow control (Win/macOS driver parity).
+        // ESP32-C3 USB-JTAG CDC: RTS i DTR musí být asserted, jinak host nepřijímá RX.
+        // Klasické USB-UART bridge často stačí RTS on + DTR off (Python); zde výchozí oba ON.
         _applySerialConfig(p);
+        try {
+          final usbLines = p.config;
+          usbLines.rts = SerialPortRts.on;
+          usbLines.dtr = SerialPortDtr.on;
+          p.config = usbLines;
+        } catch (e, st) {
+          _log.fine('USB-JTAG DTR/RTS reassert: $e', e, st);
+        }
         try {
           p.flush(SerialPortBuffer.both);
         } catch (e, st) {
@@ -203,6 +215,20 @@ class SerialDeviceTransport extends DeviceTransport {
         'queueMs=${_writeQueuePeriodMs.clamp(2, 32)} led=${device.ledCount}',
       );
       _log.info('Serial connected $portName');
+      if (ambilightPipelineDiagnosticsEnabled) {
+        pipelineDiagLog(
+          'serial_open',
+          'dev=${device.id} port=$portName baud=$baudRate wire=8N1 flow=none intended_Rts=on Dtr=on '
+          '(ESP USB-JTAG CDC; viz [_applySerialConfig])',
+        );
+        final ping = Uint8List.fromList([SerialAmbilightProtocol.ping]);
+        pipelineDiagLog('serial_handshake', 'ping_hex=${pipelineDiagHexPrefix(ping)} pong_expected=0x${SerialAmbilightProtocol.pong.toRadixString(16)}');
+        final ann = SerialAmbilightProtocol.buildLedCountCommand(device.ledCount);
+        pipelineDiagLog(
+          'serial_announce_led_count',
+          'hex=${pipelineDiagHexPrefix(ann)} ledCount=${device.ledCount} wideFrame=${device.ledCount > SerialAmbilightProtocol.legacyFrameMaxLeds}',
+        );
+      }
       announceLogicalStripLength(device.ledCount);
       final qMs = _writeQueuePeriodMs.clamp(2, 32);
       _drainTimer ??= Timer.periodic(Duration(milliseconds: qMs), (_) => _drain());
@@ -244,7 +270,7 @@ class SerialDeviceTransport extends DeviceTransport {
       ..stopBits = 1
       ..setFlowControl(SerialPortFlowControl.none)
       ..rts = rts ?? SerialPortRts.on
-      ..dtr = dtr ?? SerialPortDtr.off;
+      ..dtr = dtr ?? SerialPortDtr.on;
     try {
       port.config = cfg;
     } catch (e, st) {
@@ -469,6 +495,13 @@ class SerialDeviceTransport extends DeviceTransport {
       stripLength: strip,
       brightnessScalar: brightnessScalar,
     );
+    _diagSerialColorSampleCounter++;
+    if (ambilightPipelineDiagnosticsEnabled && _diagSerialColorSampleCounter % 120 == 0) {
+      pipelineDiagLog(
+        'serial_color_frame_sample',
+        'start=0x${packet.isNotEmpty ? packet[0].toRadixString(16) : '?'} len=${packet.length} strip=$strip',
+      );
+    }
     while (_queue.length >= 2) {
       _queue.removeFirst();
     }

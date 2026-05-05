@@ -28,6 +28,52 @@ void main() {
       expect(r.h, greaterThan(0));
       expect(r.w, 100);
     });
+
+    test('legacy pixel span scales by refWidth to downscaled frame', () {
+      const sm = ScreenModeSettings(
+        scanDepthTop: 10,
+        paddingPercent: 0,
+        paddingLeft: 0,
+        paddingRight: 0,
+        paddingTop: 0,
+        paddingBottom: 0,
+      );
+      const seg = LedSegment(
+        ledStart: 0,
+        ledEnd: 3,
+        edge: 'top',
+        pixelStart: 0,
+        pixelEnd: 960,
+        refWidth: 1920,
+        refHeight: 1080,
+      );
+      final r = ScreenColorPipeline.segmentRoi(seg, sm, 256, 144);
+      expect(r.x, 0);
+      expect(r.w, 128);
+    });
+
+    test('vertical edge span scales by refHeight to downscaled frame', () {
+      const sm = ScreenModeSettings(
+        scanDepthLeft: 10,
+        paddingPercent: 0,
+        paddingLeft: 0,
+        paddingRight: 0,
+        paddingTop: 0,
+        paddingBottom: 0,
+      );
+      const seg = LedSegment(
+        ledStart: 0,
+        ledEnd: 3,
+        edge: 'left',
+        pixelStart: 0,
+        pixelEnd: 540,
+        refWidth: 1920,
+        refHeight: 1080,
+      );
+      final r = ScreenColorPipeline.segmentRoi(seg, sm, 256, 144);
+      expect(r.y, 0);
+      expect(r.h, 72);
+    });
   });
 
   group('sampleRoiColors', () {

@@ -7,11 +7,15 @@
 
 #include <algorithm>
 #include <cmath>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -31,10 +35,178 @@ struct CaptureDonePayload {
   int width = 0;
   int height = 0;
   int monitor_index = 0;
+  /// DXGI [AcquireNextFrame(0)] — žádný nový frame; Dart má ponechat poslední snímek.
+  bool no_update = false;
 };
 
 HWND g_window = nullptr;
 std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> g_channel;
+
+struct CaptureJob {
+  int monitor_index = 0;
+  std::string capture_backend;
+  std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result;
+  HWND reply_hwnd = nullptr;
+};
+
+std::mutex g_capture_queue_mu;
+std::condition_variable g_capture_queue_cv;
+std::deque<CaptureJob> g_capture_queue;
+bool g_capture_worker_shutdown = false;
+std::thread g_capture_worker;
+
+void PostCapturePayloadToUi(HWND hwnd, std::unique_ptr<CaptureDonePayload> payload) {
+  if (!hwnd || !::IsWindow(hwnd)) {
+    if (payload->result) {
+      payload->result->Error("no_window", "Capture window gone before completion",
+                             flutter::EncodableValue());
+    }
+    return;
+  }
+  CaptureDonePayload* raw = payload.get();
+  if (!::PostMessageW(hwnd, kAmbilightCaptureDone, kAmbilightCaptureMagic,
+                       reinterpret_cast<LPARAM>(raw))) {
+    if (payload->result) {
+      payload->result->Error("post_failed", "Could not post capture result to UI thread",
+                             flutter::EncodableValue());
+    }
+    return;
+  }
+  (void)payload.release();
+}
+
+/// Jedno zpracování — běží na dedikovaném worker vlákně (žádný `std::thread::detach` na snímek).
+void ExecuteCaptureJob(CaptureJob job) {
+  HWND hwnd = job.reply_hwnd;
+  const int monitor_index = job.monitor_index;
+  const std::string& capture_backend = job.capture_backend;
+
+  RECT rc{};
+  int resolved = monitor_index;
+  std::vector<uint8_t> rgba;
+  int w = 0;
+  int h = 0;
+  bool ok = ResolveCaptureRect(monitor_index, rc, resolved);
+  bool got = false;
+  const bool want_dxgi = ok && capture_backend == "dxgi" && resolved > 0;
+  bool dxgi_ok = false;
+  bool dxgi_wait_timeout = false;
+  std::string path_tag = !ok ? "resolve_fail" : "pending";
+
+  if (want_dxgi) {
+    dxgi_ok = AmbilightDxgiCaptureRect(rc, rgba, w, h, &dxgi_wait_timeout);
+    got = dxgi_ok;
+    if (dxgi_ok) {
+      path_tag = "dxgi";
+    } else if (dxgi_wait_timeout) {
+      path_tag = "dxgi_no_frame";
+    }
+  }
+  if (!got && ok && !(want_dxgi && dxgi_wait_timeout)) {
+    const bool gdi_ok = RectToRgba(rc, rgba, w, h);
+    got = gdi_ok;
+    if (gdi_ok) {
+      path_tag = want_dxgi && !dxgi_ok ? "gdi_fallback" : "gdi";
+    }
+  }
+  if (!got && path_tag == "pending") {
+    path_tag = "capture_failed";
+  }
+
+  if (got) {
+    std::vector<uint8_t> rgba_small;
+    int dw = w;
+    int dh = h;
+    DownscaleRgbaForAmbilight(rgba, w, h, rgba_small, dw, dh);
+    rgba = std::move(rgba_small);
+    w = dw;
+    h = dh;
+    got = !rgba.empty() && w > 0 && h > 0;
+  }
+
+  {
+    static std::mutex capture_diag_mu;
+    static uint64_t capture_diag_last_tick = 0;
+    const uint64_t now = ::GetTickCount64();
+    std::lock_guard<std::mutex> lock(capture_diag_mu);
+    if (now - capture_diag_last_tick >= 2000) {
+      capture_diag_last_tick = now;
+      std::string msg = std::string("[ambilight] CAPTURE path=") + path_tag +
+                        " requested=" + capture_backend + " final_ok=" + (got ? "1" : "0");
+      if (want_dxgi && !dxgi_ok && dxgi_wait_timeout && ok) {
+        msg += " dxgi_noop=1";
+      }
+      msg += " worker=1\n";
+      ::OutputDebugStringA(msg.c_str());
+    }
+  }
+
+  auto payload = std::make_unique<CaptureDonePayload>();
+  payload->result = std::move(job.result);
+  if (want_dxgi && !dxgi_ok && dxgi_wait_timeout && ok) {
+    payload->no_update = true;
+  } else if (got) {
+    payload->rgba = std::move(rgba);
+    payload->width = w;
+    payload->height = h;
+    payload->monitor_index = resolved;
+  }
+  PostCapturePayloadToUi(hwnd, std::move(payload));
+}
+
+void CaptureWorkerLoop() {
+  (void)::SetThreadPriority(::GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+  for (;;) {
+    CaptureJob job;
+    {
+      std::unique_lock<std::mutex> lk(g_capture_queue_mu);
+      g_capture_queue_cv.wait(lk, [] {
+        return g_capture_worker_shutdown || !g_capture_queue.empty();
+      });
+      if (g_capture_worker_shutdown && g_capture_queue.empty()) {
+        return;
+      }
+      if (g_capture_queue.empty()) {
+        continue;
+      }
+      job = std::move(g_capture_queue.front());
+      g_capture_queue.pop_front();
+    }
+    ExecuteCaptureJob(std::move(job));
+  }
+}
+
+void EnsureCaptureWorkerStarted() {
+  std::lock_guard<std::mutex> lk(g_capture_queue_mu);
+  if (g_capture_worker.joinable()) {
+    return;
+  }
+  g_capture_worker_shutdown = false;
+  g_capture_worker = std::thread(CaptureWorkerLoop);
+}
+
+void StopCaptureWorkerAndDrain() {
+  std::deque<CaptureJob> leftovers;
+  {
+    std::lock_guard<std::mutex> lk(g_capture_queue_mu);
+    g_capture_worker_shutdown = true;
+    leftovers.swap(g_capture_queue);
+  }
+  g_capture_queue_cv.notify_all();
+  if (g_capture_worker.joinable()) {
+    g_capture_worker.join();
+  }
+  // Po join žádný worker nevolá DXGI — bezpečně dokončíme čekající Future na UI vlákně jako no_update.
+  for (auto& j : leftovers) {
+    if (!j.result) {
+      continue;
+    }
+    auto payload = std::make_unique<CaptureDonePayload>();
+    payload->result = std::move(j.result);
+    payload->no_update = true;
+    PostCapturePayloadToUi(j.reply_hwnd, std::move(payload));
+  }
+}
 
 int RectWidth(const RECT& r) { return r.right - r.left; }
 int RectHeight(const RECT& r) { return r.bottom - r.top; }
@@ -262,61 +434,25 @@ void DispatchCaptureAsync(int monitor_index,
                           std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
   HWND hwnd = g_window;
   if (!hwnd) {
-    result->Error("no_window", "Capture window not ready",
-                  flutter::EncodableValue());
+    result->Error("no_window", "Capture window not ready", flutter::EncodableValue());
     return;
   }
-  std::thread([monitor_index, capture_backend, r = std::move(result), hwnd]() mutable {
-    RECT rc{};
-    int resolved = monitor_index;
-    std::vector<uint8_t> rgba;
-    int w = 0;
-    int h = 0;
-    bool ok = ResolveCaptureRect(monitor_index, rc, resolved);
-    bool got = false;
-    if (ok && capture_backend == "dxgi" && resolved > 0) {
-      got = AmbilightDxgiCaptureRect(rc, rgba, w, h);
-    }
-    if (!got && ok) {
-      got = RectToRgba(rc, rgba, w, h);
-    }
-    if (got) {
-      std::vector<uint8_t> rgba_small;
-      int dw = w;
-      int dh = h;
-      DownscaleRgbaForAmbilight(rgba, w, h, rgba_small, dw, dh);
-      rgba = std::move(rgba_small);
-      w = dw;
-      h = dh;
-      got = !rgba.empty() && w > 0 && h > 0;
-    }
-    auto payload = std::make_unique<CaptureDonePayload>();
-    payload->result = std::move(r);
-    if (got) {
-      payload->rgba = std::move(rgba);
-      payload->width = w;
-      payload->height = h;
-      payload->monitor_index = resolved;
-    }
-    if (!hwnd || !::IsWindow(hwnd)) {
-      if (payload->result) {
-        payload->result->Error("no_window", "Capture window gone before completion",
-                               flutter::EncodableValue());
+  CaptureJob job;
+  job.monitor_index = monitor_index;
+  job.capture_backend = capture_backend;
+  job.result = std::move(result);
+  job.reply_hwnd = hwnd;
+  {
+    std::lock_guard<std::mutex> lk(g_capture_queue_mu);
+    if (g_capture_worker_shutdown) {
+      if (job.result) {
+        job.result->Error("shutdown", "Screen capture worker stopped", flutter::EncodableValue());
       }
       return;
     }
-    CaptureDonePayload* raw = payload.get();
-    if (!::PostMessageW(hwnd, kAmbilightCaptureDone, kAmbilightCaptureMagic,
-                         reinterpret_cast<LPARAM>(raw))) {
-      if (payload->result) {
-        payload->result->Error(
-            "post_failed", "Could not post capture result to UI thread",
-            flutter::EncodableValue());
-      }
-      return;
-    }
-    (void)payload.release();
-  }).detach();
+    g_capture_queue.push_back(std::move(job));
+  }
+  g_capture_queue_cv.notify_one();
 }
 
 flutter::EncodableList BuildMonitorListEncodable() {
@@ -362,6 +498,12 @@ bool TryHandleAmbilightWindowMessage(HWND /*hwnd*/, UINT message,
   if (!payload->result) {
     return true;
   }
+  if (payload->no_update) {
+    flutter::EncodableMap map;
+    map[flutter::EncodableValue("noUpdate")] = flutter::EncodableValue(true);
+    payload->result->Success(flutter::EncodableValue(std::move(map)));
+    return true;
+  }
   if (payload->rgba.empty() || payload->width <= 0 || payload->height <= 0) {
     payload->result->Error("capture_failed", "Screen capture failed",
                            flutter::EncodableValue());
@@ -381,6 +523,7 @@ bool TryHandleAmbilightWindowMessage(HWND /*hwnd*/, UINT message,
 void RegisterAmbilightScreenCapture(HWND window_handle,
                                     flutter::FlutterEngine* engine) {
   g_window = window_handle;
+  EnsureCaptureWorkerStarted();
   g_channel = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
       engine->messenger(), "ambilight/screen_capture",
       &flutter::StandardMethodCodec::GetInstance());
@@ -413,7 +556,7 @@ void RegisterAmbilightScreenCapture(HWND window_handle,
         }
         if (call.method_name() == "capture") {
           int monitor_index = 1;
-          std::string capture_backend = "gdi";
+          std::string capture_backend = "dxgi";
           const flutter::EncodableValue* root = call.arguments();
           const auto* args =
               root ? std::get_if<flutter::EncodableMap>(root) : nullptr;
@@ -441,6 +584,7 @@ void RegisterAmbilightScreenCapture(HWND window_handle,
 }
 
 void UnregisterAmbilightScreenCapture() {
+  StopCaptureWorkerAndDrain();
   AmbilightDxgiShutdown();
   if (g_channel) {
     g_channel->SetMethodCallHandler(nullptr);

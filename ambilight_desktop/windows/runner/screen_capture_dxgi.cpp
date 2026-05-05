@@ -122,7 +122,11 @@ bool BuildDuplicationForRect(const RECT& target) {
 bool AmbilightDxgiCaptureRect(const RECT& src_rect,
                               std::vector<uint8_t>& out_rgba,
                               int& out_w,
-                              int& out_h) {
+                              int& out_h,
+                              bool* out_wait_timeout) {
+  if (out_wait_timeout) {
+    *out_wait_timeout = false;
+  }
   const int cw = src_rect.right - src_rect.left;
   const int ch = src_rect.bottom - src_rect.top;
   if (cw <= 0 || ch <= 0) {
@@ -139,9 +143,13 @@ bool AmbilightDxgiCaptureRect(const RECT& src_rect,
 
   IDXGIResource* desktop_resource = nullptr;
   DXGI_OUTDUPL_FRAME_INFO fi{};
-  HRESULT hr = g_dup->AcquireNextFrame(80, &fi, &desktop_resource);
+  // 0 ms — neblokuje na kompozitor; při WAIT_TIMEOUT vracíme false (Dart ponechá poslední snímek).
+  HRESULT hr = g_dup->AcquireNextFrame(0, &fi, &desktop_resource);
   if (hr == DXGI_ERROR_WAIT_TIMEOUT) {
-    hr = g_dup->AcquireNextFrame(80, &fi, &desktop_resource);
+    if (out_wait_timeout) {
+      *out_wait_timeout = true;
+    }
+    return false;
   }
   if (FAILED(hr) || !desktop_resource) {
     if (hr == DXGI_ERROR_ACCESS_LOST || hr == DXGI_ERROR_ACCESS_DENIED ||

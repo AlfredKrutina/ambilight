@@ -4,8 +4,8 @@ import 'dart:typed_data';
 
 import 'package:logging/logging.dart';
 
-import '../application/build_environment.dart';
 import '../application/debug_trace.dart';
+import '../application/pipeline_diagnostics.dart';
 import '../core/device_bindings_debug.dart';
 import '../core/models/config_models.dart';
 import '../core/protocol/udp_frame.dart';
@@ -15,8 +15,19 @@ import 'udp_socket_bind.dart';
 
 final _log = Logger('UdpTransport');
 
-/// Minimální odstup mezi bulk `0x02` rámci — lamp FW v `ambilight.c` zahazuje rámce blíž než ~15 ms.
-const Duration _kMinBulkRgbUdpInterval = Duration(milliseconds: 16);
+/// I při stejném hash pošli znovu, aby LED nestárly (plynulý pohyb při pomalé změně průměru).
+const int _kUdpDedupeMaxSkipAgeMs = 80;
+
+int _udpRgbFrameHash(List<(int r, int g, int b)> colors, int bri) {
+  var h = bri ^ (colors.length * 0x9E3779B9);
+  for (var i = 0; i < colors.length; i++) {
+    final c = colors[i];
+    h = 0x7fffffff & (h * 31 + c.$1);
+    h = 0x7fffffff & (h * 31 + c.$2);
+    h = 0x7fffffff & (h * 31 + c.$3);
+  }
+  return h;
+}
 
 class UdpDeviceTransport extends DeviceTransport {
   UdpDeviceTransport(super.device);
@@ -30,20 +41,19 @@ class UdpDeviceTransport extends DeviceTransport {
   /// Po [disconnect]/[dispose] se zvýší — [connect] po `await` nesmí pokračovat se starým socketem.
   int _lifecycleGen = 0;
 
-  Timer? _bulkFlushTimer;
-  List<(int r, int g, int b)>? _pendingRgb;
-  int _pendingBri = 255;
-  DateTime? _lastBulkSentWallClock;
-  int _coalesceReplaceCount = 0;
-  int _bulkSentCount = 0;
-  DateTime? _lastUdpMetricsLog;
   DateTime? _lastPartialSendLog;
 
-  /// Windows: vícedatagramové `0x06`+`0x08` nesmí běžet paralelně — jinak se pakety dvou snímků propletou a `send` vrací 0.
-  Future<void>? _windowsOversizedSendChain;
+  /// Nejnovější rámec z [sendColors]; starší se zahazují (max 1 slot). Worker běží na pozadí.
+  ({List<(int r, int g, int b)> colors, int bri})? _rgbLatestJob;
 
-  /// Lokální bind z [connect] — stejná větev jako úspěšný UDP probe na Windows.
-  InternetAddress? _udpBindAddrUsed;
+  /// Právě probíhá async odesílání ([_emitFramePaced]).
+  bool _rgbWorkerBusy = false;
+
+  /// Poslední úspěšně odeslaný rámec — [null] po [disconnect] / před prvním TX; viz [_emitFramePaced].
+  int? _lastSentRgbFrameHash;
+
+  /// Čas posledního úspěšného UDP emitu ([DateTime.now().millisecondsSinceEpoch]); 0 = ještě nebylo.
+  int _lastSuccessfulEmitWallMs = 0;
 
   @override
   bool get isConnected => _ready && _socket != null && _addr != null;
@@ -68,93 +78,26 @@ class UdpDeviceTransport extends DeviceTransport {
 
   int get _udpPort => device.udpPort.clamp(1, 65535);
 
-  void _sendUdp(RawDatagramSocket sock, Uint8List pkt, InternetAddress addr, int port) {
-    if (pkt.isEmpty) return;
-    if (Platform.isWindows) {
-      var n = sock.send(pkt, addr, port);
-      if (n == 0) {
-        n = sock.send(pkt, addr, port);
-      }
-      if (n == pkt.length) {
-        return;
-      }
-      // Krátký životní cyklus socketu jako při probe — na některých Windows buildích Flutter/Dart
-      // dlouho držení RawDatagramSocket + send vrací 0 a RawSocketEvent.write nepřijde.
-      unawaited(_sendUdpEphemeralWindows(Uint8List.fromList(pkt), addr, port));
-      return;
-    }
-    var n = sock.send(pkt, addr, port);
-    if (n == 0) {
-      n = sock.send(pkt, addr, port);
-    }
-    _logUdpSendFailureIfNeeded(n, pkt.length, addr, port);
-  }
-
-  Future<void> _sendUdpEphemeralWindows(Uint8List pkt, InternetAddress addr, int port) async {
-    await _sendPreparedPacketsEphemeralWindows(<Uint8List>[pkt], addr, port);
-  }
-
-  /// Jeden krátký UDP socket na celý „snímek“ — zachová pořadí `0x06`×N + `0x08` (Windows / Flutter).
-  Future<void> _sendPreparedPacketsEphemeralWindows(
-    List<Uint8List> packets,
-    InternetAddress addr,
-    int port,
-  ) async {
-    if (packets.isEmpty) {
-      return;
-    }
-    final genEnter = _lifecycleGen;
-    try {
-      InternetAddress bindAddr;
-      if (addr.type == InternetAddressType.IPv6) {
-        bindAddr = InternetAddress.anyIPv6;
-      } else {
-        bindAddr = _udpBindAddrUsed ??
-            await udpBindAddressForOutgoingTo(addr, probeDestinationPort: port);
-      }
-      if (genEnter != _lifecycleGen) {
-        return;
-      }
-      final s = await RawDatagramSocket.bind(bindAddr, 0, reuseAddress: true);
-      try {
-        if (genEnter != _lifecycleGen) {
-          return;
-        }
-        s.broadcastEnabled = false;
-        for (var i = 0; i < packets.length; i++) {
-          final pkt = packets[i];
-          await _sendOneEphemeralDatagramWindows(s, pkt, addr, port);
-        }
-        if (ambilightVerboseLogsEnabled && packets.isNotEmpty) {
-          final bytes = packets.fold<int>(0, (a, p) => a + p.length);
-          _log.fine(
-            'UDP Windows: ephemeral socket odesláno ${packets.length} pkt / $bytes B (persistent socket vrací 0)',
-          );
-        }
-      } finally {
-        s.close();
-      }
-    } catch (e, st) {
-      _log.fine('UDP Windows ephemeral: $e', e, st);
-    }
-  }
-
-  Future<void> _sendOneEphemeralDatagramWindows(
-    RawDatagramSocket s,
+  /// Trvalý socket: při neúplném `send` max. 5 pokusů s prodlevou 2 ms, pak zahodit datagram.
+  Future<bool> _sendDatagramPersistent(
+    RawDatagramSocket sock,
     Uint8List pkt,
     InternetAddress addr,
     int port,
   ) async {
-    const maxAttempts = 16;
-    const retryDelay = Duration(milliseconds: 2);
-    for (var attempt = 0; attempt < maxAttempts; attempt++) {
-      final n = s.send(pkt, addr, port);
-      if (n == pkt.length) {
-        return;
+    if (pkt.isEmpty) return true;
+    var failCount = 0;
+    var last = 0;
+    while (true) {
+      last = sock.send(pkt, addr, port);
+      if (last == pkt.length) return true;
+      failCount++;
+      if (failCount >= 5) {
+        _logUdpSendFailureIfNeeded(last, pkt.length, addr, port);
+        return false;
       }
-      await Future<void>.delayed(retryDelay);
+      await Future<void>.delayed(const Duration(milliseconds: 2));
     }
-    _logUdpSendFailureIfNeeded(0, pkt.length, addr, port);
   }
 
   void _logUdpSendFailureIfNeeded(int n, int expected, InternetAddress addr, int port) {
@@ -170,6 +113,144 @@ class UdpDeviceTransport extends DeviceTransport {
         'UDP send selhal ($n/$expected B) → ${device.name} ${addr.address}:$port '
         '(firewall / síť; rámce jsou << MTU a pod limitem lampy)',
       );
+    }
+  }
+
+  Future<void> _waitRgbTransportIdle() async {
+    while (_rgbWorkerBusy || _rgbLatestJob != null) {
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+      if (!_ready) {
+        return;
+      }
+    }
+  }
+
+  Future<void> _runRgbWorkerIfNeeded() async {
+    if (_rgbWorkerBusy) {
+      return;
+    }
+    _rgbWorkerBusy = true;
+    try {
+      while (_ready && _rgbLatestJob != null) {
+        final job = _rgbLatestJob!;
+        _rgbLatestJob = null;
+        await _emitFramePaced(job.colors, job.bri);
+      }
+    } finally {
+      _rgbWorkerBusy = false;
+      if (_rgbLatestJob != null && _ready) {
+        unawaited(_runRgbWorkerIfNeeded());
+      }
+    }
+  }
+
+  /// Jeden kompletní snímek — chunky 0x06 + flush 0x08; jen persistentní socket.
+  /// Mezi datagramy záměrně není `Future.delayed(1 ms)` — na Windows se mapuje na ~15,6 ms tick.
+  Future<void> _emitFramePaced(List<(int r, int g, int b)> colors, int brightnessScalar) async {
+    final genEnter = _lifecycleGen;
+    final sock = _socket;
+    final addr = _addr;
+    final emitSw = ambilightPipelineDiagnosticsEnabled ? (Stopwatch()..start()) : null;
+    var diagPath = 'abort';
+    if (!_ready || sock == null || addr == null || colors.isEmpty) {
+      emitSw?.stop();
+      return;
+    }
+    final bri = brightnessScalar.clamp(0, 255);
+    final frameHash = _udpRgbFrameHash(colors, bri);
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final rawEmitAgeMs =
+        _lastSuccessfulEmitWallMs == 0 ? _kUdpDedupeMaxSkipAgeMs + 1 : nowMs - _lastSuccessfulEmitWallMs;
+    // Záporný rozdíl (úprava systémového času) → chovej se jako „staré“, ať se rámec nezasekne ve skip.
+    final emitAgeMs = rawEmitAgeMs < 0 ? _kUdpDedupeMaxSkipAgeMs + 1 : rawEmitAgeMs;
+    final dedupeSkip =
+        _lastSentRgbFrameHash != null && frameHash == _lastSentRgbFrameHash && emitAgeMs <= _kUdpDedupeMaxSkipAgeMs;
+    if (dedupeSkip) {
+      emitSw?.stop();
+      if (ambilightPipelineDiagnosticsEnabled) {
+        final sinceCap = PipelineDiagCaptureTimeline.elapsedSinceCaptureMicros();
+        final sinceMs = sinceCap == null ? '-' : (sinceCap / 1000).toStringAsFixed(1);
+        pipelineDiagLog(
+          'udp_emit_skip',
+          'dev=${device.name} leds=${colors.length} hash=$frameHash sinceCaptureMs=$sinceMs emitAgeMs=$emitAgeMs',
+        );
+      }
+      return;
+    }
+    final port = _udpPort;
+    final cap = UdpAmbilightProtocol.maxRgbPixelsPerUdpDatagram;
+    try {
+      if (colors.length <= cap) {
+        diagPath = '0x02_bulk';
+        if (genEnter != _lifecycleGen) {
+          return;
+        }
+        final pkt = UdpAmbilightProtocol.buildRgbFrame(colors, brightness: bri);
+        if (!await _sendDatagramPersistent(sock, pkt, addr, port)) {
+          diagPath = 'abort_tx_blocked';
+          return;
+        }
+        _lastSentRgbFrameHash = frameHash;
+        _lastSuccessfulEmitWallMs = DateTime.now().millisecondsSinceEpoch;
+        return;
+      }
+      if (!_loggedUdpOversize) {
+        _loggedUdpOversize = true;
+        _log.info(
+          'UDP ${colors.length} LED > $cap — chunky 0x06 + jeden flush 0x08 (${device.name}). '
+          'Vyžaduje aktuální lamp FW; kalibrace jedním pixelem stále 0x03.',
+        );
+      }
+      final chunkMax = UdpAmbilightProtocol.maxRgbPixelsPerUdpOpcode06Chunk;
+      diagPath = '0x06_chunked';
+      var offset = 0;
+      while (offset < colors.length) {
+        if (genEnter != _lifecycleGen) {
+          return;
+        }
+        final take = colors.length - offset > chunkMax ? chunkMax : colors.length - offset;
+        final sub = colors.sublist(offset, offset + take);
+        final pkt = UdpAmbilightProtocol.buildRgbChunkOpcode06(offset, sub);
+        if (!await _sendDatagramPersistent(sock, pkt, addr, port)) {
+          diagPath = 'abort_tx_blocked';
+          return;
+        }
+        offset += take;
+      }
+      if (genEnter != _lifecycleGen) {
+        return;
+      }
+      if (!await _sendDatagramPersistent(
+        sock,
+        UdpAmbilightProtocol.buildFlushOpcode08(bri, colors.length),
+        addr,
+        port,
+      )) {
+        diagPath = 'abort_tx_blocked';
+        return;
+      }
+      _lastSentRgbFrameHash = frameHash;
+      _lastSuccessfulEmitWallMs = DateTime.now().millisecondsSinceEpoch;
+    } catch (e, st) {
+      _log.fine('sendColors: $e', e, st);
+    } finally {
+      emitSw?.stop();
+      if (ambilightPipelineDiagnosticsEnabled && emitSw != null) {
+        PipelineUdpDiagStats.emitCompleted++;
+        if (diagPath == '0x02_bulk') {
+          PipelineUdpDiagStats.path0x02Bulk++;
+        } else if (diagPath == '0x06_chunked') {
+          PipelineUdpDiagStats.path0x06Chunked++;
+        }
+        PipelineUdpDiagStats.recordEmitMs(emitSw.elapsedMilliseconds);
+        final sinceCap = PipelineDiagCaptureTimeline.elapsedSinceCaptureMicros();
+        final sinceMs = sinceCap == null ? '-' : (sinceCap / 1000).toStringAsFixed(1);
+        pipelineDiagLog(
+          'udp_emit_done',
+          'dev=${device.name} ms=${emitSw.elapsedMilliseconds} leds=${colors.length} path=$diagPath gen=$genEnter '
+          'sinceCaptureMs=$sinceMs',
+        );
+      }
     }
   }
 
@@ -202,8 +283,6 @@ class UdpDeviceTransport extends DeviceTransport {
         return;
       }
       _socket = sock;
-      _udpBindAddrUsed = bindAddr;
-      // Unicast na konkrétní IP — broadcast true umí na některých Windows driverech kazit send().
       _socket!.broadcastEnabled = false;
       _ready = true;
       traceDeviceBindings('UdpTransport.connect OK: ${device.id} → ${_addr!.address}:$_udpPort');
@@ -227,143 +306,14 @@ class UdpDeviceTransport extends DeviceTransport {
 
   @override
   void disconnect() {
-    _bulkFlushTimer?.cancel();
-    _bulkFlushTimer = null;
-    _pendingRgb = null;
     _lifecycleGen++;
-    _udpBindAddrUsed = null;
+    _lastSentRgbFrameHash = null;
+    _lastSuccessfulEmitWallMs = 0;
+    _rgbLatestJob = null;
     _ready = false;
     _socket?.close();
     _socket = null;
     _addr = null;
-    _windowsOversizedSendChain = null;
-  }
-
-  void _maybeLogUdpCoalesceMetrics() {
-    if (!ambilightVerboseLogsEnabled) return;
-    if (_coalesceReplaceCount == 0) return;
-    final now = DateTime.now();
-    if (_lastUdpMetricsLog != null && now.difference(_lastUdpMetricsLog!) < const Duration(seconds: 8)) {
-      return;
-    }
-    _lastUdpMetricsLog = now;
-    _log.info(
-      '[UDP pacing ${device.name}] bulk_out=$_bulkSentCount coalesced_incoming=$_coalesceReplaceCount '
-      '(FW ~15 ms limit — sloučení zabraňuje zahazování 0x02)',
-    );
-    _coalesceReplaceCount = 0;
-    _bulkSentCount = 0;
-  }
-
-  void _scheduleBulkFlush() {
-    if (_bulkFlushTimer?.isActive == true) return;
-    final last = _lastBulkSentWallClock;
-    final now = DateTime.now();
-    final delay = last == null
-        ? Duration.zero
-        : (() {
-            final elapsed = now.difference(last);
-            return elapsed >= _kMinBulkRgbUdpInterval ? Duration.zero : _kMinBulkRgbUdpInterval - elapsed;
-          })();
-    _bulkFlushTimer = Timer(delay, _onBulkFlushTimer);
-  }
-
-  void _onBulkFlushTimer() {
-    _bulkFlushTimer = null;
-    if (!_ready) {
-      _pendingRgb = null;
-      return;
-    }
-    final colors = _pendingRgb;
-    if (colors == null || colors.isEmpty) return;
-    _pendingRgb = null;
-    _sendColorsImmediateWithCompletion(
-      colors,
-      _pendingBri,
-      onFullySent: _completeBulkFlushCycle,
-    );
-  }
-
-  void _completeBulkFlushCycle() {
-    _lastBulkSentWallClock = DateTime.now();
-    _bulkSentCount++;
-    _maybeLogUdpCoalesceMetrics();
-    if (_pendingRgb != null && _pendingRgb!.isNotEmpty) {
-      _scheduleBulkFlush();
-    }
-  }
-
-  /// [onFullySent] po všech odchozích datagramech — Windows oversize čeká na ephemeral řetězec,
-  /// aby další bulk nezačal dřív (FW sdílený 15ms throttle mezi 0x08 / 0x02).
-  void _sendColorsImmediateWithCompletion(
-    List<(int r, int g, int b)> colors,
-    int brightnessScalar, {
-    required void Function() onFullySent,
-  }) {
-    final sock = _socket;
-    final addr = _addr;
-    if (!_ready || sock == null || addr == null || colors.isEmpty) {
-      onFullySent();
-      return;
-    }
-    final bri = brightnessScalar.clamp(0, 255);
-    final port = _udpPort;
-    final cap = UdpAmbilightProtocol.maxRgbPixelsPerUdpDatagram;
-    try {
-      if (colors.length <= cap) {
-        final pkt = UdpAmbilightProtocol.buildRgbFrame(colors, brightness: bri);
-        _sendUdp(sock, pkt, addr, port);
-        onFullySent();
-        return;
-      }
-      if (!_loggedUdpOversize) {
-        _loggedUdpOversize = true;
-        _log.info(
-          'UDP ${colors.length} LED > $cap — chunky 0x06 + jeden flush 0x08 (${device.name}). '
-          'Vyžaduje aktuální lamp FW; kalibrace jedním pixelem stále 0x03.',
-        );
-      }
-      final chunkMax = UdpAmbilightProtocol.maxRgbPixelsPerUdpOpcode06Chunk;
-      if (Platform.isWindows) {
-        final packets = <Uint8List>[];
-        var offset = 0;
-        while (offset < colors.length) {
-          final take = colors.length - offset > chunkMax ? chunkMax : colors.length - offset;
-          final sub = colors.sublist(offset, offset + take);
-          packets.add(UdpAmbilightProtocol.buildRgbChunkOpcode06(offset, sub));
-          offset += take;
-        }
-        packets.add(UdpAmbilightProtocol.buildFlushOpcode08(bri, colors.length));
-        _windowsOversizedSendChain =
-            (_windowsOversizedSendChain ?? Future<void>.value()).then((_) async {
-          try {
-            await _sendPreparedPacketsEphemeralWindows(packets, addr, port);
-          } finally {
-            onFullySent();
-          }
-        });
-        unawaited(_windowsOversizedSendChain);
-        return;
-      }
-      var offset = 0;
-      while (offset < colors.length) {
-        final take = colors.length - offset > chunkMax ? chunkMax : colors.length - offset;
-        final sub = colors.sublist(offset, offset + take);
-        final pkt = UdpAmbilightProtocol.buildRgbChunkOpcode06(offset, sub);
-        _sendUdp(sock, pkt, addr, port);
-        offset += take;
-      }
-      _sendUdp(
-        sock,
-        UdpAmbilightProtocol.buildFlushOpcode08(bri, colors.length),
-        addr,
-        port,
-      );
-      onFullySent();
-    } catch (e, st) {
-      _log.fine('sendColors: $e', e, st);
-      onFullySent();
-    }
   }
 
   @override
@@ -371,31 +321,48 @@ class UdpDeviceTransport extends DeviceTransport {
     if (!_ready || _socket == null || _addr == null || colors.isEmpty) {
       return;
     }
-    _bulkFlushTimer?.cancel();
-    _bulkFlushTimer = null;
-    _pendingRgb = null;
-    final completer = Completer<void>();
-    _sendColorsImmediateWithCompletion(
-      colors,
-      brightnessPercent.clamp(0, 255),
-      onFullySent: () {
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      },
-    );
-    return completer.future;
+    _lastSentRgbFrameHash = null;
+    _lastSuccessfulEmitWallMs = 0;
+    _rgbLatestJob = null;
+    while (_rgbWorkerBusy) {
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+      if (!_ready) {
+        return;
+      }
+    }
+    _rgbWorkerBusy = true;
+    try {
+      await _emitFramePaced(
+        List<(int, int, int)>.from(colors, growable: false),
+        brightnessPercent.clamp(0, 255),
+      );
+    } finally {
+      _rgbWorkerBusy = false;
+      if (_rgbLatestJob != null && _ready) {
+        unawaited(_runRgbWorkerIfNeeded());
+      }
+    }
   }
 
   @override
   void sendColors(List<(int r, int g, int b)> colors, int brightnessScalar) {
     if (!_ready || _socket == null || _addr == null || colors.isEmpty) return;
-    if (_pendingRgb != null) {
-      _coalesceReplaceCount++;
+    if (ambilightPipelineDiagnosticsEnabled) {
+      PipelineUdpDiagStats.sendColorsCalls++;
+      final hadQueued = _rgbLatestJob != null;
+      if (hadQueued) {
+        PipelineUdpDiagStats.jobSupersededWhileQueued++;
+        pipelineDiagLog(
+          'udp_sendColors_supersede',
+          'dev=${device.name} leds=${colors.length} workerBusy=$_rgbWorkerBusy',
+        );
+      }
     }
-    _pendingRgb = List<(int, int, int)>.from(colors, growable: false);
-    _pendingBri = brightnessScalar.clamp(0, 255);
-    _scheduleBulkFlush();
+    _rgbLatestJob = (
+      colors: List<(int, int, int)>.from(colors, growable: false),
+      bri: brightnessScalar.clamp(0, 255),
+    );
+    unawaited(_runRgbWorkerIfNeeded());
   }
 
   @override
@@ -406,17 +373,13 @@ class UdpDeviceTransport extends DeviceTransport {
     try {
       final pkt = Uint8List.fromList(UdpAmbilightProtocol.buildSinglePixel(index, r, g, b));
       final port = _udpPort;
-      // Windows: persistent RawDatagramSocket často vrací 0 — vždy ephemeral; zařadit za
-      // [_windowsOversizedSendChain], ať 0x03 neproběhne před dokončeným 0x06/0x08.
-      if (Platform.isWindows) {
-        _windowsOversizedSendChain =
-            (_windowsOversizedSendChain ?? Future<void>.value()).then((_) async {
-          await _sendUdpEphemeralWindows(pkt, addr, port);
-        });
-        unawaited(_windowsOversizedSendChain);
-        return;
-      }
-      _sendUdp(sock, pkt, addr, port);
+      unawaited(() async {
+        await _waitRgbTransportIdle();
+        if (!_ready || _socket == null || _addr == null) {
+          return;
+        }
+        await _sendDatagramPersistent(_socket!, pkt, _addr!, port);
+      }());
     } catch (e, st) {
       _log.fine('pixel send: $e', e, st);
     }
@@ -430,7 +393,6 @@ class UdpDeviceTransport extends DeviceTransport {
   @override
   void dispose() => disconnect();
 
-  /// Modré bliknutí na pásku (viz `ambilight.c` IDENTIFY).
   Future<bool> sendIdentify() async {
     final ip = device.ipAddress;
     final port = _udpPort;
@@ -438,7 +400,6 @@ class UdpDeviceTransport extends DeviceTransport {
     return UdpDeviceCommands.sendIdentify(ip, port, logContext: device.name);
   }
 
-  /// Po potvrzení v UI — smaže Wi‑Fi credentials a restartuje ESP.
   Future<bool> sendResetWifi() async {
     final ip = device.ipAddress;
     final port = _udpPort;

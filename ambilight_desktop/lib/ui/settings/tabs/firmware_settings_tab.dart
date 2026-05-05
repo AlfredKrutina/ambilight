@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../core/models/config_models.dart';
 import '../../../data/udp_device_commands.dart';
+import '../../../l10n/context_ext.dart';
 import '../../../services/led_discovery_service.dart';
 import '../../../features/firmware_legacy_old_code/esptool_flash_runner.dart';
 import '../../../features/firmware_legacy_old_code/firmware_manifest.dart';
@@ -42,7 +43,6 @@ class _FirmwareSettingsTabState extends State<FirmwareSettingsTab> {
   String _status = '';
   bool _busy = false;
   String? _selectedCom;
-  /// Nepollujeme nativní enumeraci COM při každém rebuildu — stabilnější (Windows driver / libserialport).
   List<String> _serialPortsCache = const [];
   String? _serialPortsError;
 
@@ -70,7 +70,9 @@ class _FirmwareSettingsTabState extends State<FirmwareSettingsTab> {
         setState(() => _cacheDir = p.join(dir.path, 'firmware_cache'));
       }
     } catch (_) {
-      if (mounted) setState(() => _status = 'Nelze založit cache (path_provider).');
+      if (mounted) {
+        setState(() => _status = context.l10n.fwStatusCacheFail);
+      }
     }
   }
 
@@ -81,6 +83,18 @@ class _FirmwareSettingsTabState extends State<FirmwareSettingsTab> {
     _otaPortCtrl.dispose();
     _fw.close();
     super.dispose();
+  }
+
+  String _l10nOtaReject(OtaHttpCommandRejectReason r) {
+    final l = context.l10n;
+    return switch (r) {
+      OtaHttpCommandRejectReason.invalidTargetIp => l.fwStatusOtaInvalidTarget,
+      OtaHttpCommandRejectReason.urlTooShort => l.fwStatusOtaUrlTooShort,
+      OtaHttpCommandRejectReason.urlTooLong => l.fwStatusOtaUrlTooLong,
+      OtaHttpCommandRejectReason.urlSchemeNotHttp => l.fwStatusOtaBadScheme,
+      OtaHttpCommandRejectReason.invalidUrlCharacters => l.fwStatusOtaInvalidChars,
+      OtaHttpCommandRejectReason.commandPayloadInvalid => l.fwStatusOtaPayloadInvalid,
+    };
   }
 
   String _normalizeManifestUrl(String raw) {
@@ -103,15 +117,16 @@ class _FirmwareSettingsTabState extends State<FirmwareSettingsTab> {
   }
 
   Future<void> _fetchManifest() async {
+    final l10n = context.l10n;
     await _saveManifestUrl();
     final url = _normalizeManifestUrl(_manifestUrlCtrl.text);
     if (url.isEmpty) {
-      setState(() => _status = 'Zadej URL manifestu (např. …/firmware/latest/).');
+      setState(() => _status = l10n.fwStatusEnterManifestUrl);
       return;
     }
     setState(() {
       _busy = true;
-      _status = 'Načítám manifest…';
+      _status = l10n.fwStatusLoadingManifest;
       _manifest = null;
     });
     try {
@@ -119,22 +134,23 @@ class _FirmwareSettingsTabState extends State<FirmwareSettingsTab> {
       if (!mounted) return;
       setState(() {
         _manifest = m;
-        _status = 'Manifest OK — verze ${m.version}, čip ${m.chip}, ${m.parts.length} souborů.';
+        _status = l10n.fwStatusManifestOk(m.version, m.chip, m.parts.length);
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _status = 'Chyba manifestu: $e');
+      setState(() => _status = l10n.fwStatusManifestError('$e'));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _downloadBins() async {
+    final l10n = context.l10n;
     final m = _manifest;
     if (m == null || _cacheDir.isEmpty) return;
     setState(() {
       _busy = true;
-      _status = 'Stahuji…';
+      _status = l10n.fwStatusDownloading;
     });
     try {
       final root = await _fw.downloadAll(
@@ -145,31 +161,32 @@ class _FirmwareSettingsTabState extends State<FirmwareSettingsTab> {
         },
       );
       if (!mounted) return;
-      setState(() => _status = 'Staženo do: $root');
+      setState(() => _status = l10n.fwStatusDownloadedTo(root));
     } catch (e) {
       if (!mounted) return;
-      setState(() => _status = 'Stažení selhalo: $e');
+      setState(() => _status = l10n.fwStatusDownloadFailed('$e'));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _flashUsb() async {
+    final l10n = context.l10n;
     final m = _manifest;
     if (m == null || _cacheDir.isEmpty) return;
     final com = _selectedCom?.trim();
     if (com == null || com.isEmpty) {
-      setState(() => _status = 'Vyber COM / sériový port.');
+      setState(() => _status = l10n.fwStatusPickCom);
       return;
     }
     final root = p.join(_cacheDir, m.version);
     if (!Directory(root).existsSync()) {
-      setState(() => _status = 'Nejdřív stáhni binárky (tlačítko výše).');
+      setState(() => _status = l10n.fwStatusDownloadBinsFirst);
       return;
     }
     setState(() {
       _busy = true;
-      _status = 'Flashuji přes esptool… (vypni v aplikaci stream na stejný COM)';
+      _status = l10n.fwStatusFlashing;
     });
     try {
       final (ok, log) = await EsptoolFlashRunner.flashSerial(
@@ -178,64 +195,82 @@ class _FirmwareSettingsTabState extends State<FirmwareSettingsTab> {
         comPort: com,
       );
       if (!mounted) return;
-      setState(() => _status = ok ? 'Flash OK.\n$log' : 'Flash selhal.\n$log');
+      setState(() => _status = ok ? l10n.fwStatusFlashOk(log) : l10n.fwStatusFlashFail(log));
     } catch (e) {
       if (!mounted) return;
-      setState(() => _status = 'Výjimka: $e');
+      setState(() => _status = l10n.fwStatusException('$e'));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _probeEspReachability() async {
+    final l10n = context.l10n;
     final ip = _otaIpCtrl.text.trim();
     final port = int.tryParse(_otaPortCtrl.text.trim()) ?? 4210;
     if (ip.isEmpty) {
-      setState(() => _status = 'Zadej IP zařízení pro ověření (UDP PONG).');
+      setState(() => _status = l10n.fwStatusEnterIpProbe);
       return;
     }
     setState(() {
       _busy = true;
-      _status = 'Ověřuji zařízení (UDP, max 2 s)…';
+      _status = l10n.fwStatusProbing;
     });
     final pong = await LedDiscoveryService.queryPong(ip, udpPort: port);
     if (!mounted) return;
     setState(() {
       _busy = false;
       if (pong == null) {
-        _status =
-            'Zařízení neodpovědělo v čase — offline, špatná IP/port/firewall, nebo firmware bez DISCOVER odpovědi.';
+        _status = l10n.fwStatusProbeTimeout;
       } else {
-        _status =
-            'Online: ${pong.name} · LED ${pong.ledCount} · verze ${pong.version} (ESP32_PONG).';
+        _status = l10n.fwStatusProbeOnline(pong.name, pong.ledCount, pong.version);
       }
     });
   }
 
+  void _fillOtaFromFirstWifiDevice() {
+    final l10n = context.l10n;
+    final wifi = widget.draft.globalSettings.devices.where((d) => d.type == 'wifi' && d.ipAddress.trim().isNotEmpty);
+    final first = wifi.isEmpty ? null : wifi.first;
+    if (first == null) {
+      setState(() => _status = l10n.fwStatusNoWifiDevice);
+      return;
+    }
+    setState(() {
+      _otaIpCtrl.text = first.ipAddress.trim();
+      _otaPortCtrl.text = '${first.udpPort}';
+      _status = l10n.fwStatusFilledFromDevice(first.name, first.ipAddress.trim(), '${first.udpPort}');
+    });
+  }
+
   Future<void> _otaWifi() async {
+    final l10n = context.l10n;
     final m = _manifest;
     final u = m?.resolvedOtaHttpUrl?.trim();
     if (u == null || u.isEmpty) {
-      setState(() => _status = 'Manifest nemá použitelnou OTA URL (ota_http_url ani odvozený parts[].url).');
+      setState(() => _status = l10n.fwStatusNoOtaUrl);
       return;
     }
     final ip = _otaIpCtrl.text.trim();
     final port = int.tryParse(_otaPortCtrl.text.trim()) ?? 4210;
     if (ip.isEmpty) {
-      setState(() => _status = 'Zadej IP ESP (Wi‑Fi).');
+      setState(() => _status = l10n.fwStatusEnterIpEsp);
+      return;
+    }
+    final pre = UdpDeviceCommands.rejectReasonForOtaHttpCommand(ip, port, u);
+    if (pre != null) {
+      setState(() => _status = _l10nOtaReject(pre));
       return;
     }
     setState(() {
       _busy = true;
-      _status = 'Odesílám OTA_HTTP na $ip:$port…';
+      _status = l10n.fwStatusSendingOta(ip, '$port');
     });
     final ok = await UdpDeviceCommands.sendOtaHttpUrl(ip, port, u);
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _status = ok
-          ? 'Příkaz odeslán. ESP stáhne firmware a restartuje se (kontroluj log / LED).'
-          : 'UDP se nepodařilo odeslat.';
+      _status = ok ? l10n.fwStatusOtaSent : l10n.fwStatusUdpFailed;
     });
   }
 
@@ -270,11 +305,29 @@ class _FirmwareSettingsTabState extends State<FirmwareSettingsTab> {
     }
   }
 
+  Widget _card(BuildContext context, {required Widget child}) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerTheme: const DividerThemeData(space: 1)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: child,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final innerMax = AppBreakpoints.settingsContentInnerMax(widget.maxWidth);
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     final ports = _serialPortsCache;
+    final m = _manifest;
+    final otaUrl = m?.resolvedOtaHttpUrl?.trim() ?? '';
+    final otaReady = m != null && otaUrl.isNotEmpty;
 
     return Align(
       alignment: Alignment.topCenter,
@@ -285,151 +338,225 @@ class _FirmwareSettingsTabState extends State<FirmwareSettingsTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Firmware ESP', style: Theme.of(context).textTheme.titleLarge),
+              Text(l10n.fwTitle, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
               Text(
-                'CI build z repa může publikovat manifest na GitHub Pages. Zde načteš manifest, stáhneš .bin '
-                'a flashneš přes USB (vyžaduje esptool v PATH) nebo spustíš OTA přes Wi‑Fi (UDP příkaz z firmware). '
-                'Přechod na tabulku s dvěma OTA oddíly vyžaduje jednou úplný flash přes USB.',
+                l10n.fwIntro,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _manifestUrlCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'URL manifestu (GitHub Pages)',
-                  hintText: 'https://alfredkrutina.github.io/ambilight/firmware/latest/',
-                  border: OutlineInputBorder(),
-                  helperText: 'Výchozí z globálního nastavení; bez souboru doplníme /manifest.json',
-                ),
-                onChanged: (_) => unawaited(_saveManifestUrl()),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  FilledButton.tonalIcon(
-                    onPressed: _busy ? null : _fetchManifest,
-                    icon: const Icon(Icons.cloud_download_outlined),
-                    label: const Text('Načíst manifest'),
-                  ),
-                  FilledButton.icon(
-                    onPressed: (_busy || _manifest == null) ? null : _downloadBins,
-                    icon: const Icon(Icons.download_done_outlined),
-                    label: const Text('Stáhnout binárky'),
-                  ),
-                ],
-              ),
-              if (_manifest != null) ...[
-                const SizedBox(height: 12),
-                Text('Verze: ${_manifest!.version} · čip: ${_manifest!.chip}', style: Theme.of(context).textTheme.bodyMedium),
-                for (final part in _manifest!.parts)
-                  Text('• ${part.file} @ ${part.offset}', style: Theme.of(context).textTheme.bodySmall),
-                if ((_manifest!.resolvedOtaHttpUrl ?? '').isNotEmpty)
-                  Text('OTA URL: ${_manifest!.resolvedOtaHttpUrl}', style: Theme.of(context).textTheme.bodySmall),
-              ],
-              const Divider(height: 32),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(child: Text('Flash přes USB (COM)', style: Theme.of(context).textTheme.titleMedium)),
-                  IconButton(
-                    tooltip: 'Obnovit seznam portů',
-                    onPressed: _busy ? null : _refreshSerialPorts,
-                    icon: const Icon(Icons.refresh),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (_serialPortsError != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    'Sériové porty nelze načíst: $_serialPortsError',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.error),
-                  ),
-                ),
-              if (ports.isEmpty)
-                InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Sériový port',
-                    border: OutlineInputBorder(),
-                  ),
-                  child: Text(
-                    _serialPortsError != null ? 'Zkuste „Obnovit“ nebo oprávnění / ovladač.' : 'Žádný COM — připoj ESP USB',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-                  ),
-                )
-              else
-                DropdownButtonFormField<String>(
-                  value: _selectedCom != null && ports.contains(_selectedCom!) ? _selectedCom : null,
-                  decoration: const InputDecoration(
-                    labelText: 'Sériový port',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [for (final port in ports) DropdownMenuItem(value: port, child: Text(port))],
-                  onChanged: _busy ? null : (v) => setState(() => _selectedCom = v),
-                ),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: (_busy || _manifest == null) ? null : _flashUsb,
-                icon: const Icon(Icons.usb_rounded),
-                label: const Text('Flashovat přes esptool'),
-              ),
-              const Divider(height: 32),
-              Text('OTA přes Wi‑Fi (UDP)', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _otaIpCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'IP zařízení',
-                  border: OutlineInputBorder(),
+              const SizedBox(height: 20),
+              _card(
+                context,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.integration_instructions_outlined, size: 22, color: scheme.primary),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            l10n.fwManifestLabel,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _manifestUrlCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.fwManifestUrlLabel,
+                        hintText: l10n.fwManifestUrlHint,
+                        border: const OutlineInputBorder(),
+                        helperText: l10n.fwManifestHelper,
+                      ),
+                      onChanged: (_) => unawaited(_saveManifestUrl()),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        FilledButton.tonalIcon(
+                          onPressed: _busy ? null : _fetchManifest,
+                          icon: const Icon(Icons.cloud_download_outlined),
+                          label: Text(l10n.fwLoadManifest),
+                        ),
+                        FilledButton.icon(
+                          onPressed: (_busy || m == null) ? null : _downloadBins,
+                          icon: const Icon(Icons.download_done_outlined),
+                          label: Text(l10n.fwDownloadBins),
+                        ),
+                      ],
+                    ),
+                    if (m != null) ...[
+                      const SizedBox(height: 16),
+                      Divider(color: scheme.outlineVariant.withValues(alpha: 0.35)),
+                      const SizedBox(height: 12),
+                      Text(l10n.fwVersionChipLine(m.version, m.chip), style: Theme.of(context).textTheme.bodyMedium),
+                      const SizedBox(height: 6),
+                      for (final part in m.parts)
+                        Text(
+                          l10n.fwPartBullet(part.file, part.offset),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      if (otaUrl.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        SelectableText(
+                          l10n.fwOtaUrlLine(otaUrl),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ],
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _otaPortCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'UDP port',
-                  border: OutlineInputBorder(),
+              _card(
+                context,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.usb_rounded, size: 22, color: scheme.primary),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            l10n.fwFlashUsbTitle,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: l10n.fwRefreshPortsTooltip,
+                          onPressed: _busy ? null : _refreshSerialPorts,
+                          icon: const Icon(Icons.refresh),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (_serialPortsError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          l10n.fwSerialPortsError(_serialPortsError!),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.error),
+                        ),
+                      ),
+                    if (ports.isEmpty)
+                      InputDecorator(
+                        decoration: InputDecoration(
+                          labelText: l10n.fwSerialPortLabel,
+                          border: const OutlineInputBorder(),
+                        ),
+                        child: Text(
+                          _serialPortsError != null ? l10n.fwNoComHintDriver : l10n.fwNoComEmpty,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      )
+                    else
+                      DropdownButtonFormField<String>(
+                        value: _selectedCom != null && ports.contains(_selectedCom!) ? _selectedCom : null,
+                        decoration: InputDecoration(
+                          labelText: l10n.fwSerialPortLabel,
+                          border: const OutlineInputBorder(),
+                        ),
+                        items: [for (final port in ports) DropdownMenuItem(value: port, child: Text(port))],
+                        onChanged: _busy ? null : (v) => setState(() => _selectedCom = v),
+                      ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: (_busy || m == null) ? null : _flashUsb,
+                      icon: const Icon(Icons.memory_rounded),
+                      label: Text(l10n.fwFlashEsptool),
+                    ),
+                  ],
                 ),
-                keyboardType: TextInputType.number,
               ),
-              const SizedBox(height: 8),
-              Text(
-                _manifest == null
-                    ? 'Nejdřív výše načti manifest — bez něj není známá HTTPS URL pro OTA_HTTP.'
-                    : ((_manifest!.resolvedOtaHttpUrl ?? '').isEmpty)
-                        ? 'V manifestu chybí OTA URL — dopiš root pole ota_http_url nebo parts s URL na aplikační .bin.'
-                        : 'Pro OTA se použije: ${_manifest!.resolvedOtaHttpUrl}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              _card(
+                context,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.wifi_tethering, size: 22, color: scheme.primary),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            l10n.fwOtaUdpTitle,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        Tooltip(
+                          message: l10n.fwFillFromDevicesTooltip,
+                          child: TextButton.icon(
+                            onPressed: _busy ? null : _fillOtaFromFirstWifiDevice,
+                            icon: const Icon(Icons.devices_other, size: 18),
+                            label: Text(l10n.fwFillFromDevices),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _otaIpCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.fwDeviceIpLabel,
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _otaPortCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.firmwareUdpPort,
+                        border: const OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      m == null
+                          ? l10n.fwOtaHintNeedManifest
+                          : otaUrl.isEmpty
+                              ? l10n.fwOtaHintMissingUrl
+                              : l10n.fwOtaHintWillUse(otaUrl),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _busy ? null : _probeEspReachability,
+                          icon: const Icon(Icons.router_outlined),
+                          label: Text(l10n.fwVerifyUdpPong),
+                        ),
+                        FilledButton.tonalIcon(
+                          onPressed: (_busy || !otaReady) ? null : _otaWifi,
+                          icon: const Icon(Icons.system_update_alt),
+                          label: Text(l10n.fwSendOtaHttp),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : _probeEspReachability,
-                    icon: const Icon(Icons.router_outlined),
-                    label: const Text('Ověřit dosah (UDP PONG)'),
+              if (_status.isNotEmpty)
+                Material(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    child: SelectableText(
+                      _status,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurface),
+                    ),
                   ),
-                  FilledButton.tonalIcon(
-                    onPressed: (_busy ||
-                            _manifest == null ||
-                            (_manifest!.resolvedOtaHttpUrl ?? '').isEmpty)
-                        ? null
-                        : _otaWifi,
-                    icon: const Icon(Icons.wifi_tethering),
-                    label: const Text('Odeslat OTA_HTTP'),
-                  ),
-                ],
-              ),
-              if (_status.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                SelectableText(_status, style: Theme.of(context).textTheme.bodySmall),
-              ],
+                ),
             ],
           ),
         ),

@@ -9,6 +9,7 @@ import '../l10n/app_locale_bridge.dart';
 import '../l10n/context_ext.dart';
 import '../core/device_bindings_debug.dart';
 import '../core/models/config_models.dart';
+import '../core/protocol/serial_frame.dart';
 import '../data/udp_device_commands.dart';
 import '../services/led_discovery_service.dart';
 import '../services/serial_ambilight_port_discovery.dart';
@@ -181,7 +182,7 @@ class _DevicesPageState extends State<DevicesPage> {
                           type: 'wifi',
                           ipAddress: ip.replaceAll(',', '.'),
                           udpPort: port,
-                          ledCount: leds.clamp(1, 512),
+                          ledCount: leds.clamp(1, SerialAmbilightProtocol.maxLedsPerDevice),
                           firmwareVersion: firmware,
                         ),
                       );

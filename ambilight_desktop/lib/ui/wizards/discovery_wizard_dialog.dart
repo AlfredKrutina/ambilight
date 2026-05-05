@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../application/ambilight_app_controller.dart';
 import '../../core/models/config_models.dart';
+import '../../core/protocol/serial_frame.dart';
 import '../../data/udp_device_commands.dart';
 import '../../l10n/context_ext.dart';
 import '../../services/led_discovery_service.dart';
@@ -62,7 +63,7 @@ class _DiscoveryWizardDialogState extends State<DiscoveryWizardDialog> {
         type: 'wifi',
         ipAddress: d.ip,
         udpPort: 4210,
-        ledCount: d.ledCount.clamp(1, 512),
+        ledCount: d.ledCount.clamp(1, SerialAmbilightProtocol.maxLedsPerDevice),
         firmwareVersion: d.version,
       ),
     ];

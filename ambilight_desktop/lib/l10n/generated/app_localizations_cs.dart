@@ -2577,6 +2577,45 @@ class AppLocalizationsCs extends AppLocalizations {
   String get fwStatusUdpFailed => 'UDP se nepodařilo odeslat.';
 
   @override
+  String get fwStatusOtaInvalidTarget => 'Neplatná IP zařízení.';
+
+  @override
+  String get fwStatusOtaUrlTooShort =>
+      'OTA URL je příliš krátká (ve firmware musí mít alespoň 12 znaků).';
+
+  @override
+  String get fwStatusOtaUrlTooLong =>
+      'OTA URL je příliš dlouhá pro zařízení (max. 1300 znaků).';
+
+  @override
+  String get fwStatusOtaInvalidChars =>
+      'OTA URL obsahuje znaky, které zařízení odmítne (řídicí kódy atd.).';
+
+  @override
+  String get fwStatusOtaBadScheme =>
+      'OTA URL musí začínat na https:// nebo http:// (stejné pravidlo jako ve firmware).';
+
+  @override
+  String get fwStatusOtaPayloadInvalid =>
+      'Příkaz OTA neprojde kontrolou na straně zařízení.';
+
+  @override
+  String get fwFillFromDevices => 'Doplnit ze Zařízení';
+
+  @override
+  String get fwFillFromDevicesTooltip =>
+      'Zkopíruje IP a UDP port z prvního Wi‑Fi zařízení v seznamu (záložka Zařízení).';
+
+  @override
+  String get fwStatusNoWifiDevice =>
+      'V seznamu není Wi‑Fi zařízení s vyplněnou IP — přidej ho v záložce Zařízení.';
+
+  @override
+  String fwStatusFilledFromDevice(Object name, Object ip, Object port) {
+    return 'Doplněno z „$name“: $ip:$port.';
+  }
+
+  @override
   String get pcHealthHeaderTitle => 'PC Health';
 
   @override
