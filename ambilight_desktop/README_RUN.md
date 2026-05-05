@@ -3,6 +3,7 @@
 ## Požadavky
 
 - **Flutter SDK** stabilní kanál (desktop: Windows, Linux, macOS). Ověřeno v CI proti rozhraní podobnému Flutter **3.41+** / Dart **3.11+**.
+- **macOS:** minimální verze **13.0 (Ventura)** — vyžaduje plugin `desktop_audio_capture` (system audio). `macos/Podfile` a Xcode `MACOSX_DEPLOYMENT_TARGET` jsou nastavené na 13.0.
 - V repu je projekt jen s platformami **windows / linux / macos** (`flutter create --platforms=windows,linux,macos`). Android zde **není** — `flutter_libserialport` a nativní pluginy cílí desktop.
 
 ### Spotify tokeny (Windows build)
