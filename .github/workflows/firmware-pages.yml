@@ -26,17 +26,39 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Monorepo + ESP-IDF snadno překročí výchozí volné GB na ubuntu-latest → Docker/build končí „No space“ nebo OOM.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          df -h
+
+      - name: Pull ESP-IDF image
+        run: docker pull espressif/idf:v5.5.1
+
       - name: Build firmware (ESP-IDF Docker)
         run: |
           set -eux
           FW='led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware'
           # Nepoužívat idf.py fullclean: u trackovaných managed_components spouští kontrolu hashe a často spadne v CI.
-          # Čistý build: smazat build + managed_components, komponenty se stáhnou znovu podle idf_component.yml.
-          docker run --rm \
-            -v "${{ github.workspace }}:/project" \
-            -w "/project/${FW}" \
-            espressif/idf:v5.5.1 \
-            bash -lc 'rm -rf build managed_components && idf.py build'
+          # Čistý build: smazat build + managed_components; -j 2 snižuje paralelismus (méně RAM na runneru).
+          run_build() {
+            docker run --rm \
+              -v "${{ github.workspace }}:/project" \
+              -w "/project/${FW}" \
+              espressif/idf:v5.5.1 \
+              bash -lc 'rm -rf build managed_components && idf.py build -j 2'
+          }
+          attempt=1
+          max=3
+          until run_build; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -gt "$max" ]; then
+              echo "ESP-IDF Docker build failed after $max attempts"
+              exit 1
+            fi
+            echo "Retry $attempt/$max after 60s..."
+            sleep 60
+          done
 
       - name: Assemble site (root = Pages)
         run: |
