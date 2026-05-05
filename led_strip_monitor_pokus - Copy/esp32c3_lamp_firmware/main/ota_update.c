@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "ambilight_ota_feedback.h"
-#include "esp_app_format.h"
+#include "esp_app_desc.h"
 #include "esp_crt_bundle.h"
 #include "esp_http_client.h"
 #include "esp_https_ota.h"

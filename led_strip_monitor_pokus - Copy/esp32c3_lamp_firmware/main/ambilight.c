@@ -1,6 +1,6 @@
 #include "driver/gpio.h"
 #include "driver/usb_serial_jtag.h"
-#include "esp_app_format.h"
+#include "esp_app_desc.h"
 #include "esp_event.h"
 #include "esp_heap_caps.h"
 #include "esp_http_server.h"
