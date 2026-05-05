@@ -492,6 +492,126 @@ class AppLocalizationsCs extends AppLocalizations {
   String get tabFirmware => 'Firmware';
 
   @override
+  String get settingsTabGlobalTooltip =>
+      'Jazyk, téma, výkon, výchozí režim a záloha JSON konfigurace.';
+
+  @override
+  String get settingsTabLightTooltip =>
+      'Statické barvy, efekty, zóny a časování režimu Světlo.';
+
+  @override
+  String get settingsTabScreenTooltip =>
+      'Snímání monitoru, segmenty, gamma, interpolace a pokročilé kalibrace.';
+
+  @override
+  String get settingsTabMusicTooltip =>
+      'Vstup zvuku, FFT, melodie, presety a mapování barev na pásek.';
+
+  @override
+  String get settingsTabPcHealthTooltip =>
+      'Senzory PC (CPU, GPU, …) a jejich mapování na barvy výstupu.';
+
+  @override
+  String get settingsTabSpotifyTooltip =>
+      'OAuth Spotify a barvy z obalu — doplňuje režim Hudba.';
+
+  @override
+  String get settingsTabSmartHomeTooltip =>
+      'Home Assistant, HomeKit a virtuální místnost pro další lampy.';
+
+  @override
+  String get settingsTabFirmwareTooltip =>
+      'Manifest OTA, flash přes USB (esptool) a příkazy přes UDP.';
+
+  @override
+  String get settingsPageHelpTooltip =>
+      'Záložky jsou seskupené v menu vlevo na širokém okně; při úzkém okně je horní lišta průběžná. Změny se krátce po úpravě uloží na disk (viz nápověda nahoře).';
+
+  @override
+  String get settingsPerformanceHelpTooltip =>
+      'Omezí snímání monitoru a související smyčky kvůli CPU. Světelný režim bez snímání zůstává rychlejší.';
+
+  @override
+  String get musicLockPaletteHelpTooltip =>
+      'Zachytí aktuální barvy na pásku a drží je — užitečné při ladění bez permanentního výstupu.';
+
+  @override
+  String get screenUltraSatHelpTooltip =>
+      'Agresivně zesytí extrémně přepálené barvy ze snímání — v kombinaci se slidery níže.';
+
+  @override
+  String get smartPushColorsHelpTooltip =>
+      'Když je zapnuto, aplikace mapuje stejné barvy jako na pásek také na entity Home Assistant / HomeKit podle „mapování barvy“ u každé lampy.';
+
+  @override
+  String get homeSectionModeHelpTooltip =>
+      'Aktivní režim řídí, odkud engine bere barvy (statické efekty / monitor / audio / senzory).';
+
+  @override
+  String get homeSectionIntegrationsHelpTooltip =>
+      'Stručný stav Spotify, Home Assistant a manifestu firmware — detailní nastavení je v příslušných záložkách.';
+
+  @override
+  String get homeSectionDevicesHelpTooltip =>
+      'Stav připojení známých pásků; přidání nebo úprava je na stránce Zařízení.';
+
+  @override
+  String get modeLightTooltip =>
+      'Barvy a efekty bez snímání monitoru — zóny a přechody z Globálního nastavení.';
+
+  @override
+  String get modeScreenTooltip =>
+      'Ambilight z okrajů vybraného monitoru podle segmentů a geometrie.';
+
+  @override
+  String get modeMusicTooltip =>
+      'Barvy z FFT / melodie z mikrofonu nebo loopbacku; Spotify a OS média volitelně.';
+
+  @override
+  String get modePcHealthTooltip =>
+      'Teploty a zátěž PC převedené na barvy podle metrik v nastavení.';
+
+  @override
+  String get integrationMusicCardTooltip =>
+      'OAuth Spotify a náhledová nastavení vlivu na režim Hudba.';
+
+  @override
+  String get integrationHaCardTooltip =>
+      'Synchronizace barev na entity Home Assistant nebo HomeKit (macOS).';
+
+  @override
+  String get integrationFirmwareCardTooltip =>
+      'URL manifestu pro OTA a stažení binárek — nemění pásek přímo.';
+
+  @override
+  String get devicesActionDiscoverTooltip =>
+      'Vyhledá ESP v síti přes UDP a přidá je do seznamu zařízení.';
+
+  @override
+  String get devicesActionZonesTooltip =>
+      'Editor LED segmentů podle hran monitoru a pořadí diod.';
+
+  @override
+  String get devicesActionSegGeomTooltip =>
+      'Orientace pásku kolem obrazovky (pořadí hran) před kalibrací.';
+
+  @override
+  String get devicesActionCalibrationTooltip =>
+      'Průvodce přiřazením fyzických rohů pásku ke snímanému obrazu.';
+
+  @override
+  String get devicesActionPresetTooltip =>
+      'Uloží aktuální nastavení obrazovky jako pojmenovaný preset.';
+
+  @override
+  String get devicesActionAddWifiTooltip =>
+      'Ruční přidání Wi‑Fi zařízení podle IP a UDP portu.';
+
+  @override
+  String get devicesActionFindComTooltip =>
+      'Projde sériové porty a najde odpověď firmware připojeného přes USB.';
+
+  @override
   String get globalSectionTitle => 'Globální';
 
   @override
@@ -1851,7 +1971,28 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get backupIntroBody =>
-      'JSON stejný jako u Python verze (`config/default.json`). Import přepíše běžící nastavení a uloží ho.';
+      'JSON jako u Python verze (`config/default.json`). Bezpečný export vynechá tokeny Home Assistant a Spotify (stejně jako profil na disku). „Export včetně tajných údajů“ udělá plnou kopii včetně tokenů.';
+
+  @override
+  String get backupExportWithSecrets => 'Export včetně tajných údajů…';
+
+  @override
+  String get backupExportWithSecretsConfirm => 'Přesto exportovat';
+
+  @override
+  String get backupSecretsExportTitle => 'Zahrnout do zálohy tokeny a Spotify?';
+
+  @override
+  String get backupSecretsExportBody =>
+      'Soubor bude obsahovat dlouhodobý token Home Assistant (pokud je nastavený), Spotify access/refresh tokeny z tohoto PC, případně Spotify client secret a stejná pole jako v Nastavení. Kdo soubor má, může ovládat tvé HA nebo Spotify — ukládej jen na bezpečné místo a nesdílej ho.';
+
+  @override
+  String get backupSecretsSaveDialogTitle =>
+      'Uložit konfiguraci včetně tajných údajů';
+
+  @override
+  String get backupImportRestoresTokensHint =>
+      'Import při uložených hodnotách zapíše `ha_long_lived_token` a Spotify tokeny ze souboru (stejně jako po přihlášení).';
 
   @override
   String get exportDialogTitle => 'Export konfigurace AmbiLight';
@@ -3497,6 +3638,27 @@ class AppLocalizationsCs extends AppLocalizations {
       'Příkaz OTA neprojde kontrolou na straně zařízení.';
 
   @override
+  String get fwProgressUsbTitle => 'Flash přes USB';
+
+  @override
+  String get fwProgressUsbSubtitle =>
+      'Probíhá zápis přes esptool — na stejném COM nesmí současně běžet stream z aplikace.';
+
+  @override
+  String get fwProgressOtaTitle => 'OTA aktualizace';
+
+  @override
+  String get fwProgressOtaSending => 'Odesílám příkaz OTA_HTTP na lampu…';
+
+  @override
+  String get fwProgressOtaDevicePhase =>
+      'Zařízení stahuje a instaluje firmware — sleduj LED na pásku. Panel můžeš zavřít; aktualizace na lampě pokračuje.';
+
+  @override
+  String get fwProgressFlashCancelled =>
+      'Flash byl zrušen uživatelem (esptool ukončen).';
+
+  @override
   String get fwFillFromDevices => 'Doplnit ze Zařízení';
 
   @override
@@ -3805,6 +3967,12 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get smartBindingScreenEdge => 'Hrana obrazovky';
+
+  @override
+  String get smartBindingLedStartField => 'LED začátek (index)';
+
+  @override
+  String get smartBindingLedEndField => 'LED konec (index)';
 
   @override
   String get smartDeviceIdOptional => 'device_id (prázdné = první zařízení)';

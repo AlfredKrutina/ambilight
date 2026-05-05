@@ -8,6 +8,9 @@ import '../../../core/models/config_models.dart';
 import '../../../core/models/smart_lights_models.dart';
 import '../../../features/smart_lights/ha_api_client.dart';
 import '../../../features/smart_lights/homekit_bridge.dart';
+import '../../../l10n/context_ext.dart';
+import '../../../l10n/generated/app_localizations.dart';
+import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
 import '../widgets/virtual_room_editor.dart';
 
@@ -44,11 +47,12 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
 
   Future<void> _testHa() async {
     final sl = _sl;
+    final l10n = context.l10n;
     if (sl.haBaseUrl.trim().isEmpty || sl.haLongLivedToken.trim().isEmpty) {
-      setState(() => _haStatus = 'Vyplň URL a token.');
+      setState(() => _haStatus = l10n.smartHaFillUrlToken);
       return;
     }
-    setState(() => _haStatus = 'Testuji…');
+    setState(() => _haStatus = l10n.smartHaStatusTesting);
     final c = HaApiClient(
       baseUrl: sl.haBaseUrl,
       token: sl.haLongLivedToken,
@@ -58,17 +62,18 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
     final (ok, msg) = await c.ping();
     c.close();
     if (!mounted) return;
-    setState(() => _haStatus = ok ? 'OK: $msg' : 'Chyba: $msg');
+    setState(() => _haStatus = ok ? l10n.smartHaStatusOk(msg) : l10n.smartHaStatusErr(msg));
   }
 
   Future<void> _refreshHomeKit() async {
     if (!Platform.isMacOS) return;
-    setState(() => _hkStatus = 'Načítám HomeKit…');
+    setState(() => _hkStatus = context.l10n.smartHomeKitLoading);
     final list = await HomeKitBridge.listLights();
     if (!mounted) return;
+    final l10n = context.l10n;
     setState(() {
       _hkLights = list;
-      _hkStatus = list.isEmpty ? 'Žádná HomeKit světla (nebo chybí oprávnění).' : '${list.length} světel.';
+      _hkStatus = list.isEmpty ? l10n.smartHomeKitEmpty : l10n.smartHomeKitCount(list.length);
     });
   }
 
@@ -81,9 +86,10 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
     final scheme = Theme.of(context).colorScheme;
 
     Future<void> pickHaLight() async {
+      final loc = context.l10n;
       if (sl.haBaseUrl.trim().isEmpty || sl.haLongLivedToken.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Nejdřív nastav URL a token Home Assistant.')),
+          SnackBar(content: Text(loc.smartHaFillUrlToken)),
         );
         return;
       }
@@ -97,21 +103,22 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
       client.close();
       if (!mounted) return;
       if (!ok) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('HA: $err')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.smartHaError(err))));
         return;
       }
       final lights = states.where((e) => (e['entity_id'] as String?)?.startsWith('light.') ?? false).toList();
       if (lights.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('V HA nejsou žádné entity light.*')),
+          SnackBar(content: Text(loc.smartHaNoLights)),
         );
         return;
       }
       final picked = await showDialog<String>(
         context: context,
         builder: (ctx) {
+          final dl = AppLocalizations.of(ctx);
           return AlertDialog(
-            title: const Text('Přidat světlo z Home Assistant'),
+            title: Text(dl.smartHaPickLightTitle),
             content: SizedBox(
               width: 420,
               height: 360,
@@ -132,7 +139,7 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                 },
               ),
             ),
-            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Zrušit'))],
+            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(dl.cancel))],
           );
         },
       );
@@ -163,29 +170,33 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Chytrá domácnost', style: Theme.of(context).textTheme.titleLarge),
+              Text(context.l10n.smartHomeTitle, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
               Text(
-                'Home Assistant: přímé ovládání entit light.* přes REST. '
-                'Apple Home (HomeKit): nativně na macOS. '
-                'Google Home: žádné veřejné lokální API — použij propojení přes Home Assistant (viz níže).',
+                context.l10n.smartHomeIntro,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
               const SizedBox(height: 20),
               SwitchListTile(
-                title: const Text('Posílat barvy na chytrá světla'),
-                subtitle: const Text('Zapni až po nastavení HA / HomeKit fixture níže.'),
+                title: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: Text(context.l10n.smartPushColorsTile)),
+                    AmbiHelpIcon(message: context.l10n.smartPushColorsHelpTooltip),
+                  ],
+                ),
+                subtitle: Text(context.l10n.smartPushColorsSubtitle),
                 value: sl.enabled,
                 onChanged: (v) => _patch(sl.copyWith(enabled: v)),
               ),
               const Divider(height: 32),
-              Text('Home Assistant', style: Theme.of(context).textTheme.titleMedium),
+              Text(context.l10n.smartHaSection, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               TextFormField(
                 initialValue: sl.haBaseUrl,
-                decoration: const InputDecoration(
-                  labelText: 'URL (https://…:8123)',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.l10n.smartHaUrlLabel,
+                  border: const OutlineInputBorder(),
                 ),
                 onChanged: (v) => _patch(sl.copyWith(haBaseUrl: v.trim())),
               ),
@@ -194,17 +205,17 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                 key: ValueKey('ha_tok_${sl.haLongLivedToken.isNotEmpty}'),
                 initialValue: sl.haLongLivedToken,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Long-lived access token',
-                  helperText: 'Ukládá se mimo default.json (application support / ha_long_lived_token.txt).',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.l10n.smartHaTokenLabel,
+                  helperText: context.l10n.smartHaTokenHelper,
+                  border: const OutlineInputBorder(),
                 ),
                 onChanged: (v) => _patch(sl.copyWith(haLongLivedToken: v)),
               ),
               const SizedBox(height: 8),
               SwitchListTile(
-                title: const Text('Důvěřovat vlastnímu HTTPS certifikátu'),
-                subtitle: const Text('Jen lokální HA s self-signed certem.'),
+                title: Text(context.l10n.smartHaTrustCertTile),
+                subtitle: Text(context.l10n.smartHaTrustCertSubtitle),
                 value: sl.haAllowInsecureCert,
                 onChanged: (v) => _patch(sl.copyWith(haAllowInsecureCert: v)),
               ),
@@ -213,13 +224,13 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                   FilledButton.tonalIcon(
                     onPressed: _testHa,
                     icon: const Icon(Icons.wifi_protected_setup),
-                    label: const Text('Test spojení'),
+                    label: Text(context.l10n.smartTestConnection),
                   ),
                   const SizedBox(width: 12),
                   FilledButton.icon(
                     onPressed: pickHaLight,
                     icon: const Icon(Icons.add_rounded),
-                    label: const Text('Přidat světlo z HA'),
+                    label: Text(context.l10n.smartAddHaLight),
                   ),
                 ],
               ),
@@ -233,9 +244,9 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                   Expanded(
                     child: TextFormField(
                       initialValue: sl.maxUpdateHzPerFixture.toString(),
-                      decoration: const InputDecoration(
-                        labelText: 'Max. Hz na světlo',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.smartMaxHzLabel,
+                        border: const OutlineInputBorder(),
                       ),
                       keyboardType: TextInputType.number,
                       onChanged: (v) {
@@ -248,9 +259,9 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                   Expanded(
                     child: TextFormField(
                       initialValue: sl.globalBrightnessCapPct.toString(),
-                      decoration: const InputDecoration(
-                        labelText: 'Strop jasu %',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.smartBrightnessCapLabel,
+                        border: const OutlineInputBorder(),
                       ),
                       keyboardType: TextInputType.number,
                       onChanged: (v) {
@@ -262,12 +273,11 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                 ],
               ),
               const Divider(height: 32),
-              Text('Apple Home (HomeKit)', style: Theme.of(context).textTheme.titleMedium),
+              Text(context.l10n.smartHomeKitSection, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               if (!Platform.isMacOS)
                 Text(
-                  'Nativní HomeKit je jen na macOS. Na Windows/Linux přidej světla do Home Assistant '
-                  '(HomeKit Device / Matter bridge) a ovládej je přes HA výše.',
+                  context.l10n.smartHomeKitNonMac,
                   style: Theme.of(context).textTheme.bodySmall,
                 )
               else ...[
@@ -276,7 +286,7 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                 FilledButton.tonalIcon(
                   onPressed: _refreshHomeKit,
                   icon: const Icon(Icons.home_outlined),
-                  label: const Text('Obnovit seznam HomeKit světel'),
+                  label: Text(context.l10n.smartRefreshHomeKit),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
@@ -309,11 +319,10 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                 ),
               ],
               const Divider(height: 32),
-              Text('Google Home', style: Theme.of(context).textTheme.titleMedium),
+              Text(context.l10n.smartGoogleSection, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Text(
-                'Google nepovoluje desktopové aplikaci přímo řídit „Google Home“ světla. '
-                'Spolehlivá cesta: nainstaluj Home Assistant, přidej tam Hue / Nest / … a propoj HA s Google Assistant.',
+                context.l10n.smartGoogleBody,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -325,30 +334,29 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                       'https://www.home-assistant.io/integrations/google_assistant/',
                     ),
                     icon: const Icon(Icons.open_in_new),
-                    label: const Text('Dokumentace: Google Assistant + HA'),
+                    label: Text(context.l10n.smartGoogleDocButton),
                   ),
                   OutlinedButton.icon(
                     onPressed: () => _openUrl('https://my.home-assistant.io/'),
                     icon: const Icon(Icons.link),
-                    label: const Text('My Home Assistant'),
+                    label: Text(context.l10n.smartMyHaButton),
                   ),
                 ],
               ),
               const Divider(height: 32),
-              Text('Virtuální místnost', style: Theme.of(context).textTheme.titleMedium),
+              Text(context.l10n.smartVirtualRoomSection, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Text(
-                'Umísti TV, sebe a světla v plánku. Kužel ukazuje směr pohledu (relativně k ose k TV). '
-                'Vlna mění jas podle vzdálenosti od TV a času — signály na HA/HomeKit jdou každý snímek přes stávající mapování barev.',
+                context.l10n.smartVirtualRoomIntro,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
               const SizedBox(height: 12),
               VirtualRoomEditor(sl: sl, onChanged: _patch),
               const Divider(height: 32),
-              Text('Nakonfigurovaná světla (${sl.fixtures.length})', style: Theme.of(context).textTheme.titleMedium),
+              Text(context.l10n.smartFixturesTitle(sl.fixtures.length), style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               if (sl.fixtures.isEmpty)
-                Text('Zatím žádná — přidej z HA nebo HomeKit.', style: Theme.of(context).textTheme.bodySmall),
+                Text(context.l10n.smartFixturesEmpty, style: Theme.of(context).textTheme.bodySmall),
               if (sl.fixtures.isNotEmpty)
                 for (final f in sl.fixtures)
                   Card(
@@ -364,7 +372,7 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                                 child: Text(f.displayName, style: Theme.of(context).textTheme.titleSmall),
                               ),
                               IconButton(
-                                tooltip: 'Odebrat',
+                                tooltip: context.l10n.smartFixtureRemoveTooltip,
                                 onPressed: () {
                                   _patch(sl.copyWith(
                                     fixtures: sl.fixtures.where((x) => x.id != f.id).toList(),
@@ -376,20 +384,26 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                           ),
                           Text(
                             f.backend == SmartLightBackend.homeAssistant
-                                ? 'HA: ${f.haEntityId}'
-                                : 'HomeKit: ${f.homeKitAccessoryUuid}',
+                                ? context.l10n.smartFixtureHaLine(f.haEntityId)
+                                : context.l10n.smartFixtureHkLine(f.homeKitAccessoryUuid),
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                           DropdownButtonFormField<SmartBindingKind>(
                             value: f.binding.kind,
-                            decoration: const InputDecoration(labelText: 'Mapování barvy'),
-                            items: const [
-                              DropdownMenuItem(value: SmartBindingKind.globalMean, child: Text('Průměr všech LED')),
+                            decoration: InputDecoration(labelText: context.l10n.smartBindingLabel),
+                            items: [
+                              DropdownMenuItem(
+                                value: SmartBindingKind.globalMean,
+                                child: Text(context.l10n.smartBindingGlobalMean),
+                              ),
                               DropdownMenuItem(
                                 value: SmartBindingKind.virtualLedRange,
-                                child: Text('Rozsah LED na zařízení'),
+                                child: Text(context.l10n.smartBindingLedRange),
                               ),
-                              DropdownMenuItem(value: SmartBindingKind.screenEdge, child: Text('Hrana obrazovky')),
+                              DropdownMenuItem(
+                                value: SmartBindingKind.screenEdge,
+                                child: Text(context.l10n.smartBindingScreenEdge),
+                              ),
                             ],
                             onChanged: (k) {
                               if (k == null) return;
@@ -403,9 +417,9 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                           if (f.binding.kind == SmartBindingKind.virtualLedRange) ...[
                             TextFormField(
                               initialValue: f.binding.deviceId ?? '',
-                              decoration: const InputDecoration(
-                                labelText: 'device_id (prázdné = první zařízení)',
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: context.l10n.smartDeviceIdOptional,
+                                border: const OutlineInputBorder(),
                               ),
                               onChanged: (v) => _patch(sl.copyWith(
                                 fixtures: sl.fixtures
@@ -426,7 +440,10 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                                 Expanded(
                                   child: TextFormField(
                                     initialValue: f.binding.ledStart.toString(),
-                                    decoration: const InputDecoration(labelText: 'led_start', border: OutlineInputBorder()),
+                                    decoration: InputDecoration(
+                                      labelText: context.l10n.smartBindingLedStartField,
+                                      border: const OutlineInputBorder(),
+                                    ),
                                     onChanged: (v) {
                                       final n = int.tryParse(v.trim());
                                       if (n == null) return;
@@ -446,7 +463,10 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                                 Expanded(
                                   child: TextFormField(
                                     initialValue: f.binding.ledEnd.toString(),
-                                    decoration: const InputDecoration(labelText: 'led_end', border: OutlineInputBorder()),
+                                    decoration: InputDecoration(
+                                      labelText: context.l10n.smartBindingLedEndField,
+                                      border: const OutlineInputBorder(),
+                                    ),
                                     onChanged: (v) {
                                       final n = int.tryParse(v.trim());
                                       if (n == null) return;
@@ -468,12 +488,12 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                           if (f.binding.kind == SmartBindingKind.screenEdge) ...[
                             DropdownButtonFormField<String>(
                               value: f.binding.edge,
-                              decoration: const InputDecoration(labelText: 'Hrana'),
-                              items: const [
-                                DropdownMenuItem(value: 'left', child: Text('Levá')),
-                                DropdownMenuItem(value: 'right', child: Text('Pravá')),
-                                DropdownMenuItem(value: 'top', child: Text('Horní')),
-                                DropdownMenuItem(value: 'bottom', child: Text('Spodní')),
+                              decoration: InputDecoration(labelText: context.l10n.smartEdgeLabel),
+                              items: [
+                                DropdownMenuItem(value: 'left', child: Text(context.l10n.zoneEdgeLeft)),
+                                DropdownMenuItem(value: 'right', child: Text(context.l10n.zoneEdgeRight)),
+                                DropdownMenuItem(value: 'top', child: Text(context.l10n.zoneEdgeTop)),
+                                DropdownMenuItem(value: 'bottom', child: Text(context.l10n.zoneEdgeBottom)),
                               ],
                               onChanged: (e) {
                                 if (e == null) return;
@@ -486,9 +506,9 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                             ),
                             TextFormField(
                               initialValue: f.binding.monitorIndex.toString(),
-                              decoration: const InputDecoration(
-                                labelText: 'monitor_index (0=desktop, 1…)',
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: context.l10n.smartMonitorIndexBinding,
+                                border: const OutlineInputBorder(),
                               ),
                               onChanged: (v) {
                                 final n = int.tryParse(v.trim());
@@ -507,7 +527,7 @@ class _SmartIntegrationTabState extends State<SmartIntegrationTab> {
                           ],
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text('Zapnuto'),
+                            title: Text(context.l10n.pcHealthTileEnabled),
                             value: f.enabled,
                             onChanged: (v) => _patch(sl.copyWith(
                               fixtures: sl.fixtures.map((x) => x.id == f.id ? x.copyWith(enabled: v) : x).toList(),

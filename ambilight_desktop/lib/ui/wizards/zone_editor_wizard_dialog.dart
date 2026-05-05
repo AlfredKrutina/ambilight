@@ -103,6 +103,8 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
 
   List<LedSegment> _segments = [];
   bool _loaded = false;
+  AmbilightAppController? _ambiForDispose;
+  bool _acquiredHighFidelityPreview = false;
 
   int _maxLed(AppConfig c) {
     final ds = c.globalSettings.devices;
@@ -129,10 +131,21 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _ambiForDispose ??= context.read<AmbilightAppController>();
+    if (!_acquiredHighFidelityPreview) {
+      _acquiredHighFidelityPreview = true;
+      _ambiForDispose!.acquireHighFidelityPreviewUi();
+    }
     if (_loaded) return;
     _loaded = true;
-    final ctrl = context.read<AmbilightAppController>();
+    final ctrl = _ambiForDispose!;
     _segments = List<LedSegment>.from(ctrl.config.screenMode.segments);
+  }
+
+  @override
+  void dispose() {
+    _ambiForDispose?.releaseHighFidelityPreviewUi();
+    super.dispose();
   }
 
   void _addSegment() {
@@ -179,12 +192,14 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final ctrl = context.read<AmbilightAppController>();
-    return AnimatedBuilder(
-      animation: Listenable.merge([ctrl, ctrl.previewFrameNotifier]),
-      builder: (context, _) {
+    return Selector<AmbilightAppController, AppConfig>(
+      selector: (_, ctrl) => ctrl.config,
+      builder: (context, _, __) {
+        final c = context.read<AmbilightAppController>();
+        return ListenableBuilder(
+          listenable: c.previewFrameNotifier,
+          builder: (context, _) {
         final l10n = context.l10n;
-        final c = ctrl;
         final fr = c.latestScreenFrame;
         final px =
             (fr != null && fr.isValid) ? math.max(fr.width, fr.height).clamp(800, 8192) : -1;
@@ -498,6 +513,8 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
             ),
         ],
       ),
+        );
+          },
         );
       },
     );

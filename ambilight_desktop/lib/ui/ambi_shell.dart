@@ -54,14 +54,12 @@ class AmbiShell extends StatefulWidget {
   State<AmbiShell> createState() => _AmbiShellState();
 }
 
-({int online, int total}) _deviceOnlineCounts(AmbilightAppController c) {
-  final snap = c.connectionSnapshot;
+({List<String> ids, int total}) _deviceOnlineMeta(AmbilightAppController c) {
   final devs = c.config.globalSettings.devices.where((d) => !d.controlViaHa).toList();
-  var online = 0;
-  for (final d in devs) {
-    if (snap[d.id] == true) online++;
-  }
-  return (online: online, total: devs.length);
+  return (
+    ids: [for (final d in devs) d.id],
+    total: devs.length,
+  );
 }
 
 class _AmbiShellState extends State<AmbiShell> with WidgetsBindingObserver {
@@ -274,23 +272,33 @@ class _TopChrome extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Selector<AmbilightAppController, ({int online, int total})>(
-              selector: (_, c) => _deviceOnlineCounts(c),
-              builder: (context, conn, _) {
-                if (conn.total <= 0) return const SizedBox.shrink();
-                final ok = conn.online >= conn.total;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Tooltip(
-                    message: ok
-                        ? context.l10n.allOutputsOnline(conn.online, conn.total)
-                        : context.l10n.someOutputsOffline(conn.online, conn.total),
-                    child: Icon(
-                      ok ? Icons.link_rounded : Icons.link_off_rounded,
-                      size: 22,
-                      color: ok ? scheme.primary : scheme.error.withValues(alpha: 0.92),
-                    ),
-                  ),
+            Selector<AmbilightAppController, ({List<String> ids, int total})>(
+              selector: (_, c) => _deviceOnlineMeta(c),
+              builder: (context, meta, _) {
+                if (meta.total <= 0) return const SizedBox.shrink();
+                final ctrl = context.read<AmbilightAppController>();
+                return ValueListenableBuilder<Map<String, bool>>(
+                  valueListenable: ctrl.connectionSnapshotNotifier,
+                  builder: (context, snap, _) {
+                    var online = 0;
+                    for (final id in meta.ids) {
+                      if (snap[id] == true) online++;
+                    }
+                    final ok = online >= meta.total;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Tooltip(
+                        message: ok
+                            ? context.l10n.allOutputsOnline(online, meta.total)
+                            : context.l10n.someOutputsOffline(online, meta.total),
+                        child: Icon(
+                          ok ? Icons.link_rounded : Icons.link_off_rounded,
+                          size: 22,
+                          color: ok ? scheme.primary : scheme.error.withValues(alpha: 0.92),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -373,6 +381,7 @@ class _MainSidebar extends StatelessWidget {
                     AmbiSidebarTile(
                       icon: navSpecs[i].icon,
                       label: navSpecs[i].label,
+                      tooltip: navSpecs[i].tooltip,
                       selected: selectedIndex == i,
                       onTap: () => onSelect(i),
                     ),

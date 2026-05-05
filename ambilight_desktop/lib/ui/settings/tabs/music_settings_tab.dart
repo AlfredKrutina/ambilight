@@ -220,7 +220,13 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
         builder: (context, v, _) {
           final ctrl = context.read<AmbilightAppController>();
           return SwitchListTile(
-            title: Text(l10n.musicLockPaletteTitle),
+            title: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: Text(l10n.musicLockPaletteTitle)),
+                AmbiHelpIcon(message: l10n.musicLockPaletteHelpTooltip),
+              ],
+            ),
             subtitle: Text(
               v.locked
                   ? l10n.musicLockPaletteFrozen

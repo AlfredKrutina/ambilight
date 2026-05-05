@@ -14,6 +14,7 @@ import '../../../features/firmware_legacy_old_code/esptool_flash_runner.dart';
 import '../../../features/firmware_legacy_old_code/firmware_manifest.dart';
 import '../../../features/firmware_legacy_old_code/firmware_update_service.dart';
 import '../../layout_breakpoints.dart';
+import '../../widgets/firmware_progress_dialog.dart';
 
 /// Stažení buildů z webu (manifest) a flash přes USB (esptool) nebo OTA přes Wi‑Fi (UDP).
 class FirmwareSettingsTab extends StatefulWidget {
@@ -186,21 +187,38 @@ class _FirmwareSettingsTabState extends State<FirmwareSettingsTab> {
       setState(() => _status = l10n.fwStatusDownloadBinsFirst);
       return;
     }
-    setState(() {
-      _busy = true;
-      _status = l10n.fwStatusFlashing;
-    });
+    setState(() => _busy = true);
     try {
-      final (ok, log) = await EsptoolFlashRunner.flashSerial(
-        manifest: m,
-        downloadedDir: root,
-        comPort: com,
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => FirmwareProgressDialog(
+          title: l10n.fwProgressUsbTitle,
+          initialSubtitle: l10n.fwProgressUsbSubtitle,
+          onRun: (h) async {
+            try {
+              final (ok, log) = await EsptoolFlashRunner.flashSerial(
+                manifest: m,
+                downloadedDir: root,
+                comPort: com,
+                shouldCancel: () => h.isCancelled,
+              );
+              if (!context.mounted) return false;
+              if (h.isCancelled) {
+                setState(() => _status = l10n.fwProgressFlashCancelled);
+                return false;
+              }
+              setState(() => _status = ok ? l10n.fwStatusFlashOk(log) : l10n.fwStatusFlashFail(log));
+              return false;
+            } catch (e) {
+              if (context.mounted) {
+                setState(() => _status = l10n.fwStatusException('$e'));
+              }
+              return false;
+            }
+          },
+        ),
       );
-      if (!mounted) return;
-      setState(() => _status = ok ? l10n.fwStatusFlashOk(log) : l10n.fwStatusFlashFail(log));
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _status = l10n.fwStatusException('$e'));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -327,16 +345,39 @@ class _FirmwareSettingsTabState extends State<FirmwareSettingsTab> {
       setState(() => _status = _l10nOtaReject(pre));
       return;
     }
-    setState(() {
-      _busy = true;
-      _status = l10n.fwStatusSendingOta(ip, '$port');
-    });
-    final ok = await UdpDeviceCommands.sendOtaHttpUrl(ip, port, u);
-    if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _status = ok ? l10n.fwStatusOtaSent : l10n.fwStatusUdpFailed;
-    });
+    setState(() => _busy = true);
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => FirmwareProgressDialog(
+          title: l10n.fwProgressOtaTitle,
+          initialSubtitle: l10n.fwProgressOtaSending,
+          onRun: (h) async {
+            try {
+              final ok = await UdpDeviceCommands.sendOtaHttpUrl(ip, port, u);
+              if (!context.mounted) return false;
+              if (h.isCancelled) return false;
+              if (!ok) {
+                setState(() => _status = l10n.fwStatusUdpFailed);
+                return false;
+              }
+              setState(() => _status = l10n.fwStatusOtaSent);
+              h.updateSubtitle(l10n.fwProgressOtaDevicePhase);
+              h.showCloseOnly();
+              return true;
+            } catch (e) {
+              if (context.mounted) {
+                setState(() => _status = l10n.fwStatusException('$e'));
+              }
+              return false;
+            }
+          },
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   void _refreshSerialPorts() {

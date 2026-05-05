@@ -582,7 +582,13 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(l10n.screenUltraSaturation),
+                title: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: Text(l10n.screenUltraSaturation)),
+                    AmbiHelpIcon(message: l10n.screenUltraSatHelpTooltip),
+                  ],
+                ),
                 value: s.ultraSaturation,
                 onChanged: (v) => _patch(s.copyWith(ultraSaturation: v)),
               ),

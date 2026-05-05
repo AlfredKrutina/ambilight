@@ -38,10 +38,16 @@ class DevicesPage extends StatefulWidget {
 
 class _DevicesPageState extends State<DevicesPage> {
   bool _findingCom = false;
+  int _comScanIndex = 0;
+  int _comScanTotal = 0;
 
   Future<void> _findAmbilightCom() async {
     final c = context.read<AmbilightAppController>();
-    setState(() => _findingCom = true);
+    setState(() {
+      _findingCom = true;
+      _comScanIndex = 0;
+      _comScanTotal = 0;
+    });
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(SnackBar(content: Text(context.l10n.comScanHandshake)));
     final snap = c.connectionSnapshot;
@@ -52,12 +58,24 @@ class _DevicesPageState extends State<DevicesPage> {
             (snap[d.id] ?? false))
           d.port.trim(),
     };
-    final port = await SerialAmbilightPortDiscovery.findAmbilightPort(
-      baudRate: c.config.globalSettings.baudRate,
-      skipPortNames: skipOpenCom,
+    final port = await c.runWithLoopPaused(
+      () => SerialAmbilightPortDiscovery.findAmbilightPort(
+        baudRate: c.config.globalSettings.baudRate,
+        skipPortNames: skipOpenCom,
+        onPortProgress: (idx, tot) {
+          if (!mounted) return;
+          setState(() {
+            _comScanIndex = idx;
+            _comScanTotal = tot;
+          });
+        },
+      ),
     );
     if (!mounted) return;
-    setState(() => _findingCom = false);
+    setState(() {
+      _findingCom = false;
+      _comScanTotal = 0;
+    });
     if (port == null) {
       messenger.showSnackBar(
         SnackBar(content: Text(context.l10n.comScanNoReply)),
@@ -276,124 +294,161 @@ class _DevicesPageState extends State<DevicesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.read<AmbilightAppController>();
     final scheme = Theme.of(context).colorScheme;
-    return AnimatedBuilder(
-      animation: Listenable.merge([c, c.previewFrameNotifier, c.connectionSnapshotNotifier]),
-      builder: (context, _) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            return ResponsiveBody(
-              maxWidth: constraints.maxWidth,
-              child: ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-      children: [
-        AmbiPageHeader(
-          title: context.l10n.devicesPageTitle,
-          subtitle: context.l10n.devicesPageSubtitle,
-          bottomSpacing: 20,
-        ),
-        AmbiGlassPanel(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return ResponsiveBody(
+          maxWidth: constraints.maxWidth,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
             children: [
-              Text(context.l10n.devicesActionsTitle, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: _discover,
-                icon: const Icon(Icons.wifi_tethering),
-                label: Text(context.l10n.discoveryWizardLabel),
+              AmbiPageHeader(
+                title: context.l10n.devicesPageTitle,
+                subtitle: context.l10n.devicesPageSubtitle,
+                bottomSpacing: 20,
               ),
-              const SizedBox(height: 10),
-              LayoutBuilder(
-          builder: (context, bc) {
-            final narrow = bc.maxWidth < 520;
-            final children = [
-              OutlinedButton.icon(
-                onPressed: () => ZoneEditorWizardDialog.show(context),
-                icon: const Icon(Icons.border_outer),
-                label: Text(context.l10n.segmentsLabel),
+              RepaintBoundary(
+                child: AmbiGlassPanel(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        context.l10n.devicesActionsTitle,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 12),
+                      Tooltip(
+                        message: context.l10n.devicesActionDiscoverTooltip,
+                        child: FilledButton.icon(
+                          onPressed: _discover,
+                          icon: const Icon(Icons.wifi_tethering),
+                          label: Text(context.l10n.discoveryWizardLabel),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      LayoutBuilder(
+                        builder: (context, bc) {
+                          final narrow = bc.maxWidth < 520;
+                          final l10n = context.l10n;
+                          final children = [
+                            Tooltip(
+                              message: l10n.devicesActionZonesTooltip,
+                              child: OutlinedButton.icon(
+                                onPressed: () => ZoneEditorWizardDialog.show(context),
+                                icon: const Icon(Icons.border_outer),
+                                label: Text(l10n.segmentsLabel),
+                              ),
+                            ),
+                            Tooltip(
+                              message: l10n.devicesActionSegGeomTooltip,
+                              child: OutlinedButton.icon(
+                                onPressed: () => SegmentGeometryWizardDialog.show(context),
+                                icon: const Icon(Icons.screen_rotation_alt_outlined),
+                                label: Text(l10n.segGeomWizardLaunchButton),
+                              ),
+                            ),
+                            Tooltip(
+                              message: l10n.devicesActionCalibrationTooltip,
+                              child: OutlinedButton.icon(
+                                onPressed: () => CalibrationWizardDialog.show(context),
+                                icon: const Icon(Icons.tune),
+                                label: Text(l10n.calibrationLabel),
+                              ),
+                            ),
+                            Tooltip(
+                              message: l10n.devicesActionPresetTooltip,
+                              child: OutlinedButton.icon(
+                                onPressed: () => ConfigProfileWizardDialog.show(context),
+                                icon: const Icon(Icons.bookmark_add_outlined),
+                                label: Text(l10n.screenPresetLabel),
+                              ),
+                            ),
+                          ];
+                          if (narrow) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                for (final w in children) ...[w, const SizedBox(height: 6)],
+                              ],
+                            );
+                          }
+                          return Wrap(spacing: 8, runSpacing: 8, children: children);
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      Tooltip(
+                        message: context.l10n.devicesActionAddWifiTooltip,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _openSaveDeviceSheet(context, preset: null),
+                          icon: const Icon(Icons.add),
+                          label: Text(context.l10n.addWifiManual),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Tooltip(
+                        message: context.l10n.devicesActionFindComTooltip,
+                        child: OutlinedButton.icon(
+                          onPressed: _findingCom ? null : _findAmbilightCom,
+                          icon: _findingCom
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.usb),
+                          label: Text(_findingCom ? context.l10n.findingCom : context.l10n.findAmbilightCom),
+                        ),
+                      ),
+                      if (_findingCom && _comScanTotal > 0) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          '${_comScanIndex + 1} / $_comScanTotal',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
-              OutlinedButton.icon(
-                onPressed: () => SegmentGeometryWizardDialog.show(context),
-                icon: const Icon(Icons.screen_rotation_alt_outlined),
-                label: Text(context.l10n.segGeomWizardLaunchButton),
+              const Divider(height: 32),
+              Selector<AmbilightAppController, AppConfig>(
+                selector: (_, ctrl) => ctrl.config,
+                builder: (context, draft, _) {
+                  return RepaintBoundary(
+                    child: DevicesTab(
+                      draft: draft,
+                      maxWidth: constraints.maxWidth,
+                      onDevicesChanged: _patchDevices,
+                    ),
+                  );
+                },
               ),
-              OutlinedButton.icon(
-                onPressed: () => CalibrationWizardDialog.show(context),
-                icon: const Icon(Icons.tune),
-                label: Text(context.l10n.calibrationLabel),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => ConfigProfileWizardDialog.show(context),
-                icon: const Icon(Icons.bookmark_add_outlined),
-                label: Text(context.l10n.screenPresetLabel),
-              ),
-            ];
-            if (narrow) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final w in children) ...[w, const SizedBox(height: 6)],
-                ],
-              );
-            }
-            return Wrap(spacing: 8, runSpacing: 8, children: children);
-          },
-        ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: () => _openSaveDeviceSheet(context, preset: null),
-                icon: const Icon(Icons.add),
-                label: Text(context.l10n.addWifiManual),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: _findingCom ? null : _findAmbilightCom,
-                icon: _findingCom
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.usb),
-                label: Text(_findingCom ? context.l10n.findingCom : context.l10n.findAmbilightCom),
+              Theme(
+                data: Theme.of(context),
+                child: ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: const EdgeInsets.only(bottom: 8),
+                  title: Text(
+                    context.l10n.diagnosticsComPorts,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                  children: [
+                    SelectableText(
+                      AmbilightAppController.serialPorts().join(', ').isEmpty
+                          ? context.l10n.noSerialPortsDetected
+                          : AmbilightAppController.serialPorts().join(', '),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-        ),
-        const Divider(height: 32),
-        Selector<AmbilightAppController, AppConfig>(
-          selector: (_, ctrl) => ctrl.config,
-          builder: (context, draft, _) {
-            return DevicesTab(
-              draft: draft,
-              maxWidth: constraints.maxWidth,
-              onDevicesChanged: _patchDevices,
-            );
-          },
-        ),
-        Theme(
-          data: Theme.of(context),
-          child: ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: const EdgeInsets.only(bottom: 8),
-            title: Text(
-              context.l10n.diagnosticsComPorts,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-            children: [
-              SelectableText(
-                AmbilightAppController.serialPorts().join(', ').isEmpty
-                    ? context.l10n.noSerialPortsDetected
-                    : AmbilightAppController.serialPorts().join(', '),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-        ),
-      ],
-            ),
-          );
-        },
-      );
+        );
       },
     );
   }

@@ -938,6 +938,186 @@ abstract class AppLocalizations {
   /// **'Firmware'**
   String get tabFirmware;
 
+  /// No description provided for @settingsTabGlobalTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Language, theme, performance, default mode and JSON backup/import.'**
+  String get settingsTabGlobalTooltip;
+
+  /// No description provided for @settingsTabLightTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Static colors, effects, zones and timing for Light mode.'**
+  String get settingsTabLightTooltip;
+
+  /// No description provided for @settingsTabScreenTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Monitor capture, segments, gamma, interpolation and calibration.'**
+  String get settingsTabScreenTooltip;
+
+  /// No description provided for @settingsTabMusicTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio input, FFT, melody, presets and mapping colors to the strip.'**
+  String get settingsTabMusicTooltip;
+
+  /// No description provided for @settingsTabPcHealthTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'PC sensors (CPU, GPU, …) mapped to output colors.'**
+  String get settingsTabPcHealthTooltip;
+
+  /// No description provided for @settingsTabSpotifyTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Spotify OAuth and artwork colors — complements Music mode.'**
+  String get settingsTabSpotifyTooltip;
+
+  /// No description provided for @settingsTabSmartHomeTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Home Assistant, HomeKit and virtual room for extra lamps.'**
+  String get settingsTabSmartHomeTooltip;
+
+  /// No description provided for @settingsTabFirmwareTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'OTA manifest, USB flashing (esptool) and UDP commands.'**
+  String get settingsTabFirmwareTooltip;
+
+  /// No description provided for @settingsPageHelpTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'On wide windows use the left grouped menu; on narrow layouts tabs scroll horizontally. Changes save shortly after edits (see the banner hint above).'**
+  String get settingsPageHelpTooltip;
+
+  /// No description provided for @settingsPerformanceHelpTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Caps monitor capture and related loops to reduce CPU. Light mode without capture stays faster.'**
+  String get settingsPerformanceHelpTooltip;
+
+  /// No description provided for @musicLockPaletteHelpTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Captures current strip colors and holds them — handy while tuning without continuous output.'**
+  String get musicLockPaletteHelpTooltip;
+
+  /// No description provided for @screenUltraSatHelpTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Aggressively boosts extremely saturated colors from capture — use with the sliders below.'**
+  String get screenUltraSatHelpTooltip;
+
+  /// No description provided for @smartPushColorsHelpTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'When on, the app sends the same mapped colors as the strip to HA / HomeKit fixtures per each lamp’s binding.'**
+  String get smartPushColorsHelpTooltip;
+
+  /// No description provided for @homeSectionModeHelpTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'The active mode chooses where colors come from (static effects / monitor / audio / sensors).'**
+  String get homeSectionModeHelpTooltip;
+
+  /// No description provided for @homeSectionIntegrationsHelpTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Spotify, Home Assistant and firmware manifest status — full controls live in Settings tabs.'**
+  String get homeSectionIntegrationsHelpTooltip;
+
+  /// No description provided for @homeSectionDevicesHelpTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection status for known strips; add or edit devices on the Devices page.'**
+  String get homeSectionDevicesHelpTooltip;
+
+  /// No description provided for @modeLightTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Colors and effects without monitor capture — zones from Settings.'**
+  String get modeLightTooltip;
+
+  /// No description provided for @modeScreenTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Ambilight from the edges of the chosen monitor using segments and geometry.'**
+  String get modeScreenTooltip;
+
+  /// No description provided for @modeMusicTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'FFT / melody from microphone or loopback; Spotify and OS media optional.'**
+  String get modeMusicTooltip;
+
+  /// No description provided for @modePcHealthTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'PC temperatures and load mapped to colors via configured metrics.'**
+  String get modePcHealthTooltip;
+
+  /// No description provided for @integrationMusicCardTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Spotify OAuth and overview settings affecting Music mode.'**
+  String get integrationMusicCardTooltip;
+
+  /// No description provided for @integrationHaCardTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Mirror strip colors to Home Assistant or HomeKit (macOS) entities.'**
+  String get integrationHaCardTooltip;
+
+  /// No description provided for @integrationFirmwareCardTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Manifest URL for OTA and downloading binaries — does not flash by itself.'**
+  String get integrationFirmwareCardTooltip;
+
+  /// No description provided for @devicesActionDiscoverTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'UDP discovery finds ESP devices on the network and adds them.'**
+  String get devicesActionDiscoverTooltip;
+
+  /// No description provided for @devicesActionZonesTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'LED segment editor tied to monitor edges and LED order.'**
+  String get devicesActionZonesTooltip;
+
+  /// No description provided for @devicesActionSegGeomTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Strip orientation around the screen before calibration.'**
+  String get devicesActionSegGeomTooltip;
+
+  /// No description provided for @devicesActionCalibrationTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Wizard mapping physical corners to captured geometry.'**
+  String get devicesActionCalibrationTooltip;
+
+  /// No description provided for @devicesActionPresetTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Save current screen settings as a named preset.'**
+  String get devicesActionPresetTooltip;
+
+  /// No description provided for @devicesActionAddWifiTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Manually add a Wi‑Fi device by IP and UDP port.'**
+  String get devicesActionAddWifiTooltip;
+
+  /// No description provided for @devicesActionFindComTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Scans serial ports for firmware handshake over USB.'**
+  String get devicesActionFindComTooltip;
+
   /// No description provided for @globalSectionTitle.
   ///
   /// In en, this message translates to:
@@ -3318,8 +3498,44 @@ abstract class AppLocalizations {
   /// No description provided for @backupIntroBody.
   ///
   /// In en, this message translates to:
-  /// **'JSON compatible with the Python client (`config/default.json`). Import replaces current settings and persists them.'**
+  /// **'JSON compatible with the Python client (`config/default.json`). Safe export omits Home Assistant and Spotify secrets (same as the app’s on-disk profile). Use “Export with secrets” for a full clone including tokens.'**
   String get backupIntroBody;
+
+  /// No description provided for @backupExportWithSecrets.
+  ///
+  /// In en, this message translates to:
+  /// **'Export with secrets…'**
+  String get backupExportWithSecrets;
+
+  /// No description provided for @backupExportWithSecretsConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Export anyway'**
+  String get backupExportWithSecretsConfirm;
+
+  /// No description provided for @backupSecretsExportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Include secrets in the backup?'**
+  String get backupSecretsExportTitle;
+
+  /// No description provided for @backupSecretsExportBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The file will contain your Home Assistant long-lived token (if set), Spotify OAuth access/refresh tokens from this PC, Spotify client secret if entered, and the same fields as in Settings. Anyone with the file can control your HA or Spotify session — store it only in a safe place and never share it.'**
+  String get backupSecretsExportBody;
+
+  /// No description provided for @backupSecretsSaveDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save configuration including secrets'**
+  String get backupSecretsSaveDialogTitle;
+
+  /// No description provided for @backupImportRestoresTokensHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Import applies `ha_long_lived_token` and Spotify tokens from the file when present (written to the same sidecar storage as a normal login).'**
+  String get backupImportRestoresTokensHint;
 
   /// No description provided for @exportDialogTitle.
   ///
@@ -6058,6 +6274,42 @@ abstract class AppLocalizations {
   /// **'OTA command does not pass device-side checks.'**
   String get fwStatusOtaPayloadInvalid;
 
+  /// No description provided for @fwProgressUsbTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'USB flash'**
+  String get fwProgressUsbTitle;
+
+  /// No description provided for @fwProgressUsbSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing via esptool — stop the app stream on the same COM port while flashing.'**
+  String get fwProgressUsbSubtitle;
+
+  /// No description provided for @fwProgressOtaTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'OTA update'**
+  String get fwProgressOtaTitle;
+
+  /// No description provided for @fwProgressOtaSending.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending OTA_HTTP to the device…'**
+  String get fwProgressOtaSending;
+
+  /// No description provided for @fwProgressOtaDevicePhase.
+  ///
+  /// In en, this message translates to:
+  /// **'The device is downloading and installing firmware — watch the strip LEDs. You can close this panel; the lamp keeps updating.'**
+  String get fwProgressOtaDevicePhase;
+
+  /// No description provided for @fwProgressFlashCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Flash cancelled (esptool was stopped).'**
+  String get fwProgressFlashCancelled;
+
   /// No description provided for @fwFillFromDevices.
   ///
   /// In en, this message translates to:
@@ -6591,6 +6843,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Screen edge'**
   String get smartBindingScreenEdge;
+
+  /// No description provided for @smartBindingLedStartField.
+  ///
+  /// In en, this message translates to:
+  /// **'LED start (index)'**
+  String get smartBindingLedStartField;
+
+  /// No description provided for @smartBindingLedEndField.
+  ///
+  /// In en, this message translates to:
+  /// **'LED end (index)'**
+  String get smartBindingLedEndField;
 
   /// No description provided for @smartDeviceIdOptional.
   ///

@@ -98,7 +98,13 @@ List<Widget> globalSettingsFields(
     ),
     if (!simpleUi) ...[
       SwitchListTile(
-        title: Text(l10n.performanceModeTitle),
+        title: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: Text(l10n.performanceModeTitle)),
+            AmbiHelpIcon(message: l10n.settingsPerformanceHelpTooltip),
+          ],
+        ),
         subtitle: Text(l10n.performanceModeSubtitle),
         value: g.performanceMode,
         onChanged: (v) => onChanged(g.copyWith(performanceMode: v)),

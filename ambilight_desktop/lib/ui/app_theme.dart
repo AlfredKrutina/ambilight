@@ -228,8 +228,8 @@ abstract final class AmbiLightTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       tooltipTheme: TooltipThemeData(
-        waitDuration: const Duration(milliseconds: 450),
-        showDuration: const Duration(seconds: 4),
+        waitDuration: const Duration(milliseconds: 400),
+        showDuration: const Duration(seconds: 5),
         decoration: BoxDecoration(
           color: colors.inverseSurface.withValues(alpha: 0.94),
           borderRadius: BorderRadius.circular(10),

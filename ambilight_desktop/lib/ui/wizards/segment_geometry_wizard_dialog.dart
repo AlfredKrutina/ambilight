@@ -45,15 +45,28 @@ class _SegmentGeometryWizardDialogState extends State<SegmentGeometryWizardDialo
   List<LedSegment> _segments = const [];
   int _selectedIndex = 0;
   bool _loaded = false;
+  AmbilightAppController? _ambiForDispose;
+  bool _acquiredHighFidelityPreview = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _ambiForDispose ??= context.read<AmbilightAppController>();
+    if (!_acquiredHighFidelityPreview) {
+      _acquiredHighFidelityPreview = true;
+      _ambiForDispose!.acquireHighFidelityPreviewUi();
+    }
     if (_loaded) return;
     _loaded = true;
-    final ctrl = context.read<AmbilightAppController>();
+    final ctrl = _ambiForDispose!;
     _segments = List<LedSegment>.from(ctrl.config.screenMode.segments);
     _selectedIndex = _segments.isEmpty ? 0 : _segments.length - 1;
+  }
+
+  @override
+  void dispose() {
+    _ambiForDispose?.releaseHighFidelityPreviewUi();
+    super.dispose();
   }
 
   static bool _wholeEdge(LedSegment s) => s.pixelStart == 0 && s.pixelEnd == 0;
@@ -126,14 +139,17 @@ class _SegmentGeometryWizardDialogState extends State<SegmentGeometryWizardDialo
 
   @override
   Widget build(BuildContext context) {
-    final ctrl = context.read<AmbilightAppController>();
-    return AnimatedBuilder(
-      animation: Listenable.merge([ctrl, ctrl.previewFrameNotifier]),
-      builder: (context, _) {
-        final l10n = context.l10n;
-        final scheme = Theme.of(context).colorScheme;
+    return Selector<AmbilightAppController, AppConfig>(
+      selector: (_, c) => c.config,
+      builder: (context, _, __) {
+        final ctrl = context.read<AmbilightAppController>();
+        return ListenableBuilder(
+          listenable: ctrl.previewFrameNotifier,
+          builder: (context, _) {
+            final l10n = context.l10n;
+            final scheme = Theme.of(context).colorScheme;
 
-        return WizardDialogShell(
+            return WizardDialogShell(
           title: l10n.segGeomWizardTitle,
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.cancel)),
@@ -255,15 +271,17 @@ class _SegmentGeometryWizardDialogState extends State<SegmentGeometryWizardDialo
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                         ),
                         const SizedBox(height: 8),
-                        _SegmentMonitorPreview(
-                          roi: roi,
-                          monW: monW,
-                          monH: monH,
-                          edge: s.edge,
-                          edgeLabel: _edgeLabel(l10n, s.edge),
-                          spatialGradient: gradientColors,
-                          colorScheme: scheme,
-                          noGradientHint: spatialRgb.isEmpty ? l10n.segGeomWizardGradientUnavailable : null,
+                        RepaintBoundary(
+                          child: _SegmentMonitorPreview(
+                            roi: roi,
+                            monW: monW,
+                            monH: monH,
+                            edge: s.edge,
+                            edgeLabel: _edgeLabel(l10n, s.edge),
+                            spatialGradient: gradientColors,
+                            colorScheme: scheme,
+                            noGradientHint: spatialRgb.isEmpty ? l10n.segGeomWizardGradientUnavailable : null,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         Row(
@@ -418,6 +436,8 @@ class _SegmentGeometryWizardDialogState extends State<SegmentGeometryWizardDialo
               ],
             ],
           ),
+        );
+          },
         );
       },
     );

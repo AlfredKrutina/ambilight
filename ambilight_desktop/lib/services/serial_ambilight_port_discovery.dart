@@ -34,9 +34,13 @@ class SerialAmbilightPortDiscovery {
   ///
   /// [skipPortNames] — porty, které už aplikace drží otevřené (jiné serial zařízení). Na Windows
   /// druhé `openReadWrite` na stejný COM často spadne procesem / CRT assert.
+  ///
+  /// [onPortProgress] — `index` 0…`total-1` pro aktuální port (včetně přeskočených); mezi porty se
+  /// volá `Future.delayed(Duration.zero)` aby Flutter stihl frame.
   static Future<String?> findAmbilightPort({
     int baudRate = 115200,
     Set<String>? skipPortNames,
+    void Function(int index, int total)? onPortProgress,
   }) async {
     List<String> names;
     try {
@@ -45,10 +49,14 @@ class SerialAmbilightPortDiscovery {
       _log.fine('availablePorts: $e', e, st);
       return null;
     }
+    final total = names.length;
     final skip = skipPortNames == null || skipPortNames.isEmpty
         ? null
         : skipPortNames.map((e) => e.trim().toUpperCase()).where((e) => e.isNotEmpty).toSet();
-    for (final name in names) {
+    for (var i = 0; i < names.length; i++) {
+      final name = names[i];
+      onPortProgress?.call(i, total);
+      await Future<void>.delayed(Duration.zero);
       final skipKey = name.trim().toUpperCase();
       if (skip != null && skip.contains(skipKey)) {
         _log.fine('skip $name: port je v seznamu obsazených (aktivní serial v konfiguraci)');

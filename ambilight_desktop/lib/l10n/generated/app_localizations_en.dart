@@ -491,6 +491,126 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tabFirmware => 'Firmware';
 
   @override
+  String get settingsTabGlobalTooltip =>
+      'Language, theme, performance, default mode and JSON backup/import.';
+
+  @override
+  String get settingsTabLightTooltip =>
+      'Static colors, effects, zones and timing for Light mode.';
+
+  @override
+  String get settingsTabScreenTooltip =>
+      'Monitor capture, segments, gamma, interpolation and calibration.';
+
+  @override
+  String get settingsTabMusicTooltip =>
+      'Audio input, FFT, melody, presets and mapping colors to the strip.';
+
+  @override
+  String get settingsTabPcHealthTooltip =>
+      'PC sensors (CPU, GPU, …) mapped to output colors.';
+
+  @override
+  String get settingsTabSpotifyTooltip =>
+      'Spotify OAuth and artwork colors — complements Music mode.';
+
+  @override
+  String get settingsTabSmartHomeTooltip =>
+      'Home Assistant, HomeKit and virtual room for extra lamps.';
+
+  @override
+  String get settingsTabFirmwareTooltip =>
+      'OTA manifest, USB flashing (esptool) and UDP commands.';
+
+  @override
+  String get settingsPageHelpTooltip =>
+      'On wide windows use the left grouped menu; on narrow layouts tabs scroll horizontally. Changes save shortly after edits (see the banner hint above).';
+
+  @override
+  String get settingsPerformanceHelpTooltip =>
+      'Caps monitor capture and related loops to reduce CPU. Light mode without capture stays faster.';
+
+  @override
+  String get musicLockPaletteHelpTooltip =>
+      'Captures current strip colors and holds them — handy while tuning without continuous output.';
+
+  @override
+  String get screenUltraSatHelpTooltip =>
+      'Aggressively boosts extremely saturated colors from capture — use with the sliders below.';
+
+  @override
+  String get smartPushColorsHelpTooltip =>
+      'When on, the app sends the same mapped colors as the strip to HA / HomeKit fixtures per each lamp’s binding.';
+
+  @override
+  String get homeSectionModeHelpTooltip =>
+      'The active mode chooses where colors come from (static effects / monitor / audio / sensors).';
+
+  @override
+  String get homeSectionIntegrationsHelpTooltip =>
+      'Quick Spotify, Home Assistant and firmware manifest status — full controls live in Settings tabs.';
+
+  @override
+  String get homeSectionDevicesHelpTooltip =>
+      'Connection status for known strips; add or edit devices on the Devices page.';
+
+  @override
+  String get modeLightTooltip =>
+      'Colors and effects without monitor capture — zones from Settings.';
+
+  @override
+  String get modeScreenTooltip =>
+      'Ambilight from the edges of the chosen monitor using segments and geometry.';
+
+  @override
+  String get modeMusicTooltip =>
+      'FFT / melody from microphone or loopback; Spotify and OS media optional.';
+
+  @override
+  String get modePcHealthTooltip =>
+      'PC temperatures and load mapped to colors via configured metrics.';
+
+  @override
+  String get integrationMusicCardTooltip =>
+      'Spotify OAuth and overview settings affecting Music mode.';
+
+  @override
+  String get integrationHaCardTooltip =>
+      'Mirror strip colors to Home Assistant or HomeKit (macOS) entities.';
+
+  @override
+  String get integrationFirmwareCardTooltip =>
+      'Manifest URL for OTA and downloading binaries — does not flash by itself.';
+
+  @override
+  String get devicesActionDiscoverTooltip =>
+      'UDP discovery finds ESP devices on the network and adds them.';
+
+  @override
+  String get devicesActionZonesTooltip =>
+      'LED segment editor tied to monitor edges and LED order.';
+
+  @override
+  String get devicesActionSegGeomTooltip =>
+      'Strip orientation around the screen before calibration.';
+
+  @override
+  String get devicesActionCalibrationTooltip =>
+      'Wizard mapping physical corners to captured geometry.';
+
+  @override
+  String get devicesActionPresetTooltip =>
+      'Save current screen settings as a named preset.';
+
+  @override
+  String get devicesActionAddWifiTooltip =>
+      'Manually add a Wi‑Fi device by IP and UDP port.';
+
+  @override
+  String get devicesActionFindComTooltip =>
+      'Scans serial ports for firmware handshake over USB.';
+
+  @override
   String get globalSectionTitle => 'Global';
 
   @override
@@ -1852,7 +1972,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backupIntroBody =>
-      'JSON compatible with the Python client (`config/default.json`). Import replaces current settings and persists them.';
+      'JSON compatible with the Python client (`config/default.json`). Safe export omits Home Assistant and Spotify secrets (same as the app’s on-disk profile). Use “Export with secrets” for a full clone including tokens.';
+
+  @override
+  String get backupExportWithSecrets => 'Export with secrets…';
+
+  @override
+  String get backupExportWithSecretsConfirm => 'Export anyway';
+
+  @override
+  String get backupSecretsExportTitle => 'Include secrets in the backup?';
+
+  @override
+  String get backupSecretsExportBody =>
+      'The file will contain your Home Assistant long-lived token (if set), Spotify OAuth access/refresh tokens from this PC, Spotify client secret if entered, and the same fields as in Settings. Anyone with the file can control your HA or Spotify session — store it only in a safe place and never share it.';
+
+  @override
+  String get backupSecretsSaveDialogTitle =>
+      'Save configuration including secrets';
+
+  @override
+  String get backupImportRestoresTokensHint =>
+      'Import applies `ha_long_lived_token` and Spotify tokens from the file when present (written to the same sidecar storage as a normal login).';
 
   @override
   String get exportDialogTitle => 'Export AmbiLight configuration';
@@ -3493,6 +3634,27 @@ class AppLocalizationsEn extends AppLocalizations {
       'OTA command does not pass device-side checks.';
 
   @override
+  String get fwProgressUsbTitle => 'USB flash';
+
+  @override
+  String get fwProgressUsbSubtitle =>
+      'Writing via esptool — stop the app stream on the same COM port while flashing.';
+
+  @override
+  String get fwProgressOtaTitle => 'OTA update';
+
+  @override
+  String get fwProgressOtaSending => 'Sending OTA_HTTP to the device…';
+
+  @override
+  String get fwProgressOtaDevicePhase =>
+      'The device is downloading and installing firmware — watch the strip LEDs. You can close this panel; the lamp keeps updating.';
+
+  @override
+  String get fwProgressFlashCancelled =>
+      'Flash cancelled (esptool was stopped).';
+
+  @override
   String get fwFillFromDevices => 'Fill from Devices';
 
   @override
@@ -3799,6 +3961,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get smartBindingScreenEdge => 'Screen edge';
+
+  @override
+  String get smartBindingLedStartField => 'LED start (index)';
+
+  @override
+  String get smartBindingLedEndField => 'LED end (index)';
 
   @override
   String get smartDeviceIdOptional => 'device_id (empty = first device)';

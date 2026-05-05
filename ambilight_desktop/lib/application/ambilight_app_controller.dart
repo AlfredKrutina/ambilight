@@ -35,6 +35,7 @@ import '../features/pc_health/pc_health_collector.dart';
 import '../features/pc_health/pc_health_smoother.dart';
 import '../features/pc_health/pc_health_snapshot.dart';
 import '../features/spotify/spotify_service.dart';
+import '../features/spotify/spotify_token_store.dart';
 import '../features/system_media/system_media_now_playing_service.dart';
 import '../l10n/app_locale_bridge.dart';
 import '../features/smart_lights/ha_token_store.dart';
@@ -227,6 +228,21 @@ class AmbilightAppController extends ChangeNotifier {
   Map<String, bool> _connectionSnapshotCache = const {};
   DateTime? _lastScreenFrameUiNotify;
   static const Duration _minScreenFrameUiNotifyGap = Duration(milliseconds: 33);
+  static const Duration _minScreenFrameUiNotifyGapHighFidelity = Duration(milliseconds: 16);
+  int _highFidelityPreviewUiRefCount = 0;
+
+  /// Vyšší frekvence [previewFrameNotifier] pro otevřené náhledové dialogy — párovat s [releaseHighFidelityPreviewUi].
+  void acquireHighFidelityPreviewUi() {
+    _highFidelityPreviewUiRefCount++;
+  }
+
+  void releaseHighFidelityPreviewUi() {
+    if (_highFidelityPreviewUiRefCount > 0) _highFidelityPreviewUiRefCount--;
+  }
+
+  Duration get _effectiveScreenFrameUiNotifyGap => _highFidelityPreviewUiRefCount > 0
+      ? _minScreenFrameUiNotifyGapHighFidelity
+      : _minScreenFrameUiNotifyGap;
   ScreenFrame? _screenFrameLatest;
   ScreenSessionInfo _captureSessionInfo = ScreenSessionInfo.unknown;
   final MusicAudioService _musicAudio = MusicAudioService();
@@ -1206,8 +1222,38 @@ class AmbilightAppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// JSON konfigurace pro zálohu / import (bez zápisu na disk).
+  /// JSON konfigurace pro zálohu bez tokenů / client_secret (bez zápisu na disk).
   String exportConfigJsonString() => _config.sanitizedForPersistence().toJsonString();
+
+  /// Záloha JSON: [includeSecrets] `false` jako [exportConfigJsonString]; `true` včetně HA tokenu
+  /// ze runtime konfigurace a Spotify tokenů ze [SpotifyTokenStore] + hodnot z `_config.spotify`.
+  Future<String> exportConfigJsonForBackup({required bool includeSecrets}) async {
+    if (!includeSecrets) {
+      return exportConfigJsonString();
+    }
+    final stored = await SpotifyTokenStore.read();
+    var spotify = _config.spotify;
+    final acc = stored.$1?.trim();
+    final ref = stored.$2?.trim();
+    if ((acc != null && acc.isNotEmpty) || (ref != null && ref.isNotEmpty)) {
+      spotify = spotify.copyWith(
+        accessToken: (acc != null && acc.isNotEmpty) ? acc : spotify.accessToken,
+        refreshToken: (ref != null && ref.isNotEmpty) ? ref : spotify.refreshToken,
+      );
+    }
+    return _config.copyWith(spotify: spotify).toJsonString();
+  }
+
+  Future<void> _persistSpotifyTokensFromImportedConfig() async {
+    final sp = _config.spotify;
+    final a = sp.accessToken?.trim();
+    final r = sp.refreshToken?.trim();
+    if (a != null && a.isNotEmpty && r != null && r.isNotEmpty) {
+      await SpotifyTokenStore.write(accessToken: a, refreshToken: r);
+    }
+    await spotify.hydrateFromStorage(_config);
+    spotify.startPollingIfNeeded(_config);
+  }
 
   /// Načte konfiguraci z JSON řetězce a uloží (jako uložení z nastavení).
   Future<void> importConfigFromJsonString(String json) async {
@@ -1220,6 +1266,7 @@ class AmbilightAppController extends ChangeNotifier {
       rethrow;
     }
     await applyConfigAndPersist(next);
+    await _persistSpotifyTokensFromImportedConfig();
   }
 
   /// Vrátí konfiguraci na výchozí hodnoty, smaže uložené tokeny (Home Assistant, Spotify) a přepíše `default.json`.
@@ -1924,7 +1971,7 @@ class AmbilightAppController extends ChangeNotifier {
     _screenCaptureFaultBannerShown = false;
     final now = DateTime.now();
     if (_lastScreenFrameUiNotify == null ||
-        now.difference(_lastScreenFrameUiNotify!) >= _minScreenFrameUiNotifyGap) {
+        now.difference(_lastScreenFrameUiNotify!) >= _effectiveScreenFrameUiNotifyGap) {
       _lastScreenFrameUiNotify = now;
       previewFrameNotifier.value = f;
     }
@@ -2094,7 +2141,7 @@ class AmbilightAppController extends ChangeNotifier {
         _screenCaptureFaultBannerShown = false;
         final now = DateTime.now();
         if (_lastScreenFrameUiNotify == null ||
-            now.difference(_lastScreenFrameUiNotify!) >= _minScreenFrameUiNotifyGap) {
+            now.difference(_lastScreenFrameUiNotify!) >= _effectiveScreenFrameUiNotifyGap) {
           _lastScreenFrameUiNotify = now;
           previewFrameNotifier.value = f;
         }
@@ -2469,10 +2516,7 @@ class AmbilightAppController extends ChangeNotifier {
           }
         }
       }
-      final connChanged = _syncConnectionSnapshotCache();
-      if (connChanged) {
-        notifyListeners();
-      }
+      _syncConnectionSnapshotCache();
       _reconnectCounter++;
       final anyDisconnected = _transports.values.any((t) => !t.isConnected);
       final reconnectEvery = anyDisconnected
@@ -2870,6 +2914,7 @@ class AmbilightAppController extends ChangeNotifier {
         _quitHandoffSent = true;
       }
       _controllerDisposed = true;
+      _highFidelityPreviewUiRefCount = 0;
       _invalidateWindowsPullCaptureExtrasCache();
       _distributeFlushScheduled = false;
       final pend = _distributePending;

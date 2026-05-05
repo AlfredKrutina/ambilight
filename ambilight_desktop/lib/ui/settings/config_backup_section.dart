@@ -15,25 +15,46 @@ class ConfigBackupSection extends StatelessWidget {
   /// Po úspěšném importu — např. obnovit draft v [SettingsPage].
   final VoidCallback? onImported;
 
-  Future<void> _export(BuildContext context) async {
+  Future<void> _export(BuildContext context, {required bool includeSecrets}) async {
+    final l10n = context.l10n;
     final c = context.read<AmbilightAppController>();
     final path = await FilePicker.platform.saveFile(
-      dialogTitle: context.l10n.exportDialogTitle,
-      fileName: 'ambilight_config.json',
+      dialogTitle: includeSecrets ? l10n.backupSecretsSaveDialogTitle : l10n.exportDialogTitle,
+      fileName: includeSecrets ? 'ambilight_config_with_secrets.json' : 'ambilight_config.json',
       type: FileType.custom,
       allowedExtensions: const ['json'],
     );
     if (path == null) return;
     final out = path.toLowerCase().endsWith('.json') ? path : '$path.json';
     try {
-      await File(out).writeAsString(c.exportConfigJsonString());
+      final json =
+          includeSecrets ? await c.exportConfigJsonForBackup(includeSecrets: true) : c.exportConfigJsonString();
+      await File(out).writeAsString(json);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.exportSavedTo(out))));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.exportSavedTo(out))));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.exportFailed(e.toString()))));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.exportFailed(e.toString()))));
       }
+    }
+  }
+
+  Future<void> _exportWithSecrets(BuildContext context) async {
+    final l10n = context.l10n;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.backupSecretsExportTitle),
+        content: SingleChildScrollView(child: Text(l10n.backupSecretsExportBody)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l10n.backupExportWithSecretsConfirm)),
+        ],
+      ),
+    );
+    if (ok == true && context.mounted) {
+      await _export(context, includeSecrets: true);
     }
   }
 
@@ -120,15 +141,25 @@ class ConfigBackupSection extends StatelessWidget {
               context.l10n.backupIntroBody,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
+            const SizedBox(height: 8),
+            Text(
+              context.l10n.backupImportRestoresTokensHint,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
                 OutlinedButton.icon(
-                  onPressed: () => _export(context),
+                  onPressed: () => _export(context, includeSecrets: false),
                   icon: const Icon(Icons.save_outlined, size: 20),
                   label: Text(context.l10n.backupExport),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _exportWithSecrets(context),
+                  icon: const Icon(Icons.key_outlined, size: 20),
+                  label: Text(context.l10n.backupExportWithSecrets),
                 ),
                 FilledButton.tonalIcon(
                   onPressed: () => _import(context),

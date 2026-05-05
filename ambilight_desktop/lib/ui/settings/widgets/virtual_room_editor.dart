@@ -19,6 +19,9 @@ class VirtualRoomEditor extends StatefulWidget {
 
   static const double roomPaintHeight = 248;
 
+  /// Rozměr náhledové žárovky včetně záře — musí sedět s offsetem v [_fixtureMarkers].
+  static const double previewLampExtent = 56;
+
   @override
   State<VirtualRoomEditor> createState() => _VirtualRoomEditorState();
 }
@@ -282,32 +285,98 @@ class _VirtualRoomEditorState extends State<VirtualRoomEditor> with SingleTicker
     );
   }
 
-  Widget _fixturePreviewIcon({
+  /// Náhled žárovky: světlý „papír“ pod modulaci + halo podle [SmartEffectOutput.brightnessMul] a luminance.
+  Widget _fixturePreviewLamp({
     required SmartFixture f,
     required ColorScheme scheme,
     required VirtualRoomLayout vr,
-    required (int, int, int) baseRgb,
+    required (int, int, int) previewBaseRgb,
     required int tick,
     required Map<String, int>? chaseRanks,
   }) {
-    if (!f.enabled || vr.roomEffect == SmartRoomEffectKind.none) {
-      return Icon(
-        Icons.lightbulb_rounded,
-        size: 32,
-        color: f.enabled ? scheme.tertiary : scheme.onSurfaceVariant.withValues(alpha: 0.45),
+    final extent = VirtualRoomEditor.previewLampExtent;
+    if (!f.enabled) {
+      return SizedBox(
+        width: extent,
+        height: extent,
+        child: Icon(
+          Icons.lightbulb_outline_rounded,
+          size: 30,
+          color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
+        ),
+      );
+    }
+    if (vr.roomEffect == SmartRoomEffectKind.none) {
+      return SizedBox(
+        width: extent,
+        height: extent,
+        child: Icon(
+          Icons.lightbulb_rounded,
+          size: 34,
+          color: scheme.tertiary,
+        ),
       );
     }
     final out = VirtualRoomEffects.apply(
       room: vr,
       fixture: f,
-      base: baseRgb,
+      base: previewBaseRgb,
       animationTick: tick,
       chaseRanks: chaseRanks,
     );
-    return Icon(
-      Icons.lightbulb_rounded,
-      size: 32,
-      color: Color.fromARGB(255, out.r, out.g, out.b),
+    final c = Color.fromARGB(255, out.r, out.g, out.b);
+    final luma = (0.2126 * out.r + 0.7152 * out.g + 0.0722 * out.b) / 255.0;
+    final glow = (luma * 0.62 + out.brightnessMul * 0.38).clamp(0.0, 1.0);
+    final disk = 26.0 + 18.0 * glow;
+    final iconSize = 28.0 + 8.0 * glow;
+    final filament = Color.lerp(
+      scheme.onSurfaceVariant.withValues(alpha: 0.5),
+      Color.lerp(scheme.surfaceContainerHighest, c, 0.92)!,
+      0.35 + 0.65 * glow,
+    )!;
+
+    return SizedBox(
+      width: extent,
+      height: extent,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: extent * 0.88,
+            height: extent * 0.88,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: c.withValues(alpha: 0.12 + 0.5 * glow),
+                  blurRadius: 2 + 16 * glow,
+                  spreadRadius: 0.5 + 5 * glow,
+                ),
+                BoxShadow(
+                  color: c.withValues(alpha: 0.06 + 0.22 * glow),
+                  blurRadius: 8 + 22 * glow,
+                  spreadRadius: -2,
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: disk,
+            height: disk,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  c.withValues(alpha: 0.5 + 0.45 * glow),
+                  c.withValues(alpha: 0.06 * glow),
+                ],
+              ),
+            ),
+          ),
+          Icon(Icons.lightbulb_rounded, size: iconSize, color: filament),
+        ],
+      ),
     );
   }
 
@@ -318,16 +387,21 @@ class _VirtualRoomEditorState extends State<VirtualRoomEditor> with SingleTicker
     int tick,
     Map<String, int>? chaseRanks,
   ) {
-    final baseRgb = (
+    final neutralRgb = (
       (scheme.tertiary.r * 255.0).round().clamp(0, 255),
       (scheme.tertiary.g * 255.0).round().clamp(0, 255),
       (scheme.tertiary.b * 255.0).round().clamp(0, 255),
     );
+    // Teplá téměř bílá — na tmavém plánku je výrazný rozdíl při „zhasínání“ efektem.
+    const vividPreviewRgb = (255, 248, 228);
+    final previewBaseRgb =
+        vr.roomEffect == SmartRoomEffectKind.none ? neutralRgb : vividPreviewRgb;
+    final half = VirtualRoomEditor.previewLampExtent / 2;
     return [
       for (final f in sl.fixtures)
         Positioned(
-          left: f.roomX * size.width - 16,
-          top: f.roomY * size.height - 16,
+          left: f.roomX * size.width - half,
+          top: f.roomY * size.height - half,
           child: GestureDetector(
             onPanUpdate: (d) {
               final nx = (f.roomX + d.delta.dx / size.width).clamp(0.04, 0.96);
@@ -340,11 +414,11 @@ class _VirtualRoomEditorState extends State<VirtualRoomEditor> with SingleTicker
             },
             child: Tooltip(
               message: f.displayName,
-              child: _fixturePreviewIcon(
+              child: _fixturePreviewLamp(
                 f: f,
                 scheme: scheme,
                 vr: vr,
-                baseRgb: baseRgb,
+                previewBaseRgb: previewBaseRgb,
                 tick: tick,
                 chaseRanks: chaseRanks,
               ),

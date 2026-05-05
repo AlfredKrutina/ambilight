@@ -237,7 +237,18 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(context.l10n.settingsPageTitle, style: Theme.of(context).textTheme.headlineSmall),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  context.l10n.settingsPageTitle,
+                                  style: Theme.of(context).textTheme.headlineSmall,
+                                ),
+                              ),
+                              AmbiHelpIcon(message: context.l10n.settingsPageHelpTooltip),
+                            ],
+                          ),
                           Text(
                             context.l10n.settingsRailSubtitle,
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -266,7 +277,18 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-              child: Text(context.l10n.settingsPageTitle, style: Theme.of(context).textTheme.headlineSmall),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.l10n.settingsPageTitle,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                  ),
+                  AmbiHelpIcon(message: context.l10n.settingsPageHelpTooltip),
+                ],
+              ),
             ),
             hint,
             TabBar(
@@ -324,6 +346,7 @@ class _SettingsSidebar extends StatelessWidget {
             AmbiSidebarTile(
               icon: Icons.tune_rounded,
               label: l10n.tabGlobal,
+              tooltip: l10n.settingsTabGlobalTooltip,
               selected: selectedIndex == 0,
               onTap: () => onSelect(0),
             ),
@@ -331,24 +354,28 @@ class _SettingsSidebar extends StatelessWidget {
             AmbiSidebarTile(
               icon: Icons.palette_rounded,
               label: l10n.tabLight,
+              tooltip: l10n.settingsTabLightTooltip,
               selected: selectedIndex == 1,
               onTap: () => onSelect(1),
             ),
             AmbiSidebarTile(
               icon: Icons.desktop_windows_rounded,
               label: l10n.tabScreen,
+              tooltip: l10n.settingsTabScreenTooltip,
               selected: selectedIndex == 2,
               onTap: () => onSelect(2),
             ),
             AmbiSidebarTile(
               icon: Icons.graphic_eq_rounded,
               label: l10n.tabMusic,
+              tooltip: l10n.settingsTabMusicTooltip,
               selected: selectedIndex == 3,
               onTap: () => onSelect(3),
             ),
             AmbiSidebarTile(
               icon: Icons.monitor_heart_rounded,
               label: l10n.tabPcHealth,
+              tooltip: l10n.settingsTabPcHealthTooltip,
               selected: selectedIndex == 4,
               onTap: () => onSelect(4),
             ),
@@ -356,18 +383,21 @@ class _SettingsSidebar extends StatelessWidget {
             AmbiSidebarTile(
               icon: Icons.queue_music_rounded,
               label: l10n.tabSpotify,
+              tooltip: l10n.settingsTabSpotifyTooltip,
               selected: selectedIndex == 5,
               onTap: () => onSelect(5),
             ),
             AmbiSidebarTile(
               icon: Icons.home_work_outlined,
               label: l10n.tabSmartHome,
+              tooltip: l10n.settingsTabSmartHomeTooltip,
               selected: selectedIndex == 6,
               onTap: () => onSelect(6),
             ),
             AmbiSidebarTile(
               icon: Icons.system_update_alt_rounded,
               label: l10n.tabFirmware,
+              tooltip: l10n.settingsTabFirmwareTooltip,
               selected: selectedIndex == 7,
               onTap: () => onSelect(7),
             ),
