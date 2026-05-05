@@ -58,6 +58,24 @@
   "versionLine": "Verze: {version} ({build})",
   "buildLine": "Build: {mode} · kanál: {channel}",
   "gitLine": "Git: {sha}",
+  "desktopUpdateSectionTitle": "Aktualizace aplikace",
+  "desktopUpdateSectionHint": "Kontrola probíhá přes manifest na HTTPS. Stažený balíček se před instalací ověří SHA-256.",
+  "desktopUpdateManifestUrlLabel": "URL manifestu",
+  "desktopUpdateCheckButton": "Zkontrolovat aktualizace",
+  "desktopUpdateUpToDate": "Máš nejnovější verzi pro tento kanál aktualizací.",
+  "desktopUpdateCheckFailed": "Kontrola aktualizací selhala: {detail}",
+  "desktopUpdateChannelMismatch": "Nesedí kanál vydání (manifest: {manifestChannel}, aplikace: {appChannel}).",
+  "desktopUpdateAvailable": "Je k dispozici nová verze: {remote} (nainstalováno: {current}).",
+  "desktopUpdateReleaseNotesLink": "Poznámky k vydání",
+  "desktopUpdateDownloadAndInstall": "Stáhnout a nainstalovat (restart)",
+  "desktopUpdateOpenDownloadPage": "Otevřít stránku se stažením",
+  "desktopUpdateConfirmTitle": "Nainstalovat aktualizaci?",
+  "desktopUpdateConfirmBody": "Aplikace se ukončí; krátký skript rozbalí aktualizaci, přepíše soubory v této instalaci a znovu spustí AmbiLight. Ulož si ostatní práci.",
+  "desktopUpdateConfirmInstall": "Nainstalovat",
+  "desktopUpdateDownloadFailed": "Stažení nebo kontrola integrity selhala.",
+  "desktopUpdateUpdaterStartFailed": "Nepodařilo se spustit aktualizátor.",
+  "desktopUpdateRestarting": "Ukládám a končím… aktualizátor aplikaci znovu spustí.",
+  "desktopUpdateErrorDetail": "{detail}",
   "semanticsCloseScanOverlay": "Zavřít náhled oblasti snímání",
   "scanZonesChip": "Náhled zón",
   "bootstrapFailed": "Aplikace se nespustila: {detail}",
@@ -1140,6 +1158,15 @@
   "fwProgressUsbSubtitle": "Probíhá zápis přes esptool — na stejném COM nesmí současně běžet stream z aplikace.",
   "fwProgressOtaTitle": "OTA aktualizace",
   "fwProgressOtaSending": "Odesílám příkaz OTA_HTTP na lampu…",
+  "fwProgressOtaAwaitNotify": "Čekám na potvrzení z lampy…",
+  "fwProgressOtaSuccessNotify": "OTA dokončena — firmware {version}. Na pásku proběhla krátká fialová animace.",
+  "@fwProgressOtaSuccessNotify": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
   "fwProgressOtaDevicePhase": "Zařízení stahuje a instaluje firmware — sleduj LED na pásku. Panel můžeš zavřít; aktualizace na lampě pokračuje.",
   "fwProgressFlashCancelled": "Flash byl zrušen uživatelem (esptool ukončen).",
   "fwFillFromDevices": "Doplnit ze Zařízení",

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:ambilight_desktop/data/udp_device_commands.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -35,5 +38,16 @@ void main() {
   test('sendUtf8Text rejects empty payload', () async {
     final ok = await UdpDeviceCommands.sendUtf8Text('127.0.0.1', 4210, '');
     expect(ok, isFalse);
+  });
+
+  test('versionFromOtaOkDatagram accepts reply from lamp IP only', () {
+    final lamp = InternetAddress('192.168.1.5');
+    final other = InternetAddress('192.168.1.6');
+    final ok = Datagram(utf8.encode('AMBILIGHT OTA_OK 1.2.3\n'), lamp, 5555);
+    expect(UdpDeviceCommands.versionFromOtaOkDatagram(ok, lamp), '1.2.3');
+    final wrongHost = Datagram(utf8.encode('AMBILIGHT OTA_OK 1.2.3\n'), other, 5555);
+    expect(UdpDeviceCommands.versionFromOtaOkDatagram(wrongHost, lamp), isNull);
+    final noise = Datagram(utf8.encode('ESP32_PONG|x'), lamp, 5555);
+    expect(UdpDeviceCommands.versionFromOtaOkDatagram(noise, lamp), isNull);
   });
 }

@@ -107,6 +107,46 @@
       "sha": {}
     }
   },
+  "desktopUpdateSectionTitle": "App updates",
+  "desktopUpdateSectionHint": "Uses the release manifest over HTTPS. Downloaded packages are verified with SHA-256 before install.",
+  "desktopUpdateManifestUrlLabel": "Manifest URL",
+  "desktopUpdateCheckButton": "Check for updates",
+  "desktopUpdateUpToDate": "You are on the latest version for this update channel.",
+  "desktopUpdateCheckFailed": "Could not check for updates: {detail}",
+  "@desktopUpdateCheckFailed": {
+    "placeholders": {
+      "detail": {}
+    }
+  },
+  "desktopUpdateChannelMismatch": "Release channel mismatch (manifest: {manifestChannel}, this app: {appChannel}).",
+  "@desktopUpdateChannelMismatch": {
+    "placeholders": {
+      "manifestChannel": {},
+      "appChannel": {}
+    }
+  },
+  "desktopUpdateAvailable": "Update available: {remote} (installed: {current}).",
+  "@desktopUpdateAvailable": {
+    "placeholders": {
+      "remote": {},
+      "current": {}
+    }
+  },
+  "desktopUpdateReleaseNotesLink": "Release notes",
+  "desktopUpdateDownloadAndInstall": "Download and install (restart)",
+  "desktopUpdateOpenDownloadPage": "Open download page",
+  "desktopUpdateConfirmTitle": "Install update?",
+  "desktopUpdateConfirmBody": "The app will quit; a short script will unpack the update, replace files in this install folder, and restart AmbiLight. Save other work first.",
+  "desktopUpdateConfirmInstall": "Install",
+  "desktopUpdateDownloadFailed": "Download or integrity check failed.",
+  "desktopUpdateUpdaterStartFailed": "Could not start the updater.",
+  "desktopUpdateRestarting": "Saving and exiting… the updater will restart the app.",
+  "desktopUpdateErrorDetail": "{detail}",
+  "@desktopUpdateErrorDetail": {
+    "placeholders": {
+      "detail": {}
+    }
+  },
   "semanticsCloseScanOverlay": "Close capture region preview",
   "scanZonesChip": "Zone preview",
   "bootstrapFailed": "App failed to start: {detail}",
@@ -1673,6 +1713,15 @@
   "fwProgressUsbSubtitle": "Writing via esptool — stop the app stream on the same COM port while flashing.",
   "fwProgressOtaTitle": "OTA update",
   "fwProgressOtaSending": "Sending OTA_HTTP to the device…",
+  "fwProgressOtaAwaitNotify": "Waiting for lamp confirmation…",
+  "fwProgressOtaSuccessNotify": "Update complete — firmware {version}. The strip should briefly pulse purple.",
+  "@fwProgressOtaSuccessNotify": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
   "fwProgressOtaDevicePhase": "The device is downloading and installing firmware — watch the strip LEDs. You can close this panel; the lamp keeps updating.",
   "fwProgressFlashCancelled": "Flash cancelled (esptool was stopped).",
   "fwFillFromDevices": "Fill from Devices",

@@ -6,6 +6,13 @@ const String ambilightReleaseChannel = String.fromEnvironment('AMBI_CHANNEL', de
 /// Zkrácený Git SHA (`--dart-define=GIT_SHA=…`). GitHub Actions: předej `${{ github.sha }}`.
 const String ambilightGitSha = String.fromEnvironment('GIT_SHA', defaultValue: '');
 
+/// JSON manifest desktopové aktualizace (`desktop-manifest.json` u posledního GitHub Release).
+/// Fork: `--dart-define=AMBI_DESKTOP_UPDATE_MANIFEST_URL=https://…/desktop-manifest.json`
+const String ambilightDesktopUpdateManifestUrl = String.fromEnvironment(
+  'AMBI_DESKTOP_UPDATE_MANIFEST_URL',
+  defaultValue: 'https://github.com/AlfredKrutina/ambilight/releases/latest/download/desktop-manifest.json',
+);
+
 /// Rozšířené logy (`--dart-define=AMBI_VERBOSE_LOGS=true`) i v release — jen staging / diagnostika.
 bool get ambilightVerboseLogsEnabled =>
     kDebugMode || const bool.fromEnvironment('AMBI_VERBOSE_LOGS', defaultValue: false);

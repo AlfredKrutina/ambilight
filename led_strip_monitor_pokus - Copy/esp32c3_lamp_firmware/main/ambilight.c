@@ -1,5 +1,6 @@
 #include "driver/gpio.h"
 #include "driver/usb_serial_jtag.h"
+#include "esp_app_format.h"
 #include "esp_event.h"
 #include "esp_heap_caps.h"
 #include "esp_http_server.h"
@@ -23,6 +24,7 @@
 #include "mqtt_client.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "ambilight_ota_feedback.h"
 #include "ota_update.h"
 #include <ctype.h>
 #include <errno.h>
@@ -287,6 +289,61 @@ static void led_strip_fill_logical_rgb(uint8_t r, uint8_t g, uint8_t b) {
     led_strip_set_pixel(led_strip, i, 0, 0, 0);
   }
   led_strip_refresh(led_strip);
+}
+
+void ambilight_ota_success_client_feedback(
+    const struct sockaddr_in *notify_udp_or_null) {
+  const uint8_t pr = 130, pg = 0, pb = 210;
+  for (int cycle = 0; cycle < 2; cycle++) {
+    for (int t = 15; t <= 255; t += 20) {
+      xSemaphoreTake(led_mutex, portMAX_DELAY);
+      led_strip_fill_logical_rgb((uint32_t)pr * (uint32_t)t / 255u,
+                                 (uint32_t)pg * (uint32_t)t / 255u,
+                                 (uint32_t)pb * (uint32_t)t / 255u);
+      xSemaphoreGive(led_mutex);
+      vTaskDelay(pdMS_TO_TICKS(38));
+    }
+    for (int t = 255; t >= 10; t -= 20) {
+      xSemaphoreTake(led_mutex, portMAX_DELAY);
+      led_strip_fill_logical_rgb((uint32_t)pr * (uint32_t)t / 255u,
+                                 (uint32_t)pg * (uint32_t)t / 255u,
+                                 (uint32_t)pb * (uint32_t)t / 255u);
+      xSemaphoreGive(led_mutex);
+      vTaskDelay(pdMS_TO_TICKS(38));
+    }
+  }
+  xSemaphoreTake(led_mutex, portMAX_DELAY);
+  ambilight_fw_temporal_sync_smooth_from_targets();
+  update_leds(255);
+  xSemaphoreGive(led_mutex);
+
+  if (notify_udp_or_null == NULL || notify_udp_or_null->sin_port == 0 ||
+      notify_udp_or_null->sin_addr.s_addr == 0) {
+    return;
+  }
+  const esp_app_desc_t *app = esp_app_get_description();
+  const char *ver = (app != NULL) ? app->version : "?";
+  char buf[96];
+  int n = snprintf(buf, sizeof(buf), "AMBILIGHT OTA_OK %s", ver);
+  if (n <= 0 || n >= (int)sizeof(buf)) {
+    ESP_LOGW(TAG, "OTA_OK UDP: snprintf selhalo");
+    return;
+  }
+  int s = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+  if (s < 0) {
+    ESP_LOGW(TAG, "OTA_OK UDP: socket errno=%d", errno);
+    return;
+  }
+  ssize_t sent =
+      sendto(s, buf, (size_t)n, 0, (struct sockaddr *)notify_udp_or_null,
+             sizeof(struct sockaddr_in));
+  if (sent < 0) {
+    ESP_LOGW(TAG, "OTA_OK UDP sendto errno=%d", errno);
+  } else {
+    ESP_LOGI(TAG, "OTA_OK UDP %d B → %s", (int)sent,
+             inet_ntoa(notify_udp_or_null->sin_addr));
+  }
+  closesocket(s);
 }
 
 // ============ HTTP SERVER ============
@@ -1934,7 +1991,7 @@ void task_udp(void *arg) {
           }
           ESP_LOGI(TAG, "OTA_HTTP (UDP) z %s",
                    inet_ntoa(source_addr.sin_addr));
-          ambilight_start_ota(u);
+          ambilight_start_ota(u, &source_addr);
           continue;
         }
 
@@ -2606,7 +2663,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
         p++;
       }
       ESP_LOGI(TAG, "MQTT OTA příkaz (topic=%s)", topic);
-      ambilight_start_ota(p);
+      ambilight_start_ota(p, NULL);
       free(payload);
       return;
     }

@@ -203,6 +203,75 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get desktopUpdateSectionTitle => 'App updates';
+
+  @override
+  String get desktopUpdateSectionHint =>
+      'Uses the release manifest over HTTPS. Downloaded packages are verified with SHA-256 before install.';
+
+  @override
+  String get desktopUpdateManifestUrlLabel => 'Manifest URL';
+
+  @override
+  String get desktopUpdateCheckButton => 'Check for updates';
+
+  @override
+  String get desktopUpdateUpToDate =>
+      'You are on the latest version for this update channel.';
+
+  @override
+  String desktopUpdateCheckFailed(Object detail) {
+    return 'Could not check for updates: $detail';
+  }
+
+  @override
+  String desktopUpdateChannelMismatch(
+      Object manifestChannel, Object appChannel) {
+    return 'Release channel mismatch (manifest: $manifestChannel, this app: $appChannel).';
+  }
+
+  @override
+  String desktopUpdateAvailable(Object remote, Object current) {
+    return 'Update available: $remote (installed: $current).';
+  }
+
+  @override
+  String get desktopUpdateReleaseNotesLink => 'Release notes';
+
+  @override
+  String get desktopUpdateDownloadAndInstall =>
+      'Download and install (restart)';
+
+  @override
+  String get desktopUpdateOpenDownloadPage => 'Open download page';
+
+  @override
+  String get desktopUpdateConfirmTitle => 'Install update?';
+
+  @override
+  String get desktopUpdateConfirmBody =>
+      'The app will quit; a short script will unpack the update, replace files in this install folder, and restart AmbiLight. Save other work first.';
+
+  @override
+  String get desktopUpdateConfirmInstall => 'Install';
+
+  @override
+  String get desktopUpdateDownloadFailed =>
+      'Download or integrity check failed.';
+
+  @override
+  String get desktopUpdateUpdaterStartFailed => 'Could not start the updater.';
+
+  @override
+  String get desktopUpdateRestarting =>
+      'Saving and exiting… the updater will restart the app.';
+
+  @override
+  String desktopUpdateErrorDetail(Object detail) {
+    return '$detail';
+  }
+
+  @override
   String get semanticsCloseScanOverlay => 'Close capture region preview';
 
   @override
@@ -3645,6 +3714,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fwProgressOtaSending => 'Sending OTA_HTTP to the device…';
+
+  @override
+  String get fwProgressOtaAwaitNotify => 'Waiting for lamp confirmation…';
+
+  @override
+  String fwProgressOtaSuccessNotify(String version) {
+    return 'Update complete — firmware $version. The strip should briefly pulse purple.';
+  }
 
   @override
   String get fwProgressOtaDevicePhase =>

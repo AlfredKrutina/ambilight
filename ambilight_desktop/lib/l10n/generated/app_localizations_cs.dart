@@ -203,6 +203,76 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String get desktopUpdateSectionTitle => 'Aktualizace aplikace';
+
+  @override
+  String get desktopUpdateSectionHint =>
+      'Kontrola probíhá přes manifest na HTTPS. Stažený balíček se před instalací ověří SHA-256.';
+
+  @override
+  String get desktopUpdateManifestUrlLabel => 'URL manifestu';
+
+  @override
+  String get desktopUpdateCheckButton => 'Zkontrolovat aktualizace';
+
+  @override
+  String get desktopUpdateUpToDate =>
+      'Máš nejnovější verzi pro tento kanál aktualizací.';
+
+  @override
+  String desktopUpdateCheckFailed(Object detail) {
+    return 'Kontrola aktualizací selhala: $detail';
+  }
+
+  @override
+  String desktopUpdateChannelMismatch(
+      Object manifestChannel, Object appChannel) {
+    return 'Nesedí kanál vydání (manifest: $manifestChannel, aplikace: $appChannel).';
+  }
+
+  @override
+  String desktopUpdateAvailable(Object remote, Object current) {
+    return 'Je k dispozici nová verze: $remote (nainstalováno: $current).';
+  }
+
+  @override
+  String get desktopUpdateReleaseNotesLink => 'Poznámky k vydání';
+
+  @override
+  String get desktopUpdateDownloadAndInstall =>
+      'Stáhnout a nainstalovat (restart)';
+
+  @override
+  String get desktopUpdateOpenDownloadPage => 'Otevřít stránku se stažením';
+
+  @override
+  String get desktopUpdateConfirmTitle => 'Nainstalovat aktualizaci?';
+
+  @override
+  String get desktopUpdateConfirmBody =>
+      'Aplikace se ukončí; krátký skript rozbalí aktualizaci, přepíše soubory v této instalaci a znovu spustí AmbiLight. Ulož si ostatní práci.';
+
+  @override
+  String get desktopUpdateConfirmInstall => 'Nainstalovat';
+
+  @override
+  String get desktopUpdateDownloadFailed =>
+      'Stažení nebo kontrola integrity selhala.';
+
+  @override
+  String get desktopUpdateUpdaterStartFailed =>
+      'Nepodařilo se spustit aktualizátor.';
+
+  @override
+  String get desktopUpdateRestarting =>
+      'Ukládám a končím… aktualizátor aplikaci znovu spustí.';
+
+  @override
+  String desktopUpdateErrorDetail(Object detail) {
+    return '$detail';
+  }
+
+  @override
   String get semanticsCloseScanOverlay => 'Zavřít náhled oblasti snímání';
 
   @override
@@ -3649,6 +3719,14 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get fwProgressOtaSending => 'Odesílám příkaz OTA_HTTP na lampu…';
+
+  @override
+  String get fwProgressOtaAwaitNotify => 'Čekám na potvrzení z lampy…';
+
+  @override
+  String fwProgressOtaSuccessNotify(String version) {
+    return 'OTA dokončena — firmware $version. Na pásku proběhla krátká fialová animace.';
+  }
 
   @override
   String get fwProgressOtaDevicePhase =>

@@ -355,15 +355,29 @@ class _FirmwareSettingsTabState extends State<FirmwareSettingsTab> {
           initialSubtitle: l10n.fwProgressOtaSending,
           onRun: (h) async {
             try {
-              final ok = await UdpDeviceCommands.sendOtaHttpUrl(ip, port, u);
+              final (sent, version) = await UdpDeviceCommands.sendOtaHttpUrlAwaitOtaOk(
+                ip,
+                port,
+                u,
+                shouldCancel: () => h.isCancelled,
+                onCommandSent: () {
+                  if (context.mounted) {
+                    h.updateSubtitle(l10n.fwProgressOtaAwaitNotify);
+                  }
+                },
+                logContext: 'OTA_HTTP',
+              );
               if (!context.mounted) return false;
               if (h.isCancelled) return false;
-              if (!ok) {
+              if (!sent) {
                 setState(() => _status = l10n.fwStatusUdpFailed);
                 return false;
               }
-              setState(() => _status = l10n.fwStatusOtaSent);
-              h.updateSubtitle(l10n.fwProgressOtaDevicePhase);
+              final msg = version != null ? l10n.fwProgressOtaSuccessNotify(version) : l10n.fwStatusOtaSent;
+              setState(() => _status = msg);
+              h.updateSubtitle(
+                version != null ? l10n.fwProgressOtaSuccessNotify(version) : l10n.fwProgressOtaDevicePhase,
+              );
               h.showCloseOnly();
               return true;
             } catch (e) {

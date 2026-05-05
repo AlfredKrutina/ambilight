@@ -446,6 +446,115 @@ abstract class AppLocalizations {
   /// **'Git: {sha}'**
   String gitLine(Object sha);
 
+  /// No description provided for @desktopUpdateSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'App updates'**
+  String get desktopUpdateSectionTitle;
+
+  /// No description provided for @desktopUpdateSectionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Uses the release manifest over HTTPS. Downloaded packages are verified with SHA-256 before install.'**
+  String get desktopUpdateSectionHint;
+
+  /// No description provided for @desktopUpdateManifestUrlLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Manifest URL'**
+  String get desktopUpdateManifestUrlLabel;
+
+  /// No description provided for @desktopUpdateCheckButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for updates'**
+  String get desktopUpdateCheckButton;
+
+  /// No description provided for @desktopUpdateUpToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'You are on the latest version for this update channel.'**
+  String get desktopUpdateUpToDate;
+
+  /// No description provided for @desktopUpdateCheckFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not check for updates: {detail}'**
+  String desktopUpdateCheckFailed(Object detail);
+
+  /// No description provided for @desktopUpdateChannelMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Release channel mismatch (manifest: {manifestChannel}, this app: {appChannel}).'**
+  String desktopUpdateChannelMismatch(
+      Object manifestChannel, Object appChannel);
+
+  /// No description provided for @desktopUpdateAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Update available: {remote} (installed: {current}).'**
+  String desktopUpdateAvailable(Object remote, Object current);
+
+  /// No description provided for @desktopUpdateReleaseNotesLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Release notes'**
+  String get desktopUpdateReleaseNotesLink;
+
+  /// No description provided for @desktopUpdateDownloadAndInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Download and install (restart)'**
+  String get desktopUpdateDownloadAndInstall;
+
+  /// No description provided for @desktopUpdateOpenDownloadPage.
+  ///
+  /// In en, this message translates to:
+  /// **'Open download page'**
+  String get desktopUpdateOpenDownloadPage;
+
+  /// No description provided for @desktopUpdateConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Install update?'**
+  String get desktopUpdateConfirmTitle;
+
+  /// No description provided for @desktopUpdateConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The app will quit; a short script will unpack the update, replace files in this install folder, and restart AmbiLight. Save other work first.'**
+  String get desktopUpdateConfirmBody;
+
+  /// No description provided for @desktopUpdateConfirmInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Install'**
+  String get desktopUpdateConfirmInstall;
+
+  /// No description provided for @desktopUpdateDownloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download or integrity check failed.'**
+  String get desktopUpdateDownloadFailed;
+
+  /// No description provided for @desktopUpdateUpdaterStartFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not start the updater.'**
+  String get desktopUpdateUpdaterStartFailed;
+
+  /// No description provided for @desktopUpdateRestarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving and exiting… the updater will restart the app.'**
+  String get desktopUpdateRestarting;
+
+  /// No description provided for @desktopUpdateErrorDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'{detail}'**
+  String desktopUpdateErrorDetail(Object detail);
+
   /// No description provided for @semanticsCloseScanOverlay.
   ///
   /// In en, this message translates to:
@@ -6297,6 +6406,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sending OTA_HTTP to the device…'**
   String get fwProgressOtaSending;
+
+  /// No description provided for @fwProgressOtaAwaitNotify.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for lamp confirmation…'**
+  String get fwProgressOtaAwaitNotify;
+
+  /// No description provided for @fwProgressOtaSuccessNotify.
+  ///
+  /// In en, this message translates to:
+  /// **'Update complete — firmware {version}. The strip should briefly pulse purple.'**
+  String fwProgressOtaSuccessNotify(String version);
 
   /// No description provided for @fwProgressOtaDevicePhase.
   ///

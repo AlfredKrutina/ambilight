@@ -20,6 +20,7 @@ import 'home_page.dart';
 import 'layout_breakpoints.dart';
 import 'responsive_body.dart';
 import 'settings_page.dart';
+import 'widgets/about_desktop_update_card.dart';
 
 /// Stručný popis nakonfigurovaných výstupů (odpovídá `devices`, ignoruje HA-only).
 String _configuredOutputKindsFooter(AppConfig c, AppLocalizations l10n) {
@@ -485,6 +486,8 @@ class _AboutPageState extends State<_AboutPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             SelectableText(buf.toString(), style: Theme.of(context).textTheme.bodySmall),
+                            const SizedBox(height: 14),
+                            const AboutDesktopUpdateCard(),
                             const SizedBox(height: 14),
                             OutlinedButton.icon(
                               onPressed: () async {
