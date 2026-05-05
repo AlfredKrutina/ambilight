@@ -1,8 +1,10 @@
 import Cocoa
 import FlutterMacOS
+
+#if canImport(HomeKit)
 import HomeKit
 
-/// MethodChannel `ambilight/homekit` — výpis světel a zápis barvy (macOS + HomeKit entitlement).
+/// MethodChannel `ambilight/homekit` — výpis světel a zápis barvy (platformy s HomeKit modulem, typicky iOS).
 final class HomeKitChannel: NSObject, HMHomeManagerDelegate {
     private static var retained: HomeKitChannel?
     private var homeManager: HMHomeManager?
@@ -156,3 +158,32 @@ final class HomeKitChannel: NSObject, HMHomeManagerDelegate {
         }
     }
 }
+
+#else
+
+/// macOS AppKit target does not expose the HomeKit Swift module; keep the channel so Dart does not hang.
+final class HomeKitChannel: NSObject {
+    static func register(binaryMessenger: FlutterBinaryMessenger) {
+        let ch = FlutterMethodChannel(name: "ambilight/homekit", binaryMessenger: binaryMessenger)
+        ch.setMethodCallHandler { call, result in
+            switch call.method {
+            case "isSupported":
+                result(false)
+            case "listLights":
+                result([] as [[String: String]])
+            case "setLightColor":
+                result(
+                    FlutterError(
+                        code: "unsupported",
+                        message: "HomeKit is not available in this macOS build target.",
+                        details: nil
+                    )
+                )
+            default:
+                result(FlutterMethodNotImplemented)
+            }
+        }
+    }
+}
+
+#endif

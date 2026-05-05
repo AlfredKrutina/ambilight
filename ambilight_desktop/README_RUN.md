@@ -52,6 +52,11 @@ flutter run -d macos
 
 ## macOS
 
+- **Code signing (lokální `flutter run`):** Sandbox + sériový port (a další capability v entitlements) vyžadují vývojářský podpis. Zkopíruj `macos/Runner/Configs/LocalSigning.xcconfig.example` → `LocalSigning.xcconfig` (gitignored) a v novém souboru **nahraď `__EDIT_ME__` skutečným Team ID** (10 znaků z **Xcode → Signing**, často stejné jako u tvého iOS projektu). Jen `cp` bez úpravy skončí chybou „No Account for Team …“. V `AppInfo.xcconfig` je `#include? "LocalSigning.xcconfig"`.
+- **Chyba „No profiles … pass -allowProvisioningUpdates“:** Flutter u macOS tento příznak `xcodebuild` neposílá. Po přihlášení Apple ID v **Xcode → Settings → Accounts** jednou spusť z kořene `ambilight_desktop`:  
+  `bash tool/macos_provision_profiles_once.sh`  
+  Tím se stáhnou/vytvoří Mac **development** profily pro `PRODUCT_BUNDLE_IDENTIFIER`. Pak už stačí `flutter run -d macos`.
+- **CocoaPods (`libserialport`):** pokud `pod install` hlásí chybějící `automake` / `glibtoolize`, nainstaluj `brew install automake libtool`.
 - **Okno / tray:** `window_manager` + `tray_manager`. Aplikace **nekončí** po zavření okna (běží v trayi); ukončení jen přes **Ukončit** v menu traye.
 - **Snímání obrazovky:** v **Nastavení → Obrazovka** je karta s nativní diagnostikou a tlačítkem **macOS: žádost o snímání obrazovky** (TCC). V `Info.plist` je `NSScreenCaptureUsageDescription`.
 - **Mikrofon (hudba):** `NSMicrophoneUsageDescription` v `Info.plist`; v entitlements je `com.apple.security.device.audio-input` (sandbox).

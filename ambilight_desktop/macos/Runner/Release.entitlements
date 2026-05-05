@@ -12,7 +12,5 @@
 	<true/>
 	<key>com.apple.security.device.serial</key>
 	<true/>
-	<key>com.apple.developer.homekit</key>
-	<true/>
 </dict>
 </plist>

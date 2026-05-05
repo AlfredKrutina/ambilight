@@ -4,6 +4,10 @@
 // future. If not, the values below would default to using the project name when this becomes a
 // 'flutter create' template.
 
+// macOS: copy LocalSigning.xcconfig.example → LocalSigning.xcconfig and set DEVELOPMENT_TEAM
+// (required for Debug/Profile entitlements). LocalSigning.xcconfig is gitignored.
+#include? "LocalSigning.xcconfig"
+
 // The application's name. By default this is also the title of the Flutter window.
 PRODUCT_NAME = ambilight_desktop
 
