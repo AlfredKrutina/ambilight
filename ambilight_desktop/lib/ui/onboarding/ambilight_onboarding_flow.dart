@@ -11,6 +11,7 @@ import '../../core/models/config_models.dart';
 import '../../l10n/context_ext.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../dashboard_ui.dart';
+import '../theme_catalog.dart';
 import '../wizards/led_strip_wizard_dialog.dart';
 import 'onboarding_device_actions.dart';
 
@@ -138,9 +139,9 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
     super.dispose();
   }
 
-  void _applyTheme(bool dark) {
+  void _applyTheme(String canonicalKey) {
     final c = context.read<AmbilightAppController>();
-    final theme = dark ? 'dark_blue' : 'light';
+    final theme = normalizeAmbilightUiTheme(canonicalKey);
     c.queueConfigApply(c.config.copyWith(globalSettings: c.config.globalSettings.copyWith(theme: theme)));
   }
 
@@ -282,25 +283,20 @@ class _AmbilightOnboardingWizardState extends State<AmbilightOnboardingWizard>
 
     switch (_step) {
       case 0:
+        final themeOptions = AmbilightUiThemeCatalog.options;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(l10n.onboardWizardStepThemeSubtitle, textAlign: TextAlign.center),
             const SizedBox(height: 16),
-            _choiceTile(
-              selected: themeKey == 'light',
-              onTap: () => _applyTheme(false),
-              icon: Icons.light_mode_rounded,
-              title: l10n.onboardWizardThemeLightTitle,
-              subtitle: l10n.onboardWizardThemeLightSubtitle,
-            ),
-            _choiceTile(
-              selected: themeKey != 'light',
-              onTap: () => _applyTheme(true),
-              icon: Icons.dark_mode_rounded,
-              title: l10n.onboardWizardThemeDarkTitle,
-              subtitle: l10n.onboardWizardThemeDarkSubtitle,
-            ),
+            for (final option in themeOptions)
+              _choiceTile(
+                selected: themeKey == option.key,
+                onTap: () => _applyTheme(option.key),
+                icon: option.icon,
+                title: AmbilightUiThemeCatalog.title(context, option.key),
+                subtitle: AmbilightUiThemeCatalog.onboardingSubtitle(context, option.key),
+              ),
           ],
         );
       case 1:
