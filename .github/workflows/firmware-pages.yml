@@ -40,13 +40,14 @@ jobs:
           set -eux
           FW='led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware'
           # Nepoužívat idf.py fullclean: u trackovaných managed_components spouští kontrolu hashe a často spadne v CI.
-          # Čistý build: smazat build + managed_components; -j 2 snižuje paralelismus (méně RAM na runneru).
+          # Čistý build: smazat build + managed_components.
+          # ESP-IDF 5.5: idf.py build nepřijímá -j — paralelismus řídí CMAKE_BUILD_PARALLEL_LEVEL (ninja).
           run_build() {
             docker run --rm \
               -v "${{ github.workspace }}:/project" \
               -w "/project/${FW}" \
               espressif/idf:v5.5.1 \
-              bash -lc 'rm -rf build managed_components && idf.py build -j 2'
+              bash -lc 'rm -rf build managed_components && export CMAKE_BUILD_PARALLEL_LEVEL=2 && idf.py build'
           }
           attempt=1
           max=3
