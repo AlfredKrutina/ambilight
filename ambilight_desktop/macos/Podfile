@@ -30,6 +30,9 @@ target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
+  # Satisfies flutter_libserialport → libserialport without trunk’s annotated-tag shallow clone.
+  pod 'libserialport', :podspec => 'podspecs/libserialport.podspec'
+
   flutter_install_all_macos_pods File.dirname(File.realpath(__FILE__))
 end
 
