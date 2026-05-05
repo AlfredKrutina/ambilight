@@ -1,4 +1,4 @@
-# Windows: ZIP (auto-update) + Inno Setup .exe | macOS: DMG | manifest se skládá až po obou buildích.
+# Windows: ZIP (auto-update) + Inno Setup .exe | macOS: DMG | Linux: tar.gz bundle | manifest po všech buildích.
 # Tag: desktop-v1.0.4  →  verze v manifestu 1.0.4 (pubspec.yaml musí sedět)
 name: desktop_release
 
@@ -152,8 +152,70 @@ jobs:
           name: desktop-macos-dmg
           path: ${{ github.workspace }}/ambilight_desktop_macos.dmg
 
+  linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ambilight_desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev \
+            libayatana-appindicator3-dev \
+            libsecret-1-dev \
+            libudev-dev \
+            libx11-dev libxrandr-dev \
+            libpulse-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Verify pubspec version matches tag
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          want="${TAG#desktop-v}"
+          line="$(grep -E '^\s*version:\s*' pubspec.yaml | head -1)"
+          pub="$(echo "$line" | sed -E 's/^\s*version:\s*([^ +]+).*/\1/')"
+          if [[ "$pub" != "$want" ]]; then
+            echo "pubspec version '$pub' does not match tag '$TAG' (want '$want')"
+            exit 1
+          fi
+          echo "OK: pubspec version $pub matches tag."
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Flutter build linux
+        run: >-
+          flutter build linux --release
+          --dart-define=GIT_SHA=${{ github.sha }}
+          --dart-define=AMBI_CHANNEL=stable
+
+      - name: Pack Linux bundle (.tar.gz)
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="build/linux/x64/release/bundle"
+          test -d "$bundle"
+          tar -C "$bundle" -czf "${GITHUB_WORKSPACE}/ambilight_desktop_linux_x64.tar.gz" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-linux-tarball
+          path: ${{ github.workspace }}/ambilight_desktop_linux_x64.tar.gz
+
   publish:
-    needs: [windows, macos]
+    needs: [windows, macos, linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -169,6 +231,11 @@ jobs:
         with:
           name: desktop-macos-dmg
           path: artifacts/mac
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-linux-tarball
+          path: artifacts/lin
 
       - name: Write desktop-manifest.json
         run: |
@@ -188,4 +255,5 @@ jobs:
             artifacts/win/ambilight_desktop_windows_x64.zip
             artifacts/win/ambilight_desktop_windows_x64_setup.exe
             artifacts/mac/ambilight_desktop_macos.dmg
+            artifacts/lin/ambilight_desktop_linux_x64.tar.gz
             desktop-manifest.json

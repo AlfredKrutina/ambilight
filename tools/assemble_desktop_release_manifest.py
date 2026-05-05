@@ -35,6 +35,7 @@ def main() -> None:
     zip_url = f"{base}/ambilight_desktop_windows_x64.zip"
     setup_url = f"{base}/ambilight_desktop_windows_x64_setup.exe"
     dmg_url = f"{base}/ambilight_desktop_macos.dmg"
+    linux_url = f"{base}/ambilight_desktop_linux_x64.tar.gz"
 
     manifest = {
         "version": ver,
@@ -58,7 +59,7 @@ def main() -> None:
                 "kind": "browser",
             },
             "linux_x64": {
-                "url": notes,
+                "url": linux_url,
                 "sha256": "",
                 "kind": "browser",
             },

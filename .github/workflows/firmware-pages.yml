@@ -85,6 +85,24 @@ jobs:
             --chip esp32c3
           cp "${ROOT}/tools/firmware_index.html" "${ROOT}/_site/index.html"
 
+      - name: Mirror latest desktop release assets (GitHub → Pages)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eux
+          DEST="${{ github.workspace }}/_site/desktop/latest"
+          mkdir -p "$DEST"
+          cd "$DEST"
+          for f in \
+            ambilight_desktop_windows_x64.zip \
+            ambilight_desktop_windows_x64_setup.exe \
+            ambilight_desktop_macos.dmg \
+            ambilight_desktop_linux_x64.tar.gz \
+          ; do
+            gh release download -R "${{ github.repository }}" --pattern "$f" --clobber -D . || true
+          done
+          ls -la
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
