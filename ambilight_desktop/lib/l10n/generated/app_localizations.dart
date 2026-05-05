@@ -470,6 +470,42 @@ abstract class AppLocalizations {
   /// **'Could not load settings, using defaults: {detail}'**
   String configLoadFailed(Object detail);
 
+  /// No description provided for @configFileUnusableBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'The configuration file is damaged or incompatible — default settings are in use. Restore a backup under Import / export.'**
+  String get configFileUnusableBanner;
+
+  /// No description provided for @configSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save configuration: {detail}'**
+  String configSaveFailed(Object detail);
+
+  /// No description provided for @configInvalidJsonImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid configuration JSON: {detail}'**
+  String configInvalidJsonImport(Object detail);
+
+  /// No description provided for @configApplyFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not apply settings: {detail}'**
+  String configApplyFailed(Object detail);
+
+  /// No description provided for @configAutosaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Background save failed: {detail}'**
+  String configAutosaveFailed(Object detail);
+
+  /// No description provided for @screenCaptureRepeatedFailureBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Screen capture keeps failing. Check privacy permissions (Windows: Privacy settings) and the monitor selection.'**
+  String get screenCaptureRepeatedFailureBanner;
+
   /// No description provided for @faultUiError.
   ///
   /// In en, this message translates to:
@@ -1298,6 +1334,84 @@ abstract class AppLocalizations {
   /// **'{current} / {total}'**
   String onboardProgress(Object current, Object total);
 
+  /// No description provided for @onboardIllustColorsToStrip.
+  ///
+  /// In en, this message translates to:
+  /// **'Colors flow to the strip'**
+  String get onboardIllustColorsToStrip;
+
+  /// No description provided for @onboardIllustMiniBackup.
+  ///
+  /// In en, this message translates to:
+  /// **'JSON backup'**
+  String get onboardIllustMiniBackup;
+
+  /// No description provided for @onboardIllustCpuLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'CPU'**
+  String get onboardIllustCpuLabel;
+
+  /// No description provided for @onboardIllustGpuLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'GPU'**
+  String get onboardIllustGpuLabel;
+
+  /// No description provided for @onboardOutputTourOnlyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview only — the real Output switch lives in the app header.'**
+  String get onboardOutputTourOnlyHint;
+
+  /// No description provided for @onboardSlideDotA11y.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to step {n} of {total}'**
+  String onboardSlideDotA11y(int n, int total);
+
+  /// No description provided for @onboardScreenHuePreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview hue'**
+  String get onboardScreenHuePreview;
+
+  /// No description provided for @onboardSettingsSnackModes.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick the active mode on the overview (tiles at the top).'**
+  String get onboardSettingsSnackModes;
+
+  /// No description provided for @onboardSettingsSnackFirmware.
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware downloads and OTA: Settings → Firmware.'**
+  String get onboardSettingsSnackFirmware;
+
+  /// No description provided for @onboardSettingsSnackBackup.
+  ///
+  /// In en, this message translates to:
+  /// **'Back up JSON: Settings → Global → Export.'**
+  String get onboardSettingsSnackBackup;
+
+  /// No description provided for @onboardConnectivityUsbTap.
+  ///
+  /// In en, this message translates to:
+  /// **'USB: choose the COM port under Devices.'**
+  String get onboardConnectivityUsbTap;
+
+  /// No description provided for @onboardConnectivityWifiTap.
+  ///
+  /// In en, this message translates to:
+  /// **'Wi‑Fi: set IP and UDP port under Devices (same as firmware).'**
+  String get onboardConnectivityWifiTap;
+
+  /// No description provided for @onboardKeysHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Keyboard: arrow keys for steps, Esc to skip.'**
+  String get onboardKeysHint;
+
   /// No description provided for @devicesPageTitle.
   ///
   /// In en, this message translates to:
@@ -1670,6 +1784,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Invalid configuration file.'**
   String get backupInvalid;
+
+  /// No description provided for @factoryResetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore defaults'**
+  String get factoryResetTitle;
+
+  /// No description provided for @factoryResetButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore factory defaults…'**
+  String get factoryResetButton;
+
+  /// No description provided for @factoryResetDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore factory defaults?'**
+  String get factoryResetDialogTitle;
+
+  /// No description provided for @factoryResetDialogBody.
+  ///
+  /// In en, this message translates to:
+  /// **'All settings will revert to built-in defaults, devices and zones will be cleared, and saved Home Assistant and Spotify tokens will be removed. This cannot be undone — export a JSON backup first if you need a copy.'**
+  String get factoryResetDialogBody;
+
+  /// No description provided for @factoryResetConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore defaults'**
+  String get factoryResetConfirm;
+
+  /// No description provided for @factoryResetDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings restored to defaults.'**
+  String get factoryResetDone;
+
+  /// No description provided for @factoryResetFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Factory reset failed: {error}'**
+  String factoryResetFailed(String error);
 
   /// No description provided for @spotifyTabTitle.
   ///
@@ -2301,6 +2457,210 @@ abstract class AppLocalizations {
   /// **'Run onboarding again'**
   String get replayOnboardingButton;
 
+  /// No description provided for @uiControlLevelLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Control level'**
+  String get uiControlLevelLabel;
+
+  /// No description provided for @uiControlLevelHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Simple hides advanced screen tuning (gamma, calibration shortcuts, capture diagnostics). You can change this anytime.'**
+  String get uiControlLevelHelper;
+
+  /// No description provided for @uiControlLevelSimple.
+  ///
+  /// In en, this message translates to:
+  /// **'Simple'**
+  String get uiControlLevelSimple;
+
+  /// No description provided for @uiControlLevelAdvanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get uiControlLevelAdvanced;
+
+  /// No description provided for @onboardWizardStepThemeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose appearance'**
+  String get onboardWizardStepThemeTitle;
+
+  /// No description provided for @onboardWizardStepThemeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You can change this later under Settings → Global.'**
+  String get onboardWizardStepThemeSubtitle;
+
+  /// No description provided for @onboardWizardThemeLightTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get onboardWizardThemeLightTitle;
+
+  /// No description provided for @onboardWizardThemeLightSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Bright surfaces and high contrast controls.'**
+  String get onboardWizardThemeLightSubtitle;
+
+  /// No description provided for @onboardWizardThemeDarkTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get onboardWizardThemeDarkTitle;
+
+  /// No description provided for @onboardWizardThemeDarkSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Easier on the eyes in dim rooms.'**
+  String get onboardWizardThemeDarkSubtitle;
+
+  /// No description provided for @onboardWizardStepComplexityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How detailed should settings be?'**
+  String get onboardWizardStepComplexityTitle;
+
+  /// No description provided for @onboardWizardStepComplexitySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Simple keeps everyday sliders only. Advanced exposes gamma, offsets and diagnostics.'**
+  String get onboardWizardStepComplexitySubtitle;
+
+  /// No description provided for @onboardWizardComplexitySimpleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Simple'**
+  String get onboardWizardComplexitySimpleTitle;
+
+  /// No description provided for @onboardWizardComplexitySimpleSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended — fewer knobs, faster setup.'**
+  String get onboardWizardComplexitySimpleSubtitle;
+
+  /// No description provided for @onboardWizardComplexityAdvancedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get onboardWizardComplexityAdvancedTitle;
+
+  /// No description provided for @onboardWizardComplexityAdvancedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Full control over capture, color math and calibration tools.'**
+  String get onboardWizardComplexityAdvancedSubtitle;
+
+  /// No description provided for @onboardWizardStepDeviceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your controller'**
+  String get onboardWizardStepDeviceTitle;
+
+  /// No description provided for @onboardWizardStepDeviceSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick how your PC talks to the LEDs. You can add more devices later on the Devices page.'**
+  String get onboardWizardStepDeviceSubtitle;
+
+  /// No description provided for @onboardWizardScanWifi.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan for Wi‑Fi devices'**
+  String get onboardWizardScanWifi;
+
+  /// No description provided for @onboardWizardSetupUsb.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up USB / Serial'**
+  String get onboardWizardSetupUsb;
+
+  /// No description provided for @onboardWizardStepMappingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Map LEDs to your screen'**
+  String get onboardWizardStepMappingTitle;
+
+  /// No description provided for @onboardWizardStepMappingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Walk the strip once so corners match your monitor. Skip if you want to do this later.'**
+  String get onboardWizardStepMappingSubtitle;
+
+  /// No description provided for @onboardWizardOpenMapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Open mapping wizard'**
+  String get onboardWizardOpenMapping;
+
+  /// No description provided for @onboardWizardMappingSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip for now'**
+  String get onboardWizardMappingSkip;
+
+  /// No description provided for @onboardWizardStepIntegrationsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Integrations'**
+  String get onboardWizardStepIntegrationsTitle;
+
+  /// No description provided for @onboardWizardStepIntegrationsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional extras — enable them when you need them.'**
+  String get onboardWizardStepIntegrationsSubtitle;
+
+  /// No description provided for @onboardWizardHaCardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Home Assistant'**
+  String get onboardWizardHaCardTitle;
+
+  /// No description provided for @onboardWizardHaCardBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Mirror colors to lamps and automations with a long‑lived token and your HA URL.'**
+  String get onboardWizardHaCardBody;
+
+  /// No description provided for @onboardWizardSpotifyCardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Spotify'**
+  String get onboardWizardSpotifyCardTitle;
+
+  /// No description provided for @onboardWizardSpotifyCardBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Richer music visuals when you link a Spotify Developer app (Client ID in Settings).'**
+  String get onboardWizardSpotifyCardBody;
+
+  /// No description provided for @onboardWizardPcHealthCardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'PC Health'**
+  String get onboardWizardPcHealthCardTitle;
+
+  /// No description provided for @onboardWizardPcHealthCardBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Temperatures and load drive ambient colors — great for idle dashboards.'**
+  String get onboardWizardPcHealthCardBody;
+
+  /// No description provided for @onboardWizardPreviewHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Rainbow preview uses the same test path as Settings → Screen (synthetic colors).'**
+  String get onboardWizardPreviewHint;
+
+  /// No description provided for @onboardWizardFinish.
+  ///
+  /// In en, this message translates to:
+  /// **'Get started'**
+  String get onboardWizardFinish;
+
   /// No description provided for @devicesPageSubtitle.
   ///
   /// In en, this message translates to:
@@ -2463,6 +2823,30 @@ abstract class AppLocalizations {
   /// **'Padding (uniform): {pct} %'**
   String screenPaddingUniformPct(Object pct);
 
+  /// No description provided for @screenColorSamplingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'LED color from scan region'**
+  String get screenColorSamplingLabel;
+
+  /// No description provided for @screenColorSamplingMedian.
+  ///
+  /// In en, this message translates to:
+  /// **'Median (PyQt default)'**
+  String get screenColorSamplingMedian;
+
+  /// No description provided for @screenColorSamplingAverage.
+  ///
+  /// In en, this message translates to:
+  /// **'Average (mean)'**
+  String get screenColorSamplingAverage;
+
+  /// No description provided for @screenColorSamplingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Each LED maps to a rectangle along the segment edge (same geometry at any capture resolution). Median reduces bright outliers (e.g. white UI on colored backgrounds). Average matches smoother pooling similar to PyQt cv2.resize INTER_AREA.'**
+  String get screenColorSamplingHint;
+
   /// No description provided for @screenCaptureCardTitle.
   ///
   /// In en, this message translates to:
@@ -2478,7 +2862,7 @@ abstract class AppLocalizations {
   /// No description provided for @screenCapturePermissionOk.
   ///
   /// In en, this message translates to:
-  /// **'Screen permission: OK â€” check Privacy settings if needed.'**
+  /// **'Screen permission: OK — check Privacy settings if needed.'**
   String get screenCapturePermissionOk;
 
   /// No description provided for @screenCapturePermissionDenied.
@@ -2550,7 +2934,7 @@ abstract class AppLocalizations {
   /// No description provided for @fieldMonitorIndexMssLabel.
   ///
   /// In en, this message translates to:
-  /// **'monitor_index (MSS, 0â€“32)'**
+  /// **'monitor_index (MSS, 0-32)'**
   String get fieldMonitorIndexMssLabel;
 
   /// No description provided for @screenColorsDetailTitle.
@@ -2622,7 +3006,7 @@ abstract class AppLocalizations {
   /// No description provided for @stripMarkersBody.
   ///
   /// In en, this message translates to:
-  /// **'Green LEDs at corners (like PyQt calibration). When indicating, max strip length is used for transport (USB up to 2000 LEDs with wide 0xFC framing, Wiâ€‘Fi per UDP), not the LED count from device settings â€” so high indices can light up. Turn off before saving or switching tabs.'**
+  /// **'Green LEDs at corners (like PyQt calibration). When indicating, max strip length is used for transport (USB up to 2000 LEDs with wide 0xFC framing, Wi-Fi per UDP), not the LED count from device settings — so high indices can light up. Turn off before saving or switching tabs.'**
   String get stripMarkersBody;
 
   /// No description provided for @markerTopLeft.
@@ -2655,6 +3039,24 @@ abstract class AppLocalizations {
   /// **'Turn off markers'**
   String get markerOff;
 
+  /// No description provided for @screenRainbowSynthSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pipeline diagnostics'**
+  String get screenRainbowSynthSectionTitle;
+
+  /// No description provided for @screenRainbowSynthSwitchTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Synthetic rainbow (ignore screen pixels)'**
+  String get screenRainbowSynthSwitchTitle;
+
+  /// No description provided for @screenRainbowSynthSwitchSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The screen worker skips ROI and sends a moving test pattern through the same pack/UDP path. Off by default — use to separate capture lag from downstream lag.'**
+  String get screenRainbowSynthSwitchSubtitle;
+
   /// No description provided for @segmentsTileTitle.
   ///
   /// In en, this message translates to:
@@ -2666,6 +3068,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Count: {count} (zone editor A7)'**
   String segmentsZoneEditorSubtitle(Object count);
+
+  /// No description provided for @screenSegmentMonitorMismatchBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Some LED segments sample a different monitor than the selected capture source (index {capture}). Adjust segment monitor indices or change the capture monitor.'**
+  String screenSegmentMonitorMismatchBanner(Object capture);
 
   /// No description provided for @lightZoneColorTitle.
   ///
@@ -2727,10 +3135,22 @@ abstract class AppLocalizations {
   /// **'Brightness: {v}'**
   String lightBrightnessValue(Object v);
 
+  /// No description provided for @lightSmoothingMs.
+  ///
+  /// In en, this message translates to:
+  /// **'Color smoothing (ms): {v}'**
+  String lightSmoothingMs(Object v);
+
+  /// No description provided for @lightSmoothingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Blends light-mode colors between frames (0 = instant). Same idea as screen interpolation.'**
+  String get lightSmoothingHint;
+
   /// No description provided for @lightHomekitTile.
   ///
   /// In en, this message translates to:
-  /// **'HomeKit (FW / MQTT â€” do not send colors from PC)'**
+  /// **'HomeKit (FW / MQTT — do not send colors from PC)'**
   String get lightHomekitTile;
 
   /// No description provided for @lightHomekitSubtitle.
@@ -2822,6 +3242,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Custom zones'**
   String get lightEffectCustomZones;
+
+  /// No description provided for @lightZoneEffectPulse.
+  ///
+  /// In en, this message translates to:
+  /// **'Pulse'**
+  String get lightZoneEffectPulse;
+
+  /// No description provided for @lightZoneEffectBlink.
+  ///
+  /// In en, this message translates to:
+  /// **'Blink'**
+  String get lightZoneEffectBlink;
 
   /// No description provided for @musicDeviceError.
   ///
@@ -2934,7 +3366,7 @@ abstract class AppLocalizations {
   /// No description provided for @musicFixedColorHint.
   ///
   /// In en, this message translates to:
-  /// **'Pick color like Home / Hue â€” strip preview while adjusting.'**
+  /// **'Pick color like Home / Hue — strip preview while adjusting.'**
   String get musicFixedColorHint;
 
   /// No description provided for @musicVisualEffectLabel.
@@ -3144,7 +3576,7 @@ abstract class AppLocalizations {
   /// No description provided for @devicesTabEmptyHint.
   ///
   /// In en, this message translates to:
-  /// **'The list may stay empty â€” useful for preparing profiles only. Add at least one device to drive a strip.'**
+  /// **'The list may stay empty — useful for preparing profiles only. Add at least one device to drive a strip.'**
   String get devicesTabEmptyHint;
 
   /// No description provided for @devicesAddDevice.
@@ -3192,7 +3624,7 @@ abstract class AppLocalizations {
   /// No description provided for @devicesTypeWifi.
   ///
   /// In en, this message translates to:
-  /// **'Wiâ€‘Fi (UDP)'**
+  /// **'Wi-Fi (UDP)'**
   String get devicesTypeWifi;
 
   /// No description provided for @devicesControlViaHa.
@@ -3252,7 +3684,7 @@ abstract class AppLocalizations {
   /// No description provided for @devicesComDetectedHelper.
   ///
   /// In en, this message translates to:
-  /// **'Detected: {ports} â€” tap chips below to fill quickly'**
+  /// **'Detected: {ports} — tap chips below to fill quickly'**
   String devicesComDetectedHelper(Object ports);
 
   /// No description provided for @fieldControllerIp.
@@ -3306,7 +3738,7 @@ abstract class AppLocalizations {
   /// No description provided for @scanPreviewOnDragging.
   ///
   /// In en, this message translates to:
-  /// **'On â€” preview while dragging sliders (capture region)'**
+  /// **'On — preview while dragging sliders (capture region)'**
   String get scanPreviewOnDragging;
 
   /// No description provided for @fieldMonitorMssSameAsCapture.
@@ -3402,7 +3834,7 @@ abstract class AppLocalizations {
   /// No description provided for @scanThumbWaiting.
   ///
   /// In en, this message translates to:
-  /// **'Waiting for frameâ€¦'**
+  /// **'Waiting for frame…'**
   String get scanThumbWaiting;
 
   /// No description provided for @removeDeviceDialogTitle.
@@ -3414,7 +3846,7 @@ abstract class AppLocalizations {
   /// No description provided for @removeDeviceDialogLastBody.
   ///
   /// In en, this message translates to:
-  /// **'The device list may stay empty â€” that is fine. Without a device you cannot send colors to strips; you can still configure modes and presets. When hardware is connected, add it again here or via Discovery.'**
+  /// **'The device list may stay empty — that is fine. Without a device you cannot send colors to strips; you can still configure modes and presets. When hardware is connected, add it again here or via Discovery.'**
   String get removeDeviceDialogLastBody;
 
   /// No description provided for @removeDeviceDialogNamedBody.
@@ -3486,7 +3918,7 @@ abstract class AppLocalizations {
   /// No description provided for @deviceHaControlledNote.
   ///
   /// In en, this message translates to:
-  /// **'Controlled via Home Assistant â€” PC colors are not sent to this device.'**
+  /// **'Controlled via Home Assistant — PC colors are not sent to this device.'**
   String get deviceHaControlledNote;
 
   /// No description provided for @menuMoreActions.
@@ -3504,7 +3936,7 @@ abstract class AppLocalizations {
   /// No description provided for @menuTechnicalDetailsEllipsis.
   ///
   /// In en, this message translates to:
-  /// **'Technical detailsâ€¦'**
+  /// **'Technical details…'**
   String get menuTechnicalDetailsEllipsis;
 
   /// No description provided for @menuIdentifyBlink.
@@ -3528,7 +3960,7 @@ abstract class AppLocalizations {
   /// No description provided for @menuRemoveDeviceEllipsis.
   ///
   /// In en, this message translates to:
-  /// **'Remove deviceâ€¦'**
+  /// **'Remove device…'**
   String get menuRemoveDeviceEllipsis;
 
   /// No description provided for @deviceSubtitleUsbLed.
@@ -3540,7 +3972,7 @@ abstract class AppLocalizations {
   /// No description provided for @deviceSubtitleWifiLed.
   ///
   /// In en, this message translates to:
-  /// **'Wiâ€‘Fi Â· {count} LED'**
+  /// **'Wi-Fi · {count} LED'**
   String deviceSubtitleWifiLed(Object count);
 
   /// No description provided for @onboardingUsbSerialLabel.
@@ -3840,7 +4272,7 @@ abstract class AppLocalizations {
   /// No description provided for @discResetWifiBody.
   ///
   /// In en, this message translates to:
-  /// **'Device „{name}“ ({ip}) clears saved Wi‑Fi credentials and restarts. You must configure it again.'**
+  /// **'Device \"{name}\" ({ip}) clears saved Wi-Fi credentials and restarts. You must configure it again.'**
   String discResetWifiBody(Object name, Object ip);
 
   /// No description provided for @discSendResetWifi.
@@ -3879,6 +4311,12 @@ abstract class AppLocalizations {
   /// **'Identify'**
   String get discIdentifyTooltip;
 
+  /// No description provided for @discListItemSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{ip} · {ledCount} LED · FW {version}'**
+  String discListItemSubtitle(Object ip, int ledCount, Object version);
+
   /// No description provided for @zoneEditorSavedSegments.
   ///
   /// In en, this message translates to:
@@ -3903,6 +4341,204 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete'**
   String get zoneEditorDeleteTooltip;
+
+  /// No description provided for @zoneFieldLedStart.
+  ///
+  /// In en, this message translates to:
+  /// **'LED start: {value}'**
+  String zoneFieldLedStart(int value);
+
+  /// No description provided for @zoneFieldLedEnd.
+  ///
+  /// In en, this message translates to:
+  /// **'LED end: {value}'**
+  String zoneFieldLedEnd(int value);
+
+  /// No description provided for @zoneFieldMonitorIndex.
+  ///
+  /// In en, this message translates to:
+  /// **'Monitor index: {value}'**
+  String zoneFieldMonitorIndex(int value);
+
+  /// No description provided for @zoneFieldEdge.
+  ///
+  /// In en, this message translates to:
+  /// **'Edge'**
+  String get zoneFieldEdge;
+
+  /// No description provided for @zoneFieldDepthScan.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan depth: {value}'**
+  String zoneFieldDepthScan(int value);
+
+  /// No description provided for @zoneFieldReverse.
+  ///
+  /// In en, this message translates to:
+  /// **'Reverse direction'**
+  String get zoneFieldReverse;
+
+  /// No description provided for @zoneFieldDeviceId.
+  ///
+  /// In en, this message translates to:
+  /// **'Device'**
+  String get zoneFieldDeviceId;
+
+  /// No description provided for @zoneFieldPixelStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Pixel start: {value}'**
+  String zoneFieldPixelStart(int value);
+
+  /// No description provided for @zoneFieldPixelEnd.
+  ///
+  /// In en, this message translates to:
+  /// **'Pixel end: {value}'**
+  String zoneFieldPixelEnd(int value);
+
+  /// No description provided for @zoneFieldRefWidth.
+  ///
+  /// In en, this message translates to:
+  /// **'Reference width: {value}'**
+  String zoneFieldRefWidth(int value);
+
+  /// No description provided for @zoneFieldRefHeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Reference height: {value}'**
+  String zoneFieldRefHeight(int value);
+
+  /// No description provided for @zoneFieldMusicEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'Music effect'**
+  String get zoneFieldMusicEffect;
+
+  /// No description provided for @zoneFieldRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Frequency band'**
+  String get zoneFieldRole;
+
+  /// No description provided for @zoneEdgeTop.
+  ///
+  /// In en, this message translates to:
+  /// **'Top'**
+  String get zoneEdgeTop;
+
+  /// No description provided for @zoneEdgeBottom.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottom'**
+  String get zoneEdgeBottom;
+
+  /// No description provided for @zoneEdgeLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'Left'**
+  String get zoneEdgeLeft;
+
+  /// No description provided for @zoneEdgeRight.
+  ///
+  /// In en, this message translates to:
+  /// **'Right'**
+  String get zoneEdgeRight;
+
+  /// No description provided for @zoneMusicEffectDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get zoneMusicEffectDefault;
+
+  /// No description provided for @zoneMusicEffectSmartMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart music'**
+  String get zoneMusicEffectSmartMusic;
+
+  /// No description provided for @zoneMusicEffectEnergy.
+  ///
+  /// In en, this message translates to:
+  /// **'Energy'**
+  String get zoneMusicEffectEnergy;
+
+  /// No description provided for @zoneMusicEffectSpectrum.
+  ///
+  /// In en, this message translates to:
+  /// **'Spectrum'**
+  String get zoneMusicEffectSpectrum;
+
+  /// No description provided for @zoneMusicEffectSpectrumRotate.
+  ///
+  /// In en, this message translates to:
+  /// **'Spectrum rotate'**
+  String get zoneMusicEffectSpectrumRotate;
+
+  /// No description provided for @zoneMusicEffectSpectrumPunchy.
+  ///
+  /// In en, this message translates to:
+  /// **'Spectrum punchy'**
+  String get zoneMusicEffectSpectrumPunchy;
+
+  /// No description provided for @zoneMusicEffectStrobe.
+  ///
+  /// In en, this message translates to:
+  /// **'Strobe'**
+  String get zoneMusicEffectStrobe;
+
+  /// No description provided for @zoneMusicEffectVumeter.
+  ///
+  /// In en, this message translates to:
+  /// **'VU meter'**
+  String get zoneMusicEffectVumeter;
+
+  /// No description provided for @zoneMusicEffectVumeterSpectrum.
+  ///
+  /// In en, this message translates to:
+  /// **'VU + spectrum'**
+  String get zoneMusicEffectVumeterSpectrum;
+
+  /// No description provided for @zoneMusicEffectPulse.
+  ///
+  /// In en, this message translates to:
+  /// **'Pulse'**
+  String get zoneMusicEffectPulse;
+
+  /// No description provided for @zoneMusicEffectReactiveBass.
+  ///
+  /// In en, this message translates to:
+  /// **'Reactive bass'**
+  String get zoneMusicEffectReactiveBass;
+
+  /// No description provided for @zoneRoleAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get zoneRoleAuto;
+
+  /// No description provided for @zoneRoleBass.
+  ///
+  /// In en, this message translates to:
+  /// **'Bass'**
+  String get zoneRoleBass;
+
+  /// No description provided for @zoneRoleMids.
+  ///
+  /// In en, this message translates to:
+  /// **'Mids'**
+  String get zoneRoleMids;
+
+  /// No description provided for @zoneRoleHighs.
+  ///
+  /// In en, this message translates to:
+  /// **'Highs'**
+  String get zoneRoleHighs;
+
+  /// No description provided for @zoneRoleAmbience.
+  ///
+  /// In en, this message translates to:
+  /// **'Ambience'**
+  String get zoneRoleAmbience;
 
   /// No description provided for @zoneDeviceAllDefault.
   ///
@@ -3973,7 +4609,7 @@ abstract class AppLocalizations {
   /// No description provided for @configProfileSavedSnack.
   ///
   /// In en, this message translates to:
-  /// **'Preset „{name}“ saved to user_screen_presets.'**
+  /// **'Preset \"{name}\" saved to user_screen_presets.'**
   String configProfileSavedSnack(Object name);
 
   /// No description provided for @defaultPresetNameDraft.

@@ -264,8 +264,15 @@ class AmbiLightRoot extends StatelessWidget {
                       ),
                     ],
                   );
-                  return wrapWithAppFaultBanner(
-                      MediaQuery(data: mqMerged, child: inner));
+                  final mqChild = MediaQuery(data: mqMerged, child: inner);
+                  return Selector<AmbilightAppController, bool>(
+                    selector: (_, c) =>
+                        c.config.globalSettings.onboardingCompleted,
+                    builder: (context, onboardingDone, _) {
+                      if (!onboardingDone) return mqChild;
+                      return wrapWithAppFaultBanner(mqChild);
+                    },
+                  );
                 },
                 home: const AmbiShell(),
               ),

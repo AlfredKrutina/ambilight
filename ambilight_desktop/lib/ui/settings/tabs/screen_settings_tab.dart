@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+
+import '../../../application/pipeline_diagnostics.dart' show ambilightPipelineDiagnosticsEnabled;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../application/ambilight_app_controller.dart';
 import '../../../core/ambilight_presets.dart';
 import '../../../core/models/config_models.dart';
+import '../../../engine/screen/screen_color_pipeline.dart';
 import '../../../features/screen_capture/screen_capture_source.dart';
 import '../../../features/screen_overlay/scan_overlay_controller.dart';
 import '../../../features/screen_overlay/screen_scan_settings_tab.dart';
@@ -72,9 +75,19 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
     }
   }
 
-  bool get _advanced => widget.draft.screenMode.scanMode == 'advanced';
+  bool get _simpleUi =>
+      normalizeAmbilightUiControlLevel(widget.draft.globalSettings.uiControlLevel) == 'simple';
+
+  bool get _advanced => !_simpleUi && widget.draft.screenMode.scanMode == 'advanced';
 
   void _patch(ScreenModeSettings next) => widget.onChanged(next);
+
+  /// Shodně s [ScreenColorPipeline] / JSON PyQt `color_sampling`.
+  static String _normalizeColorSamplingDropdown(String raw) {
+    final t = raw.trim().toLowerCase();
+    if (t == 'average' || t == 'mean' || t == 'avg') return 'average';
+    return 'median';
+  }
 
   void _onLiveScanWhileDragging(ScreenModeSettings next) {
     unawaited(
@@ -308,6 +321,27 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
             },
             onChangeEnd: _onLiveScanAfterRelease,
           ),
+          const SizedBox(height: 12),
+          Text(l10n.screenColorSamplingLabel, style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 4),
+          DropdownButtonFormField<String>(
+            isExpanded: true,
+            value: _normalizeColorSamplingDropdown(s.colorSampling),
+            decoration: InputDecoration(
+              isDense: true,
+              helperText: l10n.screenColorSamplingHint,
+            ),
+            items: [
+              DropdownMenuItem(value: 'median', child: Text(l10n.screenColorSamplingMedian)),
+              DropdownMenuItem(value: 'average', child: Text(l10n.screenColorSamplingAverage)),
+            ],
+            onChanged: (v) {
+              if (v == null) return;
+              final next = s.copyWith(colorSampling: v);
+              _patch(next);
+              _onLiveScanWhileDragging(next);
+            },
+          ),
         ],
       );
     }
@@ -318,7 +352,7 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
         subtitle: l10n.screenSectionSubtitle,
         bottomSpacing: 12,
       ),
-      if (!kIsWeb)
+      if (!kIsWeb && !_simpleUi)
         Selector<AmbilightAppController, ScreenSessionInfo>(
           selector: (_, ctrl) => ctrl.captureSessionInfo,
           builder: (context, cap, _) {
@@ -374,8 +408,8 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
           },
         ),
       const SizedBox(height: 8),
-      modeBar(),
-      const SizedBox(height: 12),
+      if (!_simpleUi) modeBar(),
+      if (!_simpleUi) const SizedBox(height: 12),
       Card(
         margin: EdgeInsets.zero,
         child: Padding(
@@ -537,54 +571,108 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
     ];
 
     final tail = <Widget>[
-      Consumer<AmbilightAppController>(
-        builder: (context, ctrl, _) {
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(l10n.stripMarkersTitle, style: Theme.of(context).textTheme.titleSmall),
-                  const SizedBox(height: 6),
-                  Text(
-                    l10n.stripMarkersBody,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      OutlinedButton(
-                        onPressed: () => ctrl.setCalibrationLedMarkers('top_left'),
-                        child: Text(l10n.markerTopLeft),
-                      ),
-                      OutlinedButton(
-                        onPressed: () => ctrl.setCalibrationLedMarkers('top_right'),
-                        child: Text(l10n.markerTopRight),
-                      ),
-                      OutlinedButton(
-                        onPressed: () => ctrl.setCalibrationLedMarkers('bottom_right'),
-                        child: Text(l10n.markerBottomRight),
-                      ),
-                      OutlinedButton(
-                        onPressed: () => ctrl.setCalibrationLedMarkers('bottom_left'),
-                        child: Text(l10n.markerBottomLeft),
-                      ),
-                      FilledButton.tonal(
-                        onPressed: () => ctrl.setCalibrationLedMarkers(null),
-                        child: Text(l10n.markerOff),
-                      ),
-                    ],
-                  ),
-                ],
+      if (!_simpleUi)
+        Consumer<AmbilightAppController>(
+          builder: (context, ctrl, _) {
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(l10n.stripMarkersTitle, style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 6),
+                    Text(
+                      l10n.stripMarkersBody,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => ctrl.setCalibrationLedMarkers('top_left'),
+                          child: Text(l10n.markerTopLeft),
+                        ),
+                        OutlinedButton(
+                          onPressed: () => ctrl.setCalibrationLedMarkers('top_right'),
+                          child: Text(l10n.markerTopRight),
+                        ),
+                        OutlinedButton(
+                          onPressed: () => ctrl.setCalibrationLedMarkers('bottom_right'),
+                          child: Text(l10n.markerBottomRight),
+                        ),
+                        OutlinedButton(
+                          onPressed: () => ctrl.setCalibrationLedMarkers('bottom_left'),
+                          child: Text(l10n.markerBottomLeft),
+                        ),
+                        FilledButton.tonal(
+                          onPressed: () => ctrl.setCalibrationLedMarkers(null),
+                          child: Text(l10n.markerOff),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
-      ),
+            );
+          },
+        ),
+      if (!_simpleUi && (kDebugMode || ambilightPipelineDiagnosticsEnabled))
+        Consumer<AmbilightAppController>(
+          builder: (context, ctrl, _) {
+            final scheme = Theme.of(context).colorScheme;
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      l10n.screenRainbowSynthSectionTitle,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(l10n.screenRainbowSynthSwitchTitle),
+                      subtitle: Text(
+                        l10n.screenRainbowSynthSwitchSubtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                      value: ctrl.rainbowSynthBypassCapture,
+                      onChanged: ctrl.setRainbowSynthBypassCapture,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      if (!_simpleUi)
+        Builder(
+          builder: (context) {
+            final warn = ScreenColorPipeline.screenSegmentCaptureWarnings(widget.draft);
+            if (warn.isEmpty) return const SizedBox.shrink();
+            final scheme = Theme.of(context).colorScheme;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Material(
+                color: scheme.errorContainer.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(12),
+                child: ListTile(
+                  leading: Icon(Icons.warning_amber_rounded, color: scheme.onErrorContainer),
+                  title: Text(
+                    l10n.screenSegmentMonitorMismatchBanner(warn.first.captureMonitorIndex),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onErrorContainer),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
       ListTile(
         contentPadding: EdgeInsets.zero,
         title: Text(l10n.segmentsTileTitle),

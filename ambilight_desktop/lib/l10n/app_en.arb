@@ -121,6 +121,32 @@
       "detail": {}
     }
   },
+  "configFileUnusableBanner": "The configuration file is damaged or incompatible — default settings are in use. Restore a backup under Import / export.",
+  "configSaveFailed": "Could not save configuration: {detail}",
+  "@configSaveFailed": {
+    "placeholders": {
+      "detail": {}
+    }
+  },
+  "configInvalidJsonImport": "Invalid configuration JSON: {detail}",
+  "@configInvalidJsonImport": {
+    "placeholders": {
+      "detail": {}
+    }
+  },
+  "configApplyFailed": "Could not apply settings: {detail}",
+  "@configApplyFailed": {
+    "placeholders": {
+      "detail": {}
+    }
+  },
+  "configAutosaveFailed": "Background save failed: {detail}",
+  "@configAutosaveFailed": {
+    "placeholders": {
+      "detail": {}
+    }
+  },
+  "screenCaptureRepeatedFailureBanner": "Screen capture keeps failing. Check privacy permissions (Windows: Privacy settings) and the monitor selection.",
   "faultUiError": "UI error: {detail}",
   "@faultUiError": {
     "placeholders": {
@@ -307,6 +333,29 @@
       "total": {}
     }
   },
+  "onboardIllustColorsToStrip": "Colors flow to the strip",
+  "onboardIllustMiniBackup": "JSON backup",
+  "onboardIllustCpuLabel": "CPU",
+  "onboardIllustGpuLabel": "GPU",
+  "onboardOutputTourOnlyHint": "Preview only — the real Output switch lives in the app header.",
+  "onboardSlideDotA11y": "Go to step {n} of {total}",
+  "@onboardSlideDotA11y": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "onboardScreenHuePreview": "Preview hue",
+  "onboardSettingsSnackModes": "Pick the active mode on the overview (tiles at the top).",
+  "onboardSettingsSnackFirmware": "Firmware downloads and OTA: Settings → Firmware.",
+  "onboardSettingsSnackBackup": "Back up JSON: Settings → Global → Export.",
+  "onboardConnectivityUsbTap": "USB: choose the COM port under Devices.",
+  "onboardConnectivityWifiTap": "Wi‑Fi: set IP and UDP port under Devices (same as firmware).",
+  "onboardKeysHint": "Keyboard: arrow keys for steps, Esc to skip.",
   "devicesPageTitle": "Devices",
   "devicesActionsTitle": "Actions",
   "discoveryWizardLabel": "Discovery — wizard",
@@ -429,6 +478,20 @@
   "backupExported": "Configuration exported.",
   "backupImported": "Configuration imported.",
   "backupInvalid": "Invalid configuration file.",
+  "factoryResetTitle": "Restore defaults",
+  "factoryResetButton": "Restore factory defaults…",
+  "factoryResetDialogTitle": "Restore factory defaults?",
+  "factoryResetDialogBody": "All settings will revert to built-in defaults, devices and zones will be cleared, and saved Home Assistant and Spotify tokens will be removed. This cannot be undone — export a JSON backup first if you need a copy.",
+  "factoryResetConfirm": "Restore defaults",
+  "factoryResetDone": "Settings restored to defaults.",
+  "factoryResetFailed": "Factory reset failed: {error}",
+  "@factoryResetFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "spotifyTabTitle": "Spotify",
   "spotifyTabIntro": "OAuth tokens and album artwork colors. Help explains audio routing and artwork.",
   "spotifyHelpAlbum": "Help: music & artwork",
@@ -571,6 +634,40 @@
   "onboardingReplayTitle": "Onboarding",
   "onboardingReplayBody": "Same guide as first launch — output, modes, devices and settings.",
   "replayOnboardingButton": "Run onboarding again",
+  "uiControlLevelLabel": "Control level",
+  "uiControlLevelHelper": "Simple hides advanced screen tuning (gamma, calibration shortcuts, capture diagnostics). You can change this anytime.",
+  "uiControlLevelSimple": "Simple",
+  "uiControlLevelAdvanced": "Advanced",
+  "onboardWizardStepThemeTitle": "Choose appearance",
+  "onboardWizardStepThemeSubtitle": "You can change this later under Settings → Global.",
+  "onboardWizardThemeLightTitle": "Light",
+  "onboardWizardThemeLightSubtitle": "Bright surfaces and high contrast controls.",
+  "onboardWizardThemeDarkTitle": "Dark",
+  "onboardWizardThemeDarkSubtitle": "Easier on the eyes in dim rooms.",
+  "onboardWizardStepComplexityTitle": "How detailed should settings be?",
+  "onboardWizardStepComplexitySubtitle": "Simple keeps everyday sliders only. Advanced exposes gamma, offsets and diagnostics.",
+  "onboardWizardComplexitySimpleTitle": "Simple",
+  "onboardWizardComplexitySimpleSubtitle": "Recommended — fewer knobs, faster setup.",
+  "onboardWizardComplexityAdvancedTitle": "Advanced",
+  "onboardWizardComplexityAdvancedSubtitle": "Full control over capture, color math and calibration tools.",
+  "onboardWizardStepDeviceTitle": "Connect your controller",
+  "onboardWizardStepDeviceSubtitle": "Pick how your PC talks to the LEDs. You can add more devices later on the Devices page.",
+  "onboardWizardScanWifi": "Scan for Wi‑Fi devices",
+  "onboardWizardSetupUsb": "Set up USB / Serial",
+  "onboardWizardStepMappingTitle": "Map LEDs to your screen",
+  "onboardWizardStepMappingSubtitle": "Walk the strip once so corners match your monitor. Skip if you want to do this later.",
+  "onboardWizardOpenMapping": "Open mapping wizard",
+  "onboardWizardMappingSkip": "Skip for now",
+  "onboardWizardStepIntegrationsTitle": "Integrations",
+  "onboardWizardStepIntegrationsSubtitle": "Optional extras — enable them when you need them.",
+  "onboardWizardHaCardTitle": "Home Assistant",
+  "onboardWizardHaCardBody": "Mirror colors to lamps and automations with a long‑lived token and your HA URL.",
+  "onboardWizardSpotifyCardTitle": "Spotify",
+  "onboardWizardSpotifyCardBody": "Richer music visuals when you link a Spotify Developer app (Client ID in Settings).",
+  "onboardWizardPcHealthCardTitle": "PC Health",
+  "onboardWizardPcHealthCardBody": "Temperatures and load drive ambient colors — great for idle dashboards.",
+  "onboardWizardPreviewHint": "Rainbow preview uses the same test path as Settings → Screen (synthetic colors).",
+  "onboardWizardFinish": "Get started",
   "devicesPageSubtitle": "Network discovery, segment editing and calibration. Tap a device row for LED mapping.",
   "fieldDeviceName": "Name",
   "fieldIpAddress": "IP address",
@@ -623,9 +720,13 @@
   "fieldMonitorSameAsCaptureLabel": "Monitor (same as capture)",
   "screenScanDepthUniformPct": "Scan depth (uniform): {pct} %",
   "screenPaddingUniformPct": "Padding (uniform): {pct} %",
+  "screenColorSamplingLabel": "LED color from scan region",
+  "screenColorSamplingMedian": "Median (PyQt default)",
+  "screenColorSamplingAverage": "Average (mean)",
+  "screenColorSamplingHint": "Each LED maps to a rectangle along the segment edge (same geometry at any capture resolution). Median reduces bright outliers (e.g. white UI on colored backgrounds). Average matches smoother pooling similar to PyQt cv2.resize INTER_AREA.",
   "screenCaptureCardTitle": "Screen capture",
   "refreshDiagnostics": "Refresh diagnostics",
-  "screenCapturePermissionOk": "Screen permission: OK â€” check Privacy settings if needed.",
+  "screenCapturePermissionOk": "Screen permission: OK — check Privacy settings if needed.",
   "screenCapturePermissionDenied": "Permission denied or unavailable.",
   "macosRequestScreenCapture": "macOS: request screen capture",
   "screenImageOutputTitle": "Image and output",
@@ -637,7 +738,7 @@
   "screenInterpolationMs": "Interpolation (ms): {v}",
   "screenUniformRegionTitle": "Uniform capture region",
   "screenTechMonitorTitle": "Technical monitor and uniform region",
-  "fieldMonitorIndexMssLabel": "monitor_index (MSS, 0â€“32)",
+  "fieldMonitorIndexMssLabel": "monitor_index (MSS, 0-32)",
   "screenColorsDetailTitle": "Colors and scan (detail)",
   "screenGammaValue": "Gamma: {v}",
   "screenSaturationBoostValue": "Saturation boost: {v}",
@@ -649,14 +750,18 @@
   "fieldActiveCalibrationProfile": "Active calibration profile",
   "helperCalibrationProfileKeys": "Keys from calibration_profiles in config",
   "stripMarkersTitle": "LED markers on strip",
-  "stripMarkersBody": "Green LEDs at corners (like PyQt calibration). When indicating, max strip length is used for transport (USB up to 2000 LEDs with wide 0xFC framing, Wiâ€‘Fi per UDP), not the LED count from device settings â€” so high indices can light up. Turn off before saving or switching tabs.",
+  "stripMarkersBody": "Green LEDs at corners (like PyQt calibration). When indicating, max strip length is used for transport (USB up to 2000 LEDs with wide 0xFC framing, Wi-Fi per UDP), not the LED count from device settings — so high indices can light up. Turn off before saving or switching tabs.",
   "markerTopLeft": "Top left",
   "markerTopRight": "Top right",
   "markerBottomRight": "Bottom right",
   "markerBottomLeft": "Bottom left",
   "markerOff": "Turn off markers",
+  "screenRainbowSynthSectionTitle": "Pipeline diagnostics",
+  "screenRainbowSynthSwitchTitle": "Synthetic rainbow (ignore screen pixels)",
+  "screenRainbowSynthSwitchSubtitle": "The screen worker skips ROI and sends a moving test pattern through the same pack/UDP path. Off by default — use to separate capture lag from downstream lag.",
   "segmentsTileTitle": "Segments",
   "segmentsZoneEditorSubtitle": "Count: {count} (zone editor A7)",
+  "screenSegmentMonitorMismatchBanner": "Some LED segments sample a different monitor than the selected capture source (index {capture}). Adjust segment monitor indices or change the capture monitor.",
   "lightZoneColorTitle": "Zone color",
   "lightPrimaryColorTitle": "Primary color",
   "lightSettingsHeader": "Light",
@@ -667,7 +772,9 @@
   "lightSpeedValue": "Speed: {v}",
   "lightExtraValue": "Extra: {v}",
   "lightBrightnessValue": "Brightness: {v}",
-  "lightHomekitTile": "HomeKit (FW / MQTT â€” do not send colors from PC)",
+  "lightSmoothingMs": "Color smoothing (ms): {v}",
+  "lightSmoothingHint": "Blends light-mode colors between frames (0 = instant). Same idea as screen interpolation.",
+  "lightHomekitTile": "HomeKit (FW / MQTT — do not send colors from PC)",
   "lightHomekitSubtitle": "homekit_enabled",
   "lightCustomZonesTitle": "Custom zones",
   "lightAddZone": "Add zone",
@@ -683,6 +790,8 @@
   "lightEffectRainbow": "Rainbow",
   "lightEffectChase": "Chase",
   "lightEffectCustomZones": "Custom zones",
+  "lightZoneEffectPulse": "Pulse",
+  "lightZoneEffectBlink": "Blink",
   "musicDeviceError": "Device: {error}",
   "musicInputDeviceLabel": "Audio input device",
   "musicDefaultInputDevice": "Default (first suitable)",
@@ -701,7 +810,7 @@
   "musicColorSourceSpectrum": "Spectrum from audio",
   "musicColorSourceMonitor": "Colors from monitor (Ambilight)",
   "musicFixedColorHeader": "Fixed color",
-  "musicFixedColorHint": "Pick color like Home / Hue â€” strip preview while adjusting.",
+  "musicFixedColorHint": "Pick color like Home / Hue — strip preview while adjusting.",
   "musicVisualEffectLabel": "Visual effect",
   "musicSmartMusicHint": "Smart Music: spectrum, beat and melody map to the strip in real time (local, no cloud).",
   "musicBrightnessValue": "Brightness (music): {v}",
@@ -736,7 +845,7 @@
   "musicEffectReactiveBass": "Reactive bass",
   "devicesTabHeader": "Devices",
   "devicesTabIntro": "Name and LED count matter for control. IP and port are under Connection.",
-  "devicesTabEmptyHint": "The list may stay empty â€” useful for preparing profiles only. Add at least one device to drive a strip.",
+  "devicesTabEmptyHint": "The list may stay empty — useful for preparing profiles only. Add at least one device to drive a strip.",
   "devicesAddDevice": "Add device",
   "devicesNewDeviceName": "New device",
   "devicesUnnamedDevice": "Device {index}",
@@ -744,7 +853,7 @@
   "fieldDisplayName": "Display name",
   "fieldConnectionType": "Connection type",
   "devicesTypeUsb": "USB (serial)",
-  "devicesTypeWifi": "Wiâ€‘Fi (UDP)",
+  "devicesTypeWifi": "Wi-Fi (UDP)",
   "devicesControlViaHa": "Control via Home Assistant",
   "devicesControlViaHaSubtitle": "PC will not send colors to this device.",
   "devicesConnectionSection": "Connection and internal fields",
@@ -754,7 +863,7 @@
   "devicesPortSummary": "Port {port}",
   "fieldComPort": "COM port",
   "devicesComHintExample": "e.g. {example}",
-  "devicesComDetectedHelper": "Detected: {ports} â€” tap chips below to fill quickly",
+  "devicesComDetectedHelper": "Detected: {ports} — tap chips below to fill quickly",
   "fieldControllerIp": "Controller IP address",
   "fieldInternalId": "Internal ID (links in config)",
   "helperInternalId": "Change only if JSON segments reference it.",
@@ -763,7 +872,7 @@
   "scanPreviewMonitorTitle": "Monitor preview while tuning",
   "scanPreviewOff": "Off",
   "scanPreviewVisible": "Preview visible; hides {seconds} s after release",
-  "scanPreviewOnDragging": "On â€” preview while dragging sliders (capture region)",
+  "scanPreviewOnDragging": "On — preview while dragging sliders (capture region)",
   "fieldMonitorMssSameAsCapture": "Monitor (MSS index, same as capture)",
   "scanMonitorNoEnum": "Monitor {index} (OS enumeration unavailable)",
   "scanPreviewNowButton": "Show zone preview now (~1 s)",
@@ -779,9 +888,9 @@
   "scanSimpleModeHint": "Set uniform depth and padding above under Capture region. Enable advanced screen mode for independent edges.",
   "scanDiagramTitle": "Region diagram (selected monitor aspect)",
   "scanThumbNeedScreenMode": "Turn on screen mode for a live preview.",
-  "scanThumbWaiting": "Waiting for frameâ€¦",
+  "scanThumbWaiting": "Waiting for frame…",
   "removeDeviceDialogTitle": "Remove device?",
-  "removeDeviceDialogLastBody": "The device list may stay empty â€” that is fine. Without a device you cannot send colors to strips; you can still configure modes and presets. When hardware is connected, add it again here or via Discovery.",
+  "removeDeviceDialogLastBody": "The device list may stay empty — that is fine. Without a device you cannot send colors to strips; you can still configure modes and presets. When hardware is connected, add it again here or via Discovery.",
   "removeDeviceDialogNamedBody": "Device \"{name}\" will be removed from configuration.",
   "deviceDetailsTitle": "Technical details",
   "detailLineInternalId": "Internal ID: {id}",
@@ -793,16 +902,16 @@
   "detailLineFirmware": "Firmware: {version}",
   "deviceConnectionOkLabel": "Connected",
   "deviceConnectionOfflineLabel": "Disconnected",
-  "deviceHaControlledNote": "Controlled via Home Assistant â€” PC colors are not sent to this device.",
+  "deviceHaControlledNote": "Controlled via Home Assistant — PC colors are not sent to this device.",
   "menuMoreActions": "More actions",
   "menuEditLedMapping": "Edit LED mapping",
-  "menuTechnicalDetailsEllipsis": "Technical detailsâ€¦",
+  "menuTechnicalDetailsEllipsis": "Technical details…",
   "menuIdentifyBlink": "Brief identify (blink)",
   "menuRefreshFirmwareInfo": "Refresh firmware info",
   "menuResetSavedWifi": "Reset saved Wi‑Fi on controller",
-  "menuRemoveDeviceEllipsis": "Remove deviceâ€¦",
+  "menuRemoveDeviceEllipsis": "Remove device…",
   "deviceSubtitleUsbLed": "USB · {count} LED",
-  "deviceSubtitleWifiLed": "Wiâ€‘Fi Â· {count} LED",
+  "deviceSubtitleWifiLed": "Wi-Fi · {count} LED",
   "@screenScanDepthUniformPct": {
     "placeholders": {
       "pct": {}
@@ -848,6 +957,11 @@
       "count": {}
     }
   },
+  "@screenSegmentMonitorMismatchBanner": {
+    "placeholders": {
+      "capture": {}
+    }
+  },
   "@lightPrimaryColorRgbHint": {
     "placeholders": {
       "rgb": {}
@@ -864,6 +978,11 @@
     }
   },
   "@lightBrightnessValue": {
+    "placeholders": {
+      "v": {}
+    }
+  },
+  "@lightSmoothingMs": {
     "placeholders": {
       "v": {}
     }
@@ -1080,17 +1199,116 @@
   "discEmptyAfterScan": "No devices. Check network and firmware.",
   "discAddedSnack": "Added: {name}",
   "discResetWifiTitle": "Reset Wi‑Fi?",
-  "discResetWifiBody": "Device „{name}“ ({ip}) clears saved Wi‑Fi credentials and restarts. You must configure it again.",
+  "discResetWifiBody": "Device \"{name}\" ({ip}) clears saved Wi-Fi credentials and restarts. You must configure it again.",
   "discSendResetWifi": "Send RESET_WIFI",
   "discResetWifiSnackOk": "RESET_WIFI sent.",
   "discResetWifiSnackFail": "Send failed.",
   "discAddButton": "Add",
   "discResetWifiTooltip": "Reset Wi‑Fi (clears saved credentials)",
   "discIdentifyTooltip": "Identify",
+  "discListItemSubtitle": "{ip} · {ledCount} LED · FW {version}",
+  "@discListItemSubtitle": {
+    "placeholders": {
+      "ip": {},
+      "ledCount": {
+        "type": "int"
+      },
+      "version": {}
+    }
+  },
   "zoneEditorSavedSegments": "Saved {count} segments.",
   "zoneEditorEmpty": "No segments — use the LED wizard or “Add segment”.",
   "zoneEditorSegmentLine": "Segment {index} · {edge} · LED {start}–{end} · mon {mon}",
   "zoneEditorDeleteTooltip": "Delete",
+  "zoneFieldLedStart": "LED start: {value}",
+  "@zoneFieldLedStart": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "zoneFieldLedEnd": "LED end: {value}",
+  "@zoneFieldLedEnd": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "zoneFieldMonitorIndex": "Monitor index: {value}",
+  "@zoneFieldMonitorIndex": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "zoneFieldEdge": "Edge",
+  "zoneFieldDepthScan": "Scan depth: {value}",
+  "@zoneFieldDepthScan": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "zoneFieldReverse": "Reverse direction",
+  "zoneFieldDeviceId": "Device",
+  "zoneFieldPixelStart": "Pixel start: {value}",
+  "@zoneFieldPixelStart": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "zoneFieldPixelEnd": "Pixel end: {value}",
+  "@zoneFieldPixelEnd": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "zoneFieldRefWidth": "Reference width: {value}",
+  "@zoneFieldRefWidth": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "zoneFieldRefHeight": "Reference height: {value}",
+  "@zoneFieldRefHeight": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "zoneFieldMusicEffect": "Music effect",
+  "zoneFieldRole": "Frequency band",
+  "zoneEdgeTop": "Top",
+  "zoneEdgeBottom": "Bottom",
+  "zoneEdgeLeft": "Left",
+  "zoneEdgeRight": "Right",
+  "zoneMusicEffectDefault": "Default",
+  "zoneMusicEffectSmartMusic": "Smart music",
+  "zoneMusicEffectEnergy": "Energy",
+  "zoneMusicEffectSpectrum": "Spectrum",
+  "zoneMusicEffectSpectrumRotate": "Spectrum rotate",
+  "zoneMusicEffectSpectrumPunchy": "Spectrum punchy",
+  "zoneMusicEffectStrobe": "Strobe",
+  "zoneMusicEffectVumeter": "VU meter",
+  "zoneMusicEffectVumeterSpectrum": "VU + spectrum",
+  "zoneMusicEffectPulse": "Pulse",
+  "zoneMusicEffectReactiveBass": "Reactive bass",
+  "zoneRoleAuto": "Auto",
+  "zoneRoleBass": "Bass",
+  "zoneRoleMids": "Mids",
+  "zoneRoleHighs": "Highs",
+  "zoneRoleAmbience": "Ambience",
   "zoneDeviceAllDefault": "— All / default —",
   "zoneRefFromCapture": "Reference size from last frame",
   "calibWizardTitle": "Screen calibration",
@@ -1102,7 +1320,7 @@
   "configProfileIntro": "Config file is handled by ConfigRepository; this stores the current screen mode snapshot into user_screen_presets.",
   "configProfileNameLabel": "Preset name",
   "configProfileExistingTitle": "Existing presets:",
-  "configProfileSavedSnack": "Preset „{name}“ saved to user_screen_presets.",
+  "configProfileSavedSnack": "Preset \"{name}\" saved to user_screen_presets.",
   "defaultPresetNameDraft": "My preset",
   "ledWizTitle": "LED wizard",
   "ledWizTitleWithDevice": "LED wizard — {name}",

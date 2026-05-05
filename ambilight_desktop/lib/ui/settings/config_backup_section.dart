@@ -70,6 +70,37 @@ class ConfigBackupSection extends StatelessWidget {
     }
   }
 
+  Future<void> _factoryReset(BuildContext context) async {
+    final l10n = context.l10n;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.factoryResetDialogTitle),
+        content: SingleChildScrollView(child: Text(l10n.factoryResetDialogBody)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel)),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(foregroundColor: Theme.of(ctx).colorScheme.onError, backgroundColor: Theme.of(ctx).colorScheme.error),
+            child: Text(l10n.factoryResetConfirm),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    final c = context.read<AmbilightAppController>();
+    try {
+      await c.factoryResetAndPersist();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.factoryResetDone)));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.factoryResetFailed(e.toString()))));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (kIsWeb) {
@@ -105,6 +136,14 @@ class ConfigBackupSection extends StatelessWidget {
                   label: Text(context.l10n.backupImport),
                 ),
               ],
+            ),
+            const SizedBox(height: 20),
+            Text(context.l10n.factoryResetTitle, style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 6),
+            OutlinedButton.icon(
+              onPressed: () => _factoryReset(context),
+              icon: const Icon(Icons.restart_alt_outlined, size: 20),
+              label: Text(context.l10n.factoryResetButton),
             ),
           ],
         ),

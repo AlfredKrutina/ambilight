@@ -1,23 +1,45 @@
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:logging/logging.dart';
 
 final _log = Logger('PipelineDiag');
 
-/// Zapnuto: `kDebugMode` nebo `--dart-define=AMBI_PIPELINE_DIAGNOSTICS=true`.
+/// Zapnuto jen explicitně: `--dart-define=AMBI_PIPELINE_DIAGNOSTICS=true` (v `flutter run` bez define žádný PIPELINE spam).
 /// End-to-end časová osa screen→isolate→UDP a segment / serial audit (viz diagnostický plán).
 bool get ambilightPipelineDiagnosticsEnabled =>
-    kDebugMode || const bool.fromEnvironment('AMBI_PIPELINE_DIAGNOSTICS', defaultValue: false);
+    const bool.fromEnvironment('AMBI_PIPELINE_DIAGNOSTICS', defaultValue: false);
+
+/// Min. odstup mezi řádky z [pipelineDiagLog] / [pipelineDiagIsolatePrint] (~5/s celkem na stranu).
+const int _kPipelineDiagMinIntervalMicros = 200000;
+
+int? _pipelineDiagMainLogLastMicros;
+int? _pipelineDiagIsolatePrintLastMicros;
+
+/// Po výstupu z screen worker izolátu okamžitě zavolat [_distribute] (bez čekání na další tick).
+/// Vypnutí: `--dart-define=AMBI_SCREEN_EAGER_DISTRIBUTE=false`.
+bool get ambilightScreenEagerDistributeEnabled =>
+    const bool.fromEnvironment('AMBI_SCREEN_EAGER_DISTRIBUTE', defaultValue: true);
 
 void pipelineDiagLog(String phase, String detail) {
   if (!ambilightPipelineDiagnosticsEnabled) return;
+  final now = DateTime.now().microsecondsSinceEpoch;
+  final last = _pipelineDiagMainLogLastMicros;
+  if (last != null && now - last < _kPipelineDiagMinIntervalMicros) {
+    return;
+  }
+  _pipelineDiagMainLogLastMicros = now;
   final ts = DateTime.now().toUtc().toIso8601String();
   _log.info('[PIPELINE_DIAG $ts] $phase $detail');
 }
 
 void pipelineDiagIsolatePrint(String message) {
   if (!ambilightPipelineDiagnosticsEnabled) return;
+  final now = DateTime.now().microsecondsSinceEpoch;
+  final last = _pipelineDiagIsolatePrintLastMicros;
+  if (last != null && now - last < _kPipelineDiagMinIntervalMicros) {
+    return;
+  }
+  _pipelineDiagIsolatePrintLastMicros = now;
   // Worker isolate nemá app Logger — stdout je záměr (viz diagnostický plán).
   // ignore: avoid_print
   print('[PIPELINE_DIAG] $message');
@@ -54,6 +76,24 @@ class PipelineDiagCaptureTimeline {
   /// Mikrosekundy od posledního [markCapture], nebo `null` pokud ještě nebylo.
   static int? elapsedSinceCaptureMicros() {
     final t = _lastCaptureMicros;
+    if (t == null) return null;
+    return DateTime.now().microsecondsSinceEpoch - t;
+  }
+
+  /// Absolutní čas posledního [markCapture] (pro scheduler metriky).
+  static int? get lastCaptureWallMicros => _lastCaptureMicros;
+
+  /// Poslední přijatý submit do screen izolátu — pro UDP diag (`sinceSubmitMs`), když DXGI
+  /// dlouho neposílá snímek a `sinceCaptureMs` by jinak matně rostl bez změny pipeline.
+  static int? _lastSubmitWallMicros;
+
+  static void markSubmitWallForDiag() {
+    if (!ambilightPipelineDiagnosticsEnabled) return;
+    _lastSubmitWallMicros = DateTime.now().microsecondsSinceEpoch;
+  }
+
+  static int? elapsedSinceSubmitWallMicros() {
+    final t = _lastSubmitWallMicros;
     if (t == null) return null;
     return DateTime.now().microsecondsSinceEpoch - t;
   }
@@ -102,6 +142,58 @@ class PipelineUdpDiagStats {
   static void recordEphemeralBindMs(int ms) {
     ephemeralBindTotalMs += ms;
     ephemeralBindSamples++;
+  }
+}
+
+/// Scheduler / fronta hlavního izolátu — souhrn s [PipelineUdpDiagStats] v controlleru.
+class PipelineSchedulerDiagStats {
+  PipelineSchedulerDiagStats._();
+
+  static int distributeCalls = 0;
+  static int noopTickSmartLightsOnly = 0;
+  static int eagerFlushFromIsolate = 0;
+  static int screenSubmitMicrosBySeq = 0;
+  static int _lastScreenSubmitSeq = 0;
+  static int captureToIsolateOutTotalUs = 0;
+  static int captureToIsolateOutSamples = 0;
+
+  static void resetWindow() {
+    distributeCalls = 0;
+    noopTickSmartLightsOnly = 0;
+    eagerFlushFromIsolate = 0;
+    captureToIsolateOutTotalUs = 0;
+    captureToIsolateOutSamples = 0;
+  }
+
+  /// Volat při odeslání snímku do screen izolátu ([seq] monotónně roste).
+  static void markScreenSubmit(int seq) {
+    if (!ambilightPipelineDiagnosticsEnabled) return;
+    _lastScreenSubmitSeq = seq;
+    screenSubmitMicrosBySeq = DateTime.now().microsecondsSinceEpoch;
+    PipelineDiagCaptureTimeline.markSubmitWallForDiag();
+  }
+
+  /// Volat při [out] z workeru — odhad capture→izolát (pokud byl [markCapture] u submitu).
+  static void recordIsolateOutForSubmit(int seq) {
+    if (!ambilightPipelineDiagnosticsEnabled) return;
+    if (seq != _lastScreenSubmitSeq) return;
+    final cap = PipelineDiagCaptureTimeline.lastCaptureWallMicros;
+    if (cap == null) return;
+    final now = DateTime.now().microsecondsSinceEpoch;
+    final deltaUs = now - cap;
+    if (deltaUs < 0 || deltaUs > 10 * 1000000) return;
+    captureToIsolateOutTotalUs += deltaUs;
+    captureToIsolateOutSamples++;
+  }
+
+  static String formatWindowSummary() {
+    final avgCapIsoMs = captureToIsolateOutSamples > 0
+        ? (captureToIsolateOutTotalUs / captureToIsolateOutSamples / 1000.0).toStringAsFixed(2)
+        : '-';
+    final distPerS = distributeCalls > 0 ? (distributeCalls / 5.0).toStringAsFixed(1) : '-';
+    return 'distributeCalls=$distributeCalls (~$distPerS/s@5s) noopTickSmartOnly=$noopTickSmartLightsOnly '
+        'eagerFlush=$eagerFlushFromIsolate capToIsolateAvgMs=$avgCapIsoMs '
+        '(samples=$captureToIsolateOutSamples)';
   }
 }
 

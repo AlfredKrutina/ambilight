@@ -140,7 +140,8 @@ Future<void> _pushTrayMenu() async {
     }
     await trayManager.setToolTip(
       'AmbiLight — ${c.enabled ? "zapnuto" : "vypnuto"} · ${c.config.globalSettings.startMode}'
-      '${_trayOutputsSummary(c)}',
+      '${_trayOutputsSummary(c)}\n'
+      'Presety Screen/Music mění jen vybrané parametry daného režimu.',
     );
     await trayManager.setContextMenu(_buildTrayMenu(c));
   } catch (e, st) {
@@ -165,7 +166,7 @@ Menu _buildTrayMenu(AmbilightAppController c) {
     items: AmbilightPresets.screenNames
         .map(
           (name) => MenuItem(
-            label: name,
+            label: AmbilightPresets.trayDisplayLabelForScreenPreset(name),
             onClick: (_) => unawaited(c.applyQuickScreenPreset(name)),
           ),
         )
@@ -175,7 +176,7 @@ Menu _buildTrayMenu(AmbilightAppController c) {
     items: AmbilightPresets.musicNames
         .map(
           (name) => MenuItem(
-            label: name,
+            label: AmbilightPresets.trayDisplayLabelForMusicPreset(name),
             onClick: (_) => unawaited(c.applyQuickMusicPreset(name)),
           ),
         )

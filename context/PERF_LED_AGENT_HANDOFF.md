@@ -41,7 +41,7 @@ Soubor: `ambilight_desktop/lib/application/ambilight_app_controller.dart`.
 ## Baseline CI (poslední ověření po iteraci 3)
 
 - `flutter analyze` — bez problémů.
-- `flutter test` — **78/78** zelených (ověřeno po iteraci 3).
+- `flutter test` — **82/82** zelených (včetně `test/rainbow_synth_device_colors_test.dart`, `test/pipeline_scheduler_diag_stats_test.dart`).
 
 ### Iterace 3 (hotovo — stručně)
 
@@ -53,6 +53,21 @@ Soubor: `ambilight_desktop/lib/application/ambilight_app_controller.dart`.
 - **Metriky sinceCapture vs sinceLastEmit:** záměrně neuděláno (širší změna mapování času v UDP diag + kontrakt s C++; nízká priorita vůči lifecycle).
 
 Diagnostika výkonu: `--dart-define=AMBI_PIPELINE_DIAGNOSTICS=true`; Windows DebugView: `[ambilight] CAPTURE path=` z nativní vrstvy.
+
+### Scheduler (iterace 4 — produkční výstup)
+
+- **Eager distribute:** po `ScreenPipelineIsolateResult` okamžitě `_distribute(..., flushImmediately: true)` — vypnutí: `--dart-define=AMBI_SCREEN_EAGER_DISTRIBUTE=false` (`ambilightScreenEagerDistributeEnabled` v `pipeline_diagnostics.dart`).
+- **Noop tick:** při nezměněném `seq` jen smart lights (`_invokeSmartLightsOnFrame`), bez opakovaného `sendColors` na pásek.
+- **Metriky:** souhrn doplňuje `PipelineSchedulerDiagStats` (`distributeCalls`, `noopTickSmartOnly`, `eagerFlush`, průměr capture→izolát µs).
+- **Kontrakt / UDP strategie / nativní ROI:** [PIPELINE_CONTRACT.md](./PIPELINE_CONTRACT.md), [PIPELINE_UDP_STRATEGY.md](./PIPELINE_UDP_STRATEGY.md), [PIPELINE_NATIVE_ROI.md](./PIPELINE_NATIVE_ROI.md).
+
+### Syntetický duhový test (lag: capture vs transport / ESP)
+
+- Zapnutí: `--dart-define=AMBI_RAINBOW_SYNTH_TEST=true` (`ambilightRainbowSynthTestEnabled` v `lib/application/pipeline_diagnostics.dart`).
+- Worker v `lib/engine/screen/screen_pipeline_isolate.dart` při zpracování `frame` **nepoužívá pixely** z ROI: po `td.materialize()` je buffer zahozen, barvy jsou z `rainbowSynthDeviceColors(cfg, tSec)` kde **`tSec = seq/60`** (konstantní krok fáze na snímek; wall clock dřív dělal jitter). Dál stejně **`packDeviceRgbMap` → výstup jako běžný screen pipeline** (UDP/serial). **UDP dedupe zůstává zapnutá** — hlavní smyčka volá `_distribute` každý tick (~16 ms), izolát vrací snímek řidčeji; bez dedupe by šlo na ESP **několik celých 0x06+0x08** se stejnými barvami za jeden „vizuální“ snímek (viz log: dva `udp_emit_done` těsně po sobě).
+- **Interpretace:** duha na pásku plynulá a bez velkého zpoždění → problém spíš ve **Windows capture / DXGI / GDI** nebo ve frontě snímků před izolátem. Duha stále trhaná / s velkým lagem → hledat **`_distribute` / UDP / ESP32** (síť, chunky 0x06, worker na lampě). Po úpravě seq/dedupe znovu ověřit subjektivní plynulost.
+- **Poznámka:** hlavní izolát stále posílá `TransferableTypedData` z reálného snímku (jedna hranice izolátů) — worker ji jen `materialize` a zahodí. Pro úplné vypnutení přenosu pixelů by bylo potřeba nové typy zpráv bez `td` (backlog).
+- **Spuštění:** `flutter run --dart-define=AMBI_RAINBOW_SYNTH_TEST=true` (volitelně i `AMBI_PIPELINE_DIAGNOSTICS=true`), režim **screen** se skutečným zařízením.
 
 **Návrh commit message (iterace 2):**  
 `perf(screen): single-copy pipeline isolate buffer; Windows capture crop parity; fix settings dropdown overflow`

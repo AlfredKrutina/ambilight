@@ -5,9 +5,72 @@ import 'package:provider/provider.dart';
 
 import '../../application/ambilight_app_controller.dart';
 import '../../core/models/config_models.dart';
+import '../../engine/screen/screen_color_pipeline.dart';
 import '../../l10n/context_ext.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../widgets/config_drag_slider.dart';
 import 'wizard_dialog_shell.dart';
+
+String _zoneEdgeLabel(AppLocalizations l10n, String edge) {
+  switch (edge) {
+    case 'top':
+      return l10n.zoneEdgeTop;
+    case 'bottom':
+      return l10n.zoneEdgeBottom;
+    case 'left':
+      return l10n.zoneEdgeLeft;
+    case 'right':
+      return l10n.zoneEdgeRight;
+    default:
+      return edge;
+  }
+}
+
+String _zoneMusicEffectLabel(AppLocalizations l10n, String id) {
+  switch (id) {
+    case 'default':
+      return l10n.zoneMusicEffectDefault;
+    case 'smart_music':
+      return l10n.zoneMusicEffectSmartMusic;
+    case 'energy':
+      return l10n.zoneMusicEffectEnergy;
+    case 'spectrum':
+      return l10n.zoneMusicEffectSpectrum;
+    case 'spectrum_rotate':
+      return l10n.zoneMusicEffectSpectrumRotate;
+    case 'spectrum_punchy':
+      return l10n.zoneMusicEffectSpectrumPunchy;
+    case 'strobe':
+      return l10n.zoneMusicEffectStrobe;
+    case 'vumeter':
+      return l10n.zoneMusicEffectVumeter;
+    case 'vumeter_spectrum':
+      return l10n.zoneMusicEffectVumeterSpectrum;
+    case 'pulse':
+      return l10n.zoneMusicEffectPulse;
+    case 'reactive_bass':
+      return l10n.zoneMusicEffectReactiveBass;
+    default:
+      return id;
+  }
+}
+
+String _zoneRoleLabel(AppLocalizations l10n, String role) {
+  switch (role) {
+    case 'auto':
+      return l10n.zoneRoleAuto;
+    case 'bass':
+      return l10n.zoneRoleBass;
+    case 'mids':
+      return l10n.zoneRoleMids;
+    case 'highs':
+      return l10n.zoneRoleHighs;
+    case 'ambience':
+      return l10n.zoneRoleAmbience;
+    default:
+      return role;
+  }
+}
 
 /// D11 — editor [LedSegment] (pole odpovídající PyQt tabulce segmentů v nastavení).
 class ZoneEditorWizardDialog extends StatefulWidget {
@@ -162,6 +225,31 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                 ),
           ),
           const SizedBox(height: 12),
+          Builder(
+            builder: (context) {
+              if (_segments.isEmpty) return const SizedBox.shrink();
+              final draftCfg = c.config.copyWith(
+                screenMode: c.config.screenMode.copyWith(segments: _segments),
+              );
+              final warn = ScreenColorPipeline.screenSegmentCaptureWarnings(draftCfg);
+              if (warn.isEmpty) return const SizedBox.shrink();
+              final scheme = Theme.of(context).colorScheme;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Material(
+                  color: scheme.errorContainer.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(12),
+                  child: ListTile(
+                    leading: Icon(Icons.warning_amber_rounded, color: scheme.onErrorContainer),
+                    title: Text(
+                      l10n.screenSegmentMonitorMismatchBanner(warn.first.captureMonitorIndex),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onErrorContainer),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
           if (_segments.isEmpty)
             Text(
               l10n.zoneEditorEmpty,
@@ -191,7 +279,13 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                       child: const Icon(Icons.drag_handle),
                     ),
                     title: Text(
-                      l10n.zoneEditorSegmentLine(i, s.edge, s.ledStart, s.ledEnd, s.monitorIdx),
+                      l10n.zoneEditorSegmentLine(
+                        i,
+                        _zoneEdgeLabel(l10n, s.edge),
+                        s.ledStart,
+                        s.ledEnd,
+                        s.monitorIdx,
+                      ),
                     ),
                     trailing: IconButton(
                       tooltip: l10n.zoneEditorDeleteTooltip,
@@ -204,7 +298,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Text('LED start: ${s.ledStart}', style: Theme.of(context).textTheme.labelLarge),
+                            Text(l10n.zoneFieldLedStart(s.ledStart), style: Theme.of(context).textTheme.labelLarge),
                             ConfigDragSlider(
                               value: s.ledStart.clamp(0, maxL - 1).toDouble(),
                               min: 0,
@@ -220,7 +314,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                                 });
                               },
                             ),
-                            Text('LED end: ${s.ledEnd}', style: Theme.of(context).textTheme.labelLarge),
+                            Text(l10n.zoneFieldLedEnd(s.ledEnd), style: Theme.of(context).textTheme.labelLarge),
                             ConfigDragSlider(
                               value: s.ledEnd.clamp(0, maxL - 1).toDouble(),
                               min: 0,
@@ -236,7 +330,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                                 });
                               },
                             ),
-                            Text('monitor_idx: ${s.monitorIdx}', style: Theme.of(context).textTheme.labelLarge),
+                            Text(l10n.zoneFieldMonitorIndex(s.monitorIdx), style: Theme.of(context).textTheme.labelLarge),
                             ConfigDragSlider(
                               value: s.monitorIdx.clamp(0, 32).toDouble(),
                               min: 0,
@@ -249,19 +343,24 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                             ),
                             DropdownButtonFormField<String>(
                               value: _edges.contains(s.edge) ? s.edge : 'top',
-                              decoration: const InputDecoration(
-                                labelText: 'edge',
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: l10n.zoneFieldEdge,
+                                border: const OutlineInputBorder(),
                               ),
                               items: _edges
-                                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e,
+                                      child: Text(_zoneEdgeLabel(l10n, e)),
+                                    ),
+                                  )
                                   .toList(),
                               onChanged: (e) {
                                 if (e == null) return;
                                 setState(() => _segments[i] = s.copyWith(edge: e));
                               },
                             ),
-                            Text('depth (scan): ${s.depth}', style: Theme.of(context).textTheme.labelLarge),
+                            Text(l10n.zoneFieldDepthScan(s.depth), style: Theme.of(context).textTheme.labelLarge),
                             ConfigDragSlider(
                               value: s.depth.clamp(1, 50).toDouble(),
                               min: 1,
@@ -274,15 +373,15 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                             ),
                             SwitchListTile(
                               contentPadding: EdgeInsets.zero,
-                              title: const Text('reverse'),
+                              title: Text(l10n.zoneFieldReverse),
                               value: s.reverse,
                               onChanged: (v) => setState(() => _segments[i] = s.copyWith(reverse: v)),
                             ),
                             DropdownButtonFormField<String?>(
                               value: _deviceIdForDropdown(s, c.config.globalSettings.devices),
-                              decoration: const InputDecoration(
-                                labelText: 'device_id',
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: l10n.zoneFieldDeviceId,
+                                border: const OutlineInputBorder(),
                               ),
                               items: [
                                 DropdownMenuItem<String?>(
@@ -302,7 +401,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                                     : s.copyWith(deviceId: v);
                               }),
                             ),
-                            Text('pixel_start: ${s.pixelStart}', style: Theme.of(context).textTheme.labelLarge),
+                            Text(l10n.zoneFieldPixelStart(s.pixelStart), style: Theme.of(context).textTheme.labelLarge),
                             ConfigDragSlider(
                               value: s.pixelStart.clamp(0, pxCap).toDouble(),
                               min: 0,
@@ -313,7 +412,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                                 _segments[i] = s.copyWith(pixelStart: v.round());
                               }),
                             ),
-                            Text('pixel_end: ${s.pixelEnd}', style: Theme.of(context).textTheme.labelLarge),
+                            Text(l10n.zoneFieldPixelEnd(s.pixelEnd), style: Theme.of(context).textTheme.labelLarge),
                             ConfigDragSlider(
                               value: s.pixelEnd.clamp(0, pxCap).toDouble(),
                               min: 0,
@@ -324,7 +423,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                                 _segments[i] = s.copyWith(pixelEnd: v.round());
                               }),
                             ),
-                            Text('ref_width: ${s.refWidth}', style: Theme.of(context).textTheme.labelLarge),
+                            Text(l10n.zoneFieldRefWidth(s.refWidth), style: Theme.of(context).textTheme.labelLarge),
                             ConfigDragSlider(
                               value: s.refWidth.clamp(0, pxCap).toDouble(),
                               min: 0,
@@ -335,7 +434,7 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                                 _segments[i] = s.copyWith(refWidth: v.round());
                               }),
                             ),
-                            Text('ref_height: ${s.refHeight}', style: Theme.of(context).textTheme.labelLarge),
+                            Text(l10n.zoneFieldRefHeight(s.refHeight), style: Theme.of(context).textTheme.labelLarge),
                             ConfigDragSlider(
                               value: s.refHeight.clamp(0, pxCap).toDouble(),
                               min: 0,
@@ -353,12 +452,17 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                             ),
                             DropdownButtonFormField<String>(
                               value: _musicEffects.contains(s.musicEffect) ? s.musicEffect : 'default',
-                              decoration: const InputDecoration(
-                                labelText: 'music_effect',
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: l10n.zoneFieldMusicEffect,
+                                border: const OutlineInputBorder(),
                               ),
                               items: _musicEffects
-                                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e,
+                                      child: Text(_zoneMusicEffectLabel(l10n, e)),
+                                    ),
+                                  )
                                   .toList(),
                               onChanged: (e) {
                                 if (e == null) return;
@@ -367,12 +471,17 @@ class _ZoneEditorWizardDialogState extends State<ZoneEditorWizardDialog> {
                             ),
                             DropdownButtonFormField<String>(
                               value: _roles.contains(s.role) ? s.role : 'auto',
-                              decoration: const InputDecoration(
-                                labelText: 'role',
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: l10n.zoneFieldRole,
+                                border: const OutlineInputBorder(),
                               ),
                               items: _roles
-                                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e,
+                                      child: Text(_zoneRoleLabel(l10n, e)),
+                                    ),
+                                  )
                                   .toList(),
                               onChanged: (e) {
                                 if (e == null) return;

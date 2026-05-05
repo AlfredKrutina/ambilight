@@ -90,10 +90,38 @@ void main() {
       final frame = ScreenFrame(monitorIndex: 0, width: w, height: h, rgba: rgba);
       const roi = SegmentRoiRect(x: 0, y: 0, w: w, h: h);
       final out = Uint8List(4 * 3);
-      ScreenColorPipeline.sampleRoiColors(frame, roi, 'top', 4, out);
+      ScreenColorPipeline.sampleRoiColors(frame, roi, 'top', 4, out, colorSampling: 'average');
       expect(out[0], greaterThan(180));
       expect(out[1], lessThan(40));
       expect(out[2], lessThan(40));
+    });
+
+    test('median vs average: outlier pixel favors median channel values', () {
+      const w = 9;
+      const h = 3;
+      final rgba = Uint8List(w * h * 4);
+      rgba.fillRange(0, rgba.length, 0);
+      for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+          final o = (y * w + x) * 4;
+          rgba[o] = 200;
+          rgba[o + 1] = 10;
+          rgba[o + 2] = 10;
+          rgba[o + 3] = 255;
+        }
+      }
+      final center = (1 * w + 4) * 4;
+      rgba[center] = 255;
+      rgba[center + 1] = 255;
+      rgba[center + 2] = 255;
+      final frame = ScreenFrame(monitorIndex: 0, width: w, height: h, rgba: rgba);
+      const roi = SegmentRoiRect(x: 0, y: 0, w: w, h: h);
+      final avgOut = Uint8List(3);
+      final medOut = Uint8List(3);
+      ScreenColorPipeline.sampleRoiColors(frame, roi, 'top', 1, avgOut, colorSampling: 'average');
+      ScreenColorPipeline.sampleRoiColors(frame, roi, 'top', 1, medOut, colorSampling: 'median');
+      expect(medOut[0], lessThanOrEqualTo(avgOut[0]));
+      expect(medOut[0], greaterThan(190));
     });
 
     test('reusable strip longer than ledCount (max segment buffer) is OK', () {
@@ -109,7 +137,7 @@ void main() {
       final frame = ScreenFrame(monitorIndex: 0, width: w, height: h, rgba: rgba);
       const roi = SegmentRoiRect(x: 0, y: 0, w: w, h: h);
       final out = Uint8List(64 * 3);
-      ScreenColorPipeline.sampleRoiColors(frame, roi, 'top', 4, out);
+      ScreenColorPipeline.sampleRoiColors(frame, roi, 'top', 4, out, colorSampling: 'average');
       expect(out[0], greaterThan(180));
     });
   });
@@ -165,6 +193,47 @@ void main() {
       final left = cap[ScreenColorPipeline.captureKey('primary', 0)]!;
       final right = cap[ScreenColorPipeline.captureKey('primary', 3)]!;
       expect(left.$1, lessThan(right.$1));
+    });
+  });
+
+  group('screenSegmentCaptureWarnings', () {
+    test('mismatch between segment monitor and capture monitor yields warning', () {
+      final cfg = AppConfig.defaults().copyWith(
+        screenMode: const ScreenModeSettings(
+          monitorIndex: 2,
+          segments: [
+            LedSegment(
+              ledStart: 0,
+              ledEnd: 3,
+              edge: 'top',
+              monitorIdx: 0,
+            ),
+          ],
+          interpolationMs: 0,
+        ),
+      );
+      final w = ScreenColorPipeline.screenSegmentCaptureWarnings(cfg);
+      expect(w, isNotEmpty);
+      expect(w.first.segmentMonitorIdx, 0);
+      expect(w.first.captureMonitorIndex, 2);
+    });
+
+    test('legacy segment idx 0 vs capture 1 matches — no warning', () {
+      final cfg = AppConfig.defaults().copyWith(
+        screenMode: const ScreenModeSettings(
+          monitorIndex: 1,
+          segments: [
+            LedSegment(
+              ledStart: 0,
+              ledEnd: 3,
+              edge: 'top',
+              monitorIdx: 0,
+            ),
+          ],
+          interpolationMs: 0,
+        ),
+      );
+      expect(ScreenColorPipeline.screenSegmentCaptureWarnings(cfg), isEmpty);
     });
   });
 }

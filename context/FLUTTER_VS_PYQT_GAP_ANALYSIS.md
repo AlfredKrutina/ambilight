@@ -55,6 +55,13 @@
 | Výběr monitoru | Ano | `screenMode.monitorIndex` | |
 | Rychlost / latence | Závisí na OS | Stejně | |
 
+### 2.3b Screen ROI → LED barva (`color_sampling`)
+
+| Prvek | PyQt | Flutter | Poznámka |
+|-------|------|---------|----------|
+| Obdélník ROI na LED podél hrany | `capture.py` řez + `cv2.resize(..., INTER_AREA)` | `ScreenColorPipeline.sampleRoiColors` — stejné dělení šířky/výšky na `ledCount` intervalů | Od 2026-05: `median` = medián R/G/B v obdélníku; `average` = dvojfázový průměr (ekvivalent předchozího Dartu / INTER_AREA-style pooling). |
+| Nastavení `median` / `average` | UI + JSON `color_sampling` (v Pythonu uložené, v starém `capture.py` ne vždy použité) | `ScreenModeSettings.colorSampling` + záložka Obrazovka | Import JSON z PyQt bere stejný klíč. |
+
 ### 2.4 `state.py` / interpolace globálního stavu
 
 | Prvek | PyQt | Flutter | Poznámka |

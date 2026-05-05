@@ -164,6 +164,22 @@ class LightSettingsTab extends StatelessWidget {
                 label: '${lm.brightness}',
                 onChanged: (v) => onChanged(lm.copyWith(brightness: v.round())),
               ),
+              Text(l10n.lightSmoothingMs(lm.smoothingMs), style: Theme.of(context).textTheme.labelLarge),
+              Text(
+                l10n.lightSmoothingHint,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              ConfigDragSlider(
+                value: lm.smoothingMs.toDouble(),
+                min: 0,
+                max: 500,
+                divisions: 50,
+                label: '${lm.smoothingMs}',
+                onChanged: (v) => onChanged(lm.copyWith(smoothingMs: v.round())),
+              ),
               SwitchListTile(
                 title: Text(l10n.lightHomekitTile),
                 subtitle: Text(l10n.lightHomekitSubtitle),
@@ -252,10 +268,10 @@ class LightSettingsTab extends StatelessWidget {
                           border: const OutlineInputBorder(),
                         ),
                         value: ['static', 'pulse', 'blink'].contains(z.effect) ? z.effect : 'static',
-                        items: const [
-                          DropdownMenuItem(value: 'static', child: Text('static')),
-                          DropdownMenuItem(value: 'pulse', child: Text('pulse')),
-                          DropdownMenuItem(value: 'blink', child: Text('blink')),
+                        items: [
+                          DropdownMenuItem(value: 'static', child: Text(l10n.lightEffectStatic)),
+                          DropdownMenuItem(value: 'pulse', child: Text(l10n.lightZoneEffectPulse)),
+                          DropdownMenuItem(value: 'blink', child: Text(l10n.lightZoneEffectBlink)),
                         ],
                         onChanged: (v) {
                           if (v == null) return;

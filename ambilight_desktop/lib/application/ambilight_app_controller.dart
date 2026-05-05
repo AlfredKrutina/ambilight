@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_libserialport/flutter_libserialport.dart';
@@ -19,6 +20,7 @@ import '../data/device_transport.dart';
 import '../data/serial_device_transport.dart';
 import '../data/udp_device_transport.dart';
 import '../engine/ambilight_engine.dart';
+import '../engine/light_rgb_smoothing_runtime.dart';
 import '../engine/fallback_modes.dart' show brightnessForMode;
 import '../engine/screen/screen_color_pipeline.dart';
 import '../engine/screen/screen_frame.dart';
@@ -32,6 +34,7 @@ import '../features/pc_health/pc_health_smoother.dart';
 import '../features/pc_health/pc_health_snapshot.dart';
 import '../features/spotify/spotify_service.dart';
 import '../features/system_media/system_media_now_playing_service.dart';
+import '../l10n/app_locale_bridge.dart';
 import '../features/smart_lights/ha_token_store.dart';
 import '../features/smart_lights/smart_light_coordinator.dart';
 import '../services/music/music_audio_service.dart';
@@ -56,6 +59,7 @@ class _DistributeArgs {
     required this.clipToDeviceLedCount,
     required this.smartLightsFrame,
     required this.smartLightsAppEnabled,
+    this.packedRgbByDevice,
   });
 
   final Map<String, List<(int, int, int)>> perDevice;
@@ -64,6 +68,8 @@ class _DistributeArgs {
   final bool clipToDeviceLedCount;
   final ScreenFrame? smartLightsFrame;
   final bool smartLightsAppEnabled;
+  /// Screen izolát: `deviceId → packed RGB` stejný snímek jako [perDevice] — jen pro Wi‑Fi UDP bez převodu tuple→bytes.
+  final Map<String, Uint8List>? packedRgbByDevice;
 }
 
 /// Po odebrání zařízení zůstává v segmentech `device_id` mimo seznam → pád Dropdown v editoru zón a nekonzistence pipeline.
@@ -145,6 +151,7 @@ class AmbilightAppController extends ChangeNotifier {
   static const int _startupBlackoutTicks = 6;
   bool _enabled = true;
   final ScreenPipelineRuntime _screenPipeline = ScreenPipelineRuntime();
+  final LightRgbSmoothingRuntime _lightRgbSmoothing = LightRgbSmoothingRuntime();
   ScreenPipelineIsolateBridge? _screenPipelineIsolate;
   Future<void>? _screenIsolateBootFuture;
   /// Zvýší se při [_shutdownScreenPipelineIsolate] — zabrání dokončení zastaralého [_bootScreenPipelineIsolate].
@@ -157,8 +164,15 @@ class AmbilightAppController extends ChangeNotifier {
   int _screenPipelineLastAckSeq = 0;
   /// Počet zahozených submitů kvůli gate ([AMBI_PIPELINE_DIAGNOSTICS] souhrn).
   int _screenPipelineGateDropCount = 0;
+  /// Syntetická duha v screen izolátu místo ROI — výchozí vypnuto; zapíná se jen z UI (diagnostika).
+  bool _rainbowSynthBypassCapture = false;
   DateTime? _lastPipelineDiagSummaryUtc;
   Map<String, List<(int, int, int)>>? _asyncScreenColors;
+  Map<String, Uint8List>? _asyncScreenPacked;
+
+  /// Poslední [ScreenPipelineIsolateResult.seq], pro který proběhl [_distribute] na pásek (eager nebo tick).
+  /// Slouží k „noop ticku“ bez opakovaného [sendColors] při nezměněném výstupu izolátu.
+  int _lastDistributedScreenSeq = 0;
 
   /// Obnova UDP toku na lampě (FW „PC Data Stopped“) — periodický flush posledního platného snímku.
   DateTime? _lastPcStreamUdpKeepaliveSent;
@@ -255,6 +269,28 @@ class AmbilightAppController extends ChangeNotifier {
     _screenPipelineIsolate?.resetSmoothing();
   }
 
+  static String _lightRgbOutputTopology(AppConfig c) {
+    final bits = c.globalSettings.devices.map((d) => '${d.id}:${d.ledCount}').toList()..sort();
+    return bits.join(';');
+  }
+
+  void _maybeResetLightRgbSmoothing(AppConfig prev, AppConfig next) {
+    final prevLight = prev.globalSettings.startMode == 'light';
+    final nextLight = next.globalSettings.startMode == 'light';
+    if (!nextLight) {
+      if (prevLight) _lightRgbSmoothing.reset();
+      return;
+    }
+    if (!prevLight) {
+      _lightRgbSmoothing.reset();
+      return;
+    }
+    if (prev.lightMode.smoothingMs != next.lightMode.smoothingMs ||
+        _lightRgbOutputTopology(prev) != _lightRgbOutputTopology(next)) {
+      _lightRgbSmoothing.reset();
+    }
+  }
+
   String _screenIsolatePushSig(AppConfig c) {
     final dev =
         c.globalSettings.devices.map((d) => '${d.id}:${d.ledCount}:${d.controlViaHa}').join(';');
@@ -306,12 +342,26 @@ class AmbilightAppController extends ChangeNotifier {
     _screenPipelineAppliedSeq = r.seq;
     _screenPipelineLastAckSeq = r.seq;
     _screenPipelineSubmitSince = null;
-    _asyncScreenColors = unpackDeviceColors(_config, r.packed);
+    _asyncScreenPacked = r.packed;
+    PipelineSchedulerDiagStats.recordIsolateOutForSubmit(r.seq);
     if (ambilightPipelineDiagnosticsEnabled && r.seq % 25 == 0) {
       pipelineDiagLog(
         'isolate_main_out',
         'seq=${r.seq} applied=$_screenPipelineAppliedSeq pendingSubmit=$_screenPipelineSubmitSeq',
       );
+    }
+    final tickErrorStripActive = _tickErrorStripUntilAnimationTick != null &&
+        _animationTick <= _tickErrorStripUntilAnimationTick!;
+    final packedFirstUdp = ambilightScreenEagerDistributeEnabled &&
+        _eagerScreenIsolateOutputAllowed(r.seq) &&
+        !tickErrorStripActive;
+    if (packedFirstUdp) {
+      _runPackedFirstEagerScreenDistribute(r.seq, r.packed);
+    } else {
+      _asyncScreenColors = unpackDeviceColors(_config, r.packed);
+      if (ambilightScreenEagerDistributeEnabled) {
+        _eagerDistributeScreenIfDue(r.seq);
+      }
     }
   }
 
@@ -345,10 +395,12 @@ class AmbilightAppController extends ChangeNotifier {
   void _shutdownScreenPipelineIsolate() {
     _screenIsolateSessionId++;
     _asyncScreenColors = null;
+    _asyncScreenPacked = null;
     _screenPipelineAppliedSeq = 0;
     _screenPipelineSubmitSeq = 0;
     _screenPipelineLastAckSeq = 0;
     _screenPipelineSubmitSince = null;
+    _lastDistributedScreenSeq = 0;
     _lastScreenIsolatePushSig = null;
     _lastScreenIsolateTopo = null;
     final b = _screenPipelineIsolate;
@@ -590,7 +642,12 @@ class AmbilightAppController extends ChangeNotifier {
         'seq=$seqOut gateDepth=${seqOut - _screenPipelineLastAckSeq} frame=${f.width}x${f.height} mon=${f.monitorIndex}',
       );
     }
-    bridge.submitFrame(seq: seqOut, frame: f);
+    PipelineSchedulerDiagStats.markScreenSubmit(seqOut);
+    bridge.submitFrame(
+      seq: seqOut,
+      frame: f,
+      rainbowSynthBypassCapture: _rainbowSynthBypassCapture,
+    );
   }
 
   @override
@@ -836,10 +893,7 @@ class AmbilightAppController extends ChangeNotifier {
       _config = stripOrphanScreenSegmentDeviceIds(loaded.config);
       logEspTransportBindingWarnings(_config);
       if (loaded.discardedUnreadableJson) {
-        reportAppFault(
-          'Konfigurační soubor je poškozený nebo nekompatibilní — používám výchozí nastavení. '
-          'Obnov zálohu v části Import / export.',
-        );
+        reportAppFault(AppLocaleBridge.strings.configFileUnusableBanner);
       }
       final haFromFile = await HaTokenStore.read();
       if (haFromFile != null && haFromFile.isNotEmpty) {
@@ -855,6 +909,7 @@ class AmbilightAppController extends ChangeNotifier {
       systemMediaNowPlaying.startPollingIfNeeded(_config);
       await _rebuildTransports();
       _resetScreenPipelineSmoothing();
+      _lightRgbSmoothing.reset();
       await _musicAudio.syncWithConfig(_config);
       _restartPcHealthTimer();
       _configPersistGeneration++;
@@ -929,7 +984,7 @@ class AmbilightAppController extends ChangeNotifier {
       return wrote;
     } catch (e, st) {
       _log.warning('save: $e', e, st);
-      reportAppFault('Uložení konfigurace selhalo: ${e.toString().split('\n').first}');
+      reportAppFault(AppLocaleBridge.strings.configSaveFailed(e.toString().split('\n').first));
       return false;
     }
   }
@@ -1053,6 +1108,15 @@ class AmbilightAppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Syntetický duhový výstup ve screen pipeline (místo ROI) — jen pokud uživatel zapne v Nastavení → Obrazovka.
+  bool get rainbowSynthBypassCapture => _rainbowSynthBypassCapture;
+
+  void setRainbowSynthBypassCapture(bool v) {
+    if (_rainbowSynthBypassCapture == v) return;
+    _rainbowSynthBypassCapture = v;
+    notifyListeners();
+  }
+
   /// JSON konfigurace pro zálohu / import (bez zápisu na disk).
   String exportConfigJsonString() => _config.sanitizedForPersistence().toJsonString();
 
@@ -1063,9 +1127,19 @@ class AmbilightAppController extends ChangeNotifier {
       next = AppConfig.parse(json);
     } catch (e, st) {
       _log.warning('importConfig parse: $e', e, st);
-      reportAppFault('Neplatný JSON konfigurace: ${e.toString().split('\n').first}');
+      reportAppFault(AppLocaleBridge.strings.configInvalidJsonImport(e.toString().split('\n').first));
       rethrow;
     }
+    await applyConfigAndPersist(next);
+  }
+
+  /// Vrátí konfiguraci na výchozí hodnoty, smaže uložené tokeny (Home Assistant, Spotify) a přepíše `default.json`.
+  Future<void> factoryResetAndPersist() async {
+    _rainbowSynthBypassCapture = false;
+    spotify.stopPolling();
+    await spotify.disconnect();
+    await HaTokenStore.clear();
+    final next = stripOrphanScreenSegmentDeviceIds(AppConfig.defaults());
     await applyConfigAndPersist(next);
   }
 
@@ -1134,10 +1208,12 @@ class AmbilightAppController extends ChangeNotifier {
 
   Future<void> setStartMode(String mode) async {
     final normalized = normalizeAmbilightStartMode(mode);
-    final prev = _config.globalSettings.startMode;
+    final prevCfg = _config;
+    final prev = prevCfg.globalSettings.startMode;
     _config = _config.copyWith(
       globalSettings: _config.globalSettings.copyWith(startMode: normalized),
     );
+    _maybeResetLightRgbSmoothing(prevCfg, _config);
     _clearMusicPaletteLockOutsideMusicMode(mode);
     if (prev == 'screen' && mode != 'screen') {
       _resetScreenPipelineSmoothing();
@@ -1164,7 +1240,9 @@ class AmbilightAppController extends ChangeNotifier {
     _mainLoopTickHold = true;
     try {
       _clearTransientLedOutputs();
+      final prevCfg = _config;
       _config = stripOrphanScreenSegmentDeviceIds(next);
+      _maybeResetLightRgbSmoothing(prevCfg, _config);
       _lastPersistedConfigJson = null;
       _lastPersistedHaToken = _config.smartLights.haLongLivedToken.trim();
       _clearMusicPaletteLockOutsideMusicMode(_config.globalSettings.startMode);
@@ -1231,6 +1309,7 @@ class AmbilightAppController extends ChangeNotifier {
       );
       if (clearTransient) _clearTransientLedOutputs();
       _config = stripOrphanScreenSegmentDeviceIds(next);
+      _maybeResetLightRgbSmoothing(prev, _config);
       _invalidateWindowsPullCaptureExtrasCache();
       traceConfigBindings('_applyConfigCore: po stripOrphan', _config);
       logEspTransportBindingWarnings(_config);
@@ -1250,7 +1329,7 @@ class AmbilightAppController extends ChangeNotifier {
     } catch (e, st) {
       traceDeviceBindingsSevere('_applyConfigCore: CHYBA (transport)', e, st);
       _log.warning('applyConfigCore: $e', e, st);
-      reportAppFault('Nastavení se nepodařilo aplikovat: ${e.toString().split('\n').first}');
+      reportAppFault(AppLocaleBridge.strings.configApplyFailed(e.toString().split('\n').first));
       notifyListeners();
       return;
     } finally {
@@ -1284,7 +1363,7 @@ class AmbilightAppController extends ChangeNotifier {
     } catch (e, st) {
       traceDeviceBindingsSevere('_applyConfigCore: CHYBA (persist)', e, st);
       _log.warning('applyConfigCore persist: $e', e, st);
-      reportAppFault('Uložení nastavení selhalo: ${e.toString().split('\n').first}');
+      reportAppFault(AppLocaleBridge.strings.configSaveFailed(e.toString().split('\n').first));
       notifyListeners();
     }
   }
@@ -1302,6 +1381,7 @@ class AmbilightAppController extends ChangeNotifier {
     final prev = _config;
     try {
       _config = stripOrphanScreenSegmentDeviceIds(next);
+      _maybeResetLightRgbSmoothing(prev, _config);
       _clearMusicPaletteLockOutsideMusicMode(_config.globalSettings.startMode);
       if (_screenPipelineTopologySignature(prev) != _screenPipelineTopologySignature(_config)) {
         _resetScreenPipelineSmoothing();
@@ -1375,7 +1455,7 @@ class AmbilightAppController extends ChangeNotifier {
       } catch (e, st) {
         traceDeviceBindingsSevere('queueConfigApply debounced timer: selhalo', e, st);
         _log.warning('debounced apply failed: $e', e, st);
-        reportAppFault('Automatické uložení nastavení selhalo: ${e.toString().split('\n').first}');
+        reportAppFault(AppLocaleBridge.strings.configAutosaveFailed(e.toString().split('\n').first));
       }
     });
   }
@@ -1412,10 +1492,12 @@ class AmbilightAppController extends ChangeNotifier {
       '[PIPELINE_DIAG summary] gateDrops_total=$_screenPipelineGateDropCount '
       'submit=$_screenPipelineSubmitSeq lastAck=$_screenPipelineLastAckSeq applied=$_screenPipelineAppliedSeq '
       '${PipelineUdpDiagStats.formatWindowSummary()} '
-      '${PipelineStreamDiagStats.formatWindowSummary()}',
+      '${PipelineStreamDiagStats.formatWindowSummary()} '
+      '${PipelineSchedulerDiagStats.formatWindowSummary()}',
     );
     PipelineUdpDiagStats.resetWindow();
     PipelineStreamDiagStats.resetWindow();
+    PipelineSchedulerDiagStats.resetWindow();
   }
 
   /// Když nepřijde ACK z workeru (kanál / pád), neblokovat další snímky navěky.
@@ -1909,9 +1991,7 @@ class AmbilightAppController extends ChangeNotifier {
       if (kDebugMode) _log.fine('screen capture: $e', e, st);
       if (_consecutiveScreenCaptureFailures >= 12 && !_screenCaptureFaultBannerShown) {
         _screenCaptureFaultBannerShown = true;
-        reportAppFault(
-          'Snímání obrazovky opakovaně selhává. Zkontroluj oprávnění (Windows: nastavení soukromí) a výběr monitoru.',
-        );
+        reportAppFault(AppLocaleBridge.strings.screenCaptureRepeatedFailureBanner);
       }
     } finally {
       _screenCaptureInFlight = false;
@@ -2169,6 +2249,15 @@ class AmbilightAppController extends ChangeNotifier {
       if (_musicPaletteFrozenDeviceColors != null && inMusic && !startupBlackout && _enabled) {
         perDevice = _cloneDeviceRgbMap(_musicPaletteFrozenDeviceColors!);
       }
+      if (modeNow == 'light' &&
+          !homeKitHold &&
+          !startupBlackout &&
+          _config.lightMode.smoothingMs > 0) {
+        perDevice = _lightRgbSmoothing.applyTemporalSmoothing(
+          targets: perDevice,
+          smoothMs: _config.lightMode.smoothingMs,
+        );
+      }
       if (_tickErrorStripUntilAnimationTick != null &&
           _animationTick <= _tickErrorStripUntilAnimationTick!) {
         perDevice = _dimRedErrorStripMap();
@@ -2191,6 +2280,13 @@ class AmbilightAppController extends ChangeNotifier {
             (_lastPcStreamUdpKeepaliveSent == null ||
                 nowHb.difference(_lastPcStreamUdpKeepaliveSent!) >=
                     _pcStreamUdpKeepaliveInterval);
+        final tickErrorStripActive = _tickErrorStripUntilAnimationTick != null &&
+            _animationTick <= _tickErrorStripUntilAnimationTick!;
+        final noopScreenStrip = useScreenIsolate &&
+            _asyncScreenColors != null &&
+            _screenPipelineAppliedSeq == _lastDistributedScreenSeq &&
+            !udpKeepalive &&
+            !tickErrorStripActive;
         if (udpKeepalive) {
           _lastPcStreamUdpKeepaliveSent = nowHb;
           _distribute(
@@ -2199,6 +2295,17 @@ class AmbilightAppController extends ChangeNotifier {
             smartLightsFrame: _screenFrameLatest,
             smartLightsAppEnabled: _enabled,
             flushImmediately: true,
+            packedRgbByDevice: _packedRgbForScreenUdp(perDevice),
+          );
+          if (useScreenIsolate) {
+            _lastDistributedScreenSeq = _screenPipelineAppliedSeq;
+          }
+        } else if (noopScreenStrip) {
+          PipelineSchedulerDiagStats.noopTickSmartLightsOnly++;
+          _invokeSmartLightsOnFrame(
+            perDevice: perDevice,
+            brightnessScalar: bri,
+            appEnabled: _enabled,
           );
         } else {
           // Screen izolát: okamžitý výstup místo čekání na microtask z [_distribute] — méně jitter vůči výsledku workeru.
@@ -2208,7 +2315,11 @@ class AmbilightAppController extends ChangeNotifier {
             smartLightsFrame: _screenFrameLatest,
             smartLightsAppEnabled: _enabled,
             flushImmediately: useScreenIsolate,
+            packedRgbByDevice: _packedRgbForScreenUdp(perDevice),
           );
+          if (useScreenIsolate) {
+            _lastDistributedScreenSeq = _screenPipelineAppliedSeq;
+          }
         }
       }
     } catch (e, st) {
@@ -2352,7 +2463,140 @@ class AmbilightAppController extends ChangeNotifier {
       clipToDeviceLedCount: p.clipToDeviceLedCount,
       smartLightsFrame: p.smartLightsFrame,
       smartLightsAppEnabled: p.smartLightsAppEnabled,
+      packedRgbByDevice: p.packedRgbByDevice,
     );
+  }
+
+  /// Stejný logický snímek jako [_asyncScreenColors] — bez klonu / error strip / náhrady → lze poslat [UdpDeviceTransport.sendPackedRgbBytes].
+  Map<String, Uint8List>? _packedRgbForScreenUdp(Map<String, List<(int, int, int)>> perDevice) {
+    final packed = _asyncScreenPacked;
+    final colors = _asyncScreenColors;
+    if (packed == null || colors == null) return null;
+    if (!identical(perDevice, colors)) return null;
+    return packed;
+  }
+
+  Uint8List _slicePackedStripForDevice(DeviceSettings dev, Uint8List packedFull) {
+    final stripLen = ScreenColorPipeline.effectiveDeviceLedCount(_config, dev)
+        .clamp(1, SerialAmbilightProtocol.maxLedsPerDevice);
+    final need = stripLen * 3;
+    if (packedFull.length >= need) {
+      return packedFull.length == need
+          ? packedFull
+          : Uint8List.sublistView(packedFull, 0, need);
+    }
+    final slice = Uint8List(need);
+    slice.setRange(0, packedFull.length, packedFull);
+    return slice;
+  }
+
+  void _flushUdpWifiStripsFromPackedMap(Map<String, Uint8List> packed, int brightnessScalar) {
+    final bri = brightnessScalar;
+    for (final dev in _config.globalSettings.devices) {
+      if (dev.controlViaHa) continue;
+      final t = _transports[dev.id];
+      if (t == null) continue;
+      if (dev.type != 'wifi' || t is! UdpDeviceTransport) continue;
+      final packedFull = packed[dev.id];
+      if (packedFull == null || packedFull.isEmpty) continue;
+      try {
+        t.sendPackedRgbBytes(_slicePackedStripForDevice(dev, packedFull), bri);
+      } catch (e, st) {
+        _log.fine('eager packed udp ${dev.id}: $e', e, st);
+      }
+    }
+  }
+
+  /// Wi‑Fi UDP **před** synchronním [unpackDeviceColors] (ten alokuje tuple mapu na hlavním vlákně).
+  void _runPackedFirstEagerScreenDistribute(int seq, Map<String, Uint8List> packed) {
+    if (!_eagerScreenIsolateOutputAllowed(seq)) return;
+    final bri = brightnessForMode(_config);
+    try {
+      _flushUdpWifiStripsFromPackedMap(packed, bri);
+      _asyncScreenColors = unpackDeviceColors(_config, packed);
+      _distributeSync(
+        _asyncScreenColors!,
+        bri,
+        smartLightsFrame: _screenFrameLatest,
+        smartLightsAppEnabled: _enabled,
+        packedRgbByDevice: packed,
+        skipUdpWifiAmbilight: true,
+      );
+      _lastDistributedScreenSeq = seq;
+      PipelineSchedulerDiagStats.eagerFlushFromIsolate++;
+    } catch (e, st) {
+      _log.warning('eager packed-first distribute: $e', e, st);
+    }
+  }
+
+  bool _eagerScreenIsolateOutputAllowed(int seq) {
+    if (_controllerDisposed) return false;
+    if (seq != _screenPipelineAppliedSeq) return false;
+    if (seq <= _lastDistributedScreenSeq) return false;
+    if (_config.globalSettings.startMode != 'screen') return false;
+    final startupBlackout = _startupActive && _startupFrame < _startupBlackoutTicks;
+    if (startupBlackout) return false;
+    final bridge = _screenPipelineIsolate;
+    if (bridge == null || !bridge.isReady) return false;
+    if (!_enabled) return false;
+    if (_wizardLedPreview != null ||
+        _calibrationCorner != null ||
+        (_stripColorPreviewRgb != null && _stripColorPreviewTicksLeft > 0)) {
+      return false;
+    }
+    return true;
+  }
+
+  /// Okamžitý výstup po [ScreenPipelineIsolateResult] — bez čekání na další [Timer] tick (~0–16 ms úspora).
+  void _eagerDistributeScreenIfDue(int seq) {
+    if (!_eagerScreenIsolateOutputAllowed(seq)) return;
+
+    final raw = _asyncScreenColors;
+    if (raw == null) return;
+
+    var perDevice = raw;
+    if (_tickErrorStripUntilAnimationTick != null &&
+        _animationTick <= _tickErrorStripUntilAnimationTick!) {
+      perDevice = _dimRedErrorStripMap();
+    }
+    final bri = brightnessForMode(_config);
+    try {
+      _distribute(
+        perDevice,
+        bri,
+        smartLightsFrame: _screenFrameLatest,
+        smartLightsAppEnabled: _enabled,
+        flushImmediately: true,
+        packedRgbByDevice: _packedRgbForScreenUdp(perDevice),
+      );
+      _lastDistributedScreenSeq = seq;
+      PipelineSchedulerDiagStats.eagerFlushFromIsolate++;
+    } catch (e, st) {
+      _log.warning('eager screen distribute: $e', e, st);
+    }
+  }
+
+  /// Jen smart lights (Home Assistant / HomeKit) — při noop ticku bez změny screen výstupu.
+  void _invokeSmartLightsOnFrame({
+    required Map<String, List<(int, int, int)>> perDevice,
+    required int brightnessScalar,
+    required bool appEnabled,
+    ScreenFrame? smartLightsFrame,
+  }) {
+    try {
+      _smartLights.onFrame(
+        config: _config,
+        perDevice: perDevice,
+        engineBrightness: brightnessScalar,
+        frame: smartLightsFrame ?? _screenFrameLatest,
+        appEnabled: appEnabled,
+        animationTick: _animationTick,
+      );
+    } catch (e, st) {
+      if (kDebugMode) {
+        _log.fine('smartLights.onFrame (tick-only): $e', e, st);
+      }
+    }
   }
 
   void _distribute(
@@ -2365,6 +2609,7 @@ class AmbilightAppController extends ChangeNotifier {
     bool smartLightsAppEnabled = true,
     /// Okamžitý výstup (vypnutí, kalibrace, průvodce) — bez čekání na microtask z hlavní smyčky.
     bool flushImmediately = false,
+    Map<String, Uint8List>? packedRgbByDevice,
   }) {
     if (flushImmediately) {
       _distributePending = null;
@@ -2376,6 +2621,8 @@ class AmbilightAppController extends ChangeNotifier {
         clipToDeviceLedCount: clipToDeviceLedCount,
         smartLightsFrame: smartLightsFrame,
         smartLightsAppEnabled: smartLightsAppEnabled,
+        packedRgbByDevice: packedRgbByDevice,
+        skipUdpWifiAmbilight: false,
       );
       return;
     }
@@ -2386,6 +2633,7 @@ class AmbilightAppController extends ChangeNotifier {
       clipToDeviceLedCount: clipToDeviceLedCount,
       smartLightsFrame: smartLightsFrame,
       smartLightsAppEnabled: smartLightsAppEnabled,
+      packedRgbByDevice: packedRgbByDevice,
     );
     if (_distributeFlushScheduled) return;
     _distributeFlushScheduled = true;
@@ -2400,7 +2648,11 @@ class AmbilightAppController extends ChangeNotifier {
     bool clipToDeviceLedCount = true,
     ScreenFrame? smartLightsFrame,
     bool smartLightsAppEnabled = true,
+    Map<String, Uint8List>? packedRgbByDevice,
+    /// Po [_flushUdpWifiStripsFromPackedMap] — neposílat Wi‑Fi ambilight znovu (serial / smart lights ano).
+    bool skipUdpWifiAmbilight = false,
   }) {
+    PipelineSchedulerDiagStats.distributeCalls++;
     if (ambilightDebugTraceEnabled) {
       _debugDistributeSeq++;
       if (_debugDistributeSeq % 200 == 0) {
@@ -2423,7 +2675,8 @@ class AmbilightAppController extends ChangeNotifier {
           final g = pv.$4;
           final b = pv.$5;
           if (dev.type == 'wifi') {
-            final n = dev.ledCount.clamp(1, SerialAmbilightProtocol.maxLedsPerDevice);
+            final n = ScreenColorPipeline.effectiveDeviceLedCount(_config, dev)
+                .clamp(1, SerialAmbilightProtocol.maxLedsPerDevice);
             final buf = List<(int, int, int)>.filled(n, (0, 0, 0), growable: false);
             final clamped = idx.clamp(0, n - 1);
             buf[clamped] = (r, g, b);
@@ -2442,19 +2695,42 @@ class AmbilightAppController extends ChangeNotifier {
           t.sendColors(buf, brightnessScalar);
           continue;
         }
+        if (skipUdpWifiAmbilight && dev.type == 'wifi' && t is UdpDeviceTransport) {
+          final flushed = packedRgbByDevice?[dev.id];
+          if (flushed != null && flushed.isNotEmpty) {
+            continue;
+          }
+        }
+        final packedMap = packedRgbByDevice;
+        if (packedMap != null &&
+            clipToDeviceLedCount &&
+            dev.type == 'wifi' &&
+            t is UdpDeviceTransport) {
+          final packedFull = packedMap[dev.id];
+          if (packedFull != null && packedFull.isNotEmpty) {
+            t.sendPackedRgbBytes(_slicePackedStripForDevice(dev, packedFull), brightnessScalar);
+            continue;
+          }
+        }
         final chunk = perDevice[dev.id] ??
             List<(int, int, int)>.filled(dev.ledCount, (0, 0, 0), growable: false);
         if (!clipToDeviceLedCount) {
           t.sendColors(chunk, brightnessScalar);
-        } else if (chunk.length != dev.ledCount) {
-          final padded = List<(int, int, int)>.generate(
-            dev.ledCount,
-            (i) => i < chunk.length ? chunk[i] : (0, 0, 0),
-            growable: false,
-          );
-          t.sendColors(padded, brightnessScalar);
         } else {
-          t.sendColors(chunk, brightnessScalar);
+          // Shodně s pipeline / unpack: délka na pásek = effective (segmenty ∩ uložený ledCount),
+          // ne slepě uložené maximum — jinak by šlo na UDP 2000× RGB i když worker poslal 200.
+          final stripLen = ScreenColorPipeline.effectiveDeviceLedCount(_config, dev)
+              .clamp(1, SerialAmbilightProtocol.maxLedsPerDevice);
+          if (chunk.length != stripLen) {
+            final padded = List<(int, int, int)>.generate(
+              stripLen,
+              (i) => i < chunk.length ? chunk[i] : (0, 0, 0),
+              growable: false,
+            );
+            t.sendColors(padded, brightnessScalar);
+          } else {
+            t.sendColors(chunk, brightnessScalar);
+          }
         }
       } catch (e, st) {
         _log.fine('distribute ${dev.id}: $e', e, st);
@@ -2492,6 +2768,8 @@ class AmbilightAppController extends ChangeNotifier {
           clipToDeviceLedCount: pend.clipToDeviceLedCount,
           smartLightsFrame: pend.smartLightsFrame,
           smartLightsAppEnabled: pend.smartLightsAppEnabled,
+          packedRgbByDevice: pend.packedRgbByDevice,
+          skipUdpWifiAmbilight: false,
         );
       }
       _shellOcclusionDebounceTimer?.cancel();
