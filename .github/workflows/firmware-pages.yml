@@ -1,5 +1,6 @@
 # Sestaví ESP-IDF firmware (projekt LAMPA) a nasadí statický web na GitHub Pages.
 # Zdroj kódu: led_strip_monitor_pokus - Copy/esp32c3_lamp_firmware/ (ne legacy monitor).
+# Spuštění: push na main/master | ručně | po úspěšném dokončení workflow desktop_release (mirror desktop/latest).
 # V repozitáři: Settings → Pages → Build and deployment → Source: „GitHub Actions“ (ne větev gh-pages).
 name: firmware_pages
 
@@ -8,6 +9,10 @@ on:
     branches: [main, master]
     # Bez paths: — jinak se workflow po většině commitů vůbec nespustí a Pages „nezlobí“.
   workflow_dispatch:
+  workflow_run:
+    workflows: [desktop_release]
+    types:
+      - completed
 
 permissions:
   contents: read
@@ -20,11 +25,16 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      CHECKOUT_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CHECKOUT_SHA }}
 
       # Monorepo + ESP-IDF snadno překročí výchozí volné GB na ubuntu-latest → Docker/build končí „No space“ nebo OOM.
       - name: Free disk space
@@ -75,7 +85,7 @@ jobs:
           cp "${BUILD}/bootloader/bootloader.bin" "${SITE}/"
           cp "${BUILD}/partition_table/partition-table.bin" "${SITE}/"
           cp "${BUILD}/ambilight_esp32c6.bin" "${SITE}/"
-          VER=$(echo "${{ github.sha }}" | cut -c1-12)
+          VER=$(echo "${{ env.CHECKOUT_SHA }}" | cut -c1-12)
           BASE="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/firmware/latest"
           python3 "${ROOT}/tools/gen_firmware_manifest.py" \
             --build-dir "${BUILD}" \
@@ -84,6 +94,13 @@ jobs:
             --version "${VER}" \
             --chip esp32c3
           cp "${ROOT}/tools/firmware_index.html" "${ROOT}/_site/index.html"
+          mkdir -p "${ROOT}/_site/assets"
+          if [ -d "${ROOT}/tools/pages_assets" ]; then
+            find "${ROOT}/tools/pages_assets" -maxdepth 1 -type f \( \
+              -name '*.webp' -o -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' \
+              -o -name '*.webm' -o -name '*.mp4' -o -name '*.svg' \) \
+              -exec cp -t "${ROOT}/_site/assets" {} +
+          fi
 
       # GitHub „latest“ release často není desktop (např. jen firmware) — bereme nejnovější tag desktop-v*.
       - name: Mirror desktop release assets (GitHub → Pages)
@@ -129,6 +146,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

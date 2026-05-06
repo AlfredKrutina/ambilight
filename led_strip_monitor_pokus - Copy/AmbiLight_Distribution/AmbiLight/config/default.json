@@ -19,7 +19,7 @@
         ],
         "start_mode": "screen",
         "start_minimized": false,
-        "autostart": true,
+        "autostart": false,
         "theme": "dark",
         "capture_method": "mss",
         "hotkeys_enabled": true,
