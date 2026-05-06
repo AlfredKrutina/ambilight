@@ -839,7 +839,7 @@
           </h3>
           <p>Doporučujeme instalátor. ZIP je portable vhodný pro auto-update.</p>
           <div class="platform-actions">
-            <a class="btn-pill primary js-asset-dl" data-asset="ambilight_desktop_windows_x64_setup.exe" href="#download">Instalátor (.exe)</a>
+            <a class="btn-pill primary js-asset-dl" data-asset="ambilight_desktop_windows.exe" href="#download">Instalátor (.exe)</a>
             <a class="btn-pill ghost js-asset-dl" data-asset="ambilight_desktop_windows_x64.zip" href="#download">ZIP</a>
           </div>
         </article>
@@ -1197,7 +1197,7 @@
       assets.forEach(function (a) { byName[a.name] = a.browser_download_url; });
 
       var zip = byName['ambilight_desktop_windows_x64.zip'] || releaseDownloadUrl(data.tag_name, 'ambilight_desktop_windows_x64.zip');
-      var setup = byName['ambilight_desktop_windows_x64_setup.exe'] || releaseDownloadUrl(data.tag_name, 'ambilight_desktop_windows_x64_setup.exe');
+      var setup = byName['ambilight_desktop_windows.exe'] || releaseDownloadUrl(data.tag_name, 'ambilight_desktop_windows.exe');
       var dmg = byName['ambilight_desktop_macos.dmg'] || releaseDownloadUrl(data.tag_name, 'ambilight_desktop_macos.dmg');
       var tgz = byName['ambilight_desktop_linux_x64.tar.gz'] || releaseDownloadUrl(data.tag_name, 'ambilight_desktop_linux_x64.tar.gz');
 

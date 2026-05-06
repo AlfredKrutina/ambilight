@@ -22,7 +22,8 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 OutputDir={#MyAppOutput}
-OutputBaseFilename=ambilight_desktop_windows_x64_setup
+; Musí odpovídat názvu asseta na GitHub Release (ambilight_desktop_windows.exe).
+OutputBaseFilename=ambilight_desktop_windows
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2/ultra64
 SolidCompression=yes

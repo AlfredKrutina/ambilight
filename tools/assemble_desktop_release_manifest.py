@@ -40,7 +40,7 @@ def main() -> None:
     notes = f"https://github.com/{repo}/releases/tag/{args.tag}"
 
     zip_url = f"{base}/ambilight_desktop_windows_x64.zip"
-    setup_url = f"{base}/ambilight_desktop_windows_x64_setup.exe"
+    setup_url = f"{base}/ambilight_desktop_windows.exe"
     dmg_url = f"{base}/ambilight_desktop_macos.dmg"
     linux_url = f"{base}/ambilight_desktop_linux_x64.tar.gz"
 
