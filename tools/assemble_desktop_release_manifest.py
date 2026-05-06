@@ -19,14 +19,21 @@ def _sha256(path: Path) -> str:
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--repo", required=True, help="owner/name")
-    p.add_argument("--tag", required=True, help="např. desktop-v1.0.4")
+    p.add_argument("--tag", required=True, help="např. desktop-v1.0.4 nebo desktop-main")
+    p.add_argument(
+        "--manifest-version",
+        default="",
+        help="SemVer do pole version (pro desktop-main povinné; jinak z tagu desktop-v…)",
+    )
     p.add_argument("--zip", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
     args = p.parse_args()
 
-    ver = args.tag.removeprefix("desktop-v").strip()
+    ver = args.manifest_version.strip()
     if not ver:
-        raise SystemExit("empty version after desktop-v prefix")
+        ver = args.tag.removeprefix("desktop-v").strip()
+        if not ver:
+            raise SystemExit("empty version: dej --manifest-version nebo tag desktop-vX.Y.Z")
 
     repo = args.repo.strip()
     base = f"https://github.com/{repo}/releases/download/{args.tag}"

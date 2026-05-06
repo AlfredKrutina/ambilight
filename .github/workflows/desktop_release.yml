@@ -1,9 +1,11 @@
 # Windows: ZIP (auto-update) + Inno Setup .exe | macOS: DMG | Linux: tar.gz bundle | manifest po všech buildích.
-# Tag: desktop-v1.0.4  →  verze v manifestu 1.0.4 (pubspec.yaml musí sedět)
+# Push na main/master → rolling release pod tagem desktop-main (verze z pubspec).
+# Volitelně tag desktop-v1.0.4 → semver release (pubspec musí sedět s částí za desktop-v).
 name: desktop_release
 
 on:
   push:
+    branches: [main, master]
     tags:
       - "desktop-v*"
 
@@ -32,6 +34,7 @@ jobs:
         run: flutter pub get
 
       - name: Verify pubspec version matches tag
+        if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         env:
           TAG: ${{ github.ref_name }}
@@ -71,11 +74,16 @@ jobs:
 
       - name: Build Inno Setup installer (.exe)
         shell: pwsh
-        env:
-          TAG: ${{ github.ref_name }}
         working-directory: ${{ github.workspace }}
         run: |
-          $ver = $env:TAG -replace '^desktop-v',''
+          $refName = $env:GITHUB_REF_NAME
+          if ($refName -match '^desktop-v') {
+            $ver = $refName -replace '^desktop-v',''
+          } else {
+            $line = Get-Content -LiteralPath 'ambilight_desktop/pubspec.yaml' | Where-Object { $_ -match '^\s*version:\s*' } | Select-Object -First 1
+            if (-not $line -or $line -notmatch 'version:\s*(\S+)') { throw "ambilight_desktop/pubspec.yaml: missing or invalid version line" }
+            $ver = $Matches[1].Split('+')[0].Trim()
+          }
           $rel = Join-Path (Get-Location) 'ambilight_desktop\build\windows\x64\runner\Release'
           $out = Join-Path (Get-Location) 'dist'
           New-Item -ItemType Directory -Force -Path $out | Out-Null
@@ -113,6 +121,7 @@ jobs:
           cache: true
 
       - name: Verify pubspec version matches tag
+        if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         env:
           TAG: ${{ github.ref_name }}
@@ -141,11 +150,15 @@ jobs:
 
       - name: Create DMG
         shell: bash
-        env:
-          TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          ver="${TAG#desktop-v}"
+          ref="${GITHUB_REF_NAME}"
+          if [[ "$ref" == desktop-v* ]]; then
+            ver="${ref#desktop-v}"
+          else
+            line="$(grep -E '^\s*version:\s*' pubspec.yaml | head -1)"
+            ver="$(echo "$line" | sed -E 's/^\s*version:\s*([^ +]+).*/\1/')"
+          fi
           app="build/macos/Build/Products/Release/ambilight_desktop.app"
           test -d "$app"
           hdiutil create -volname "AmbiLight ${ver}" -srcfolder "$app" -ov -format UDZO "${GITHUB_WORKSPACE}/ambilight_desktop_macos.dmg"
@@ -181,6 +194,7 @@ jobs:
           cache: true
 
       - name: Verify pubspec version matches tag
+        if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         env:
           TAG: ${{ github.ref_name }}
@@ -225,6 +239,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Rolling release — smaž starý desktop-main (jen push na větev)
+        if: github.ref_type == 'branch'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release delete desktop-main --yes --cleanup-tag 2>/dev/null || true
+
+      - name: Resolve release tag a manifest verzi
+        id: rel
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.ref }}" == refs/tags/desktop-v* ]]; then
+            echo "release_tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            echo "manifest_version=" >> "$GITHUB_OUTPUT"
+            echo "display_name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            line=$(grep -E '^\s*version:' ambilight_desktop/pubspec.yaml | head -1)
+            pub=$(echo "$line" | sed -E 's/^\s*version:\s*([^ +]+).*/\1/')
+            echo "release_tag=desktop-main" >> "$GITHUB_OUTPUT"
+            echo "manifest_version=$pub" >> "$GITHUB_OUTPUT"
+            echo "display_name=desktop-main (pubspec $pub, ${{ github.sha }})" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/download-artifact@v4
         with:
           name: desktop-windows-release
@@ -242,17 +279,28 @@ jobs:
 
       - name: Write desktop-manifest.json
         run: |
-          python3 tools/assemble_desktop_release_manifest.py \
-            --repo "${{ github.repository }}" \
-            --tag "${{ github.ref_name }}" \
-            --zip artifacts/win/ambilight_desktop_windows_x64.zip \
-            --out desktop-manifest.json
+          set -euo pipefail
+          if [[ -n "${{ steps.rel.outputs.manifest_version }}" ]]; then
+            python3 tools/assemble_desktop_release_manifest.py \
+              --repo "${{ github.repository }}" \
+              --tag "${{ steps.rel.outputs.release_tag }}" \
+              --manifest-version "${{ steps.rel.outputs.manifest_version }}" \
+              --zip artifacts/win/ambilight_desktop_windows_x64.zip \
+              --out desktop-manifest.json
+          else
+            python3 tools/assemble_desktop_release_manifest.py \
+              --repo "${{ github.repository }}" \
+              --tag "${{ steps.rel.outputs.release_tag }}" \
+              --zip artifacts/win/ambilight_desktop_windows_x64.zip \
+              --out desktop-manifest.json
+          fi
 
       - name: GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: ${{ steps.rel.outputs.release_tag }}
+          name: ${{ steps.rel.outputs.display_name }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
           files: |
             artifacts/win/ambilight_desktop_windows_x64.zip
