@@ -7,6 +7,8 @@
   <meta name="description" content="AmbiLight — open source ambientní osvětlení synchronizované s obrazovkou a hudbou. Desktop pro Windows, macOS a Linux. Firmware pro ESP32." />
   <meta property="og:title" content="AmbiLight" />
   <meta property="og:description" content="Open source ambientní LED synchronizované s tvým počítačem. Pro každého — stažení zdarma." />
+  <!-- Po deployi na Pages workflow přepíše na GITHUB_REPOSITORY. Lokálně / fork: nech nebo nastav owner/repo. -->
+  <meta name="github-repo" content="githubradina/ambilight" />
   <title>AmbiLight — ambientní světlo pro každého</title>
   <style>
     :root {
@@ -824,8 +826,8 @@
       <div class="headline reveal">
         <h2>Stažení.</h2>
         <p>
-          Nejnovější desktopové buildy odpovídají tagu <code>desktop-v*</code>.
-          Stejné soubory najdeš na <a class="releases-link" href="#">GitHub Releases</a> i jako kopii pod touto doménou.
+          Nejnovější desktopové buildy odpovídají tagu <code>desktop-v*</code> (workflow <code>desktop_release</code>).
+          Primární odkazy vedou na <strong>github.com</strong> — přímé stažení z release; volitelná kopie je i na této doméně v <code>desktop/latest/</code> po deployi Pages.
         </p>
       </div>
 
@@ -837,8 +839,8 @@
           </h3>
           <p>Doporučujeme instalátor. ZIP je portable vhodný pro auto-update.</p>
           <div class="platform-actions">
-            <a class="btn-pill primary" href="desktop/latest/ambilight_desktop_windows_x64_setup.exe">Instalátor (.exe)</a>
-            <a class="btn-pill ghost" href="desktop/latest/ambilight_desktop_windows_x64.zip">ZIP</a>
+            <a class="btn-pill primary js-asset-dl" data-asset="ambilight_desktop_windows_x64_setup.exe" href="#download">Instalátor (.exe)</a>
+            <a class="btn-pill ghost js-asset-dl" data-asset="ambilight_desktop_windows_x64.zip" href="#download">ZIP</a>
           </div>
         </article>
         <article class="platform-card" aria-labelledby="plat-mac">
@@ -848,7 +850,7 @@
           </h3>
           <p>DMG z CI není notarizovaný — „Otevřít“ v Soukromí a zabezpečení případně pravý klik.</p>
           <div class="platform-actions">
-            <a class="btn-pill primary" href="desktop/latest/ambilight_desktop_macos.dmg">Stáhnout DMG</a>
+            <a class="btn-pill primary js-asset-dl" data-asset="ambilight_desktop_macos.dmg" href="#download">Stáhnout DMG</a>
           </div>
         </article>
         <article class="platform-card" aria-labelledby="plat-lin">
@@ -858,7 +860,7 @@
           </h3>
           <p>Archiv x64 — rozbal a spusť <code>ambilight_desktop</code>. Závislosti viz dokumentace projektu.</p>
           <div class="platform-actions">
-            <a class="btn-pill primary" href="desktop/latest/ambilight_desktop_linux_x64.tar.gz">.tar.gz</a>
+            <a class="btn-pill primary js-asset-dl" data-asset="ambilight_desktop_linux_x64.tar.gz" href="#download">.tar.gz</a>
           </div>
         </article>
       </div>
@@ -878,8 +880,8 @@
       <details class="advanced reveal">
         <summary>Manifest a zrcadlený tag</summary>
         <ul>
-          <li><a href="desktop/latest/desktop-manifest.json"><code>desktop-manifest.json</code></a> — verze / auto-update</li>
-          <li><a href="desktop/latest/desktop-release-tag.txt"><code>desktop-release-tag.txt</code></a></li>
+          <li><a class="js-release-manifest" href="#download"><code>desktop-manifest.json</code></a> — verze / auto-update (GitHub release)</li>
+          <li><a class="js-release-tagtxt" href="desktop/latest/desktop-release-tag.txt"><code>desktop-release-tag.txt</code></a> — jen mirror na Pages</li>
         </ul>
       </details>
 
@@ -994,12 +996,51 @@
     }
   }
 (function () {
+  var repoMeta = document.querySelector('meta[name="github-repo"]');
+  var owner = '';
+  var repo = '';
+  if (repoMeta && repoMeta.content && repoMeta.content.indexOf('/') !== -1) {
+    var seg = repoMeta.content.trim().split('/');
+    owner = seg[0];
+    repo = seg.slice(1).join('/');
+  }
   var host = location.hostname.toLowerCase();
-  var owner = host.replace(/\.github\.io$/i, '');
-  var parts = location.pathname.replace(/\/+$/, '').split('/').filter(Boolean);
-  var repo = parts[0] || '';
+  if (!owner || !repo) {
+    owner = host.replace(/\.github\.io$/i, '');
+    var parts = location.pathname.replace(/\/+$/, '').split('/').filter(Boolean);
+    repo = parts[0] || '';
+  }
   var apiBase = owner && repo ? ('https://api.github.com/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo)) : '';
   var ghBase = owner && repo ? ('https://github.com/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo)) : '';
+
+  function releaseDownloadUrl(tag, filename) {
+    if (!ghBase || !tag || !filename) return '';
+    return ghBase + '/releases/download/' + encodeURIComponent(tag) + '/' + encodeURIComponent(filename);
+  }
+
+  function applyPrimaryDownloadAnchors(byName, tag) {
+    document.querySelectorAll('a.js-asset-dl[data-asset]').forEach(function (a) {
+      var name = a.getAttribute('data-asset');
+      var url = byName[name] || releaseDownloadUrl(tag, name);
+      if (url) {
+        a.href = url;
+      } else if (ghBase && tag) {
+        a.href = ghBase + '/releases/tag/' + encodeURIComponent(tag);
+      }
+    });
+    var mm = document.querySelector('a.js-release-manifest');
+    if (mm && ghBase && tag) {
+      mm.href = byName['desktop-manifest.json'] || releaseDownloadUrl(tag, 'desktop-manifest.json');
+    }
+  }
+
+  if (ghBase) {
+    document.querySelectorAll('a.js-asset-dl').forEach(function (a) {
+      a.href = ghBase + '/releases';
+    });
+    var mInit = document.querySelector('a.js-release-manifest');
+    if (mInit) mInit.href = ghBase + '/releases';
+  }
 
   function setRepoLinks() {
     if (!ghBase) return;
@@ -1098,6 +1139,11 @@
     var ml = document.getElementById('manifest-latest');
     if (rl) rl.href = ghBase + '/releases';
     if (ml) ml.href = ghBase + '/releases';
+    document.querySelectorAll('a.js-asset-dl').forEach(function (a) {
+      a.href = ghBase + '/releases';
+    });
+    var mm = document.querySelector('a.js-release-manifest');
+    if (mm) mm.href = ghBase + '/releases';
   }
 
   function pickLatestDesktopRelease(list) {
@@ -1113,31 +1159,49 @@
         best = rel;
       }
     });
+    if (best) return best;
+    bestT = 0;
+    (list || []).forEach(function (rel) {
+      if (rel.draft) return;
+      var assets = rel.assets || [];
+      var names = assets.map(function (x) { return x.name; });
+      var looksDesktop = names.some(function (n) {
+        return n.indexOf('ambilight_desktop') === 0 || /\.exe$/i.test(n) && n.indexOf('ambilight') !== -1;
+      });
+      if (!looksDesktop) return;
+      var t = Date.parse(rel.published_at || '') || 0;
+      if (t >= bestT) {
+        bestT = t;
+        best = rel;
+      }
+    });
     return best;
   }
 
-  if (!apiBase || !owner || owner === host) {
+  if (!apiBase) {
     showFallback();
-    return;
-  }
-
-  fetch(apiBase + '/releases?per_page=50')
+  } else {
+  fetch(apiBase + '/releases?per_page=50', {
+    headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
+  })
     .then(function (r) {
       if (!r.ok) throw new Error('releases ' + r.status);
       return r.json();
     })
     .then(function (list) {
       var data = pickLatestDesktopRelease(list);
-      if (!data) throw new Error('no desktop-v release');
+      if (!data) throw new Error('no suitable release');
 
       var assets = data.assets || [];
       var byName = {};
       assets.forEach(function (a) { byName[a.name] = a.browser_download_url; });
 
-      var zip = byName['ambilight_desktop_windows_x64.zip'];
-      var setup = byName['ambilight_desktop_windows_x64_setup.exe'];
-      var dmg = byName['ambilight_desktop_macos.dmg'];
-      var tgz = byName['ambilight_desktop_linux_x64.tar.gz'];
+      var zip = byName['ambilight_desktop_windows_x64.zip'] || releaseDownloadUrl(data.tag_name, 'ambilight_desktop_windows_x64.zip');
+      var setup = byName['ambilight_desktop_windows_x64_setup.exe'] || releaseDownloadUrl(data.tag_name, 'ambilight_desktop_windows_x64_setup.exe');
+      var dmg = byName['ambilight_desktop_macos.dmg'] || releaseDownloadUrl(data.tag_name, 'ambilight_desktop_macos.dmg');
+      var tgz = byName['ambilight_desktop_linux_x64.tar.gz'] || releaseDownloadUrl(data.tag_name, 'ambilight_desktop_linux_x64.tar.gz');
+
+      applyPrimaryDownloadAnchors(byName, data.tag_name);
 
       if (loading) loading.style.display = 'none';
       if (btnRow) {
@@ -1165,12 +1229,16 @@
         var rl = document.getElementById('releases-latest');
         var ml = document.getElementById('manifest-latest');
         if (rl) rl.href = ghBase + '/releases';
-        if (ml) ml.href = ghBase + '/releases/download/' + encodeURIComponent(data.tag_name) + '/desktop-manifest.json';
+        if (ml) ml.href = releaseDownloadUrl(data.tag_name, 'desktop-manifest.json') || ghBase + '/releases';
       }
     })
     .catch(function () {
       showFallback();
+    })
+    .finally(function () {
+      if (loading) loading.style.display = 'none';
     });
+  }
 })();
   </script>
 </body>

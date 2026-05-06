@@ -2,6 +2,8 @@
 
 Soubory z této složky kopíruje CI do `_site/assets/` při deployi (`firmware_pages` workflow).
 
+Stažení desktopu na landing stránce používá **primárně URL na github.com** (release assety). V `tools/firmware_index.html` je `<meta name="github-repo" content="OWNER/REPO">` — při forknutí repa ho změň.
+
 ## Doporučené soubory (volitelné — stránka má fallback bez nich)
 
 | Soubor | Formát | Účel |

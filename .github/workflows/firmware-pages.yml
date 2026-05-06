@@ -92,8 +92,11 @@ jobs:
             --out "${SITE}/manifest.json" \
             --base-url "${BASE}" \
             --version "${VER}" \
-            --chip esp32c3
+            --chip esp32c6
           cp "${ROOT}/tools/firmware_index.html" "${ROOT}/_site/index.html"
+          REPO="${{ github.repository }}"
+          sed -i "s|<meta name=\"github-repo\" content=\"[^\"]*\"|<meta name=\"github-repo\" content=\"${REPO}\"|" "${ROOT}/_site/index.html"
+          grep -Fq "<meta name=\"github-repo\" content=\"${REPO}\"" "${ROOT}/_site/index.html" || { echo "github-repo meta patch failed"; exit 1; }
           mkdir -p "${ROOT}/_site/assets"
           if [ -d "${ROOT}/tools/pages_assets" ]; then
             find "${ROOT}/tools/pages_assets" -maxdepth 1 -type f \( \
@@ -102,7 +105,7 @@ jobs:
               -exec cp -t "${ROOT}/_site/assets" {} +
           fi
 
-      # GitHub „latest“ release často není desktop (např. jen firmware) — bereme nejnovější tag desktop-v*.
+      # Nejnovější desktop-v*; když chybí, rolling desktop-main (push na main bez ručního tagu).
       - name: Mirror desktop release assets (GitHub → Pages)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -111,9 +114,9 @@ jobs:
           DEST="${{ github.workspace }}/_site/desktop/latest"
           mkdir -p "$DEST"
           cd "$DEST"
-          TAG="$(gh api "repos/${{ github.repository }}/releases?per_page=80" --jq '[.[] | select((.draft | not) and (.tag_name | startswith("desktop-v")))] | if length == 0 then empty else (max_by(.published_at) | .tag_name) end')"
+          TAG="$(gh api "repos/${{ github.repository }}/releases?per_page=80" --jq '[.[] | select(.draft | not)] | (map(select(.tag_name | startswith("desktop-v"))) | if length > 0 then max_by(.published_at).tag_name else empty end) // (map(select(.tag_name == "desktop-main")) | if length > 0 then max_by(.published_at).tag_name else empty end)')"
           if [ -z "${TAG:-}" ]; then
-            echo "Žádný release s tagem desktop-v* — složka desktop/latest zůstane prázdná (po prvním desktop tagu znovu deploy)."
+            echo "Žádný desktop release (desktop-v* ani desktop-main) — desktop/latest zůstane prázdný."
             echo "none" > desktop-release-tag.txt
             ls -la
             exit 0
