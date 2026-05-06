@@ -1148,27 +1148,16 @@
 
   function pickLatestDesktopRelease(list) {
     var best = null;
-    var bestT = 0;
+    var bestT = -1;
     (list || []).forEach(function (rel) {
       if (rel.draft) return;
       var tag = rel.tag_name || '';
-      if (tag.indexOf('desktop-v') !== 0) return;
-      var t = Date.parse(rel.published_at || '') || 0;
-      if (t >= bestT) {
-        bestT = t;
-        best = rel;
-      }
-    });
-    if (best) return best;
-    bestT = 0;
-    (list || []).forEach(function (rel) {
-      if (rel.draft) return;
-      var assets = rel.assets || [];
-      var names = assets.map(function (x) { return x.name; });
-      var looksDesktop = names.some(function (n) {
-        return n.indexOf('ambilight_desktop') === 0 || /\.exe$/i.test(n) && n.indexOf('ambilight') !== -1;
-      });
-      if (!looksDesktop) return;
+      var names = (rel.assets || []).map(function (x) { return x.name; });
+      var eligible =
+        tag.indexOf('desktop-v') === 0 ||
+        tag === 'desktop-main' ||
+        names.some(function (n) { return n.indexOf('ambilight_desktop') === 0; });
+      if (!eligible) return;
       var t = Date.parse(rel.published_at || '') || 0;
       if (t >= bestT) {
         bestT = t;

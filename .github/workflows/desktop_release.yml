@@ -8,13 +8,14 @@ on:
     branches: [main, master]
     tags:
       - "desktop-v*"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
   group: desktop-release-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   windows:
@@ -58,7 +59,18 @@ jobs:
       - name: Zip Release (včetně data/)
         shell: pwsh
         run: |
-          $rel = Join-Path (Get-Location) 'build/windows/x64/runner/Release'
+          $ErrorActionPreference = 'Stop'
+          $winBuild = Join-Path (Get-Location) 'build\windows'
+          $rel = @(
+            (Join-Path $winBuild 'x64\runner\Release'),
+            (Join-Path $winBuild 'runner\Release')
+          ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if (-not $rel) {
+            Write-Host "Obsah build/windows:"
+            Get-ChildItem -Recurse -Depth 4 $winBuild -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+            throw "ZIP: složka Release nenalezena (ocekavano build/windows/x64/runner/Release)."
+          }
+          Write-Host "ZIP from: $rel"
           $zip = Join-Path $env:GITHUB_WORKSPACE 'ambilight_desktop_windows_x64.zip'
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Push-Location $rel

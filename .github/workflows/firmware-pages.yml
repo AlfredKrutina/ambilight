@@ -114,9 +114,12 @@ jobs:
           DEST="${{ github.workspace }}/_site/desktop/latest"
           mkdir -p "$DEST"
           cd "$DEST"
-          TAG="$(gh api "repos/${{ github.repository }}/releases?per_page=80" --jq '[.[] | select(.draft | not)] | (map(select(.tag_name | startswith("desktop-v"))) | if length > 0 then max_by(.published_at).tag_name else empty end) // (map(select(.tag_name == "desktop-main")) | if length > 0 then max_by(.published_at).tag_name else empty end)')"
+          TAG="$(gh api "repos/${{ github.repository }}/releases?per_page=80" --jq '[.[] | select(.draft | not) | select(.tag_name | startswith("desktop-v") or . == "desktop-main")] | if length > 0 then max_by(.published_at).tag_name else empty end')"
           if [ -z "${TAG:-}" ]; then
-            echo "Žádný desktop release (desktop-v* ani desktop-main) — desktop/latest zůstane prázdný."
+            TAG="$(gh api "repos/${{ github.repository }}/releases?per_page=80" --jq '[.[] | select(.draft | not) | select(any(.assets[]?; .name == "ambilight_desktop_windows.exe"))] | if length > 0 then max_by(.published_at).tag_name else empty end')"
+          fi
+          if [ -z "${TAG:-}" ]; then
+            echo "Žádný desktop release (desktop-v*, desktop-main ani .exe asset) — desktop/latest zůstane prázdný."
             echo "none" > desktop-release-tag.txt
             ls -la
             exit 0
