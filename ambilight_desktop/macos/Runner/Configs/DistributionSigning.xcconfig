@@ -1,0 +1,5 @@
+// Doplňky k Release podpisu (viz AppInfo.xcconfig — tam zůstává CODE_SIGN_IDENTITY = Apple Development).
+// Nepiš sem celý řetězec certifikátu („Apple Development: e‑mail …“) — u Automatic signing ho Xcode odmítne.
+// Plný řetězec bere skript na podpis DMG z Klíčenky, pokud nenastavíš MACOS_CODESIGN_IDENTITY.
+ENABLE_HARDENED_RUNTIME = YES
+OTHER_CODE_SIGN_FLAGS = --timestamp
