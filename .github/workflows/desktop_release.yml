@@ -185,7 +185,7 @@ jobs:
           --dart-define=GIT_SHA=${{ github.sha }}
           --dart-define=AMBI_CHANNEL=stable
 
-      - name: Create DMG
+      - name: Create DMG (staging + Applications)
         shell: bash
         run: |
           set -euo pipefail
@@ -196,9 +196,11 @@ jobs:
             line="$(grep -E '^\s*version:\s*' pubspec.yaml | head -1)"
             ver="$(echo "$line" | sed -E 's/^\s*version:\s*([^ +]+).*/\1/')"
           fi
-          app="build/macos/Build/Products/Release/ambilight_desktop.app"
-          test -d "$app"
-          hdiutil create -volname "AmbiLight ${ver}" -srcfolder "$app" -ov -format UDZO "${GITHUB_WORKSPACE}/ambilight_desktop_macos.dmg"
+          ROOT="${GITHUB_WORKSPACE}"
+          APP="${ROOT}/ambilight_desktop/build/macos/Build/Products/Release/ambilight_desktop.app"
+          OUT="${ROOT}/ambilight_desktop_macos.dmg"
+          test -d "$APP"
+          bash "${ROOT}/tools/package_macos_dmg.sh" "$APP" "$OUT" "AmbiLight ${ver}"
 
       - uses: actions/upload-artifact@v4
         with:

@@ -25,6 +25,11 @@ bool get ambilightDebugTraceEnabled =>
 bool get ambilightDetailedLogsEnabled =>
     ambilightVerboseLogsEnabled || ambilightDebugTraceEnabled;
 
+/// Vypne automatickou obnovu po opakovaných pádech při startu (`StartupCrashGuard`).
+/// Vývoj: `--dart-define=AMBI_DISABLE_STARTUP_CRASH_RECOVERY=true`
+bool get ambilightStartupCrashRecoveryDisabled =>
+    const bool.fromEnvironment('AMBI_DISABLE_STARTUP_CRASH_RECOVERY', defaultValue: false);
+
 /// Přepíše periodu hlavní smyčky ve výkonovém režimu při snímání obrazovky (ms). `-1` = z konfigurace.
 /// Staging: `--dart-define=AMBI_PERF_SCREEN_TICK_MS=25`
 int get ambilightPerfScreenTickMsOverride {

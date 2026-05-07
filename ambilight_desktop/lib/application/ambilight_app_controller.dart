@@ -1275,6 +1275,7 @@ class AmbilightAppController extends ChangeNotifier {
     spotify.stopPolling();
     await spotify.disconnect();
     await HaTokenStore.clear();
+    await SpotifyTokenStore.clear();
     final next = stripOrphanScreenSegmentDeviceIds(AppConfig.defaults());
     await applyConfigAndPersist(next);
   }

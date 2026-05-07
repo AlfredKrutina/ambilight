@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../application/ambilight_app_controller.dart';
 import '../../application/build_environment.dart';
+import '../../application/startup_crash_guard.dart';
 import '../../l10n/context_ext.dart';
 import '../../services/desktop_update/desktop_update_service.dart';
 import '../../services/desktop_update/windows_desktop_updater.dart';
@@ -114,6 +115,7 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
       );
       final ctrl = context.read<AmbilightAppController>();
       await ctrl.flushPersistToDisk();
+      await StartupCrashGuard.markSessionClean();
       await Future<void>.delayed(const Duration(milliseconds: 400));
       exit(0);
     } catch (e) {

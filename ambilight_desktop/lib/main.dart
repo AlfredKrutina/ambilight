@@ -9,6 +9,7 @@ import 'core/models/config_models.dart'
     show normalizeAmbilightUiLanguage, normalizeAmbilightUiTheme;
 import 'application/app_error_safety.dart';
 import 'application/build_environment.dart';
+import 'application/startup_crash_guard.dart';
 import 'application/desktop_chrome_stub.dart'
     if (dart.library.io) 'application/desktop_chrome_io.dart' as desktop_chrome;
 import 'features/screen_overlay/scan_overlay_controller.dart';
@@ -53,6 +54,7 @@ void main() {
 
 Future<void> _bootstrapApp() async {
   final bootLog = Logger('AppBoot');
+  await StartupCrashGuard.runPreBootstrapRecovery();
   Logger.root.level = ambilightDetailedLogsEnabled ? Level.FINE : Level.INFO;
   Logger.root.onRecord.listen((r) {
     debugPrint('[${r.level.name}] ${r.loggerName}: ${r.message}');
@@ -122,8 +124,19 @@ Future<void> _bootstrapApp() async {
   }
 }
 
-class AmbiLightRoot extends StatelessWidget {
+class AmbiLightRoot extends StatefulWidget {
   const AmbiLightRoot({super.key});
+
+  @override
+  State<AmbiLightRoot> createState() => _AmbiLightRootState();
+}
+
+class _AmbiLightRootState extends State<AmbiLightRoot> {
+  @override
+  void initState() {
+    super.initState();
+    StartupCrashGuard.scheduleWarmupCompletion();
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -10,6 +10,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../core/ambilight_presets.dart';
 import 'ambilight_app_controller.dart';
+import 'startup_crash_guard.dart';
 import 'tray_mode_icon.dart';
 
 final _log = Logger('DesktopChrome');
@@ -117,6 +118,11 @@ Future<void> _quitApp() async {
     await trayManager.destroy();
   } catch (e, st) {
     _log.fine('tray destroy: $e', e, st);
+  }
+  try {
+    await StartupCrashGuard.markSessionClean();
+  } catch (e, st) {
+    _log.fine('markSessionClean: $e', e, st);
   }
   exit(0);
 }
