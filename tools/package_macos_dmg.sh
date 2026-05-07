@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Jednoduchý DMG: .app + alias Applications (bez Homebrew create-dmg).
+# GitHub desktop_release na main používá tools/build_macos_dmg.sh (rozvržení + pozadí) — tento skript je záložní / lokální rychlovka.
 # POZOR: hdiutil používá -fs (ne -filesystem); „-filesystem“ na runneru padne (unknown option).
 set -euo pipefail
 
