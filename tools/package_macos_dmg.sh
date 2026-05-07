@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# DMG jako na macOS: okno se .app + zástupce „Applications“ (drag & drop).
-# Čistý -srcfolder jen na .app je nepohodlný a často vypadá „špatně“.
+# Jednoduchý DMG: .app + alias Applications (bez Homebrew create-dmg).
+# POZOR: hdiutil používá -fs (ne -filesystem); „-filesystem“ na runneru padne (unknown option).
 set -euo pipefail
 
 if [[ $# -ne 3 ]]; then
@@ -22,16 +22,16 @@ cleanup() { rm -rf "$STAGING"; }
 trap cleanup EXIT
 
 cp -a "$APP" "$STAGING/"
-# Alias „Applications“ pro instalaci přetažením (stejný vzor jako create-dmg bez další závislosti).
 ln -sf /Applications "$STAGING/Applications"
 
 rm -f "$OUT"
 hdiutil create \
   -volname "$VOL" \
-  -filesystem HFS+ \
+  -fs HFS+ \
   -srcfolder "$STAGING" \
   -ov \
   -format UDZO \
+  -imagekey zlib-level=9 \
   "$OUT"
 
 echo "DMG OK: $OUT"
