@@ -1,4 +1,17 @@
 # Windows: ZIP (auto-update) + Inno Setup .exe | macOS: DMG | Linux: tar.gz bundle | manifest po všech buildích.
+#
+# === Co se odkud buildí ===
+# Spouští se POUZE:
+#   • push na větve main nebo master
+#   • push tagu desktop-v*
+#   • workflow_dispatch
+# Feature větve (např. mac-app) tento workflow SAMY OD SEBE nespouštějí — artefakt na Releases/Pages
+# vždy odpovídá tomu, co je namergované v main (nebo tagu desktop-v*).
+#
+# Každý job dělá checkout stejného commitu jako trigger (GITHUB_SHA). DMG / ZIP / exe / Linux tarball
+# jsou z jedné akce a jednoho zdrojového stromu.
+#
+# macOS DMG: tools/build_macos_dmg.sh + Homebrew create-dmg (rozvržení Finderu, pozadí tools/dmg_assets/).
 # Push na main/master → rolling release pod tagem desktop-main (verze z pubspec).
 # Volitelně tag desktop-v1.0.4 → semver release (pubspec musí sedět s částí za desktop-v).
 name: desktop_release
@@ -149,8 +162,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install macOS CocoaPods / libserialport build deps
-        run: brew install automake libtool
+      - name: Trace desktop_release macos source commit
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          echo "desktop_release/macos: GITHUB_REF=${GITHUB_REF} GITHUB_REF_NAME=${GITHUB_REF_NAME} GITHUB_SHA=${GITHUB_SHA}"
+          echo "DMG se skládá z výše uvedeného commitu (stejně jako Windows/Linux v této akci)."
+
+      - name: Install macOS CocoaPods / libserialport build deps + DMG tooling
+        run: brew install automake libtool create-dmg
 
       - uses: subosito/flutter-action@v2
         with:
@@ -187,8 +208,14 @@ jobs:
 
       - name: Create DMG (staging + Applications)
         shell: bash
+        env:
+          # Zapne AppleScript create-dmg = ikony + tapeta dle tools/build_macos_dmg.sh (ne --skip-jenkins).
+          CREATE_DMG_USE_FINDER_LAYOUT: "1"
         run: |
           set -euo pipefail
+          # Pinovat Homebrew create-dmg (bash); na runneru může PATH obsahovat jiný „create-dmg“ (např. npm).
+          eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv)"
+          export CREATE_DMG_BIN="$(brew --prefix)/bin/create-dmg"
           ref="${GITHUB_REF_NAME}"
           if [[ "$ref" == desktop-v* ]]; then
             ver="${ref#desktop-v}"
@@ -200,7 +227,7 @@ jobs:
           APP="${ROOT}/ambilight_desktop/build/macos/Build/Products/Release/ambilight_desktop.app"
           OUT="${ROOT}/ambilight_desktop_macos.dmg"
           test -d "$APP"
-          bash "${ROOT}/tools/package_macos_dmg.sh" "$APP" "$OUT" "AmbiLight ${ver}"
+          bash "${ROOT}/tools/build_macos_dmg.sh" "$APP" "$OUT" "AmbiLight ${ver}"
 
       - uses: actions/upload-artifact@v4
         with:
