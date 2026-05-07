@@ -8,6 +8,12 @@
 // (required for Debug/Profile entitlements). LocalSigning.xcconfig is gitignored.
 #include? "LocalSigning.xcconfig"
 
+// Release: výchozí vývojářský podpis. Pro sdílený DMG přidej DistributionSigning.xcconfig (viz .example) —
+// přepíše identitu na „Developer ID Application“ + hardened runtime (nutné pro notarizaci).
+CODE_SIGN_IDENTITY = Apple Development
+
+#include? "DistributionSigning.xcconfig"
+
 // The application's name. By default this is also the title of the Flutter window.
 PRODUCT_NAME = ambilight_desktop
 

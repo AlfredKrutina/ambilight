@@ -63,6 +63,8 @@ led_strip_monitor_pokus - Copy/**/.vscode/
 
 # macOS Xcode: Apple Developer team for Runner signing (see LocalSigning.xcconfig.example)
 ambilight_desktop/macos/Runner/Configs/LocalSigning.xcconfig
+# Lokální Developer ID + hardened runtime pro sdílený DMG (viz DistributionSigning.xcconfig.example)
+ambilight_desktop/macos/Runner/Configs/DistributionSigning.xcconfig
 
 # -----------------------------------------------------------------------------
 # Lokální tajemství / prostředí (nikdy do commitu)

@@ -1,0 +1,20 @@
+// Zkopíruj jako DistributionSigning.xcconfig (gitignored).
+//
+// DŮLEŽITÉ (Automatic signing v Xcode): sem NEPISUJ celý řetězec typu
+//   „Apple Development: ja@email.cz (TEAM)“ — build spadne na conflictních provisioning settings.
+// Nech jen níže (nebo vůbec nic, pokud nechceš hardened runtime z xcconfig).
+//
+// ── Varianta A — bez placeného účtu (Apple Development + Automatic) ─────────
+// V AppInfo.xcconfig zůstává CODE_SIGN_IDENTITY = Apple Development.
+// Tady jen:
+//
+//   ENABLE_HARDENED_RUNTIME = YES
+//   OTHER_CODE_SIGN_FLAGS = --timestamp
+//
+// Podpis DMG: skript vezme první „Apple Development: …“ z Klíčenky, nebo nastav:
+//   MACOS_CODESIGN_IDENTITY="Apple Development: …" bash tools/local_build_macos_distribution_dmg.sh
+//   (jen pro krok codesign na DMG — nepoužívej export CODE_SIGN_IDENTITY před flutter build.)
+//
+// ── Varianta B — placený program (Developer ID) ─────────────────────────────
+// Často je potřeba v Xcode přepnout Runner → Signing na Manual nebo krátká identita.
+// Viz dokumentace Apple / flutter deployment macOS.
