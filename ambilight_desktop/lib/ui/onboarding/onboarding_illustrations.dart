@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../core/pc_health_platform_support.dart';
 import '../../l10n/context_ext.dart';
 
 void _syncLoopingAnimation(AnimationController c, BuildContext context, {bool reverse = false}) {
@@ -344,16 +345,23 @@ class _OnboardingModesTilesDemoState extends State<OnboardingModesTilesDemo> wit
     super.dispose();
   }
 
-  static const _tiles = <({IconData icon, List<Color> colors})>[
+  static const _tilesBase = <({IconData icon, List<Color> colors})>[
     (icon: Icons.light_mode_rounded, colors: [Color(0xFFFB923C), Color(0xFFF472B6)]),
     (icon: Icons.desktop_windows_rounded, colors: [Color(0xFF2563EB), Color(0xFF06B6D4)]),
     (icon: Icons.graphic_eq_rounded, colors: [Color(0xFF7C3AED), Color(0xFFDB2777)]),
-    (icon: Icons.monitor_heart_rounded, colors: [Color(0xFF0D9488), Color(0xFF22C55E)]),
   ];
+  static const _tilePcHealth =
+      (icon: Icons.monitor_heart_rounded, colors: [Color(0xFF0D9488), Color(0xFF22C55E)]);
+
+  List<({IconData icon, List<Color> colors})> _tiles() => ambilightPcHealthUiAvailable
+      ? [..._tilesBase, _tilePcHealth]
+      : [..._tilesBase];
 
   List<String> _modeNames(BuildContext context) {
     final l = context.l10n;
-    return [l.modeLightTitle, l.modeScreenTitle, l.modeMusicTitle, l.modePcHealthTitle];
+    return ambilightPcHealthUiAvailable
+        ? [l.modeLightTitle, l.modeScreenTitle, l.modeMusicTitle, l.modePcHealthTitle]
+        : [l.modeLightTitle, l.modeScreenTitle, l.modeMusicTitle];
   }
 
   void _onTileTap(int i) {
@@ -375,17 +383,23 @@ class _OnboardingModesTilesDemoState extends State<OnboardingModesTilesDemo> wit
     return AnimatedBuilder(
       animation: _c,
       builder: (context, _) {
+        final tiles = _tiles();
+        if (_selected >= tiles.length) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _selected = tiles.length - 1);
+          });
+        }
         return Wrap(
           spacing: 12,
           runSpacing: 12,
           alignment: WrapAlignment.center,
           children: [
-            for (var i = 0; i < _tiles.length; i++)
+            for (var i = 0; i < tiles.length; i++)
               _InteractiveModeTile(
                 delay: i * 0.18,
                 phase: _c.value,
-                icon: _tiles[i].icon,
-                colors: _tiles[i].colors,
+                icon: tiles[i].icon,
+                colors: tiles[i].colors,
                 selected: _selected == i,
                 label: _modeNames(context)[i],
                 onTap: () => _onTileTap(i),

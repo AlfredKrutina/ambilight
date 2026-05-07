@@ -15,6 +15,7 @@ import 'debug_trace.dart';
 import 'pipeline_diagnostics.dart';
 import '../core/device_bindings_debug.dart';
 import '../core/models/config_models.dart';
+import '../core/pc_health_platform_support.dart';
 import '../core/protocol/serial_frame.dart';
 import '../core/protocol/udp_frame.dart';
 import '../data/config_repository.dart';
@@ -254,15 +255,18 @@ class AmbilightAppController extends ChangeNotifier {
   ScreenFrame? _screenFrameLatest;
   ScreenSessionInfo _captureSessionInfo = ScreenSessionInfo.unknown;
   final MusicAudioService _musicAudio = MusicAudioService();
+
+  /// Diagnostika music capture pro UI (input level meter, popis zařízení / backend).
+  MusicAudioService get musicAudio => _musicAudio;
   int? _pendingShellIndex;
   /// Po přechodu na Nastavení (2) — index záložky v [SettingsPage], vyzvedne ji jen Settings.
   int? _pendingSettingsTabIndex;
 
-  /// Indexy záložek [SettingsPage] — musí odpovídat `tabChild` / `_tabCount` v `settings_page.dart`.
+  /// Indexy záložek [SettingsPage] — musí odpovídat `settings_page.dart` (na macOS bez záložky PC Health).
   /// Záložka „Zařízení“ je na stránce [DevicesPage], ne v nastavení.
-  static const int settingsTabSpotify = 5;
-  static const int settingsTabSmartIntegration = 6;
-  static const int settingsTabFirmware = 7;
+  static int get settingsTabSpotify => ambilightPcHealthUiAvailable ? 5 : 4;
+  static int get settingsTabSmartIntegration => ambilightPcHealthUiAvailable ? 6 : 5;
+  static int get settingsTabFirmware => ambilightPcHealthUiAvailable ? 7 : 6;
   int _reconnectCounter = 0;
   final SpotifyService spotify = SpotifyService();
   final SystemMediaNowPlayingService systemMediaNowPlaying = SystemMediaNowPlayingService();
@@ -951,7 +955,7 @@ class AmbilightAppController extends ChangeNotifier {
     try {
       _invalidateWindowsPullCaptureExtrasCache();
       final loaded = await ConfigRepository.loadDetailed();
-      _config = stripOrphanScreenSegmentDeviceIds(loaded.config);
+      _config = applyPcHealthMacPolicy(stripOrphanScreenSegmentDeviceIds(loaded.config));
       logEspTransportBindingWarnings(_config);
       if (loaded.discardedUnreadableJson) {
         reportAppFault(AppLocaleBridge.strings.configFileUnusableBanner);
@@ -1145,7 +1149,7 @@ class AmbilightAppController extends ChangeNotifier {
       'light' => 1,
       'screen' => 2,
       'music' => 3,
-      'pchealth' => 4,
+      'pchealth' => ambilightPcHealthUiAvailable ? 4 : 1,
       _ => null,
     };
     notifyListeners();
@@ -1156,7 +1160,7 @@ class AmbilightAppController extends ChangeNotifier {
         'light' => 1,
         'screen' => 2,
         'music' => 3,
-        'pchealth' => 4,
+        'pchealth' => ambilightPcHealthUiAvailable ? 4 : null,
         _ => null,
       };
 
@@ -1352,21 +1356,21 @@ class AmbilightAppController extends ChangeNotifier {
   }
 
   Future<void> setStartMode(String mode) async {
-    final normalized = normalizeAmbilightStartMode(mode);
+    final normalized = coerceStartModeIfPcHealthUnavailable(normalizeAmbilightStartMode(mode));
     final prevCfg = _config;
     final prev = prevCfg.globalSettings.startMode;
     _config = _config.copyWith(
       globalSettings: _config.globalSettings.copyWith(startMode: normalized),
     );
     _maybeResetLightRgbSmoothing(prevCfg, _config);
-    _clearMusicPaletteLockOutsideMusicMode(mode);
-    if (prev == 'screen' && mode != 'screen') {
+    _clearMusicPaletteLockOutsideMusicMode(normalized);
+    if (prev == 'screen' && normalized != 'screen') {
       _resetScreenPipelineSmoothing();
       _screenFrameLatest = null;
       previewFrameNotifier.value = null;
       _shutdownScreenPipelineIsolate();
     }
-    if (prev == 'pchealth' && mode != 'pchealth') {
+    if (prev == 'pchealth' && normalized != 'pchealth') {
       _pcHealthSmoother.reset();
     }
     unawaited(_musicAudio.syncWithConfig(_config));
@@ -1386,7 +1390,7 @@ class AmbilightAppController extends ChangeNotifier {
     try {
       _clearTransientLedOutputs();
       final prevCfg = _config;
-      _config = stripOrphanScreenSegmentDeviceIds(next);
+      _config = applyPcHealthMacPolicy(stripOrphanScreenSegmentDeviceIds(next));
       _maybeResetLightRgbSmoothing(prevCfg, _config);
       _lastPersistedConfigJson = null;
       _lastPersistedHaToken = _config.smartLights.haLongLivedToken.trim();
@@ -1453,7 +1457,7 @@ class AmbilightAppController extends ChangeNotifier {
         '(transportBarrier=${rebuildTransports ? "ON" : "off"})',
       );
       if (clearTransient) _clearTransientLedOutputs();
-      _config = stripOrphanScreenSegmentDeviceIds(next);
+      _config = applyPcHealthMacPolicy(stripOrphanScreenSegmentDeviceIds(next));
       _maybeResetLightRgbSmoothing(prev, _config);
       _invalidateWindowsPullCaptureExtrasCache();
       traceConfigBindings('_applyConfigCore: po stripOrphan', _config);
@@ -1525,7 +1529,7 @@ class AmbilightAppController extends ChangeNotifier {
   void _applyConfigLiveOnly(AppConfig next) {
     final prev = _config;
     try {
-      _config = stripOrphanScreenSegmentDeviceIds(next);
+      _config = applyPcHealthMacPolicy(stripOrphanScreenSegmentDeviceIds(next));
       _maybeResetLightRgbSmoothing(prev, _config);
       _clearMusicPaletteLockOutsideMusicMode(_config.globalSettings.startMode);
       if (_screenPipelineTopologySignature(prev) != _screenPipelineTopologySignature(_config)) {
@@ -2262,7 +2266,8 @@ class AmbilightAppController extends ChangeNotifier {
         (_stripColorPreviewRgb != null && _stripColorPreviewTicksLeft > 0);
     final skipAllSends = homeKitHold && !allowOverrideSends;
 
-    if (!_enabled) {
+    // Průvodce mapování (zelená LED), kalibrace a náhled barvy musí jít na pásek i když je hlavní výstup vypnutý.
+    if (!_enabled && !allowOverrideSends) {
       // Výstup vypnutý z UI — bez `0xF0` (handoff jen při ukončení aplikace) a bez přepisu HA/HomeKit.
       _advanceTickPhase();
       return;

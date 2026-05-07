@@ -1,6 +1,6 @@
 # Music mód — stav portu (Flutter `ambilight_desktop`)
 
-Aktualizace: 2026-05-03 (A4: melody, AGC, monitor barvy, per-segment). FW beze změny.
+Aktualizace: 2026-05-07 — §5 macOS + §6 capture diagnostika (input level meter, capture info, bezpečný PCM acc). FW beze změny.
 
 ## 1) Capture balíček
 
@@ -44,3 +44,20 @@ Aktualizace: 2026-05-03 (A4: melody, AGC, monitor barvy, per-segment). FW beze z
 
 - `AmbilightEngine.computeFrame` → `music` větev: `MusicGranularEngine` + `_mapFlatToDevices` (stejný model jako light/screen).
 - `AmbilightAppController`: `MusicAudioService` životní cyklus dle `start_mode` a configu.
+
+## 5) macOS — proč může být „hudba“ téměř zhasnutá
+
+- **Žádný nativní loopback** (na rozdíl od Windows WASAPI v `MusicAudioService._tryStartWindowsWasapiLoopback`). Na macu se vždy jede přes `record` + seznam **vstupních** zařízení.
+- **Výchozí vstup** (`audioDeviceIndex == null`): v `_startRecordCapture` se vybere heuristika (mikrofon vs. zařízení s názvem loopback) a nakonec `inputs.first` — pokud **nepoužíváš BlackHole / agregát**, často to chytí **fyzický mikrofon**; hudba z repráků do FFT skoro neleze → slabé pásma → `MusicSegmentRenderer` škáluje barvy nízkou intenzitou → LED skoro nesvítí.
+- **I když je vstup mikrofon záměrně:** akustika v místnosti je řádově slabší než digitální loopback → FFT hodnoty zůstanou nízké, výsledné RGB jsou tmavé (ne bug, fyzika SPL).
+- **Jas navíc**: `musicMode.brightness` (0–255) se posílá do `_distribute` (`brightnessForMode`); barvy z hudby jsou už „intenzitou“ z FFT — slabý signál = tmavé RGB i při slušném jasu.
+- **Permissions ověřeno**: `Info.plist` má `NSMicrophoneUsageDescription`, `Release.entitlements` + `DebugProfile.entitlements` mají `com.apple.security.device.audio-input`. `desktop_audio_capture` plugin je linkovaný i pro macOS (`AudioCapturePlugin` v `GeneratedPluginRegistrant.swift`), ale `SystemAudioCapture` pro macOS zatím v `_tryStart…` cestě **není** (kandidát na následnou rozšíření přes ScreenCaptureKit + screen-recording permission).
+- **Praktická kontrola** (UI): Nastavení → Hudba → **karta „Vstup“** (`_MusicCaptureDiagnosticsCard`) zobrazí aktivní zařízení / backend a real-time peak meter. Pokud peak < 0.5 % po >1.5 s → červené varování s návodem. Tlačítko „Průvodce macOS zvukem“ vede k BlackHole / Aggregate.
+
+## 6) Capture diagnostika a bezpečnost (2026-05-07)
+
+- `MusicAudioService.inputLevelNotifier` — peak 0..1 z PCM bytes, throttled na 30 Hz, **vždy aktivní** (i bez AGC).
+- `MusicAudioService.captureInfoNotifier` — `MusicCaptureInfo` (backend, label, sr, channels, isLoopback) pro UI diagnostiku.
+- **PCM accumulator** přepsaný z `List<int>` (boxed integers, O(n) `removeRange`) na `BytesBuilder` + `Uint8List.sublistView` pro framování. Strop **`_pcmAccMaxBytes = 6 × 8192 B`** zahodí nejstarší data při zaostávání FFT (jinak buffer drží sekundy zvuku a UI vidí mrtvou analýzu po ztichnutí skladby).
+- **Logy** capture startu nyní jdou na `Logger.info` i mimo `kDebugMode` (jednorázově), aby uživatelské reporty obsahovaly cestu / zařízení / formát bez extra debug buildu.
+- UI: `_MusicCaptureDiagnosticsCard` v `MusicSettingsTab` — popis vstupu + level meter + macOS specifické varování.

@@ -6,6 +6,7 @@ import 'package:tray_manager/tray_manager.dart';
 
 import '../core/ambilight_presets.dart';
 import '../core/models/config_models.dart';
+import '../core/pc_health_platform_support.dart';
 import '../l10n/context_ext.dart';
 import '../ui/app_theme.dart';
 import 'ambilight_app_controller.dart';
@@ -191,11 +192,12 @@ List<PopupMenuEntry<void>> _trayEntries(
       child: _trayMenuThemed(
           menuTheme, Text(l10n.trayModeLine(l10n.modeMusicTitle))),
     ),
-    PopupMenuItem<void>(
-      onTap: () => modeTap('pchealth'),
-      child: _trayMenuThemed(
-          menuTheme, Text(l10n.trayModeLine(l10n.modePcHealthTitle))),
-    ),
+    if (ambilightPcHealthUiAvailable)
+      PopupMenuItem<void>(
+        onTap: () => modeTap('pchealth'),
+        child: _trayMenuThemed(
+            menuTheme, Text(l10n.trayModeLine(l10n.modePcHealthTitle))),
+      ),
     const PopupMenuDivider(height: 1),
     hdr(l10n.trayScreenPresetsSection),
     for (final name in AmbilightPresets.screenNames)

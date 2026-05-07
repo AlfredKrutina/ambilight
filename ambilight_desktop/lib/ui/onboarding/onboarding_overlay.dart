@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../application/ambilight_app_controller.dart';
 import '../../application/app_error_safety.dart';
 import '../../core/models/config_models.dart';
+import '../../core/pc_health_platform_support.dart';
 import '../../l10n/context_ext.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../services/led_discovery_service.dart';
@@ -862,11 +863,12 @@ class _SetupWizardState extends State<SetupWizard> with TickerProviderStateMixin
               title: l10n.setupWizardCardHaTitle,
               body: l10n.setupWizardCardHaBody,
             ),
-            _featureCard(
-              icon: Icons.monitor_heart_outlined,
-              title: l10n.setupWizardCardPcHealthTitle,
-              body: l10n.setupWizardCardPcHealthBody,
-            ),
+            if (ambilightPcHealthUiAvailable)
+              _featureCard(
+                icon: Icons.monitor_heart_outlined,
+                title: l10n.setupWizardCardPcHealthTitle,
+                body: l10n.setupWizardCardPcHealthBody,
+              ),
           ],
         );
       case 6:

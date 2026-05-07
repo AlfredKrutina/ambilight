@@ -3,7 +3,7 @@ import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import 'package:desktop_audio_capture/audio_capture.dart' hide InputDevice;
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show ValueNotifier, kDebugMode, kIsWeb;
 import 'package:logging/logging.dart';
 import 'package:record/record.dart';
 
@@ -21,6 +21,10 @@ final _log = Logger('MusicAudio');
 /// Na **Windows** lze při výchozím vstupu (bez výběru zařízení) a vypnutém „preferovat mikrofon“
 /// zachytit **výstup výchozího přehrávacího zařízení** (WASAPI loopback) — zvuk z aplikací / prohlížeče,
 /// ne nutně fyzický mikrofon ani Stereo Mix.
+///
+/// Na **macOS** dnes nemáme nativní loopback — capture jede přes `record` ze zvoleného vstupního zařízení
+/// (defaultně mikrofon nebo virtuální vstup typu BlackHole / Aggregate). [inputLevelNotifier] dává UI
+/// real‑time peak, aby uživatel viděl, jestli signál vůbec přichází.
 class MusicAudioService {
   MusicAudioService();
 
@@ -36,10 +40,23 @@ class MusicAudioService {
   AppConfig? _lastConfig;
   bool _running = false;
   bool _busy = false;
-  final List<int> _pcmAcc = [];
+  final BytesBuilder _pcmAcc = BytesBuilder(copy: false);
   static const _frameBytes = 4096 * 2;
-  final Uint8List _pcmFrameScratch = Uint8List(_frameBytes);
+  /// Strop pro PCM frontu (~6 framů = ~0.5 s při 48 kHz mono / int16). Nad limit zahodíme nejstarší
+  /// data — bez toho buffer drží sekundy zvuku, FFT zaostává a UI vidí „mrtvou“ analýzu.
+  static const _pcmAccMaxBytes = _frameBytes * 6;
   bool _audioStartFaultBannerShown = false;
+
+  /// Real‑time peak (0..1) z PCM bytů. Slouží UI jako diagnostika — když je dlouhodobě pod ~0.005,
+  /// vstupní zařízení nepřijímá zvuk (špatně zvolený vstup, ztlumený mic, zařízení neprodukuje signál).
+  final ValueNotifier<double> inputLevelNotifier = ValueNotifier<double>(0);
+  double _inputLevelPeak = 0;
+  DateTime _lastInputLevelEmit = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Stručný popis aktivní capture cesty (kdo / jaký formát / loopback?). Pomáhá při diagnostice
+  /// „LED skoro nesvítí na macOS“ — uživatel vidí, zda chytl loopback nebo náhradní mikrofon.
+  final ValueNotifier<MusicCaptureInfo> captureInfoNotifier =
+      ValueNotifier<MusicCaptureInfo>(const MusicCaptureInfo.idle());
 
   MusicAnalysisSnapshot get currentSnapshot => _latest;
 
@@ -176,9 +193,15 @@ class MusicAudioService {
           }
         },
       );
-      if (kDebugMode || ambilightVerboseLogsEnabled) {
-        _log.info('music: Windows WASAPI loopback capture started (default render device)');
-      }
+      _log.info('music: Windows WASAPI loopback capture started (default render device)');
+      captureInfoNotifier.value = const MusicCaptureInfo(
+        active: true,
+        backend: MusicCaptureBackend.windowsWasapiLoopback,
+        deviceLabel: 'Default render device',
+        sampleRate: 48000,
+        channels: 1,
+        isLoopback: true,
+      );
       return true;
     } catch (e, st) {
       if (kDebugMode || ambilightVerboseLogsEnabled) {
@@ -296,41 +319,110 @@ class MusicAudioService {
       ),
     );
 
-    if (kDebugMode) {
-      _log.fine('music stream started device=${device?.label} mic=${mm.micEnabled}');
-    }
+    final loopbackish = device != null && labelLooksLikeSystemLoopback(device.label);
+    final platformLabel = _platformLabel();
+    // Záměrně INFO i mimo debug — když uživatel hlásí „LED nesvítí“, log řekne hned, čí vstup chytáme.
+    _log.info(
+      'music capture started platform=$platformLabel '
+      'device="${device?.label ?? '<system default>'}" '
+      'micPreferred=${mm.micEnabled} loopbackish=$loopbackish '
+      'sr=48000 channels=$channels',
+    );
+    captureInfoNotifier.value = MusicCaptureInfo(
+      active: true,
+      backend: MusicCaptureBackend.recordPackage,
+      deviceLabel: device?.label ?? 'System default',
+      sampleRate: 48000,
+      channels: channels,
+      isLoopback: loopbackish,
+    );
 
     _pcmAcc.clear();
     _audioStartFaultBannerShown = false;
     _sub = stream.listen(_onPcm, onError: (Object e, StackTrace st) {
-      if (kDebugMode) {
+      if (kDebugMode || ambilightVerboseLogsEnabled) {
         _log.warning('music stream: $e', e, st);
       }
     });
   }
 
+  static String _platformLabel() {
+    try {
+      if (Platform.isMacOS) return 'macOS';
+      if (Platform.isWindows) return 'Windows';
+      if (Platform.isLinux) return 'Linux';
+    } catch (_) {}
+    return 'unknown';
+  }
+
   void _onPcm(Uint8List data) {
     if (_busy) {
+      // Reentrance ze stejné event‑loop nehrozí, ale pojistka kdyby plugin posílal sync v jiném vláknu.
       return;
     }
     _busy = true;
     try {
-      _pcmAcc.addAll(data);
-      while (_pcmAcc.length >= _frameBytes) {
-        for (var i = 0; i < _frameBytes; i++) {
-          _pcmFrameScratch[i] = _pcmAcc[i];
+      _updateInputLevel(data);
+      _pcmAcc.add(data);
+
+      // Drop nejstarších dat při zaostávání FFT — bez toho buffer drží sekundy zvuku
+      // a UI vidí „mrtvou“ analýzu ještě dlouho po tom, co skladba ztichne.
+      if (_pcmAcc.length > _pcmAccMaxBytes) {
+        final all = _pcmAcc.takeBytes();
+        final keep = Uint8List.sublistView(all, all.length - _pcmAccMaxBytes);
+        _pcmAcc.add(keep);
+        if (kDebugMode || ambilightVerboseLogsEnabled) {
+          _log.fine('music: PCM acc overflow, dropped ${all.length - keep.length} bytes');
         }
-        _pcmAcc.removeRange(0, _frameBytes);
+      }
+
+      if (_pcmAcc.length < _frameBytes) return;
+
+      final all = _pcmAcc.takeBytes();
+      var offset = 0;
+      while (all.length - offset >= _frameBytes) {
+        final frame = Uint8List.sublistView(all, offset, offset + _frameBytes);
+        offset += _frameBytes;
         if (_fftIsolateReady && _fftBridge != null) {
-          _fftBridge!.submitPcm16MonoFrame(_pcmFrameScratch);
+          _fftBridge!.submitPcm16MonoFrame(frame);
         } else {
           _fallbackAnalyzer ??= MusicFftAnalyzer();
-          _latest = _fallbackAnalyzer!.processPcmInt16Le(_pcmFrameScratch, 1);
+          _latest = _fallbackAnalyzer!.processPcmInt16Le(frame, 1);
         }
+      }
+      if (offset < all.length) {
+        _pcmAcc.add(Uint8List.sublistView(all, offset));
       }
     } finally {
       _busy = false;
     }
+  }
+
+  /// Spočítá rychlý peak (max |sample| / 32768) z chunku a notifikuje UI maximálně 30×/s,
+  /// aby Notifier nezahltil rebuild.
+  void _updateInputLevel(Uint8List data) {
+    if (data.length < 2) return;
+    var peak = 0;
+    final n = data.length & ~1;
+    for (var i = 0; i < n; i += 2) {
+      final lo = data[i];
+      final hi = data[i + 1];
+      var s = lo | (hi << 8);
+      if (s >= 32768) s -= 65536;
+      final a = s < 0 ? -s : s;
+      if (a > peak) peak = a;
+    }
+    final norm = peak / 32768.0;
+    if (norm > _inputLevelPeak) {
+      _inputLevelPeak = norm;
+    } else {
+      _inputLevelPeak *= 0.85;
+      if (norm > _inputLevelPeak) _inputLevelPeak = norm;
+    }
+    final now = DateTime.now();
+    if (now.difference(_lastInputLevelEmit).inMilliseconds < 33) return;
+    _lastInputLevelEmit = now;
+    inputLevelNotifier.value = _inputLevelPeak.clamp(0.0, 1.0);
   }
 
   Future<void> _stopInternal() async {
@@ -345,6 +437,9 @@ class MusicAudioService {
     _recorder = null;
     _pcmAcc.clear();
     _latest = MusicAnalysisSnapshot.silent();
+    _inputLevelPeak = 0;
+    inputLevelNotifier.value = 0;
+    captureInfoNotifier.value = const MusicCaptureInfo.idle();
   }
 
   Future<void> dispose() async {
@@ -353,5 +448,7 @@ class MusicAudioService {
     _fftBridge = null;
     _fftIsolateReady = false;
     _fallbackAnalyzer = null;
+    inputLevelNotifier.dispose();
+    captureInfoNotifier.dispose();
   }
 }

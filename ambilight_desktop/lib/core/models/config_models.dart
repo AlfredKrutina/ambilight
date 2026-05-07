@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../json/json_utils.dart';
+import '../pc_health_platform_support.dart';
 import 'pc_health_defaults.dart';
 import 'smart_lights_models.dart';
 
@@ -21,6 +22,14 @@ String normalizeAmbilightStartMode(String raw) {
   final k = t.toLowerCase().replaceAll('-', '_');
   if (k == 'pc_health') return 'pchealth';
   return t;
+}
+
+/// Konfigurace načtená z JSON / IPC — na macOS bez PC Health přepíše aktivní `pchealth` na `light`.
+AppConfig applyPcHealthMacPolicy(AppConfig c) {
+  if (ambilightPcHealthUiAvailable) return c;
+  final k = c.globalSettings.startMode.trim().toLowerCase().replaceAll('-', '_');
+  if (k != 'pchealth' && k != 'pc_health') return c;
+  return c.copyWith(globalSettings: c.globalSettings.copyWith(startMode: 'light'));
 }
 
 /// UI paleta: historicky uložené `"dark"` = dnešní modrý vzhled → [`dark_blue`].
@@ -320,7 +329,9 @@ class GlobalSettings {
       baudRate: asInt(j['baud_rate'], 115200),
       ledCount: asInt(j['led_count'], 66),
       devices: devs,
-      startMode: normalizeAmbilightStartMode(asString(j['start_mode'], 'screen')),
+      startMode: coerceStartModeIfPcHealthUnavailable(
+        normalizeAmbilightStartMode(asString(j['start_mode'], 'screen')),
+      ),
       startMinimized: asBool(j['start_minimized'], false),
       autostart: asBool(j['autostart'], false),
       theme: normalizeAmbilightUiTheme(asString(j['theme'], 'dark_blue')),

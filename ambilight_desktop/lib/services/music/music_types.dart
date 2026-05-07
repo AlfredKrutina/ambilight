@@ -111,3 +111,40 @@ class MusicCaptureDeviceInfo {
   final String label;
   final bool isLoopback;
 }
+
+/// Capture backend pro UI diagnostiku — který kanál právě bere zvuk.
+enum MusicCaptureBackend {
+  /// Žádný capture neběží (idle / mód není „music“).
+  none,
+  /// `record` plugin (mic / virtuální vstup typu BlackHole / Aggregate / VB‑Cable).
+  recordPackage,
+  /// `desktop_audio_capture` WASAPI loopback (Windows výchozí render device).
+  windowsWasapiLoopback,
+}
+
+/// Stručný popis aktuálního capture stavu pro UI; aktualizuje [MusicAudioService.captureInfoNotifier].
+class MusicCaptureInfo {
+  const MusicCaptureInfo({
+    required this.active,
+    required this.backend,
+    required this.deviceLabel,
+    required this.sampleRate,
+    required this.channels,
+    required this.isLoopback,
+  });
+
+  const MusicCaptureInfo.idle()
+      : active = false,
+        backend = MusicCaptureBackend.none,
+        deviceLabel = '',
+        sampleRate = 0,
+        channels = 0,
+        isLoopback = false;
+
+  final bool active;
+  final MusicCaptureBackend backend;
+  final String deviceLabel;
+  final int sampleRate;
+  final int channels;
+  final bool isLoopback;
+}

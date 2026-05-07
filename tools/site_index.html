@@ -127,16 +127,17 @@
       <h1>AmbiLight</h1>
       <p class="lede">
         Screen-aware ambient lighting with a cross-platform desktop client and lamp firmware.
-        This site hosts <span class="hint">CI-built packages</span> (Windows &amp; Linux) plus the latest
-        <strong>ESP-IDF</strong> binaries for OTA/USB workflows.
+        This site hosts <span class="hint">CI-built packages</span> (Windows, Linux, macOS DMG z GitHub Release)
+        plus the latest <strong>ESP-IDF</strong> binaries for OTA/USB workflows.
       </p>
     </header>
 
     <section aria-labelledby="downloads-heading">
       <h3 id="downloads-heading">Desktop application</h3>
       <p class="fineprint" style="margin-top:0">
-        Builds are produced by GitHub Actions from the default branch. Extract the archive and run the app bundle inside.
-        macOS is not published here (signing &amp; notarization); build locally with Flutter — see the repository runbook.
+        Windows a Linux balíčky staví workflow <code>firmware_pages</code>. Soubor
+        <code>ambilight_desktop_macos.dmg</code> se po každém úspěšném <code>desktop_release</code>
+        zrcadlí z GitHub Releases na tuto adresu (nepodepsaný CI build — případně Otevřít v Soukromí).
       </p>
       <div class="grid">
         <div class="card">
@@ -152,10 +153,14 @@
           <div class="meta">GTK3 / system libs per Flutter Linux docs.</div>
         </div>
         <div class="card">
-          <h2>macOS</h2>
-          <p>Build from source on Apple silicon or Intel. The <code>mac-app</code> branch tracks Mac-friendly entitlements.</p>
-          <a class="btn secondary" href="https://github.com/AlfredKrutina/ambilight/tree/mac-app">Repository branch</a>
-          <div class="meta">Also read <code>ambilight_desktop/README_RUN.md</code> for permissions.</div>
+          <h2>macOS (DMG)</h2>
+          <p>
+            Stejný artefakt jako u release <code>desktop-main</code> / <code>desktop-v*</code>
+            (<code>ambilight_desktop_macos.dmg</code>). Lokální build: Flutter v repu.
+          </p>
+          <a class="btn" href="downloads/ambilight_desktop_macos.dmg">Stáhnout DMG</a>
+          <a class="btn secondary" href="https://github.com/AlfredKrutina/ambilight/releases">GitHub Releases</a>
+          <div class="meta">Průvodce oprávněními: <code>ambilight_desktop/README_RUN.md</code>.</div>
         </div>
       </div>
     </section>

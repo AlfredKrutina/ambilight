@@ -187,6 +187,9 @@ jobs:
 
       - name: Create DMG (staging + Applications)
         shell: bash
+        env:
+          # Zapne AppleScript create-dmg = ikony + tapeta dle tools/build_macos_dmg.sh (ne --skip-jenkins).
+          CREATE_DMG_USE_FINDER_LAYOUT: "1"
         run: |
           set -euo pipefail
           ref="${GITHUB_REF_NAME}"

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../application/ambilight_app_controller.dart';
 import '../core/models/config_models.dart';
+import '../core/pc_health_platform_support.dart';
 import '../features/spotify/spotify_service.dart';
 import '../l10n/context_ext.dart';
 import 'dashboard_ui.dart';
@@ -114,17 +115,18 @@ class HomePage extends StatelessWidget {
           colors: [Color(0xFF7C3AED), Color(0xFFDB2777)],
         ),
       ),
-      (
-        id: 'pchealth',
-        title: l.modePcHealthTitle,
-        subtitle: l.modePcHealthSubtitle,
-        icon: Icons.monitor_heart_rounded,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF0D9488), Color(0xFF22C55E)],
+      if (ambilightPcHealthUiAvailable)
+        (
+          id: 'pchealth',
+          title: l.modePcHealthTitle,
+          subtitle: l.modePcHealthSubtitle,
+          icon: Icons.monitor_heart_rounded,
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0D9488), Color(0xFF22C55E)],
+          ),
         ),
-      ),
     ];
   }
 

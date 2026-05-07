@@ -215,6 +215,8 @@ class _MusicSettingsTabState extends State<MusicSettingsTab> {
           ),
         ),
       ],
+      const SizedBox(height: 10),
+      const _MusicCaptureDiagnosticsCard(),
       Selector<AmbilightAppController, ({bool locked, bool pending})>(
         selector: (_, ctrl) => (locked: ctrl.musicPaletteLocked, pending: ctrl.musicPaletteLockCapturePending),
         builder: (context, v, _) {
@@ -1086,6 +1088,156 @@ class _MusicFixedColorSlidersState extends State<_MusicFixedColorSliders> {
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
+    );
+  }
+}
+
+/// Card s diagnostikou capture cesty pro music mód:
+/// — popisek aktivního zařízení / backendu (mic vs. WASAPI loopback),
+/// — real‑time peak meter z PCM (vždy aktivní, nezávisle na AGC),
+/// — varování když je signál dlouhodobě tichý (typicky špatně zvolený vstup na macOS).
+///
+/// Pomáhá nejvíc na macOS, kde nemáme nativní loopback a uživatel musí ručně směrovat zvuk
+/// (BlackHole / Aggregate / Multi‑Output Device). Bez meteru je „LED skoro nesvítí“ vs.
+/// „signál nepřichází“ k nerozeznání.
+class _MusicCaptureDiagnosticsCard extends StatefulWidget {
+  const _MusicCaptureDiagnosticsCard();
+
+  @override
+  State<_MusicCaptureDiagnosticsCard> createState() => _MusicCaptureDiagnosticsCardState();
+}
+
+class _MusicCaptureDiagnosticsCardState extends State<_MusicCaptureDiagnosticsCard> {
+  static const double _silenceThreshold = 0.005;
+  DateTime? _silenceSince;
+
+  @override
+  Widget build(BuildContext context) {
+    final ctrl = context.read<AmbilightAppController>();
+    final svc = ctrl.musicAudio;
+    final colors = Theme.of(context).colorScheme;
+    final isMusicMode = ctrl.config.globalSettings.startMode == 'music';
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: ValueListenableBuilder<MusicCaptureInfo>(
+          valueListenable: svc.captureInfoNotifier,
+          builder: (context, info, _) {
+            final backendLabel = switch (info.backend) {
+              MusicCaptureBackend.none => 'Neaktivní',
+              MusicCaptureBackend.recordPackage => 'record (mic / virtuální vstup)',
+              MusicCaptureBackend.windowsWasapiLoopback => 'WASAPI loopback (Windows)',
+            };
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      info.active ? Icons.graphic_eq : Icons.mic_off_outlined,
+                      size: 18,
+                      color: info.active ? colors.primary : colors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Vstup: ${info.active ? info.deviceLabel : '—'}',
+                        style: Theme.of(context).textTheme.titleSmall,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  info.active
+                      ? '$backendLabel · ${info.sampleRate} Hz · ${info.channels} kanál${info.channels == 1 ? '' : 'y'}${info.isLoopback ? ' · loopback' : ''}'
+                      : (isMusicMode
+                          ? 'Capture se startuje…'
+                          : 'Hudební režim není aktivní (přepni v hlavičce nebo v hlavním přehledu).'),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 10),
+                ValueListenableBuilder<double>(
+                  valueListenable: svc.inputLevelNotifier,
+                  builder: (context, level, _) {
+                    if (info.active) {
+                      if (level < _silenceThreshold) {
+                        _silenceSince ??= DateTime.now();
+                      } else {
+                        _silenceSince = null;
+                      }
+                    } else {
+                      _silenceSince = null;
+                    }
+                    final silentForMs = _silenceSince == null
+                        ? 0
+                        : DateTime.now().difference(_silenceSince!).inMilliseconds;
+                    final showSilenceWarning = info.active && silentForMs > 1500;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: level.clamp(0.0, 1.0),
+                                  minHeight: 8,
+                                  color: showSilenceWarning ? colors.error : colors.primary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 56,
+                              child: Text(
+                                '${(level * 100).toStringAsFixed(1)} %',
+                                textAlign: TextAlign.right,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (showSilenceWarning) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.warning_amber_rounded, size: 16, color: colors.error),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  Platform.isMacOS
+                                      ? 'Žádný signál ze vstupu. Na macOS pravděpodobně chytáme '
+                                          'mikrofon nebo nepoužitý vstup. Otevři průvodce zvukem '
+                                          'výše a nasměruj přehrávání do BlackHole / Aggregate / '
+                                          'Multi‑Output Device, případně zvol zařízení v selektu nahoře.'
+                                      : 'Vstup neposílá žádný zvuk. Zkontroluj zvolené zařízení '
+                                          '(Stereo Mix / VB‑Cable / mikrofon) a hlasitost přehrávání.',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: colors.error,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 }

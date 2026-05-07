@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/models/config_models.dart';
+import '../../../core/pc_health_platform_support.dart';
 import '../../../l10n/context_ext.dart';
 import '../config_backup_section.dart';
 import '../settings_common.dart';
@@ -44,13 +45,16 @@ List<Widget> globalSettingsFields(
         labelText: l10n.startModeLabel,
         border: const OutlineInputBorder(),
       ),
-      value: g.startMode,
+      value: ambilightPcHealthUiAvailable
+          ? g.startMode
+          : (g.startMode == 'pchealth' ? 'light' : g.startMode),
       items: [
         DropdownMenuItem(value: 'light', child: Text(l10n.startModeLight)),
         DropdownMenuItem(value: 'screen', child: Text(l10n.startModeScreen)),
         DropdownMenuItem(value: 'music', child: Text(l10n.startModeMusic)),
-        DropdownMenuItem(
-            value: 'pchealth', child: Text(l10n.startModePcHealth)),
+        if (ambilightPcHealthUiAvailable)
+          DropdownMenuItem(
+              value: 'pchealth', child: Text(l10n.startModePcHealth)),
       ],
       onChanged: (v) {
         if (v == null) return;

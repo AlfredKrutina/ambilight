@@ -9,6 +9,7 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../core/ambilight_presets.dart';
+import '../core/pc_health_platform_support.dart';
 import 'ambilight_app_controller.dart';
 import 'tray_mode_icon.dart';
 
@@ -201,7 +202,7 @@ Menu _buildTrayMenu(AmbilightAppController c) {
       modeItem('Režim: Light', 'light'),
       modeItem('Režim: Screen', 'screen'),
       modeItem('Režim: Music', 'music'),
-      modeItem('Režim: PC Health', 'pchealth'),
+      if (ambilightPcHealthUiAvailable) modeItem('Režim: PC Health', 'pchealth'),
       MenuItem.separator(),
       MenuItem(label: 'Screen — presety', submenu: screenSub),
       MenuItem(label: 'Music — presety', submenu: musicSub),

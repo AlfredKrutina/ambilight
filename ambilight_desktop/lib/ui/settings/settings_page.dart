@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../application/ambilight_app_controller.dart';
 import '../../core/models/config_models.dart';
+import '../../core/pc_health_platform_support.dart';
 import '../../features/pc_health/pc_health_snapshot.dart';
 import '../../core/models/smart_lights_models.dart';
 import '../../l10n/context_ext.dart';
@@ -29,16 +30,17 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  static const _tabCount = 8;
+  late final int _tabLength;
 
   @override
   void initState() {
     super.initState();
+    _tabLength = ambilightPcHealthUiAvailable ? 8 : 7;
     final boot = context.read<AmbilightAppController>().takePendingSettingsTabIndex();
     final initialTab =
-        (boot != null && boot >= 0 && boot < _tabCount) ? boot : 0;
+        (boot != null && boot >= 0 && boot < _tabLength) ? boot : 0;
     _tabController = TabController(
-      length: _tabCount,
+      length: _tabLength,
       initialIndex: initialTab,
       vsync: this,
     );
@@ -117,44 +119,67 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
 
             // Pořadí indexů musí sedět s [AmbilightAppController.settingsTab*] a přehledem Integrace.
             Widget tabChild(int i) {
-              switch (i) {
-                case 0:
-                  return GlobalSettingsTab(
-                    draft: draft,
-                    maxWidth: contentW,
-                    onChanged: _patchGlobal,
-                    onReplayOnboarding: () => unawaited(_replayOnboarding()),
-                  );
-                case 1:
-                  return LightSettingsTab(
-                    draft: draft,
-                    maxWidth: contentW,
-                    onChanged: _patchLight,
-                  );
-                case 2:
-                  return ScreenSettingsTab(
-                    draft: draft,
-                    maxWidth: contentW,
-                    onChanged: _patchScreen,
-                  );
-                case 3:
-                  return MusicSettingsTab(
-                    draft: draft,
-                    maxWidth: contentW,
-                    onChanged: _patchMusic,
-                    onAppConfig: _queue,
-                  );
-                case 4:
-                  return ValueListenableBuilder<PcHealthSnapshot>(
-                    valueListenable: ctrl.pcHealthSnapshotNotifier,
-                    builder: (context, _, __) => PcHealthSettingsTab(
-                      controller: ctrl,
+              if (i <= 3) {
+                return switch (i) {
+                  0 => GlobalSettingsTab(
+                      draft: draft,
                       maxWidth: contentW,
-                      onChanged: _patchPcHealth,
+                      onChanged: _patchGlobal,
+                      onReplayOnboarding: () => unawaited(_replayOnboarding()),
                     ),
-                  );
-                case 5:
-                  return SpotifySettingsTab(
+                  1 => LightSettingsTab(
+                      draft: draft,
+                      maxWidth: contentW,
+                      onChanged: _patchLight,
+                    ),
+                  2 => ScreenSettingsTab(
+                      draft: draft,
+                      maxWidth: contentW,
+                      onChanged: _patchScreen,
+                    ),
+                  3 => MusicSettingsTab(
+                      draft: draft,
+                      maxWidth: contentW,
+                      onChanged: _patchMusic,
+                      onAppConfig: _queue,
+                    ),
+                  _ => const SizedBox.shrink(),
+                };
+              }
+              if (ambilightPcHealthUiAvailable) {
+                return switch (i) {
+                  4 => ValueListenableBuilder<PcHealthSnapshot>(
+                      valueListenable: ctrl.pcHealthSnapshotNotifier,
+                      builder: (context, _, __) => PcHealthSettingsTab(
+                        controller: ctrl,
+                        maxWidth: contentW,
+                        onChanged: _patchPcHealth,
+                      ),
+                    ),
+                  5 => SpotifySettingsTab(
+                      draft: draft,
+                      maxWidth: contentW,
+                      onSpotifyChanged: _patchSpotify,
+                      onSystemMediaAlbumChanged: (sm) {
+                        final c = context.read<AmbilightAppController>();
+                        _queue(c.config.copyWith(systemMediaAlbum: sm));
+                      },
+                    ),
+                  6 => SmartIntegrationTab(
+                      draft: draft,
+                      maxWidth: contentW,
+                      onSmartLightsChanged: _patchSmartLights,
+                    ),
+                  7 => FirmwareSettingsTab(
+                      draft: draft,
+                      maxWidth: contentW,
+                      onGlobalChanged: _patchGlobal,
+                    ),
+                  _ => const SizedBox.shrink(),
+                };
+              }
+              return switch (i) {
+                4 => SpotifySettingsTab(
                     draft: draft,
                     maxWidth: contentW,
                     onSpotifyChanged: _patchSpotify,
@@ -162,29 +187,26 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                       final c = context.read<AmbilightAppController>();
                       _queue(c.config.copyWith(systemMediaAlbum: sm));
                     },
-                  );
-                case 6:
-                  return SmartIntegrationTab(
+                  ),
+                5 => SmartIntegrationTab(
                     draft: draft,
                     maxWidth: contentW,
                     onSmartLightsChanged: _patchSmartLights,
-                  );
-                case 7:
-                  return FirmwareSettingsTab(
+                  ),
+                6 => FirmwareSettingsTab(
                     draft: draft,
                     maxWidth: contentW,
                     onGlobalChanged: _patchGlobal,
-                  );
-                default:
-                  return const SizedBox.shrink();
-              }
+                  ),
+                _ => const SizedBox.shrink(),
+              };
             }
 
         final body = TabBarView(
           controller: _tabController,
           physics: useRail ? const NeverScrollableScrollPhysics() : const AlwaysScrollableScrollPhysics(),
           children: [
-            for (var i = 0; i < _tabCount; i++)
+            for (var i = 0; i < _tabLength; i++)
               KeyedSubtree(
                 // Stabilní klíč jen podle indexu záložky — [configPersistGeneration] by při
                 // každém uložení konfigurace zničil strom a srazil scroll nahoru.
@@ -224,6 +246,7 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _SettingsSidebar(
+                showPcHealthTab: ambilightPcHealthUiAvailable,
                 selectedIndex: _tabController.index,
                 onSelect: (i) => setState(() => _tabController.index = i),
               ),
@@ -299,7 +322,7 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                 Tab(text: context.l10n.tabLight),
                 Tab(text: context.l10n.tabScreen),
                 Tab(text: context.l10n.tabMusic),
-                Tab(text: context.l10n.tabPcHealth),
+                if (ambilightPcHealthUiAvailable) Tab(text: context.l10n.tabPcHealth),
                 Tab(text: context.l10n.tabSpotify),
                 Tab(text: context.l10n.tabSmartHome),
                 Tab(text: context.l10n.tabFirmware),
@@ -322,10 +345,12 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
 
 class _SettingsSidebar extends StatelessWidget {
   const _SettingsSidebar({
+    required this.showPcHealthTab,
     required this.selectedIndex,
     required this.onSelect,
   });
 
+  final bool showPcHealthTab;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
 
@@ -372,34 +397,35 @@ class _SettingsSidebar extends StatelessWidget {
               selected: selectedIndex == 3,
               onTap: () => onSelect(3),
             ),
-            AmbiSidebarTile(
-              icon: Icons.monitor_heart_rounded,
-              label: l10n.tabPcHealth,
-              tooltip: l10n.settingsTabPcHealthTooltip,
-              selected: selectedIndex == 4,
-              onTap: () => onSelect(4),
-            ),
+            if (showPcHealthTab)
+              AmbiSidebarTile(
+                icon: Icons.monitor_heart_rounded,
+                label: l10n.tabPcHealth,
+                tooltip: l10n.settingsTabPcHealthTooltip,
+                selected: selectedIndex == 4,
+                onTap: () => onSelect(4),
+              ),
             AmbiSidebarSectionLabel(l10n.settingsSidebarIntegrations),
             AmbiSidebarTile(
               icon: Icons.queue_music_rounded,
               label: l10n.tabSpotify,
               tooltip: l10n.settingsTabSpotifyTooltip,
-              selected: selectedIndex == 5,
-              onTap: () => onSelect(5),
+              selected: selectedIndex == (showPcHealthTab ? 5 : 4),
+              onTap: () => onSelect(showPcHealthTab ? 5 : 4),
             ),
             AmbiSidebarTile(
               icon: Icons.home_work_outlined,
               label: l10n.tabSmartHome,
               tooltip: l10n.settingsTabSmartHomeTooltip,
-              selected: selectedIndex == 6,
-              onTap: () => onSelect(6),
+              selected: selectedIndex == (showPcHealthTab ? 6 : 5),
+              onTap: () => onSelect(showPcHealthTab ? 6 : 5),
             ),
             AmbiSidebarTile(
               icon: Icons.system_update_alt_rounded,
               label: l10n.tabFirmware,
               tooltip: l10n.settingsTabFirmwareTooltip,
-              selected: selectedIndex == 7,
-              onTap: () => onSelect(7),
+              selected: selectedIndex == (showPcHealthTab ? 7 : 6),
+              onTap: () => onSelect(showPcHealthTab ? 7 : 6),
             ),
           ],
         ),

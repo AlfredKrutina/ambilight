@@ -1,4 +1,13 @@
-# ESP-IDF firmware + Flutter desktop bundles → static site on GitHub Pages.
+# ESP-IDF firmware + Flutter desktop bundles → static site na GitHub Pages.
+#
+# Tok po pushi na main/master (zhruba paralelně):
+#   1) desktop_release — build Win/Mac/Linux → GitHub Release [desktop-main] + manifest
+#   2) firmware_pages (push) — firmware + Win/Linux ZIP z tohoto commitu → deploy Pages;
+#      DMG se stáhne z Release (viz níže). První běh může doběhnout dřív než upload DMG → DMG doplní:
+#   3) firmware_pages (workflow_run po úspěšném desktop_release) — stejný commit, znovu deploy,
+#      mirror DMG už najde čerstvý desktop-main.
+#
+# Výběr DMG: vždy preferovat tag desktop-main (rolling z main); jen pokud neexistuje → nejnovější desktop-v*.
 # Repo: Settings → Pages → Source: „GitHub Actions“.
 name: firmware_pages
 
@@ -6,6 +15,10 @@ on:
   push:
     branches: [main, master]
   workflow_dispatch:
+  workflow_run:
+    workflows: [desktop_release]
+    types:
+      - completed
 
 permissions:
   contents: read
@@ -18,10 +31,13 @@ concurrency:
 
 jobs:
   firmware:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Build firmware (ESP-IDF Docker)
         run: |
@@ -34,6 +50,8 @@ jobs:
             bash -lc 'rm -rf build managed_components && idf.py build'
 
       - name: Stage firmware for artifact
+        env:
+          HEAD_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
         run: |
           set -eux
           ROOT="${{ github.workspace }}"
@@ -47,7 +65,7 @@ jobs:
           cp "${BUILD}/bootloader/bootloader.bin" "${OUT}/"
           cp "${BUILD}/partition_table/partition-table.bin" "${OUT}/"
           cp "${BUILD}/ambilight_esp32c6.bin" "${OUT}/"
-          VER=$(echo "${{ github.sha }}" | cut -c1-12)
+          VER=$(echo "$HEAD_SHA" | cut -c1-12)
           BASE="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/firmware/latest"
           python3 "${ROOT}/tools/gen_firmware_manifest.py" \
             --build-dir "${BUILD}" \
@@ -62,18 +80,25 @@ jobs:
           path: fw_site
 
   desktop_windows:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: windows-latest
     defaults:
       run:
         working-directory: ambilight_desktop
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter build windows --release --dart-define=GIT_SHA=${{ github.sha }} --dart-define=AMBI_CHANNEL=ci-pages
+      - name: Flutter build Windows (release)
+        env:
+          HEAD_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+        shell: pwsh
+        run: flutter build windows --release --dart-define=GIT_SHA=$env:HEAD_SHA --dart-define=AMBI_CHANNEL=ci-pages
       - name: Zip Release bundle
         shell: pwsh
         run: |
@@ -85,12 +110,15 @@ jobs:
           path: ambilight-desktop-windows-x64.zip
 
   desktop_linux:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ambilight_desktop
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update -y
@@ -105,7 +133,10 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter build linux --release --dart-define=GIT_SHA=${{ github.sha }} --dart-define=AMBI_CHANNEL=ci-pages
+      - name: Flutter build Linux (release)
+        env:
+          HEAD_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+        run: flutter build linux --release --dart-define=GIT_SHA="$HEAD_SHA" --dart-define=AMBI_CHANNEL=ci-pages
       - name: Tar bundle
         run: tar czf "${GITHUB_WORKSPACE}/ambilight-desktop-linux-x64.tar.gz" -C build/linux/x64/release bundle
       - uses: actions/upload-artifact@v4
@@ -114,10 +145,13 @@ jobs:
           path: ambilight-desktop-linux-x64.tar.gz
 
   site:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     needs: [firmware, desktop_windows, desktop_linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - uses: actions/download-artifact@v4
         with:
@@ -143,11 +177,38 @@ jobs:
           cp _import_linux/ambilight-desktop-linux-x64.tar.gz _site/downloads/
           cp tools/site_index.html _site/index.html
 
+      - name: Mirror macOS DMG z GitHub Release (desktop_release)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eux
+          mkdir -p _site/downloads
+          REPO="${{ github.repository }}"
+          # Rolling main je vždy desktop-main — nesmí ho přebít starší „novější“ desktop-v* podle published_at.
+          if gh release view desktop-main -R "$REPO" --json tagName -q .tagName 2>/dev/null; then
+            TAG=desktop-main
+          else
+            TAG="$(gh api "repos/${REPO}/releases?per_page=80" --jq '[.[] | select(.draft | not) | select(.tag_name | startswith("desktop-v"))] | if length > 0 then max_by(.published_at).tag_name else empty end')"
+          fi
+          if [ -z "${TAG:-}" ]; then
+            echo "Žádný release desktop-main ani desktop-v* — DMG na Pages přeskočen."
+            exit 0
+          fi
+          echo "Mirror DMG z release: $TAG"
+          if gh release download "$TAG" -R "${{ github.repository }}" -p "ambilight_desktop_macos.dmg" -D _site/downloads/ --clobber; then
+            test -f _site/downloads/ambilight_desktop_macos.dmg
+            ls -la _site/downloads/ambilight_desktop_macos.dmg
+          else
+            echo "Stažení DMG selhalo (asset ještě nemusí existovat) — Pages má Win/Linux."
+            exit 0
+          fi
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
   deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     needs: site
     runs-on: ubuntu-latest
     environment:
