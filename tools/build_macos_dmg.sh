@@ -46,22 +46,53 @@ fi
 # Cursor/minimální PATH často nemá brew binárku — obnov stejně jako local_build / CI.
 export PATH="/opt/homebrew/bin:/usr/local/bin:${PATH}"
 
+# Na PATH může být jiná binárka se stejným jménem (npm: sindresorhus/create-dmg → #!/usr/bin/env node).
+# Ta nevolá stejný hdiutil řádek jako Homebrew bash skript create-dmg/create-dmg a může skončit na
+# „hdiutil: unknown option \"-filesystem\"“. Bereme jen bash skript s CDMG_VERSION= (oficiální vzor z brew).
+_is_homebrew_create_dmg_script() {
+  local p="$1"
+  [[ -f "$p" && -x "$p" ]] || return 1
+  local shebang
+  shebang="$(head -n 1 "$p" 2>/dev/null || true)"
+  case "$shebang" in
+    '#!'*/bash | '#!'*/env\ bash) ;;
+    *) return 1 ;;
+  esac
+  grep -q "^CDMG_VERSION=" "$p" 2>/dev/null
+}
+
 _create_dmg_bin() {
+  local p bp
+  local -a candidates=()
+  [[ -n "${CREATE_DMG_BIN:-}" ]] && candidates+=("$CREATE_DMG_BIN")
+  bp="$(brew --prefix 2>/dev/null || true)"
+  [[ -n "$bp" && -x "$bp/bin/create-dmg" ]] && candidates+=("$bp/bin/create-dmg")
+  candidates+=(
+    /opt/homebrew/bin/create-dmg
+    /usr/local/bin/create-dmg
+  )
   if command -v create-dmg >/dev/null 2>&1; then
-    command -v create-dmg
-    return 0
+    candidates+=("$(command -v create-dmg)")
   fi
-  local x
-  for x in /opt/homebrew/bin/create-dmg /usr/local/bin/create-dmg; do
-    if [[ -x "$x" ]]; then
-      echo "$x"
+  for p in "${candidates[@]}"; do
+    [[ -z "$p" ]] && continue
+    if _is_homebrew_create_dmg_script "$p"; then
+      echo "$p"
       return 0
     fi
   done
+  if command -v create-dmg >/dev/null 2>&1; then
+    echo "error: 'create-dmg' na PATH není Homebrew bash skript (create-dmg/create-dmg). Spatná binárka často končí na chybě hdiutil -filesystem." >&2
+    echo "      Řešení: brew install create-dmg   nebo export CREATE_DMG_BIN=\"\$(brew --prefix)/bin/create-dmg\"" >&2
+    echo "      Nalezeno: $(command -v create-dmg)  (shebang: $(head -n 1 "$(command -v create-dmg)" 2>/dev/null || echo '?'))" >&2
+  fi
   return 1
 }
 
 if _dmg_cmd="$(_create_dmg_bin)"; then
+  if [[ -n "${GITHUB_ACTIONS:-}" || -n "${CI:-}" ]]; then
+    echo "build_macos_dmg: create-dmg (bash/Homebrew) = $_dmg_cmd" >&2
+  fi
   ci_flags=()
   # Bez AppleScriptu se ignoruje --window-size, --icon, --app-drop-link i pozadí okna.
   if [[ -n "${GITHUB_ACTIONS:-}" || -n "${CI:-}" ]] && [[ "${CREATE_DMG_USE_FINDER_LAYOUT:-}" != "1" ]]; then

@@ -192,6 +192,9 @@ jobs:
           CREATE_DMG_USE_FINDER_LAYOUT: "1"
         run: |
           set -euo pipefail
+          # Pinovat Homebrew create-dmg (bash); na runneru může PATH obsahovat jiný „create-dmg“ (např. npm).
+          eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv)"
+          export CREATE_DMG_BIN="$(brew --prefix)/bin/create-dmg"
           ref="${GITHUB_REF_NAME}"
           if [[ "$ref" == desktop-v* ]]; then
             ver="${ref#desktop-v}"
