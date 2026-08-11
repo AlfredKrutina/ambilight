@@ -170,6 +170,19 @@
       "detail": {}
     }
   },
+  "desktopUpdateProgressTitle": "Updating",
+  "desktopUpdateProgressPreparing": "Preparing updater and verifying it started…",
+  "desktopUpdateResultSuccessTitle": "Update complete",
+  "desktopUpdateResultSuccessBody": "AmbiLight was updated successfully and restarted.",
+  "desktopUpdateResultFailTitle": "Update failed",
+  "desktopUpdateResultFailBody": "The update did not succeed:\n\n{detail}",
+  "@desktopUpdateResultFailBody": {
+    "placeholders": {
+      "detail": { "type": "String" }
+    }
+  },
+  "desktopUpdateResultFailBodyGeneric": "The update failed. See the log for details.",
+  "desktopUpdateLogPathLabel": "Log file",
   "semanticsCloseScanOverlay": "Close capture region preview",
   "scanZonesChip": "Zone preview",
   "bootstrapFailed": "App failed to start: {detail}",

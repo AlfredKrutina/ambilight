@@ -347,6 +347,35 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get desktopUpdateProgressTitle => 'Updating';
+
+  @override
+  String get desktopUpdateProgressPreparing =>
+      'Preparing updater and verifying it started…';
+
+  @override
+  String get desktopUpdateResultSuccessTitle => 'Update complete';
+
+  @override
+  String get desktopUpdateResultSuccessBody =>
+      'AmbiLight was updated successfully and restarted.';
+
+  @override
+  String get desktopUpdateResultFailTitle => 'Update failed';
+
+  @override
+  String desktopUpdateResultFailBody(String detail) {
+    return 'The update did not succeed:\n\n$detail';
+  }
+
+  @override
+  String get desktopUpdateResultFailBodyGeneric =>
+      'The update failed. See the log for details.';
+
+  @override
+  String get desktopUpdateLogPathLabel => 'Log file';
+
+  @override
   String get semanticsCloseScanOverlay => 'Close capture region preview';
 
   @override

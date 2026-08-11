@@ -196,17 +196,41 @@ class WindowsDesktopUpdater {
       }
 
       final err = lastErr ?? 'Nepodařilo se spustit updater žádnou metodou.';
+      await _writeStatusFile({
+        'state': 'error',
+        'message': err,
+        'logPath': logPath,
+        'at': DateTime.now().toUtc().toIso8601String(),
+        'source': 'host',
+      });
       return WindowsDesktopUpdateLaunchResult.fail(
         logPath: logPath,
         error: '$err Log: $logPath',
       );
     } catch (e, st) {
       await _appendHostLog(logPath, 'host: FATAL $e\n$st');
+      await _writeStatusFile({
+        'state': 'error',
+        'message': 'Příprava updateru selhala: $e',
+        'logPath': logPath,
+        'at': DateTime.now().toUtc().toIso8601String(),
+        'source': 'host',
+      });
       return WindowsDesktopUpdateLaunchResult.fail(
         logPath: logPath,
         error: 'Příprava updateru selhala: $e\nLog: $logPath',
       );
     }
+  }
+
+  static Future<void> _writeStatusFile(Map<String, dynamic> map) async {
+    try {
+      await Directory(otaRoot).create(recursive: true);
+      await File(statusPath).writeAsString(
+        const JsonEncoder.withIndent('  ').convert(map),
+        flush: true,
+      );
+    } catch (_) {}
   }
 
   static Future<String?> _validateZip(File zip) async {
@@ -715,12 +739,39 @@ try {
     throw "Aplikace se po aktualizaci nespustila."
   }
 
-  Write-Status @{ state = 'ok'; phase = 'done'; at = (Get-Date -Format o) }
+  Write-Status @{ state = 'ok'; phase = 'done'; message = 'Update applied'; logPath = $script:LogPath; at = (Get-Date -Format o) }
   Write-Log "ps: done"
   exit 0
 } catch {
-  try { Write-Log ("ERROR: " + $_) } catch {}
-  try { Write-Status @{ state = 'error'; message = ("$_"); at = (Get-Date -Format o) } } catch {}
+  $errMsg = "$_"
+  try { Write-Log ("ERROR: " + $errMsg) } catch {}
+  try {
+    Write-Status @{
+      state = 'error'
+      message = $errMsg
+      logPath = $script:LogPath
+      at = (Get-Date -Format o)
+    }
+  } catch {}
+
+  # Pokus o obnovu .bak, ať app vůbec naběhne a ukáže chybu uživateli.
+  try {
+    if ($liveExe -and (Test-Path -LiteralPath ($liveExe + '.bak'))) {
+      Write-Log "ps: restoring exe from .bak"
+      Copy-Item -LiteralPath ($liveExe + '.bak') -Destination $liveExe -Force -ErrorAction SilentlyContinue
+    }
+  } catch {
+    Write-Log ("ps: restore bak failed: " + $_)
+  }
+
+  try {
+    if ($liveExe -and (Test-Path -LiteralPath $liveExe) -and $TargetDir) {
+      Write-Log "ps: restarting app after failure so UI can show error"
+      Start-Process -LiteralPath $liveExe -WorkingDirectory $TargetDir
+    }
+  } catch {
+    Write-Log ("ps: restart after failure failed: " + $_)
+  }
   exit 1
 }
 ''';

@@ -349,6 +349,35 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String get desktopUpdateProgressTitle => 'Probíhá aktualizace';
+
+  @override
+  String get desktopUpdateProgressPreparing =>
+      'Připravuji aktualizátor a ověřuji spuštění…';
+
+  @override
+  String get desktopUpdateResultSuccessTitle => 'Aktualizace dokončena';
+
+  @override
+  String get desktopUpdateResultSuccessBody =>
+      'AmbiLight byl úspěšně aktualizován a znovu spuštěn.';
+
+  @override
+  String get desktopUpdateResultFailTitle => 'Aktualizace selhala';
+
+  @override
+  String desktopUpdateResultFailBody(String detail) {
+    return 'Aktualizace se nepovedla:\n\n$detail';
+  }
+
+  @override
+  String get desktopUpdateResultFailBodyGeneric =>
+      'Aktualizace se nepovedla. Podrobnosti jsou v logu.';
+
+  @override
+  String get desktopUpdateLogPathLabel => 'Soubor logu';
+
+  @override
   String get semanticsCloseScanOverlay => 'Zavřít náhled oblasti snímání';
 
   @override

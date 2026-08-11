@@ -10,6 +10,7 @@ import '../../application/ambilight_app_controller.dart';
 import '../../application/build_environment.dart';
 import '../../application/startup_crash_guard.dart';
 import '../../l10n/context_ext.dart';
+import '../../services/desktop_update/desktop_ota_report.dart';
 import '../../services/desktop_update/desktop_update_service.dart';
 import '../../services/desktop_update/windows_desktop_updater.dart';
 
@@ -84,7 +85,7 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
     if (ok != true || !mounted) return;
     final writeErr = WindowsDesktopUpdater.preflightWritableInstallDir();
     if (writeErr != null) {
-      setState(() => _downloadError = writeErr);
+      await _showInstallFailure(writeErr);
       return;
     }
     setState(() {
@@ -97,25 +98,47 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
       final dl = await svc.downloadVerifiedZip(a.asset);
       if (!mounted) return;
       if (!dl.isOk || dl.zipFile == null) {
+        final err = dl.error ?? l10n.desktopUpdateDownloadFailed;
         setState(() {
           _busy = false;
-          _downloadError = dl.error ?? l10n.desktopUpdateDownloadFailed;
+          _downloadError = err;
         });
+        await _showInstallFailure(err);
         return;
       }
+
+      // Progress dialog while launch cascade + heartbeat runs.
+      unawaited(
+        showDesktopOtaProgressDialog(
+          context,
+          message: l10n.desktopUpdateProgressPreparing,
+        ),
+      );
+
+      await DesktopOtaReportStore.writePending(detail: 'Applying desktop update…');
+
       final started = await WindowsDesktopUpdater.launchExpandCopyRestart(
         zipFile: dl.zipFile!,
         waitPid: pid,
       );
+
+      if (mounted) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) nav.pop(); // close progress
+      }
+
       if (!mounted) return;
       if (!started.ok) {
+        final err = started.error ?? l10n.desktopUpdateUpdaterStartFailed;
+        await DesktopOtaReportStore.writeHostFailure(err);
         setState(() {
           _busy = false;
-          _downloadError =
-              '${started.error ?? l10n.desktopUpdateUpdaterStartFailed}\n${started.logPath}';
+          _downloadError = '$err\n${started.logPath}';
         });
+        await _showInstallFailure(err, logPath: started.logPath);
         return;
       }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -126,19 +149,60 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
       final ctrl = context.read<AmbilightAppController>();
       await ctrl.flushPersistToDisk();
       await StartupCrashGuard.markSessionClean();
-      // Updater běží mimo Job Object a už zapsal heartbeat — bezpečné ukončit UI.
       await Future<void>.delayed(const Duration(milliseconds: 300));
       exit(0);
     } catch (e) {
       if (mounted) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) nav.pop();
         setState(() {
           _busy = false;
           _downloadError = '$e';
         });
+        await DesktopOtaReportStore.writeHostFailure('$e');
+        await _showInstallFailure('$e');
       }
     } finally {
       svc.close();
     }
+  }
+
+  Future<void> _showInstallFailure(String detail, {String? logPath}) async {
+    if (!mounted) return;
+    final path = logPath ?? WindowsDesktopUpdater.updateLogPath;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.l10n.desktopUpdateResultFailTitle),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(ctx.l10n.desktopUpdateResultFailBody(detail)),
+              const SizedBox(height: 12),
+              Text(ctx.l10n.desktopUpdateLogPathLabel, style: Theme.of(ctx).textTheme.labelMedium),
+              const SizedBox(height: 4),
+              SelectableText(path, style: Theme.of(ctx).textTheme.bodySmall),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              final dir = Directory(WindowsDesktopUpdater.otaRoot);
+              if (!await dir.exists()) await dir.create(recursive: true);
+              await Process.run('explorer.exe', [dir.path]);
+            },
+            child: Text(ctx.l10n.openLogFolder),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ctx.l10n.close),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

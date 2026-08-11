@@ -693,6 +693,54 @@ abstract class AppLocalizations {
   /// **'{detail}'**
   String desktopUpdateErrorDetail(Object detail);
 
+  /// No description provided for @desktopUpdateProgressTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating'**
+  String get desktopUpdateProgressTitle;
+
+  /// No description provided for @desktopUpdateProgressPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing updater and verifying it started…'**
+  String get desktopUpdateProgressPreparing;
+
+  /// No description provided for @desktopUpdateResultSuccessTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update complete'**
+  String get desktopUpdateResultSuccessTitle;
+
+  /// No description provided for @desktopUpdateResultSuccessBody.
+  ///
+  /// In en, this message translates to:
+  /// **'AmbiLight was updated successfully and restarted.'**
+  String get desktopUpdateResultSuccessBody;
+
+  /// No description provided for @desktopUpdateResultFailTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update failed'**
+  String get desktopUpdateResultFailTitle;
+
+  /// No description provided for @desktopUpdateResultFailBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The update did not succeed:\n\n{detail}'**
+  String desktopUpdateResultFailBody(String detail);
+
+  /// No description provided for @desktopUpdateResultFailBodyGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'The update failed. See the log for details.'**
+  String get desktopUpdateResultFailBodyGeneric;
+
+  /// No description provided for @desktopUpdateLogPathLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Log file'**
+  String get desktopUpdateLogPathLabel;
+
   /// No description provided for @semanticsCloseScanOverlay.
   ///
   /// In en, this message translates to:

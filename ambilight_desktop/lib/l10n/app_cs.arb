@@ -99,6 +99,19 @@
   "desktopUpdateUpdaterStartFailed": "Nepodařilo se spustit aktualizátor.",
   "desktopUpdateRestarting": "Ukládám a končím… aktualizátor aplikaci znovu spustí.",
   "desktopUpdateErrorDetail": "{detail}",
+  "desktopUpdateProgressTitle": "Probíhá aktualizace",
+  "desktopUpdateProgressPreparing": "Připravuji aktualizátor a ověřuji spuštění…",
+  "desktopUpdateResultSuccessTitle": "Aktualizace dokončena",
+  "desktopUpdateResultSuccessBody": "AmbiLight byl úspěšně aktualizován a znovu spuštěn.",
+  "desktopUpdateResultFailTitle": "Aktualizace selhala",
+  "desktopUpdateResultFailBody": "Aktualizace se nepovedla:\n\n{detail}",
+  "@desktopUpdateResultFailBody": {
+    "placeholders": {
+      "detail": { "type": "String" }
+    }
+  },
+  "desktopUpdateResultFailBodyGeneric": "Aktualizace se nepovedla. Podrobnosti jsou v logu.",
+  "desktopUpdateLogPathLabel": "Soubor logu",
   "semanticsCloseScanOverlay": "Zavřít náhled oblasti snímání",
   "scanZonesChip": "Náhled zón",
   "bootstrapFailed": "Aplikace se nespustila: {detail}",
