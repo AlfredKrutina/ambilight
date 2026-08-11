@@ -7,11 +7,12 @@ import '../../../core/device_bindings_debug.dart';
 import '../../../core/models/config_models.dart';
 import '../../../data/udp_device_commands.dart';
 import '../../../services/led_discovery_service.dart';
+import '../../../l10n/context_ext.dart';
+import '../../../l10n/generated/app_localizations.dart';
+import '../../dashboard_ui.dart';
 import '../../layout_breakpoints.dart';
 import '../../widgets/config_device_list_tile.dart';
 import '../../wizards/led_strip_wizard_dialog.dart';
-import '../../../l10n/context_ext.dart';
-import '../../../l10n/generated/app_localizations.dart';
 
 class DevicesTab extends StatelessWidget {
   const DevicesTab({
@@ -95,11 +96,11 @@ class DevicesTab extends StatelessWidget {
               ...devices.asMap().entries.map((e) {
                 final i = e.key;
                 final d = e.value;
-                return Card(
+                return Padding(
                   key: ValueKey<String>('dev-tab-${d.id}'),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: AmbiGlassPanel(
+                    padding: const EdgeInsets.all(14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -110,6 +111,11 @@ class DevicesTab extends StatelessWidget {
                                 d.name.isEmpty ? l10n.devicesUnnamedDevice(i + 1) : d.name,
                                 style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                               ),
+                            ),
+                            IconButton(
+                              tooltip: l10n.devicesFlashFirmwareTooltip,
+                              onPressed: () => context.read<AmbilightAppController>().requestOpenUpdates(deviceId: d.id),
+                              icon: const Icon(Icons.system_update_alt_rounded),
                             ),
                             IconButton(
                               tooltip: l10n.segmentsLabel,

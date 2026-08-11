@@ -247,14 +247,23 @@ class AmbilightAppController extends ChangeNotifier {
   ScreenSessionInfo _captureSessionInfo = ScreenSessionInfo.unknown;
   final MusicAudioService _musicAudio = MusicAudioService();
   int? _pendingShellIndex;
-  /// Po přechodu na Nastavení (2) — index záložky v [SettingsPage], vyzvedne ji jen Settings.
+  /// Po přechodu na Nastavení — index záložky v [SettingsPage], vyzvedne ji jen Settings.
   int? _pendingSettingsTabIndex;
+  /// Předvybrané zařízení na stránce Aktualizace (flash/OTA); vyzvedne [UpdatesPage].
+  String? _pendingFlashDeviceId;
+
+  /// Indexy stránek [AmbiShell]: Přehled, Zařízení, Aktualizace, Nastavení, O aplikaci.
+  static const int shellIndexOverview = 0;
+  static const int shellIndexDevices = 1;
+  static const int shellIndexUpdates = 2;
+  static const int shellIndexSettings = 3;
+  static const int shellIndexAbout = 4;
 
   /// Indexy záložek [SettingsPage] — musí odpovídat `tabChild` / `_tabCount` v `settings_page.dart`.
-  /// Záložka „Zařízení“ je na stránce [DevicesPage], ne v nastavení.
+  /// Záložka „Zařízení“ je na stránce [DevicesPage]; firmware na [UpdatesPage].
   static const int settingsTabSpotify = 5;
   static const int settingsTabSmartIntegration = 6;
-  static const int settingsTabFirmware = 7;
+  static const int settingsTabLast = 6;
   int _reconnectCounter = 0;
   final SpotifyService spotify = SpotifyService();
   final SystemMediaNowPlayingService systemMediaNowPlaying = SystemMediaNowPlayingService();
@@ -1102,7 +1111,7 @@ class AmbilightAppController extends ChangeNotifier {
     }
   }
 
-  /// Jednorázově požádá shell o přepnutí na stránku [index] v [AmbiShell] (např. 2 = Nastavení).
+  /// Jednorázově požádá shell o přepnutí na stránku v [AmbiShell].
   int? takePendingShellIndex() {
     final v = _pendingShellIndex;
     _pendingShellIndex = null;
@@ -1116,23 +1125,43 @@ class AmbilightAppController extends ChangeNotifier {
     return v;
   }
 
+  /// ID zařízení pro předvýběr na stránce Aktualizace (jednorázově).
+  String? takePendingFlashDeviceId() {
+    final v = _pendingFlashDeviceId;
+    _pendingFlashDeviceId = null;
+    return v;
+  }
+
   /// Tray / systémová nabídka — jen stránka Nastavení, výchozí záložka uživatele.
   void requestOpenSettingsTab() {
-    _pendingShellIndex = 2;
+    _pendingShellIndex = shellIndexSettings;
     _pendingSettingsTabIndex = null;
     notifyListeners();
   }
 
   /// Otevře stránku Nastavení na konkrétní záložce (např. z přehledu Integrace).
   void requestOpenSettingsTabIndex(int tabIndex) {
-    _pendingShellIndex = 2;
-    _pendingSettingsTabIndex = tabIndex.clamp(0, settingsTabFirmware);
+    _pendingShellIndex = shellIndexSettings;
+    _pendingSettingsTabIndex = tabIndex.clamp(0, settingsTabLast);
+    notifyListeners();
+  }
+
+  /// Otevře stránku Aktualizace; volitelně předvybere zařízení pro flash/OTA.
+  void requestOpenUpdates({String? deviceId}) {
+    _pendingShellIndex = shellIndexUpdates;
+    _pendingFlashDeviceId = deviceId;
+    notifyListeners();
+  }
+
+  /// Otevře stránku Zařízení.
+  void requestOpenDevices() {
+    _pendingShellIndex = shellIndexDevices;
     notifyListeners();
   }
 
   /// Z přehledu: Nastavení + záložka odpovídající `start_mode` (`light` / `screen` / `music` / `pchealth`).
   void requestOpenSettingsForStartMode(String startModeId) {
-    _pendingShellIndex = 2;
+    _pendingShellIndex = shellIndexSettings;
     _pendingSettingsTabIndex = switch (startModeId) {
       'light' => 1,
       'screen' => 2,

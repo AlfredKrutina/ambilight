@@ -16,7 +16,6 @@ import 'tabs/light_settings_tab.dart';
 import 'tabs/music_settings_tab.dart';
 import 'tabs/pc_health_settings_tab.dart';
 import 'tabs/screen_settings_tab.dart';
-import 'tabs/firmware_settings_tab.dart';
 import 'tabs/smart_integration_tab.dart';
 import 'tabs/spotify_settings_tab.dart';
 
@@ -29,7 +28,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  static const _tabCount = 8;
+  static const _tabCount = 7;
 
   @override
   void initState() {
@@ -169,12 +168,6 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                     maxWidth: contentW,
                     onSmartLightsChanged: _patchSmartLights,
                   );
-                case 7:
-                  return FirmwareSettingsTab(
-                    draft: draft,
-                    maxWidth: contentW,
-                    onGlobalChanged: _patchGlobal,
-                  );
                 default:
                   return const SizedBox.shrink();
               }
@@ -302,7 +295,6 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                 Tab(text: context.l10n.tabPcHealth),
                 Tab(text: context.l10n.tabSpotify),
                 Tab(text: context.l10n.tabSmartHome),
-                Tab(text: context.l10n.tabFirmware),
               ],
             ),
             Expanded(
@@ -393,13 +385,6 @@ class _SettingsSidebar extends StatelessWidget {
               tooltip: l10n.settingsTabSmartHomeTooltip,
               selected: selectedIndex == 6,
               onTap: () => onSelect(6),
-            ),
-            AmbiSidebarTile(
-              icon: Icons.system_update_alt_rounded,
-              label: l10n.tabFirmware,
-              tooltip: l10n.settingsTabFirmwareTooltip,
-              selected: selectedIndex == 7,
-              onTap: () => onSelect(7),
             ),
           ],
         ),
