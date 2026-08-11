@@ -1063,6 +1063,8 @@ class AmbilightAppController extends ChangeNotifier {
     _enabled = v;
     if (!v) {
       _clearTransientLedOutputs();
+      // Stejné jako ukončení aplikace: obnovit HA mirror + `0xF0` handoff na zařízení.
+      unawaited(_handOffOutputToHomeAssistantAsync());
     } else if (!wasEnabled) {
       unawaited(_smartLights.ensureHaMirroringBaselines(_config));
     }
@@ -1072,30 +1074,31 @@ class AmbilightAppController extends ChangeNotifier {
 
   /// Přepnutí výstupu (stejné chování jako přepínač na přehledu / tray „Zap/Vyp“).
   void toggleEnabled() {
-    final wasEnabled = _enabled;
-    _enabled = !_enabled;
-    if (!_enabled) {
-      _clearTransientLedOutputs();
-    } else if (!wasEnabled) {
-      unawaited(_smartLights.ensureHaMirroringBaselines(_config));
-    }
-    _restartPcHealthTimer();
-    notifyListeners();
+    setEnabled(!_enabled);
   }
 
-  /// Před ukončením procesu (tray „Ukončit“): obnova HA stavu + `0xF0`. Nevolat při pouhém vypnutí výstupu.
-  Future<void> prepareQuitShutdownAsync() async {
+  /// Obnova HA/HomeKit baseline + PC release handoff (`0xF0`) — jako při ukončení aplikace.
+  Future<void> _handOffOutputToHomeAssistantAsync() async {
     try {
       await _smartLights.restoreHaMirroringBaselines(_config);
+    } catch (e, st) {
+      if (kDebugMode) {
+        _log.fine('_handOffOutputToHomeAssistantAsync restore: $e', e, st);
+      }
+    }
+    _releasePcHandoffToHomeAssistantSync();
+  }
+
+  /// Před ukončením procesu (tray „Ukončit“): stejný handoff jako při vypnutí výstupu.
+  Future<void> prepareQuitShutdownAsync() async {
+    try {
+      await _handOffOutputToHomeAssistantAsync();
     } catch (e, st) {
       if (kDebugMode) {
         _log.fine('prepareQuitShutdownAsync: $e', e, st);
       }
     }
-    if (!_quitHandoffSent) {
-      _releasePcHandoffToHomeAssistantSync();
-      _quitHandoffSent = true;
-    }
+    _quitHandoffSent = true;
   }
 
   /// Jednosměrný signál do lampy (`0xF0`): PC už neřídí pásek — MQTT / Home Assistant může převzít.
@@ -2281,7 +2284,7 @@ class AmbilightAppController extends ChangeNotifier {
     final skipAllSends = homeKitHold && !allowOverrideSends;
 
     if (!_enabled) {
-      // Výstup vypnutý z UI — bez `0xF0` (handoff jen při ukončení aplikace) a bez přepisu HA/HomeKit.
+      // Handoff (HA restore + 0xF0) běží v [setEnabled]/ tady jen neposílat další barvy.
       _advanceTickPhase();
       return;
     }

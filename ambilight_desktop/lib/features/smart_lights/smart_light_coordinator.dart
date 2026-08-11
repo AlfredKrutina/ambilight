@@ -275,7 +275,7 @@ class SmartLightCoordinator {
     required int animationTick,
     MusicAnalysisSnapshot? musicSnapshot,
   }) {
-    // Výstup vypnutý z UI — nerušit HA/HomeKit (žádný „blackout“ přes integraci).
+    // Výstup vypnutý — HA/HomeKit se obnoví přes [AmbilightAppController.setEnabled] handoff.
     if (!appEnabled) {
       return;
     }
