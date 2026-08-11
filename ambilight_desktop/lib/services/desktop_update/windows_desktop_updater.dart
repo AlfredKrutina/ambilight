@@ -8,6 +8,22 @@ import 'package:path/path.dart' as p;
 class WindowsDesktopUpdater {
   WindowsDesktopUpdater._();
 
+  /// `null` = OK, jinak lidská chyba (např. Program Files bez práv zápisu).
+  static String? preflightWritableInstallDir() {
+    if (!Platform.isWindows) return 'Aktualizace na místě je jen pro Windows.';
+    final targetDir = p.dirname(Platform.resolvedExecutable);
+    try {
+      final probe = File(p.join(targetDir, '.ambi_update_write_probe'));
+      probe.writeAsStringSync('ok', flush: true);
+      probe.deleteSync();
+      return null;
+    } catch (_) {
+      return 'Do složky instalace nelze zapisovat ($targetDir). '
+          'Spusť AmbiLight z rozbaleného ZIP (portable), ne z Program Files, '
+          'nebo aktualizuj ručně přes installer z GitHub Releases.';
+    }
+  }
+
   static Future<Process?> launchExpandCopyRestart({
     required File zipFile,
     required int waitPid,
@@ -18,6 +34,7 @@ class WindowsDesktopUpdater {
     final exeName = p.basename(liveExe);
     final work = zipFile.parent;
     final stageDir = p.join(work.path, 'stage');
+    final logPath = p.join(work.path, 'ambi_update.log');
     final script = File(p.join(work.path, 'apply_update.ps1'));
     final body = _psScript();
     await script.writeAsString(body, flush: true);
@@ -41,6 +58,8 @@ class WindowsDesktopUpdater {
         targetDir,
         '-ExeName',
         exeName,
+        '-LogPath',
+        logPath,
       ],
       mode: ProcessStartMode.detached,
     );
@@ -52,10 +71,16 @@ param(
   [Parameter(Mandatory = $true)][string] $ZipPath,
   [Parameter(Mandatory = $true)][string] $StageDir,
   [Parameter(Mandatory = $true)][string] $TargetDir,
-  [Parameter(Mandatory = $true)][string] $ExeName
+  [Parameter(Mandatory = $true)][string] $ExeName,
+  [Parameter(Mandatory = $true)][string] $LogPath
 )
 $ErrorActionPreference = 'Stop'
+function Write-Log([string] $msg) {
+  $line = ("[{0}] {1}" -f (Get-Date -Format o), $msg)
+  Add-Content -LiteralPath $LogPath -Value $line -ErrorAction SilentlyContinue
+}
 try {
+  Write-Log "start WaitPid=$WaitPid TargetDir=$TargetDir"
   if (Test-Path -LiteralPath $StageDir) {
     Remove-Item -LiteralPath $StageDir -Recurse -Force -ErrorAction SilentlyContinue
   }
@@ -73,6 +98,10 @@ try {
   $p = Get-Process -Id $WaitPid -ErrorAction SilentlyContinue
   if ($null -ne $p) {
     Wait-Process -Id $WaitPid -Timeout 120 -ErrorAction SilentlyContinue
+  }
+  $still = Get-Process -Id $WaitPid -ErrorAction SilentlyContinue
+  if ($null -ne $still) {
+    throw "Proces $WaitPid stále běží po 120 s — aktualizace zrušena (soubory by byly zamčené)."
   }
   Start-Sleep -Seconds 2
   $liveExe = Join-Path $TargetDir $ExeName
@@ -101,13 +130,18 @@ try {
       throw "Kopirovani selhalo: $rel"
     }
   }
+  Write-Log "copy ok; starting $liveExe"
   if (Test-Path -LiteralPath $liveExe) {
     Start-Process -LiteralPath $liveExe
+  } else {
+    throw "Po kopírování chybí $liveExe"
   }
 } catch {
+  Write-Log ("ERROR: " + $_)
   Write-Error $_
   exit 1
 }
+Write-Log "done"
 exit 0
 ''';
 }
