@@ -68,23 +68,28 @@ class DesktopUpdateService {
   static const int _maxZipBytes = 400 * 1024 * 1024;
 
   static const Map<String, String> _httpHeaders = {
-    'Accept': 'application/json',
+    'Accept': 'application/json, text/plain, */*',
     'User-Agent': 'AmbiLight-Desktop/self-update',
   };
 
   static String? platformAssetKey() {
     if (Platform.isWindows) return 'windows_x64';
-    if (Platform.isMacOS) return 'macos';
+    // Manifest používá `macos_dmg` (CI assemble); alias `macos` pro starší mirror.
+    if (Platform.isMacOS) return 'macos_dmg';
     if (Platform.isLinux) return 'linux_x64';
     return null;
   }
 
-  /// `true` pokud [remote] je novější než [current] (semver).
+  /// `true` pokud [remote] je novější než [current] (semver; při shodě primární verze i `+build`).
   static bool isRemoteNewer(String remote, String current) {
     try {
       final rv = Version.parse(_semverPrimary(remote));
       final cv = Version.parse(_semverPrimary(current));
-      return rv > cv;
+      if (rv != cv) return rv > cv;
+      final rb = _numericBuild(remote);
+      final cb = _numericBuild(current);
+      if (rb != null && cb != null) return rb > cb;
+      return false;
     } catch (_) {
       return false;
     }
@@ -96,30 +101,70 @@ class DesktopUpdateService {
     return plus > 0 ? t.substring(0, plus) : t;
   }
 
+  static int? _numericBuild(String v) {
+    final t = v.trim();
+    final plus = t.indexOf('+');
+    if (plus < 0 || plus >= t.length - 1) return null;
+    return int.tryParse(t.substring(plus + 1));
+  }
+
+  static String currentVersionLabel(PackageInfo info) {
+    final build = info.buildNumber.trim();
+    if (build.isEmpty || build == '0') return info.version;
+    return '${info.version}+$build';
+  }
+
   Future<DesktopUpdateCheckResult> checkForUpdates({
     String? manifestUrl,
     PackageInfo? packageInfo,
   }) async {
-    final url = (manifestUrl ?? ambilightDesktopUpdateManifestUrl).trim();
-    if (!url.startsWith('https://')) {
+    final primary = (manifestUrl ?? ambilightDesktopUpdateManifestUrl).trim();
+    final fallback = ambilightDesktopUpdateManifestFallbackUrl.trim();
+    final urls = <String>[
+      if (primary.startsWith('https://')) primary,
+      if (fallback.startsWith('https://') && fallback != primary) fallback,
+    ];
+    if (urls.isEmpty) {
       return DesktopUpdateCheckParseError('Neplatná URL manifestu (vyžadováno HTTPS).');
     }
+
+    DesktopUpdateCheckParseError? lastErr;
+    for (final url in urls) {
+      final fetched = await _fetchManifestJson(url);
+      if (fetched.error != null) {
+        lastErr = DesktopUpdateCheckParseError(fetched.error!);
+        continue;
+      }
+      return _evaluateManifest(fetched.json!, packageInfo: packageInfo);
+    }
+    return lastErr ?? DesktopUpdateCheckParseError('Nepodařilo se načíst manifest.');
+  }
+
+  Future<({Map<String, dynamic>? json, String? error})> _fetchManifestJson(String url) async {
     final uri = Uri.parse(url);
     late final http.Response res;
     try {
       res = await _http.get(uri, headers: _httpHeaders).timeout(_manifestTimeout);
     } on TimeoutException {
-      return DesktopUpdateCheckParseError('Časový limit při stahování manifestu.');
+      return (json: null, error: 'Časový limit při stahování manifestu ($url).');
+    } catch (e) {
+      return (json: null, error: '$e');
     }
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      return DesktopUpdateCheckParseError('HTTP ${res.statusCode}');
+      return (json: null, error: 'HTTP ${res.statusCode} ($url)');
     }
-    Map<String, dynamic> j;
     try {
-      j = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      final j = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      return (json: j, error: null);
     } catch (e) {
-      return DesktopUpdateCheckParseError('JSON: $e');
+      return (json: null, error: 'JSON: $e');
     }
+  }
+
+  Future<DesktopUpdateCheckResult> _evaluateManifest(
+    Map<String, dynamic> j, {
+    PackageInfo? packageInfo,
+  }) async {
     final manifest = DesktopUpdateManifest.tryParse(j);
     if (manifest == null) {
       return DesktopUpdateCheckParseError('Neplatný manifest (version / assets).');
@@ -133,12 +178,16 @@ class DesktopUpdateService {
     if (key == null) {
       return DesktopUpdateCheckParseError('Nepodporovaná platforma.');
     }
-    final asset = manifest.assetForKey(key);
+    var asset = manifest.assetForKey(key);
+    // Zpětná kompatibilita: starší mirror mohl mít klíč `macos`.
+    if (asset == null && key == 'macos_dmg') {
+      asset = manifest.assetForKey('macos');
+    }
     if (asset == null) {
       return DesktopUpdateCheckParseError('V manifestu chybí asset „$key“.');
     }
     final info = packageInfo ?? await PackageInfo.fromPlatform();
-    final current = info.version;
+    final current = currentVersionLabel(info);
     if (!isRemoteNewer(manifest.version, current)) {
       return DesktopUpdateCheckUpToDate();
     }
@@ -188,7 +237,8 @@ class DesktopUpdateService {
       await out.flush();
       await out.close();
       sink = null;
-      final hash = sha256.convert(await zip.readAsBytes()).toString().toLowerCase();
+      final digest = await sha256.bind(zip.openRead()).first;
+      final hash = digest.toString().toLowerCase();
       final expected = asset.sha256Hex.toLowerCase();
       if (hash != expected) {
         await _deleteTree(dir);

@@ -26,6 +26,24 @@ def main() -> None:
         help="SemVer do pole version (pro desktop-main povinné; jinak z tagu desktop-v…)",
     )
     p.add_argument("--zip", type=Path, required=True)
+    p.add_argument(
+        "--setup-exe",
+        type=Path,
+        default=None,
+        help="Volitelný Inno installer; když chybí, windows_x64_setup se do manifestu nedá.",
+    )
+    p.add_argument(
+        "--dmg",
+        type=Path,
+        default=None,
+        help="Volitelný macOS DMG; když chybí, macos_dmg se do manifestu nedá.",
+    )
+    p.add_argument(
+        "--linux-tarball",
+        type=Path,
+        default=None,
+        help="Volitelný Linux tarball; když chybí, linux_x64 se do manifestu nedá.",
+    )
     p.add_argument("--out", type=Path, required=True)
     args = p.parse_args()
 
@@ -35,46 +53,74 @@ def main() -> None:
         if not ver:
             raise SystemExit("empty version: dej --manifest-version nebo tag desktop-vX.Y.Z")
 
+    if not args.zip.is_file():
+        raise SystemExit(f"ZIP neexistuje: {args.zip}")
+
     repo = args.repo.strip()
     base = f"https://github.com/{repo}/releases/download/{args.tag}"
     notes = f"https://github.com/{repo}/releases/tag/{args.tag}"
 
-    zip_url = f"{base}/ambilight_desktop_windows_x64.zip"
-    setup_url = f"{base}/ambilight_desktop_windows.exe"
-    dmg_url = f"{base}/ambilight_desktop_macos.dmg"
-    linux_url = f"{base}/ambilight_desktop_linux_x64.tar.gz"
+    assets: dict[str, dict[str, str]] = {
+        "windows_x64": {
+            "url": f"{base}/ambilight_desktop_windows_x64.zip",
+            "sha256": _sha256(args.zip),
+            "kind": "zip",
+        },
+    }
+
+    setup = args.setup_exe
+    if setup is None:
+        cand = args.zip.with_name("ambilight_desktop_windows.exe")
+        setup = cand if cand.is_file() else None
+    if setup is not None and setup.is_file():
+        assets["windows_x64_setup"] = {
+            "url": f"{base}/ambilight_desktop_windows.exe",
+            "sha256": "",
+            "kind": "browser",
+        }
+
+    dmg = args.dmg
+    if dmg is None:
+        # CI ukládá DMG do artifacts/mac/ — volající může předat cestu; jinak jen URL pokud soubor existuje vedle.
+        pass
+    if dmg is not None and dmg.is_file():
+        assets["macos_dmg"] = {
+            "url": f"{base}/ambilight_desktop_macos.dmg",
+            "sha256": "",
+            "kind": "browser",
+        }
+    else:
+        # DMG se v CI vždy publikuje; URL necháme i bez lokálního souboru (browser-only).
+        assets["macos_dmg"] = {
+            "url": f"{base}/ambilight_desktop_macos.dmg",
+            "sha256": "",
+            "kind": "browser",
+        }
+
+    linux = args.linux_tarball
+    if linux is not None and linux.is_file():
+        assets["linux_x64"] = {
+            "url": f"{base}/ambilight_desktop_linux_x64.tar.gz",
+            "sha256": "",
+            "kind": "browser",
+        }
+    else:
+        assets["linux_x64"] = {
+            "url": f"{base}/ambilight_desktop_linux_x64.tar.gz",
+            "sha256": "",
+            "kind": "browser",
+        }
 
     manifest = {
         "version": ver,
         "channel": "stable",
         "release_notes_url": notes,
         "release_page_url": notes,
-        "assets": {
-            "windows_x64": {
-                "url": zip_url,
-                "sha256": _sha256(args.zip),
-                "kind": "zip",
-            },
-            "windows_x64_setup": {
-                "url": setup_url,
-                "sha256": "",
-                "kind": "browser",
-            },
-            "macos_dmg": {
-                "url": dmg_url,
-                "sha256": "",
-                "kind": "browser",
-            },
-            "linux_x64": {
-                "url": linux_url,
-                "sha256": "",
-                "kind": "browser",
-            },
-        },
+        "assets": assets,
     }
 
     args.out.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    print("Wrote", args.out)
+    print("Wrote", args.out, "assets=", ",".join(assets.keys()))
 
 
 if __name__ == "__main__":

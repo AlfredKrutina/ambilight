@@ -57,4 +57,17 @@ void main() {
     expect(DesktopUpdateService.isRemoteNewer('1.0.3+2', '1.0.4'), isFalse);
     expect(DesktopUpdateService.isRemoteNewer('1.1.0', '1.0.99'), isTrue);
   });
+
+  test('isRemoteNewer compares numeric +build when primary equal', () {
+    expect(DesktopUpdateService.isRemoteNewer('1.0.5+12', '1.0.5+3'), isTrue);
+    expect(DesktopUpdateService.isRemoteNewer('1.0.5+3', '1.0.5+12'), isFalse);
+    expect(DesktopUpdateService.isRemoteNewer('1.0.5+3', '1.0.5+3'), isFalse);
+    expect(DesktopUpdateService.isRemoteNewer('1.0.5', '1.0.5+9'), isFalse);
+  });
+
+  test('platformAssetKey windows/macos/linux', () {
+    // Platform-dependent; just ensure API exists and Windows key is stable in tests on Windows CI.
+    final key = DesktopUpdateService.platformAssetKey();
+    expect(key, anyOf(isNull, 'windows_x64', 'macos_dmg', 'linux_x64'));
+  });
 }

@@ -82,6 +82,11 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
       ),
     );
     if (ok != true || !mounted) return;
+    final writeErr = WindowsDesktopUpdater.preflightWritableInstallDir();
+    if (writeErr != null) {
+      setState(() => _downloadError = writeErr);
+      return;
+    }
     setState(() {
       _busy = true;
       _downloadError = null;
