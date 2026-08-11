@@ -33,7 +33,7 @@ class WindowsDesktopUpdateLaunchResult {
 /// Odolnost:
 /// - staging + logy v `%LOCALAPPDATA%\AmbiLight\ota`
 /// - konfigurace přes JSON (žádné lámání uvozovek v CLI)
-/// - launch cascade: WMI/VBS → CIM → scheduled task → detached Process.start
+/// - launch cascade: WMI hidden → CIM hidden → schtasks hidden → VBS Run 0
 /// - heartbeat se session tokenem (nikdy starý log)
 /// - PS skript ASCII + UTF-8 BOM (PS 5.1 -File)
 /// - parse preflight před launch
@@ -74,10 +74,20 @@ class WindowsDesktopUpdater {
     if (sessionId.trim().isEmpty) return false;
     try {
       final hb = File(heartbeatPath);
-      if (!await hb.exists()) return false;
-      final t = (await hb.readAsString()).trim();
-      return t.contains('session=$sessionId') &&
-          (t.contains('ps: boot') || t.contains('ps: early'));
+      if (await hb.exists()) {
+        final t = (await hb.readAsString()).trim();
+        if (t.contains('session=$sessionId')) return true;
+      }
+      // Log was reset for this session — boot line is authoritative.
+      final log = File(updateLogPath);
+      if (await log.exists()) {
+        final text = await log.readAsString();
+        if (text.contains('ps: boot session=$sessionId') ||
+            text.contains('session=$sessionId') && text.contains('ps: boot')) {
+          return true;
+        }
+      }
+      return false;
     } catch (_) {
       return false;
     }
@@ -128,7 +138,7 @@ class WindowsDesktopUpdater {
       final zipCopy = File(p.join(work.path, 'update.zip'));
       final script = File(p.join(work.path, 'apply_update.ps1'));
       final config = File(p.join(work.path, 'apply_config.json'));
-      final stageDir = p.join(work.path, 'stage');
+      final stageDir = p.join(work.path, 'stage_$sessionId');
       final heartbeat = File(heartbeatPath);
       final status = File(statusPath);
 
@@ -189,16 +199,17 @@ class WindowsDesktopUpdater {
         );
       }
 
-      // Prefer -File with quoted paths; BOM makes PS 5.1 read UTF-8.
+      // Never pass -WindowStyle Hidden to powershell.exe — it still allocates a blank
+      // console. Hide via WScript.Shell.Run style=0 (and WMI Create of wscript).
       final psArgs =
-          '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "${script.path}" -ConfigPath "${config.path}"';
+          '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "${script.path}" -ConfigPath "${config.path}"';
 
-      await _appendHostLog(logPath, 'host: powershell=$psExe');
+      await _appendHostLog(logPath, 'host: powershell=$psExe (hidden via VBS Run 0)');
 
       final methods = <({String name, Future<bool> Function() run})>[
         (
-          name: 'wmi_vbs',
-          run: () => _launchViaWmiVbs(
+          name: 'wmi_hidden',
+          run: () => _launchViaWmiHidden(
                 workDir: work.path,
                 logPath: logPath,
                 psExe: psExe,
@@ -206,8 +217,8 @@ class WindowsDesktopUpdater {
               ),
         ),
         (
-          name: 'cim',
-          run: () => _launchViaCim(
+          name: 'cim_hidden',
+          run: () => _launchViaCimHidden(
                 workDir: work.path,
                 logPath: logPath,
                 psExe: psExe,
@@ -215,8 +226,8 @@ class WindowsDesktopUpdater {
               ),
         ),
         (
-          name: 'schtasks',
-          run: () => _launchViaSchtasks(
+          name: 'schtasks_hidden',
+          run: () => _launchViaSchtasksHidden(
                 workDir: work.path,
                 logPath: logPath,
                 psExe: psExe,
@@ -224,23 +235,28 @@ class WindowsDesktopUpdater {
               ),
         ),
         (
-          name: 'detached',
-          run: () => _launchViaDetached(
+          name: 'vbs_run',
+          run: () => _launchViaVbsRun(
                 workDir: work.path,
                 logPath: logPath,
                 psExe: psExe,
-                scriptPath: script.path,
-                configPath: config.path,
+                psArgs: psArgs,
               ),
         ),
       ];
 
       String? lastErr;
       for (final m in methods) {
-        // Clear stale heartbeat between attempts (keep session requirement).
-        try {
-          if (await heartbeat.exists()) await heartbeat.delete();
-        } catch (_) {}
+        // If a previous attempt already booted this session, do NOT launch another
+        // updater (multiple instances race on stage/zip and break the copy).
+        if (await _sessionAlreadyBooted(sessionId: sessionId, logPath: logPath, heartbeat: heartbeat)) {
+          await _appendHostLog(logPath, 'host: session already booted — skip further launches');
+          return WindowsDesktopUpdateLaunchResult.ok(
+            logPath: logPath,
+            method: m.name,
+            sessionId: sessionId,
+          );
+        }
 
         await _appendHostLog(logPath, 'host: try launch method=${m.name}');
         var launched = false;
@@ -260,11 +276,11 @@ class WindowsDesktopUpdater {
         final alive = await _waitForSessionHeartbeat(
           sessionId: sessionId,
           heartbeat: heartbeat,
+          logPath: logPath,
           timeout: const Duration(seconds: 25),
         );
         if (alive) {
-          // Double-check still present (avoid race with instant-crash PS).
-          await Future<void>.delayed(const Duration(milliseconds: 400));
+          await Future<void>.delayed(const Duration(milliseconds: 300));
           final still = await isSessionHeartbeatAlive(sessionId);
           if (!still) {
             lastErr = 'method ${m.name}: heartbeat zmizel (updater spadl hned po startu)';
@@ -445,10 +461,11 @@ exit 0
     } catch (_) {}
   }
 
-  /// Only trust heartbeat file with this session id — never historical log text.
+  /// Heartbeat must keep session id on every write; also accept fresh log boot line.
   static Future<bool> _waitForSessionHeartbeat({
     required String sessionId,
     required File heartbeat,
+    required String logPath,
     required Duration timeout,
   }) async {
     final needle = 'session=$sessionId';
@@ -457,19 +474,41 @@ exit 0
       try {
         if (await heartbeat.exists()) {
           final t = (await heartbeat.readAsString()).trim();
-          if (t.contains(needle) && (t.contains('ps: boot') || t.contains('ps: early'))) {
-            // Prefer full boot; accept early only if it stays and then becomes boot.
-            if (t.contains('ps: boot')) return true;
+          // Any heartbeat for this session means updater is alive.
+          if (t.contains(needle)) return true;
+        }
+      } catch (_) {}
+      try {
+        final log = File(logPath);
+        if (await log.exists()) {
+          final text = await log.readAsString();
+          if (text.contains(needle) &&
+              (text.contains('ps: boot') || text.contains('ps: early'))) {
+            return true;
           }
         }
       } catch (_) {}
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await Future<void>.delayed(const Duration(milliseconds: 150));
     }
-    // Final check: early-only is NOT enough to exit the app.
+    return _sessionAlreadyBooted(sessionId: sessionId, logPath: logPath, heartbeat: heartbeat);
+  }
+
+  static Future<bool> _sessionAlreadyBooted({
+    required String sessionId,
+    required String logPath,
+    required File heartbeat,
+  }) async {
     try {
       if (await heartbeat.exists()) {
         final t = (await heartbeat.readAsString()).trim();
-        if (t.contains(needle) && t.contains('ps: boot')) return true;
+        if (t.contains('session=$sessionId')) return true;
+      }
+    } catch (_) {}
+    try {
+      final log = File(logPath);
+      if (await log.exists()) {
+        final text = await log.readAsString();
+        if (text.contains('ps: boot session=$sessionId')) return true;
       }
     } catch (_) {}
     return false;
@@ -477,14 +516,33 @@ exit 0
 
   static String _vbsEscape(String s) => s.replaceAll('"', '""');
 
-  static Future<bool> _launchViaWmiVbs({
+  /// VBS: `WScript.Shell.Run """powershell"" args", 0, False` — no blank console.
+  static Future<void> _writeHiddenPsRunnerVbs({
+    required File vbs,
+    required String psExe,
+    required String psArgs,
+  }) async {
+    final body = '''
+On Error Resume Next
+Dim sh, cmd
+Set sh = CreateObject("WScript.Shell")
+cmd = """${_vbsEscape(psExe)}"" ${_vbsEscape(psArgs)}
+sh.Run cmd, 0, False
+''';
+    await vbs.writeAsString(body, flush: true);
+  }
+
+  static Future<bool> _launchViaWmiHidden({
     required String workDir,
     required String logPath,
     required String psExe,
     required String psArgs,
   }) async {
+    final runner = File(p.join(workDir, 'run_update_hidden.vbs'));
+    await _writeHiddenPsRunnerVbs(vbs: runner, psExe: psExe, psArgs: psArgs);
+
     final vbs = File(p.join(workDir, 'launch_wmi.vbs'));
-    final cmdLine = '"$psExe" $psArgs';
+    final cmdLine = 'wscript.exe //Nologo //B "${runner.path}"';
     final body = '''
 On Error Resume Next
 Dim svc, startup, proc, ret, pid, fso, logf
@@ -494,7 +552,7 @@ Function L(msg)
   logf.WriteLine "[" & Now & "] vbs: " & msg
   logf.Close
 End Function
-L "WMI Create begin"
+L "WMI Create begin (wscript hidden runner)"
 Set svc = GetObject("winmgmts:\\\\.\\root\\cimv2")
 If Err.Number <> 0 Then
   L "GetObject failed " & Err.Number & " " & Err.Description
@@ -514,22 +572,25 @@ WScript.Quit 0
     await vbs.writeAsString(body, flush: true);
     final r = await Process.run(
       'wscript.exe',
-      ['//Nologo', vbs.path],
+      ['//Nologo', '//B', vbs.path],
       workingDirectory: workDir,
       runInShell: false,
     ).timeout(const Duration(seconds: 30));
-    await _appendHostLog(logPath, 'host: wmi_vbs exit=${r.exitCode}');
+    await _appendHostLog(logPath, 'host: wmi_hidden exit=${r.exitCode}');
     return r.exitCode == 0;
   }
 
-  static Future<bool> _launchViaCim({
+  static Future<bool> _launchViaCimHidden({
     required String workDir,
     required String logPath,
     required String psExe,
     required String psArgs,
   }) async {
+    final runner = File(p.join(workDir, 'run_update_hidden.vbs'));
+    await _writeHiddenPsRunnerVbs(vbs: runner, psExe: psExe, psArgs: psArgs);
+
     final helper = File(p.join(workDir, 'launch_cim.ps1'));
-    final cmdLine = '"$psExe" $psArgs';
+    final cmdLine = 'wscript.exe //Nologo //B "${runner.path}"';
     await _writeUtf8BomFile(helper, '''
 \$ErrorActionPreference = 'Stop'
 try {
@@ -554,37 +615,32 @@ $workDir
 }
 ''');
 
+    // Launch the CIM helper itself via VBS Run style 0 — never Process.run powershell.
+    final cimVbs = File(p.join(workDir, 'launch_cim.vbs'));
+    final helperPsArgs =
+        '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "${helper.path}"';
+    await _writeHiddenPsRunnerVbs(vbs: cimVbs, psExe: psExe, psArgs: helperPsArgs);
+
     final r = await Process.run(
-      psExe,
-      [
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-WindowStyle',
-        'Hidden',
-        '-File',
-        helper.path,
-      ],
+      'wscript.exe',
+      ['//Nologo', '//B', cimVbs.path],
       workingDirectory: workDir,
       runInShell: false,
     ).timeout(const Duration(seconds: 45));
-    await _appendHostLog(logPath, 'host: cim exit=${r.exitCode} out=${'${r.stdout}'.trim()}');
+    await _appendHostLog(logPath, 'host: cim_hidden exit=${r.exitCode}');
     return r.exitCode == 0;
   }
 
-  static Future<bool> _launchViaSchtasks({
+  static Future<bool> _launchViaSchtasksHidden({
     required String workDir,
     required String logPath,
     required String psExe,
     required String psArgs,
   }) async {
     const taskName = 'AmbiLightDesktopOTA';
-    final runner = File(p.join(workDir, 'schtasks_run.cmd'));
-    await runner.writeAsString(
-      '@echo off\r\n"$psExe" $psArgs\r\n',
-      flush: true,
-    );
-    final tr = runner.path;
+    final runner = File(p.join(workDir, 'schtasks_run.vbs'));
+    await _writeHiddenPsRunnerVbs(vbs: runner, psExe: psExe, psArgs: psArgs);
+    final tr = 'wscript.exe //Nologo //B "${runner.path}"';
 
     await Process.run('schtasks', ['/Delete', '/TN', taskName, '/F'], runInShell: false)
         .timeout(const Duration(seconds: 15));
@@ -608,7 +664,7 @@ $workDir
     ).timeout(const Duration(seconds: 20));
     await _appendHostLog(
       logPath,
-      'host: schtasks create exit=${create.exitCode} out=${'${create.stdout} ${create.stderr}'.trim()}',
+      'host: schtasks_hidden create exit=${create.exitCode} out=${'${create.stdout} ${create.stderr}'.trim()}',
     );
     if (create.exitCode != 0) return false;
     final run = await Process.run(
@@ -616,7 +672,7 @@ $workDir
       ['/Run', '/TN', taskName],
       runInShell: false,
     ).timeout(const Duration(seconds: 15));
-    await _appendHostLog(logPath, 'host: schtasks run exit=${run.exitCode}');
+    await _appendHostLog(logPath, 'host: schtasks_hidden run exit=${run.exitCode}');
     unawaited(Future<void>.delayed(const Duration(minutes: 5), () async {
       try {
         await Process.run('schtasks', ['/Delete', '/TN', taskName, '/F'], runInShell: false);
@@ -625,37 +681,22 @@ $workDir
     return run.exitCode == 0;
   }
 
-  static Future<bool> _launchViaDetached({
+  static Future<bool> _launchViaVbsRun({
     required String workDir,
     required String logPath,
     required String psExe,
-    required String scriptPath,
-    required String configPath,
+    required String psArgs,
   }) async {
-    try {
-      await Process.start(
-        psExe,
-        [
-          '-NoProfile',
-          '-ExecutionPolicy',
-          'Bypass',
-          '-WindowStyle',
-          'Hidden',
-          '-File',
-          scriptPath,
-          '-ConfigPath',
-          configPath,
-        ],
-        workingDirectory: workDir,
-        mode: ProcessStartMode.detached,
-        runInShell: false,
-      );
-      await _appendHostLog(logPath, 'host: detached Process.start issued');
-      return true;
-    } catch (e) {
-      await _appendHostLog(logPath, 'host: detached failed $e');
-      return false;
-    }
+    final vbs = File(p.join(workDir, 'launch_vbs_run.vbs'));
+    await _writeHiddenPsRunnerVbs(vbs: vbs, psExe: psExe, psArgs: psArgs);
+    final r = await Process.run(
+      'wscript.exe',
+      ['//Nologo', '//B', vbs.path],
+      workingDirectory: workDir,
+      runInShell: false,
+    ).timeout(const Duration(seconds: 30));
+    await _appendHostLog(logPath, 'host: vbs_run exit=${r.exitCode}');
+    return r.exitCode == 0;
   }
 
   /// ASCII-only apply script — avoids PS 5.1 -File encoding traps with diacritics.
@@ -670,6 +711,7 @@ $ProgressPreference = 'SilentlyContinue'
 $script:LogPath = $null
 $script:HeartbeatPath = $null
 $script:StatusPath = $null
+$script:SessionId = 'unknown'
 try {
   $otaDir = Split-Path -Parent $ConfigPath
   $script:LogPath = Join-Path $otaDir 'ambi_update.log'
@@ -679,7 +721,8 @@ try {
     $rawPeek = Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 -ErrorAction Stop
     if ($rawPeek -match '"sessionId"\s*:\s*"([^"]+)"') { $sidPeek = $Matches[1] }
   } catch {}
-  $early = ("[{0}] ps: early session={1}" -f (Get-Date -Format o), $sidPeek)
+  $script:SessionId = $sidPeek
+  $early = ("[{0}] session={1} ps: early" -f (Get-Date -Format o), $sidPeek)
   Add-Content -LiteralPath $script:LogPath -Value $early -Encoding UTF8 -ErrorAction SilentlyContinue
   Set-Content -LiteralPath $script:HeartbeatPath -Value $early -Encoding UTF8 -ErrorAction SilentlyContinue
 } catch {}
@@ -693,7 +736,9 @@ function Write-Status([hashtable] $h) {
 }
 
 function Write-Log([string] $msg) {
-  $line = ("[{0}] {1}" -f (Get-Date -Format o), $msg)
+  $sid = $script:SessionId
+  if (-not $sid) { $sid = 'unknown' }
+  $line = ("[{0}] session={1} {2}" -f (Get-Date -Format o), $sid, $msg)
   try {
     $dir = Split-Path -Parent $script:LogPath
     if ($dir -and -not (Test-Path -LiteralPath $dir)) {
@@ -703,9 +748,64 @@ function Write-Log([string] $msg) {
   } catch {}
   try {
     if ($script:HeartbeatPath) {
+      # Always keep session= so host never loses the heartbeat token.
       Set-Content -LiteralPath $script:HeartbeatPath -Value $line -Encoding UTF8
     }
   } catch {}
+  try { Show-UiStep $msg } catch {}
+}
+
+function Initialize-UpdateUi {
+  $script:UpdateForm = $null
+  $script:UpdateLabel = $null
+  try {
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = 'AmbiLight Update'
+    $form.Width = 420
+    $form.Height = 120
+    $form.StartPosition = 'CenterScreen'
+    $form.FormBorderStyle = 'FixedDialog'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.TopMost = $true
+    $form.ShowInTaskbar = $true
+    $label = New-Object System.Windows.Forms.Label
+    $label.AutoSize = $false
+    $label.Dock = 'Fill'
+    $label.Padding = New-Object System.Windows.Forms.Padding(16)
+    $label.TextAlign = 'MiddleCenter'
+    $label.Font = New-Object System.Drawing.Font('Segoe UI', 11)
+    $label.Text = 'Preparing...'
+    $form.Controls.Add($label)
+    $form.Show()
+    [System.Windows.Forms.Application]::DoEvents()
+    $script:UpdateForm = $form
+    $script:UpdateLabel = $label
+  } catch {}
+}
+
+function Show-UiStep([string] $text) {
+  try {
+    if ($null -ne $script:UpdateLabel) {
+      $script:UpdateLabel.Text = $text
+    }
+    if ($null -ne $script:UpdateForm) {
+      [System.Windows.Forms.Application]::DoEvents()
+    }
+  } catch {}
+}
+
+function Close-UpdateUi {
+  try {
+    if ($null -ne $script:UpdateForm) {
+      $script:UpdateForm.Close()
+      $script:UpdateForm.Dispose()
+    }
+  } catch {}
+  $script:UpdateForm = $null
+  $script:UpdateLabel = $null
 }
 
 function Get-MatchingProcs([string] $liveExe, [string] $procName) {
@@ -805,6 +905,9 @@ function Find-ContentRoot([string] $StageDir, [string] $ExeName) {
 }
 
 function Copy-UpdateTree([string] $ContentRoot, [string] $TargetDir) {
+  if (-not (Test-Path -LiteralPath $ContentRoot)) {
+    throw ("Content root missing before copy: " + $ContentRoot)
+  }
   $ok = $false
   for ($attempt = 1; $attempt -le 4; $attempt++) {
     Write-Log ("copy attempt={0} robocopy" -f $attempt)
@@ -878,10 +981,15 @@ function Invoke-OtaCleanup([string] $WorkDir, [string] $liveExe, [bool] $success
     'stage',
     'launch_wmi.vbs',
     'launch_cim.ps1',
+    'launch_cim.vbs',
+    'run_update_hidden.vbs',
+    'launch_vbs_run.vbs',
+    'schtasks_run.vbs',
     'schtasks_run.cmd',
     'apply_update.ps1',
     'apply_config.json',
-    'heartbeat.txt'
+    'heartbeat.txt',
+    'apply_lock_active.lock'
   )
   if ($success) {
     $names += 'update.zip'
@@ -895,6 +1003,14 @@ function Invoke-OtaCleanup([string] $WorkDir, [string] $liveExe, [bool] $success
       }
     } catch {}
   }
+  try {
+    Get-ChildItem -LiteralPath $WorkDir -Force -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -like 'stage_*' -or $_.Name -like 'apply_lock_*.lock' } |
+      ForEach-Object {
+        Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Log ("ps: cleanup removed {0}" -f $_.Name)
+      }
+  } catch {}
 
   if ($success -and $liveExe) {
     try {
@@ -925,6 +1041,7 @@ try {
   $script:StatusPath = [string]$cfg.statusPath
   $sessionId = [string]$cfg.sessionId
   if (-not $sessionId) { $sessionId = 'unknown' }
+  $script:SessionId = $sessionId
   $WaitPid = [int]$cfg.waitPid
   $ZipPath = [string]$cfg.zipPath
   $StageDir = [string]$cfg.stageDir
@@ -933,14 +1050,32 @@ try {
   $WorkDir = [string]$cfg.workDir
   if (-not $WorkDir) { $WorkDir = Split-Path -Parent $ConfigPath }
 
+  # Single-instance lock — prevent cascade from launching parallel appliers.
+  $lockPath = Join-Path $WorkDir ('apply_lock_' + $sessionId + '.lock')
+  $globalLock = Join-Path $WorkDir 'apply_lock_active.lock'
+  try {
+    if (Test-Path -LiteralPath $globalLock) {
+      $age = (Get-Date) - (Get-Item -LiteralPath $globalLock).LastWriteTime
+      if ($age.TotalMinutes -lt 10) {
+        Write-Log "ps: another apply already active — exiting duplicate"
+        exit 0
+      }
+    }
+    Set-Content -LiteralPath $globalLock -Value $sessionId -Encoding UTF8
+    Set-Content -LiteralPath $lockPath -Value $PID -Encoding UTF8
+  } catch {}
+
   Write-Log ("ps: boot session={0}" -f $sessionId)
   Write-Status @{ state = 'running'; phase = 'boot'; sessionId = $sessionId; at = (Get-Date -Format o) }
+  Initialize-UpdateUi
+  Write-Log "Preparing..."
   Write-Log ("ps: start WaitPid={0} TargetDir={1} ZipPath={2}" -f $WaitPid, $TargetDir, $ZipPath)
 
   if (-not (Test-Path -LiteralPath $ZipPath)) { throw ("ZIP missing: " + $ZipPath) }
   $zipLen = (Get-Item -LiteralPath $ZipPath).Length
   Write-Log ("ps: zip bytes={0}" -f $zipLen)
 
+  Write-Log "Extracting..."
   Expand-UpdateZip -ZipPath $ZipPath -StageDir $StageDir
   Write-Status @{ state = 'running'; phase = 'expanded'; sessionId = $sessionId; at = (Get-Date -Format o) }
 
@@ -951,10 +1086,18 @@ try {
   $liveExe = Join-Path $TargetDir $ExeName
   $procName = [System.IO.Path]::GetFileNameWithoutExtension($ExeName)
 
+  Write-Log "Waiting for AmbiLight to exit..."
   $p = Get-Process -Id $WaitPid -ErrorAction SilentlyContinue
   if ($null -ne $p) {
     Write-Log ("ps: waiting for WaitPid={0}" -f $WaitPid)
-    Wait-Process -Id $WaitPid -Timeout 240 -ErrorAction SilentlyContinue
+    $waitDeadline = (Get-Date).AddSeconds(240)
+    while ((Get-Date) -lt $waitDeadline) {
+      $still = Get-Process -Id $WaitPid -ErrorAction SilentlyContinue
+      if ($null -eq $still) { break }
+      Show-UiStep "Waiting for AmbiLight to exit..."
+      try { [System.Windows.Forms.Application]::DoEvents() } catch {}
+      Start-Sleep -Milliseconds 400
+    }
   } else {
     Write-Log "ps: WaitPid already gone"
   }
@@ -979,6 +1122,7 @@ try {
     }
   } catch {}
 
+  Write-Log "Installing files..."
   Write-Status @{ state = 'running'; phase = 'copying'; sessionId = $sessionId; at = (Get-Date -Format o) }
   Copy-UpdateTree -ContentRoot $contentRoot -TargetDir $TargetDir
 
@@ -986,8 +1130,10 @@ try {
     throw ("Install looks incomplete after copy: " + $liveExe)
   }
 
+  Write-Log "Starting AmbiLight..."
   Write-Log ("ps: starting {0}" -f $liveExe)
   Write-Status @{ state = 'running'; phase = 'starting'; sessionId = $sessionId; at = (Get-Date -Format o) }
+  Close-UpdateUi
   $started = $false
   for ($i = 1; $i -le 5; $i++) {
     try {
@@ -1043,6 +1189,8 @@ try {
   } catch {
     Write-Log ("ps: restore bak failed: " + $_)
   }
+
+  try { Close-UpdateUi } catch {}
 
   try {
     if ($liveExe -and (Test-Path -LiteralPath $liveExe) -and $TargetDir) {
