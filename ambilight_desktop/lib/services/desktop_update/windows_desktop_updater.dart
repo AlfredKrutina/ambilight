@@ -8,6 +8,16 @@ import 'package:path/path.dart' as p;
 class WindowsDesktopUpdater {
   WindowsDesktopUpdater._();
 
+  static String get _otaRoot {
+    final local = Platform.environment['LOCALAPPDATA']?.trim();
+    if (local != null && local.isNotEmpty) {
+      return p.join(local, 'AmbiLight', 'ota');
+    }
+    return p.join(Directory.systemTemp.path, 'AmbiLight_ota');
+  }
+
+  static String get updateLogPath => p.join(_otaRoot, 'ambi_update.log');
+
   /// `null` = OK, jinak lidská chyba (např. Program Files bez práv zápisu).
   static String? preflightWritableInstallDir() {
     if (!Platform.isWindows) return 'Aktualizace na místě je jen pro Windows.';
@@ -24,62 +34,122 @@ class WindowsDesktopUpdater {
     }
   }
 
-  /// Spustí PowerShell updater mimo Job Object Flutter procesu (`cmd start /b`),
-  /// jinak `exit(0)` často zabije i „detached“ child a OTA nikdy nedoběhne.
-  static Future<Process?> launchExpandCopyRestart({
+  /// Spustí PowerShell updater **mimo** Job Object Flutter procesu.
+  ///
+  /// `cmd start` / běžný `Process.detached` zůstávají v jobu → `exit(0)` je zabije
+  /// (typicky: blikne černý terminál a nic se nestane). WMI `Win32_Process.Create`
+  /// child do jobu nepřidá (MSDN).
+  ///
+  /// Vrací `true`, pokud WMI updater úspěšně odstartoval.
+  static Future<bool> launchExpandCopyRestart({
     required File zipFile,
     required int waitPid,
   }) async {
-    if (!Platform.isWindows) return null;
+    if (!Platform.isWindows) return false;
     final liveExe = Platform.resolvedExecutable;
     final targetDir = p.dirname(liveExe);
     final exeName = p.basename(liveExe);
-    final work = zipFile.parent;
+
+    final ota = Directory(_otaRoot);
+    await ota.create(recursive: true);
+    final work = ota;
     final stageDir = p.join(work.path, 'stage');
-    final logPath = p.join(work.path, 'ambi_update.log');
+    final logPath = updateLogPath;
+    final zipCopy = File(p.join(work.path, 'update.zip'));
     final script = File(p.join(work.path, 'apply_update.ps1'));
-    await script.writeAsString(_psScript(), flush: true);
+    final vbs = File(p.join(work.path, 'launch_update.vbs'));
+    final marker = File(p.join(work.path, 'ambi_update_launch.txt'));
 
-    // Marker: pokud PowerShell vůbec nenačte skript, aspoň víme že launch proběhl.
     try {
-      await File(p.join(work.path, 'ambi_update_launch.txt')).writeAsString(
-        'pid=$waitPid\nzip=${zipFile.path}\ntarget=$targetDir\n',
-        flush: true,
-      );
-    } catch (_) {}
+      if (await zipCopy.exists()) await zipCopy.delete();
+      await zipFile.copy(zipCopy.path);
+    } catch (e) {
+      await marker.writeAsString('copy_zip_failed=$e\n', flush: true);
+      return false;
+    }
 
-    // `start "" /b` odpojí proces od Job Object rodiče (Flutter Windows runner).
-    return Process.start(
-      'cmd.exe',
-      [
-        '/c',
-        'start',
-        '',
-        '/b',
-        'powershell.exe',
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-WindowStyle',
-        'Hidden',
-        '-File',
-        script.path,
-        '-WaitPid',
-        '$waitPid',
-        '-ZipPath',
-        zipFile.path,
-        '-StageDir',
-        stageDir,
-        '-TargetDir',
-        targetDir,
-        '-ExeName',
-        exeName,
-        '-LogPath',
-        logPath,
-      ],
-      mode: ProcessStartMode.detached,
-      workingDirectory: work.path,
+    await script.writeAsString(_psScript(), flush: true);
+    await vbs.writeAsString(
+      _vbsLauncher(
+        ps1Path: script.path,
+        waitPid: waitPid,
+        zipPath: zipCopy.path,
+        stageDir: stageDir,
+        targetDir: targetDir,
+        exeName: exeName,
+        logPath: logPath,
+        workDir: work.path,
+      ),
+      flush: true,
     );
+
+    await marker.writeAsString(
+      'pid=$waitPid\nzip=${zipCopy.path}\ntarget=$targetDir\nlog=$logPath\nvbs=${vbs.path}\n',
+      flush: true,
+    );
+
+    // Sync: počkej, až VBS/WMI vytvoří updater mimo job, teprve pak volej exit(0).
+    final result = await Process.run(
+      'wscript.exe',
+      ['//Nologo', vbs.path],
+      workingDirectory: work.path,
+      runInShell: false,
+    );
+
+    await File(p.join(work.path, 'ambi_update_wscript.txt')).writeAsString(
+      'exit=${result.exitCode}\nstdout=${result.stdout}\nstderr=${result.stderr}\n',
+      flush: true,
+    );
+
+    return result.exitCode == 0;
+  }
+
+  static String _vbsEscape(String s) => s.replaceAll('"', '""');
+
+  static String _vbsLauncher({
+    required String ps1Path,
+    required int waitPid,
+    required String zipPath,
+    required String stageDir,
+    required String targetDir,
+    required String exeName,
+    required String logPath,
+    required String workDir,
+  }) {
+    // PowerShell command line — quoted paths for spaces.
+    final psArgs =
+        '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "${_vbsEscape(ps1Path)}" '
+        '-WaitPid $waitPid '
+        '-ZipPath "${_vbsEscape(zipPath)}" '
+        '-StageDir "${_vbsEscape(stageDir)}" '
+        '-TargetDir "${_vbsEscape(targetDir)}" '
+        '-ExeName "${_vbsEscape(exeName)}" '
+        '-LogPath "${_vbsEscape(logPath)}"';
+    final cmdLine = 'powershell.exe $psArgs';
+    return '''
+On Error Resume Next
+Dim svc, startup, proc, ret, pid, fso, logf
+Set fso = CreateObject("Scripting.FileSystemObject")
+Set logf = fso.OpenTextFile("${_vbsEscape(logPath)}", 8, True)
+logf.WriteLine "[" & Now & "] vbs: launching via Win32_Process.Create"
+logf.Close
+
+Set svc = GetObject("winmgmts:\\\\.\\root\\cimv2")
+Set startup = svc.Get("Win32_ProcessStartup").SpawnInstance_()
+startup.ShowWindow = 0
+Set proc = svc.Get("Win32_Process")
+ret = proc.Create("$cmdLine", "${_vbsEscape(workDir)}", startup, pid)
+If ret <> 0 Then
+  Set logf = fso.OpenTextFile("${_vbsEscape(logPath)}", 8, True)
+  logf.WriteLine "[" & Now & "] vbs: Win32_Process.Create failed ret=" & ret
+  logf.Close
+  WScript.Quit 1
+End If
+Set logf = fso.OpenTextFile("${_vbsEscape(logPath)}", 8, True)
+logf.WriteLine "[" & Now & "] vbs: created updater pid=" & pid
+logf.Close
+WScript.Quit 0
+''';
   }
 
   static String _psScript() => r'''
@@ -95,6 +165,10 @@ $ErrorActionPreference = 'Stop'
 function Write-Log([string] $msg) {
   $line = ("[{0}] {1}" -f (Get-Date -Format o), $msg)
   try {
+    $dir = Split-Path -Parent $LogPath
+    if ($dir -and -not (Test-Path -LiteralPath $dir)) {
+      New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
     Add-Content -LiteralPath $LogPath -Value $line -Encoding UTF8
   } catch {}
 }
@@ -121,14 +195,14 @@ try {
   $liveExe = Join-Path $TargetDir $ExeName
   $procName = [System.IO.Path]::GetFileNameWithoutExtension($ExeName)
 
-  # Nejdřív počkej na hlavní PID (aplikace volá exit po spuštění updateru).
   $p = Get-Process -Id $WaitPid -ErrorAction SilentlyContinue
   if ($null -ne $p) {
     Write-Log "waiting for WaitPid=$WaitPid"
-    Wait-Process -Id $WaitPid -Timeout 120 -ErrorAction SilentlyContinue
+    Wait-Process -Id $WaitPid -Timeout 180 -ErrorAction SilentlyContinue
+  } else {
+    Write-Log "WaitPid=$WaitPid already gone"
   }
 
-  # Tray / vícenásobné instance drží DLL — ukonči VŠECHNY procesy se stejnou cestou exe.
   Write-Log "stopping all processes for $liveExe"
   $deadline = (Get-Date).AddSeconds(90)
   do {
@@ -146,7 +220,7 @@ try {
       Write-Log ("stop pid={0}" -f $proc.Id)
       Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
     }
-    Start-Sleep -Milliseconds 500
+    Start-Sleep -Milliseconds 400
     $alive = @(
       Get-Process -Name $procName -ErrorAction SilentlyContinue |
         Where-Object {
@@ -163,13 +237,12 @@ try {
     throw ("Procesy stále běží po stop: " + (($alive | ForEach-Object { $_.Id }) -join ','))
   }
 
-  Start-Sleep -Seconds 2
+  Start-Sleep -Seconds 1
   if (Test-Path -LiteralPath $liveExe) {
     Copy-Item -LiteralPath $liveExe -Destination ($liveExe + '.bak') -Force -ErrorAction SilentlyContinue
   }
 
   Write-Log "copy from $contentRoot"
-  # robocopy: spolehlivější než Copy-Item u zamčených/retry souborů
   $rcArgs = @(
     $contentRoot, $TargetDir, '/E', '/IS', '/IT', '/R:40', '/W:1',
     '/NFL', '/NDL', '/NJH', '/NJS', '/NP'
@@ -177,7 +250,6 @@ try {
   & robocopy @rcArgs | Out-Null
   $rc = $LASTEXITCODE
   Write-Log "robocopy exit=$rc"
-  # robocopy: 0–7 = success-ish, >=8 = failure
   if ($rc -ge 8) {
     throw "robocopy selhal s kódem $rc"
   }

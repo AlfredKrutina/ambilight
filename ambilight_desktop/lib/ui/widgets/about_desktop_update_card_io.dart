@@ -103,12 +103,12 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
         });
         return;
       }
-      final proc = await WindowsDesktopUpdater.launchExpandCopyRestart(
+      final started = await WindowsDesktopUpdater.launchExpandCopyRestart(
         zipFile: dl.zipFile!,
         waitPid: pid,
       );
       if (!mounted) return;
-      if (proc == null) {
+      if (!started) {
         setState(() {
           _busy = false;
           _downloadError = l10n.desktopUpdateUpdaterStartFailed;
@@ -121,8 +121,8 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
       final ctrl = context.read<AmbilightAppController>();
       await ctrl.flushPersistToDisk();
       await StartupCrashGuard.markSessionClean();
-      // Dej cmd/powershell čas odpojit se od Job Object, než Flutter ukončí proces.
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      // Updater už běží mimo Job Object (WMI) — krátká pauza jen na flush UI.
+      await Future<void>.delayed(const Duration(milliseconds: 400));
       exit(0);
     } catch (e) {
       if (mounted) {
