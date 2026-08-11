@@ -146,14 +146,18 @@ jobs:
             throw "Ocekavan ambilight_desktop_windows.exe v dist — Inno OutputBaseFilename musi sedet s .iss."
           }
           Write-Host "Installer OK: $exe ($((Get-Item $exe).Length) bytes)"
+          # Flatten next to ZIP so upload-artifact + publish paths stay stable.
+          $flat = Join-Path (Get-Location) 'ambilight_desktop_windows.exe'
+          Copy-Item -LiteralPath $exe -Destination $flat -Force
+          Write-Host "Installer flattened: $flat"
 
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-windows-release
           path: |
             ${{ github.workspace }}/ambilight_desktop_windows_x64.zip
-            ${{ github.workspace }}/dist/ambilight_desktop_windows.exe
-
+            ${{ github.workspace }}/ambilight_desktop_windows.exe
+          if-no-files-found: error
   macos:
     runs-on: macos-latest
     defaults:
@@ -344,13 +348,23 @@ jobs:
           name: desktop-linux-tarball
           path: artifacts/lin
 
+      - name: Verify Windows ZIP + installer artifacts
+        run: |
+          set -euo pipefail
+          echo "artifacts/win tree:"
+          find artifacts/win -type f -printf '%p (%s bytes)\n' | sort
+          # Older runs nested installer under dist/ — accept both, always flatten.
+          if [[ -f artifacts/win/dist/ambilight_desktop_windows.exe && ! -f artifacts/win/ambilight_desktop_windows.exe ]]; then
+            mv artifacts/win/dist/ambilight_desktop_windows.exe artifacts/win/ambilight_desktop_windows.exe
+          fi
+          test -f artifacts/win/ambilight_desktop_windows_x64.zip
+          test -f artifacts/win/ambilight_desktop_windows.exe
+          echo "OK: windows zip + installer present"
+
       - name: Write desktop-manifest.json
         run: |
           set -euo pipefail
-          SETUP_ARGS=()
-          if [[ -f artifacts/win/ambilight_desktop_windows.exe ]]; then
-            SETUP_ARGS+=(--setup-exe artifacts/win/ambilight_desktop_windows.exe)
-          fi
+          SETUP_ARGS=(--setup-exe artifacts/win/ambilight_desktop_windows.exe)
           if [[ -n "${{ steps.rel.outputs.manifest_version }}" ]]; then
             python3 tools/assemble_desktop_release_manifest.py \
               --repo "${{ github.repository }}" \
@@ -367,6 +381,8 @@ jobs:
               "${SETUP_ARGS[@]}" \
               --out desktop-manifest.json
           fi
+          grep -q 'windows_x64_setup' desktop-manifest.json
+          cat desktop-manifest.json
 
       - name: GitHub Release
         uses: softprops/action-gh-release@v2
@@ -377,6 +393,7 @@ jobs:
           # Rolling desktop-main nesmí ukrást GitHub „latest“ tagovaným desktop-v* releasům.
           make_latest: ${{ startsWith(github.ref, 'refs/tags/desktop-v') }}
           generate_release_notes: true
+          fail_on_unmatched_files: true
           files: |
             artifacts/win/ambilight_desktop_windows_x64.zip
             artifacts/win/ambilight_desktop_windows.exe
