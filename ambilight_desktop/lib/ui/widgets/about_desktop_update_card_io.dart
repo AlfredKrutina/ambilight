@@ -16,7 +16,10 @@ import '../../services/desktop_update/windows_desktop_updater.dart';
 
 /// Kontrola aktualizace z manifestu (GitHub Release) a na Windows instalace po restartu.
 class AboutDesktopUpdateCard extends StatefulWidget {
-  const AboutDesktopUpdateCard({super.key});
+  const AboutDesktopUpdateCard({super.key, this.autoCheckEpoch = 0});
+
+  /// Zvýší se ze stránky Aktualizace / startup dialogu → spustí kontrolu.
+  final int autoCheckEpoch;
 
   @override
   State<AboutDesktopUpdateCard> createState() => _AboutDesktopUpdateCardState();
@@ -27,11 +30,27 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
   DesktopUpdateCheckResult? _result;
   String? _downloadError;
   PackageInfo? _info;
+  int _seenAutoCheckEpoch = 0;
 
   @override
   void initState() {
     super.initState();
     unawaited(_loadInfo());
+    _seenAutoCheckEpoch = widget.autoCheckEpoch;
+  }
+
+  @override
+  void didUpdateWidget(covariant AboutDesktopUpdateCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.autoCheckEpoch != oldWidget.autoCheckEpoch &&
+        widget.autoCheckEpoch != _seenAutoCheckEpoch) {
+      _seenAutoCheckEpoch = widget.autoCheckEpoch;
+      if (widget.autoCheckEpoch > 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) unawaited(_check());
+        });
+      }
+    }
   }
 
   Future<void> _loadInfo() async {

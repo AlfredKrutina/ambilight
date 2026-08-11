@@ -1150,10 +1150,24 @@ class AmbilightAppController extends ChangeNotifier {
   }
 
   /// Otevře stránku Aktualizace; volitelně předvybere zařízení pro flash/OTA.
-  void requestOpenUpdates({String? deviceId}) {
+  void requestOpenUpdates({String? deviceId, bool autoCheckDesktopApp = false}) {
     _pendingShellIndex = shellIndexUpdates;
-    _pendingFlashDeviceId = deviceId;
+    if (deviceId != null) {
+      _pendingFlashDeviceId = deviceId;
+    }
+    if (autoCheckDesktopApp) {
+      _pendingDesktopUpdateAutoCheck = true;
+    }
     notifyListeners();
+  }
+
+  bool _pendingDesktopUpdateAutoCheck = false;
+
+  /// Jednorázově: stránka Aktualizace má spustit kontrolu desktop verze.
+  bool takePendingDesktopUpdateAutoCheck() {
+    final v = _pendingDesktopUpdateAutoCheck;
+    _pendingDesktopUpdateAutoCheck = false;
+    return v;
   }
 
   /// Otevře stránku Zařízení.

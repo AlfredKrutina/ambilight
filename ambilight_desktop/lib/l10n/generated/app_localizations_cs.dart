@@ -378,6 +378,17 @@ class AppLocalizationsCs extends AppLocalizations {
   String get desktopUpdateLogPathLabel => 'Soubor logu';
 
   @override
+  String get desktopUpdateAvailableTitle => 'Nová verze k dispozici';
+
+  @override
+  String desktopUpdateAvailableBody(String remote, String current) {
+    return 'Je dostupná nová verze AmbiLight: $remote\n\nNainstalováno: $current.\n\nPřejdi na stránku Aktualizace pro stažení a instalaci.';
+  }
+
+  @override
+  String get desktopUpdateAvailableOpenPage => 'Přejít na aktualizace';
+
+  @override
   String get semanticsCloseScanOverlay => 'Zavřít náhled oblasti snímání';
 
   @override
@@ -910,6 +921,9 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get trayQuit => 'Ukončit';
+
+  @override
+  String get trayOpenWindow => 'Zobrazit okno';
 
   @override
   String get startMinimizedTitle => 'Spustit minimalizovaně';

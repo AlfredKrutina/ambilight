@@ -20,29 +20,35 @@ class UpdatesPage extends StatefulWidget {
 class _UpdatesPageState extends State<UpdatesPage> {
   String? _flashDeviceId;
   AmbilightAppController? _controller;
+  int _desktopAutoCheckEpoch = 0;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final next = context.read<AmbilightAppController>();
     if (!identical(_controller, next)) {
-      _controller?.removeListener(_pullPendingDevice);
-      _controller = next..addListener(_pullPendingDevice);
-      _pullPendingDevice();
+      _controller?.removeListener(_pullPending);
+      _controller = next..addListener(_pullPending);
+      _pullPending();
     }
   }
 
   @override
   void dispose() {
-    _controller?.removeListener(_pullPendingDevice);
+    _controller?.removeListener(_pullPending);
     super.dispose();
   }
 
-  void _pullPendingDevice() {
-    final id = _controller?.takePendingFlashDeviceId();
-    if (id != null && mounted) {
-      setState(() => _flashDeviceId = id);
-    }
+  void _pullPending() {
+    final c = _controller;
+    if (c == null || !mounted) return;
+    final id = c.takePendingFlashDeviceId();
+    final auto = c.takePendingDesktopUpdateAutoCheck();
+    if (id == null && !auto) return;
+    setState(() {
+      if (id != null) _flashDeviceId = id;
+      if (auto) _desktopAutoCheckEpoch++;
+    });
   }
 
   void _patchGlobal(GlobalSettings g) {
@@ -71,9 +77,9 @@ class _UpdatesPageState extends State<UpdatesPage> {
                     title: context.l10n.updatesSectionAppTitle,
                     subtitle: context.l10n.updatesSectionAppHint,
                   ),
-                  const AmbiSurfacePanel(
-                    padding: EdgeInsets.all(18),
-                    child: AboutDesktopUpdateCard(),
+                  AmbiSurfacePanel(
+                    padding: const EdgeInsets.all(18),
+                    child: AboutDesktopUpdateCard(autoCheckEpoch: _desktopAutoCheckEpoch),
                   ),
                   const SizedBox(height: 28),
                   AmbiSectionHeader(

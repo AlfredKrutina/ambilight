@@ -741,6 +741,24 @@ abstract class AppLocalizations {
   /// **'Log file'**
   String get desktopUpdateLogPathLabel;
 
+  /// No description provided for @desktopUpdateAvailableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update available'**
+  String get desktopUpdateAvailableTitle;
+
+  /// No description provided for @desktopUpdateAvailableBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A newer AmbiLight version is available: {remote}\n\nInstalled: {current}.\n\nOpen the Updates page to download and install.'**
+  String desktopUpdateAvailableBody(String remote, String current);
+
+  /// No description provided for @desktopUpdateAvailableOpenPage.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to Updates'**
+  String get desktopUpdateAvailableOpenPage;
+
   /// No description provided for @semanticsCloseScanOverlay.
   ///
   /// In en, this message translates to:
@@ -1640,6 +1658,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Quit'**
   String get trayQuit;
+
+  /// No description provided for @trayOpenWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Show window'**
+  String get trayOpenWindow;
 
   /// No description provided for @startMinimizedTitle.
   ///

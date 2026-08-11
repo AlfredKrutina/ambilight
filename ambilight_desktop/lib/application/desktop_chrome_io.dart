@@ -9,6 +9,7 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../core/ambilight_presets.dart';
+import '../l10n/app_locale_bridge.dart';
 import 'ambilight_app_controller.dart';
 import 'startup_crash_guard.dart';
 import 'tray_mode_icon.dart';
@@ -26,14 +27,10 @@ String? _lastTrayVisualKey;
 Timer? _shellOcclusionDebounce;
 Timer? _shellOcclusionPollTimer;
 
-/// Pravý klik tray → Flutter [showMenu] z [TrayMenuHost], jinak fallback na nativní menu.
-void Function()? _trayThemedPopupRegister;
-
 bool get _inFlutterTest => Platform.environment['FLUTTER_TEST'] == 'true';
 
-void registerTrayThemedPopup(void Function()? fn) {
-  _trayThemedPopupRegister = fn;
-}
+/// Dříve Flutter themed tray popup; ponecháno jako no-op API (menu je nativní).
+void registerTrayThemedPopup(void Function()? fn) {}
 
 Future<void> trayQuitFromMenu() => _quitApp();
 
@@ -85,10 +82,28 @@ Future<void> initWindowManagerEarly() async {
 
 Future<void> _showMainWindow() async {
   try {
+    if (await windowManager.isMinimized()) {
+      await windowManager.restore();
+    }
     await windowManager.show();
     await windowManager.focus();
   } catch (e, st) {
     _log.fine('showMainWindow: $e', e, st);
+  }
+}
+
+/// Levý klik na tray: zobrazit okno, nebo ho schovat zpět do tray (toggle).
+Future<void> _toggleMainWindow() async {
+  try {
+    final visible = await windowManager.isVisible();
+    final minimized = await windowManager.isMinimized();
+    if (visible && !minimized) {
+      await windowManager.hide();
+      return;
+    }
+    await _showMainWindow();
+  } catch (e, st) {
+    _log.fine('toggleMainWindow: $e', e, st);
   }
 }
 
@@ -170,10 +185,16 @@ void _scheduleTrayMenu() {
 }
 
 Menu _buildTrayMenu(AmbilightAppController c) {
-  MenuItem modeItem(String label, String mode) => MenuItem(
-        label: label,
-        onClick: (_) => unawaited(c.setStartMode(mode)),
-      );
+  final l10n = AppLocaleBridge.strings;
+  final mode = c.config.globalSettings.startMode;
+
+  MenuItem modeItem(String label, String id) {
+    final active = mode == id;
+    return MenuItem(
+      label: active ? '✓ $label' : label,
+      onClick: (_) => unawaited(c.setStartMode(id)),
+    );
+  }
 
   final screenSub = Menu(
     items: AmbilightPresets.screenNames
@@ -199,22 +220,22 @@ Menu _buildTrayMenu(AmbilightAppController c) {
   return Menu(
     items: [
       MenuItem(
-        label: c.enabled ? 'Vypnout výstup' : 'Zapnout výstup',
+        label: c.enabled ? l10n.trayDisableOutput : l10n.trayEnableOutput,
         onClick: (_) => c.toggleEnabled(),
       ),
       MenuItem.separator(),
-      modeItem('Režim: Light', 'light'),
-      modeItem('Režim: Screen', 'screen'),
-      modeItem('Režim: Music', 'music'),
-      modeItem('Režim: PC Health', 'pchealth'),
+      modeItem(l10n.modeLightTitle, 'light'),
+      modeItem(l10n.modeScreenTitle, 'screen'),
+      modeItem(l10n.modeMusicTitle, 'music'),
+      modeItem(l10n.modePcHealthTitle, 'pchealth'),
       MenuItem.separator(),
-      MenuItem(label: 'Screen — presety', submenu: screenSub),
-      MenuItem(label: 'Music — presety', submenu: musicSub),
+      MenuItem(label: l10n.trayScreenPresetsSection, submenu: screenSub),
+      MenuItem(label: l10n.trayMusicPresetsSection, submenu: musicSub),
       MenuItem.separator(),
       MenuItem(
         label: c.config.globalSettings.performanceMode
-            ? 'Výkonový režim ✓'
-            : 'Výkonový režim',
+            ? '✓ ${l10n.performanceModeTitle}'
+            : l10n.performanceModeTitle,
         onClick: (_) => c.queueConfigApply(
           c.config.copyWith(
             globalSettings: c.config.globalSettings.copyWith(
@@ -225,8 +246,8 @@ Menu _buildTrayMenu(AmbilightAppController c) {
       ),
       MenuItem(
         label: c.config.globalSettings.autostart
-            ? 'Spustit se systémem ✓'
-            : 'Spustit se systémem',
+            ? '✓ ${l10n.autostartTitle}'
+            : l10n.autostartTitle,
         onClick: (_) => c.queueConfigApply(
           c.config.copyWith(
             globalSettings: c.config.globalSettings.copyWith(
@@ -238,19 +259,23 @@ Menu _buildTrayMenu(AmbilightAppController c) {
       MenuItem.separator(),
       MenuItem(
         label: c.musicPaletteLocked
-            ? 'Odmrazit pásek (hudba)'
+            ? l10n.trayMusicUnlockColors
             : (c.musicPaletteLockCapturePending
-                ? 'Zrušit zmrazení (čeká na snímek)'
-                : 'Zmrazit výstup na pásku (hudba)'),
+                ? l10n.trayMusicCancelLockPending
+                : l10n.trayMusicLockColorsShort),
         onClick: (_) => c.toggleMusicPaletteLock(),
       ),
       MenuItem.separator(),
       MenuItem(
-        label: 'Nastavení…',
+        label: l10n.trayOpenWindow,
+        onClick: (_) => unawaited(_showMainWindow()),
+      ),
+      MenuItem(
+        label: l10n.traySettingsEllipsis,
         onClick: (_) => unawaited(_openSettings(c)),
       ),
       MenuItem(
-        label: 'Ukončit',
+        label: l10n.trayQuit,
         onClick: (_) => unawaited(_quitApp()),
       ),
     ],
@@ -261,22 +286,17 @@ class _TrayTapListener with TrayListener {
   _TrayTapListener(this._c);
   final AmbilightAppController _c;
 
-  /// Windows/macOS: kontextové menu se neotevře samo — `tray_manager` vyžaduje explicitní popup.
-  /// Linux (AppIndicator): `popUpContextMenu` často není implementováno — ignorujeme chybu.
+  /// Pravý klik → nativní systémové menu u tray ikony (ne Flutter overlay v okně).
   @override
   void onTrayIconRightMouseDown() {
-    final themed = _trayThemedPopupRegister;
-    if (themed != null) {
-      themed();
-      return;
-    }
     unawaited(trayPopNativeContextMenu());
   }
 
+  /// Levý klik → toggle okno; dvojklik → nastavení.
   @override
   void onTrayIconMouseDown() {
     final now = DateTime.now().millisecondsSinceEpoch;
-    if (_trayFirstTapMs != null && now - _trayFirstTapMs! < 450) {
+    if (_trayFirstTapMs != null && now - _trayFirstTapMs! < 400) {
       _trayClickTimer?.cancel();
       _trayFirstTapMs = null;
       unawaited(_openSettings(_c));
@@ -284,9 +304,9 @@ class _TrayTapListener with TrayListener {
     }
     _trayFirstTapMs = now;
     _trayClickTimer?.cancel();
-    _trayClickTimer = Timer(const Duration(milliseconds: 450), () {
+    _trayClickTimer = Timer(const Duration(milliseconds: 400), () {
       _trayFirstTapMs = null;
-      unawaited(_showMainWindow());
+      unawaited(_toggleMainWindow());
     });
   }
 }

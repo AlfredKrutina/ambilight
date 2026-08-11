@@ -18,6 +18,7 @@ import 'features/spotify/spotify_service.dart';
 import 'features/system_media/system_media_now_playing_service.dart';
 import 'services/autostart_service.dart';
 import 'services/desktop_update/desktop_ota_report.dart';
+import 'services/desktop_update/desktop_startup_update_prompt.dart';
 import 'ui/ambi_shell.dart';
 import 'ui/app_navigator.dart';
 import 'ui/app_theme.dart';
@@ -138,6 +139,7 @@ class _AmbiLightRootState extends State<AmbiLightRoot> {
     super.initState();
     StartupCrashGuard.scheduleWarmupCompletion();
     DesktopOtaReportStore.scheduleStartupReportDialog();
+    DesktopStartupUpdatePrompt.scheduleAfterStartup();
   }
 
   @override

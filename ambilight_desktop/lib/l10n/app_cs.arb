@@ -112,6 +112,15 @@
   },
   "desktopUpdateResultFailBodyGeneric": "Aktualizace se nepovedla. Podrobnosti jsou v logu.",
   "desktopUpdateLogPathLabel": "Soubor logu",
+  "desktopUpdateAvailableTitle": "Nová verze k dispozici",
+  "desktopUpdateAvailableBody": "Je dostupná nová verze AmbiLight: {remote}\n\nNainstalováno: {current}.\n\nPřejdi na stránku Aktualizace pro stažení a instalaci.",
+  "@desktopUpdateAvailableBody": {
+    "placeholders": {
+      "remote": { "type": "String" },
+      "current": { "type": "String" }
+    }
+  },
+  "desktopUpdateAvailableOpenPage": "Přejít na aktualizace",
   "semanticsCloseScanOverlay": "Zavřít náhled oblasti snímání",
   "scanZonesChip": "Náhled zón",
   "bootstrapFailed": "Aplikace se nespustila: {detail}",
@@ -287,6 +296,7 @@
   "trayMusicLockColorsShort": "Zmrazit výstup na pásku (hudba)",
   "traySettingsEllipsis": "Nastavení…",
   "trayQuit": "Ukončit",
+  "trayOpenWindow": "Zobrazit okno",
   "startMinimizedTitle": "Spustit minimalizovaně",
   "captureMethodLabel": "Metoda snímání obrazovky (pokročilé)",
   "captureMethodHint": "např. mss, dxcam",

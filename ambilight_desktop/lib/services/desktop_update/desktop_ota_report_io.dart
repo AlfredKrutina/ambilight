@@ -126,15 +126,56 @@ abstract final class DesktopOtaReportStore {
   }
 
   /// Po startu UI — dialog úspěch/chyba + odkaz na log.
+  ///
+  /// Updater zapisuje `ok` až po (nebo těsně před) relaunch; nový proces proto
+  /// často najde ještě `running`/`pending`. Jednorázové čtení by dialog přeskočilo
+  /// navždy — pollujeme, dokud není terminální stav nebo timeout.
   static void scheduleStartupReportDialog() {
     if (!Platform.isWindows) return;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future<void>.delayed(const Duration(milliseconds: 600));
-      final report = await consumePendingReport();
-      if (report == null) return;
-      final ctx = ambiNavigatorKey.currentContext;
-      if (ctx == null || !ctx.mounted) return;
-      await showDesktopOtaReportDialog(ctx, report);
+      final deadline = DateTime.now().add(const Duration(seconds: 90));
+      while (true) {
+        final report = await consumePendingReport();
+        if (report != null) {
+          final ctx = ambiNavigatorKey.currentContext;
+          if (ctx == null || !ctx.mounted) return;
+          await showDesktopOtaReportDialog(ctx, report);
+          return;
+        }
+
+        final statusFile = File(_path);
+        if (!await statusFile.exists()) {
+          return;
+        }
+
+        // Still in progress (pending/running) — wait for PS to flip to ok/error.
+        if (DateTime.now().isAfter(deadline)) {
+          // Force-consume stale in-progress as interrupted.
+          try {
+            final raw = await statusFile.readAsString();
+            final j = jsonDecode(raw);
+            if (j is Map) {
+              final map = Map<String, dynamic>.from(j);
+              final state = '${map['state'] ?? ''}'.trim().toLowerCase();
+              if (state == 'pending' || state == 'running' || state == 'applying') {
+                map['state'] = 'interrupted';
+                map['message'] = map['message'] ??
+                    'Update did not finish (interrupted or updater crashed).';
+                await statusFile.writeAsString(jsonEncode(map), flush: true);
+                final late = await consumePendingReport();
+                if (late != null) {
+                  final ctx = ambiNavigatorKey.currentContext;
+                  if (ctx == null || !ctx.mounted) return;
+                  await showDesktopOtaReportDialog(ctx, late);
+                }
+              }
+            }
+          } catch (_) {}
+          return;
+        }
+
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      }
     });
   }
 }

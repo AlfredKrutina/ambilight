@@ -376,6 +376,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get desktopUpdateLogPathLabel => 'Log file';
 
   @override
+  String get desktopUpdateAvailableTitle => 'Update available';
+
+  @override
+  String desktopUpdateAvailableBody(String remote, String current) {
+    return 'A newer AmbiLight version is available: $remote\n\nInstalled: $current.\n\nOpen the Updates page to download and install.';
+  }
+
+  @override
+  String get desktopUpdateAvailableOpenPage => 'Go to Updates';
+
+  @override
   String get semanticsCloseScanOverlay => 'Close capture region preview';
 
   @override
@@ -907,6 +918,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get trayQuit => 'Quit';
+
+  @override
+  String get trayOpenWindow => 'Show window';
 
   @override
   String get startMinimizedTitle => 'Start minimized';

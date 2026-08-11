@@ -1137,9 +1137,20 @@ try {
     throw ("Install looks incomplete after copy: " + $liveExe)
   }
 
+  # Persist success BEFORE relaunch so the new process can show "Update complete"
+  # even if it starts while we are still in this script.
+  Write-Status @{
+    state = 'ok'
+    phase = 'done'
+    message = 'Update applied'
+    sessionId = $sessionId
+    logPath = $script:LogPath
+    at = (Get-Date -Format o)
+  }
+  Write-Log ("ps: status=ok written before relaunch session={0}" -f $sessionId)
+
   Write-Log "Starting AmbiLight..."
   Write-Log ("ps: starting {0}" -f $liveExe)
-  Write-Status @{ state = 'running'; phase = 'starting'; sessionId = $sessionId; at = (Get-Date -Format o) }
   Close-UpdateUi
   $started = $false
   for ($i = 1; $i -le 5; $i++) {
@@ -1163,14 +1174,6 @@ try {
     throw "App did not start after update."
   }
 
-  Write-Status @{
-    state = 'ok'
-    phase = 'done'
-    message = 'Update applied'
-    sessionId = $sessionId
-    logPath = $script:LogPath
-    at = (Get-Date -Format o)
-  }
   Write-Log ("ps: done session={0}" -f $sessionId)
   try { Update-StartMenuShortcut -liveExe $liveExe -TargetDir $TargetDir } catch {}
   try { Invoke-OtaCleanup -WorkDir $WorkDir -liveExe $liveExe -success $true } catch {}

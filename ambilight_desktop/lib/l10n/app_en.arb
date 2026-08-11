@@ -183,6 +183,15 @@
   },
   "desktopUpdateResultFailBodyGeneric": "The update failed. See the log for details.",
   "desktopUpdateLogPathLabel": "Log file",
+  "desktopUpdateAvailableTitle": "Update available",
+  "desktopUpdateAvailableBody": "A newer AmbiLight version is available: {remote}\n\nInstalled: {current}.\n\nOpen the Updates page to download and install.",
+  "@desktopUpdateAvailableBody": {
+    "placeholders": {
+      "remote": { "type": "String" },
+      "current": { "type": "String" }
+    }
+  },
+  "desktopUpdateAvailableOpenPage": "Go to Updates",
   "semanticsCloseScanOverlay": "Close capture region preview",
   "scanZonesChip": "Zone preview",
   "bootstrapFailed": "App failed to start: {detail}",
@@ -405,6 +414,7 @@
   "trayMusicLockColorsShort": "Freeze strip output (music)",
   "traySettingsEllipsis": "Settings…",
   "trayQuit": "Quit",
+  "trayOpenWindow": "Show window",
   "startMinimizedTitle": "Start minimized",
   "captureMethodLabel": "Screen capture method (advanced)",
   "captureMethodHint": "e.g. mss, dxcam",
