@@ -517,6 +517,11 @@ exit 0
   static String _vbsEscape(String s) => s.replaceAll('"', '""');
 
   /// VBS: `WScript.Shell.Run """powershell"" args", 0, False` — no blank console.
+  ///
+  /// VBScript string form: `cmd = """exe"" args with ""quoted"" paths"`
+  /// — leading `"""` = open string + `"`, then exe, `""` = `"`, args (already
+  /// escaped), trailing `"` closes the string. Missing that final `"` makes
+  /// wscript fail (vbs_run exit=1) or Run nothing under On Error Resume Next.
   static Future<void> _writeHiddenPsRunnerVbs({
     required File vbs,
     required String psExe,
@@ -526,8 +531,10 @@ exit 0
 On Error Resume Next
 Dim sh, cmd
 Set sh = CreateObject("WScript.Shell")
-cmd = """${_vbsEscape(psExe)}"" ${_vbsEscape(psArgs)}
+cmd = """${_vbsEscape(psExe)}"" ${_vbsEscape(psArgs)}"
 sh.Run cmd, 0, False
+If Err.Number <> 0 Then WScript.Quit 1
+WScript.Quit 0
 ''';
     await vbs.writeAsString(body, flush: true);
   }
