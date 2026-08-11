@@ -240,7 +240,7 @@
   },
   "semanticsSelected": ", selected",
   "homeOverviewTitle": "Overview",
-  "homeOverviewSubtitle": "Turn on output, pick a mode and check connectivity. Details live under Devices and Settings.",
+  "homeOverviewSubtitle": "Pick a mode and check devices. Output on/off is in the left panel at the bottom.",
   "homeModeTitle": "Mode",
   "homeModeSubtitle": "Tap a tile to change the active mode. The pencil opens Settings for that mode.",
   "homeIntegrationsTitle": "Integrations",

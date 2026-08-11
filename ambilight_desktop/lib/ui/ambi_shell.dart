@@ -193,8 +193,16 @@ class _AmbiShellState extends State<AmbiShell> with WidgetsBindingObserver {
 
         return Scaffold(
           backgroundColor: scheme.surface,
-          body: LayoutBuilder(
-            builder: (context, c) => boundedContent(c),
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _CompactPowerBar(),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, c) => boundedContent(c),
+                ),
+              ),
+            ],
           ),
           bottomNavigationBar: NavigationBar(
             height: 64,
@@ -379,6 +387,88 @@ class _AmbiAppRail extends StatelessWidget {
                   );
                 },
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Power + link status when the full rail is hidden (narrow window).
+class _CompactPowerBar extends StatelessWidget {
+  const _CompactPowerBar();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainerLow,
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7))),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.blur_circular, color: scheme.primary, size: 22),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                context.l10n.appTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            Selector<AmbilightAppController, ({List<String> ids, int total})>(
+              selector: (_, c) => _deviceOnlineMeta(c),
+              builder: (context, meta, _) {
+                if (meta.total <= 0) return const SizedBox.shrink();
+                final ctrl = context.read<AmbilightAppController>();
+                return ValueListenableBuilder<Map<String, bool>>(
+                  valueListenable: ctrl.connectionSnapshotNotifier,
+                  builder: (context, snap, _) {
+                    var online = 0;
+                    for (final id in meta.ids) {
+                      if (snap[id] == true) online++;
+                    }
+                    final ok = online >= meta.total;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Icon(
+                        ok ? Icons.link_rounded : Icons.link_off_rounded,
+                        size: 20,
+                        color: ok ? scheme.primary : scheme.error,
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+            Selector<AmbilightAppController, bool>(
+              selector: (_, c) => c.enabled,
+              builder: (context, on, _) {
+                final ctrl = context.read<AmbilightAppController>();
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      on ? context.l10n.outputOn : context.l10n.outputOff,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: on ? scheme.primary : scheme.onSurfaceVariant,
+                          ),
+                    ),
+                    Switch.adaptive(
+                      value: on,
+                      onChanged: ctrl.setEnabled,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ],
+                );
+              },
             ),
           ],
         ),

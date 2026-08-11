@@ -449,7 +449,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get homeOverviewSubtitle =>
-      'Zapni výstup, vyber režim a zkontroluj připojení. Podrobná konfigurace je v záložkách Zařízení a Nastavení.';
+      'Vyber režim a zkontroluj zařízení. Zapnutí výstupu je v levém panelu dole.';
 
   @override
   String get homeModeTitle => 'Režim';

@@ -846,7 +846,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeOverviewSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Turn on output, pick a mode and check connectivity. Details live under Devices and Settings.'**
+  /// **'Pick a mode and check devices. Output on/off is in the left panel at the bottom.'**
   String get homeOverviewSubtitle;
 
   /// No description provided for @homeModeTitle.
