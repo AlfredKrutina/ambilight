@@ -148,6 +148,8 @@ class WindowsDesktopUpdater {
           sessionId: sessionId,
         );
       }
+      // ZIP je v OTA — temp download uz nepotrebujeme.
+      await _deleteDownloadTempForZip(zipFile);
 
       final cfg = <String, dynamic>{
         'sessionId': sessionId,
@@ -406,6 +408,15 @@ exit 0
       await Future<void>.delayed(Duration(milliseconds: 200 * (i + 1)));
     }
     return false;
+  }
+
+  static Future<void> _deleteDownloadTempForZip(File zip) async {
+    try {
+      final parent = zip.parent;
+      final name = p.basename(parent.path);
+      if (!name.startsWith('ambi_desktop_up_')) return;
+      if (await parent.exists()) await parent.delete(recursive: true);
+    } catch (_) {}
   }
 
   static Future<String> _resolvePowerShellExe() async {
@@ -836,8 +847,72 @@ function Test-InstallOk([string] $liveExe, [string] $TargetDir) {
   return $true
 }
 
+function Update-StartMenuShortcut([string] $liveExe, [string] $TargetDir) {
+  try {
+    $lnkDir = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\AmbiLight'
+    if (-not (Test-Path -LiteralPath $lnkDir)) {
+      New-Item -ItemType Directory -Path $lnkDir -Force | Out-Null
+    }
+    $lnkPath = Join-Path $lnkDir 'AmbiLight.lnk'
+    $w = New-Object -ComObject WScript.Shell
+    $s = $w.CreateShortcut($lnkPath)
+    $s.TargetPath = $liveExe
+    $s.WorkingDirectory = $TargetDir
+    $s.WindowStyle = 1
+    $s.Description = 'AmbiLight Desktop'
+    $s.IconLocation = ($liveExe + ',0')
+    $s.Save()
+    Write-Log ("ps: start menu shortcut refreshed: " + $lnkPath)
+  } catch {
+    Write-Log ("ps: start menu shortcut failed: " + $_)
+  }
+}
+
+function Invoke-OtaCleanup([string] $WorkDir, [string] $liveExe, [bool] $success) {
+  Write-Log ("ps: cleanup begin success={0}" -f $success)
+  try {
+    & schtasks.exe /Delete /TN 'AmbiLightDesktopOTA' /F 2>$null | Out-Null
+  } catch {}
+
+  $names = @(
+    'stage',
+    'launch_wmi.vbs',
+    'launch_cim.ps1',
+    'schtasks_run.cmd',
+    'apply_update.ps1',
+    'apply_config.json',
+    'heartbeat.txt'
+  )
+  if ($success) {
+    $names += 'update.zip'
+  }
+  foreach ($n in $names) {
+    try {
+      $p = Join-Path $WorkDir $n
+      if (Test-Path -LiteralPath $p) {
+        Remove-Item -LiteralPath $p -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Log ("ps: cleanup removed {0}" -f $n)
+      }
+    } catch {}
+  }
+
+  if ($success -and $liveExe) {
+    try {
+      $bak = $liveExe + '.bak'
+      if (Test-Path -LiteralPath $bak) {
+        Remove-Item -LiteralPath $bak -Force -ErrorAction SilentlyContinue
+        Write-Log "ps: cleanup removed exe.bak"
+      }
+    } catch {}
+  }
+
+  # Keep status JSON + log for the restarted UI report.
+  Write-Log "ps: cleanup done (kept status + log)"
+}
+
 $liveExe = $null
 $TargetDir = $null
+$WorkDir = $null
 $sessionId = 'unknown'
 
 try {
@@ -855,6 +930,8 @@ try {
   $StageDir = [string]$cfg.stageDir
   $TargetDir = [string]$cfg.targetDir
   $ExeName = [string]$cfg.exeName
+  $WorkDir = [string]$cfg.workDir
+  if (-not $WorkDir) { $WorkDir = Split-Path -Parent $ConfigPath }
 
   Write-Log ("ps: boot session={0}" -f $sessionId)
   Write-Status @{ state = 'running'; phase = 'boot'; sessionId = $sessionId; at = (Get-Date -Format o) }
@@ -942,6 +1019,8 @@ try {
     at = (Get-Date -Format o)
   }
   Write-Log ("ps: done session={0}" -f $sessionId)
+  try { Update-StartMenuShortcut -liveExe $liveExe -TargetDir $TargetDir } catch {}
+  try { Invoke-OtaCleanup -WorkDir $WorkDir -liveExe $liveExe -success $true } catch {}
   exit 0
 } catch {
   $errMsg = "$_"
@@ -973,6 +1052,10 @@ try {
   } catch {
     Write-Log ("ps: restart after failure failed: " + $_)
   }
+  try {
+    if (-not $WorkDir) { $WorkDir = Split-Path -Parent $ConfigPath }
+    Invoke-OtaCleanup -WorkDir $WorkDir -liveExe $liveExe -success $false
+  } catch {}
   exit 1
 }
 ''';

@@ -62,10 +62,11 @@ class DesktopUpdateService {
   final http.Client _http;
 
   static const Duration _manifestTimeout = Duration(seconds: 25);
-  static const Duration _downloadSendTimeout = Duration(seconds: 45);
-  /// Mezi dvěma příchozími bloky dat — odhalí „uvázlé“ TCP bez ukončení celkového limitu stahování.
+  static const Duration _downloadSendTimeout = Duration(seconds: 60);
+  /// Mezi dvěma příchozími bloky dat — odhalí „uvázlé“ TCP.
   static const Duration _downloadChunkGapTimeout = Duration(minutes: 3);
   static const int _maxZipBytes = 400 * 1024 * 1024;
+  static const int _downloadAttempts = 3;
 
   static const Map<String, String> _httpHeaders = {
     'Accept': 'application/json, text/plain, */*',
@@ -74,7 +75,6 @@ class DesktopUpdateService {
 
   static String? platformAssetKey() {
     if (Platform.isWindows) return 'windows_x64';
-    // Manifest používá `macos_dmg` (CI assemble); alias `macos` pro starší mirror.
     if (Platform.isMacOS) return 'macos_dmg';
     if (Platform.isLinux) return 'linux_x64';
     return null;
@@ -179,7 +179,6 @@ class DesktopUpdateService {
       return DesktopUpdateCheckParseError('Nepodporovaná platforma.');
     }
     var asset = manifest.assetForKey(key);
-    // Zpětná kompatibilita: starší mirror mohl mít klíč `macos`.
     if (asset == null && key == 'macos_dmg') {
       asset = manifest.assetForKey('macos');
     }
@@ -199,6 +198,7 @@ class DesktopUpdateService {
     );
   }
 
+  /// Stáhne ZIP s retry (síť / timeout / hash) a ověří SHA-256 + ZIP magickou hlavičku.
   Future<DesktopUpdateDownloadResult> downloadVerifiedZip(DesktopUpdateAsset asset) async {
     if (asset.kind == 'browser') {
       return DesktopUpdateDownloadResult.err('Pro tento kanál není balíček ke stažení (pouze prohlížeč).');
@@ -210,17 +210,65 @@ class DesktopUpdateService {
     if (!uri.isScheme('https')) {
       return DesktopUpdateDownloadResult.err('Stažení jen přes HTTPS.');
     }
+
+    await purgeStaleDownloadTemps();
+
+    DesktopUpdateDownloadResult? last;
+    for (var attempt = 1; attempt <= _downloadAttempts; attempt++) {
+      last = await _downloadVerifiedZipOnce(asset, uri: uri, attempt: attempt);
+      if (last.isOk) return last;
+      final err = (last.error ?? '').toLowerCase();
+      final permanent = err.contains('https') ||
+          err.contains('prohlížeč') ||
+          err.contains('nepodporovaný') ||
+          err.contains('příliš velký');
+      if (permanent) return last;
+      if (attempt < _downloadAttempts) {
+        await Future<void>.delayed(Duration(milliseconds: 400 * attempt));
+      }
+    }
+    return last ?? DesktopUpdateDownloadResult.err('Stažení selhalo.');
+  }
+
+  Future<DesktopUpdateDownloadResult> _downloadVerifiedZipOnce(
+    DesktopUpdateAsset asset, {
+    required Uri uri,
+    required int attempt,
+  }) async {
     final dir = await Directory.systemTemp.createTemp('ambi_desktop_up_');
     final zip = File(p.join(dir.path, 'update.zip'));
     IOSink? sink;
     try {
-      final req = http.Request('GET', uri)..headers['User-Agent'] = 'AmbiLight-Desktop/self-update';
+      final req = http.Request('GET', uri)
+        ..headers['User-Agent'] = 'AmbiLight-Desktop/self-update'
+        ..headers['Accept'] = 'application/zip, application/octet-stream, */*';
       final streamed = await _http.send(req).timeout(_downloadSendTimeout);
       if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
         await _drainStreamedBody(streamed);
         await _deleteTree(dir);
-        return DesktopUpdateDownloadResult.err('Stažení: HTTP ${streamed.statusCode}');
+        return DesktopUpdateDownloadResult.err(
+          'Stažení (pokus $attempt): HTTP ${streamed.statusCode}',
+        );
       }
+
+      final expectedLen = streamed.contentLength;
+      if (expectedLen != null && expectedLen > _maxZipBytes) {
+        await _drainStreamedBody(streamed);
+        await _deleteTree(dir);
+        return DesktopUpdateDownloadResult.err(
+          'Stažený soubor je příliš velký (>${_maxZipBytes ~/ (1024 * 1024)} MiB).',
+        );
+      }
+      if (asset.sizeBytes != null && asset.sizeBytes! > 0 && expectedLen != null && expectedLen > 0) {
+        if (expectedLen != asset.sizeBytes) {
+          await _drainStreamedBody(streamed);
+          await _deleteTree(dir);
+          return DesktopUpdateDownloadResult.err(
+            'Content-Length nesedí s manifestem (HTTP $expectedLen, manifest ${asset.sizeBytes}).',
+          );
+        }
+      }
+
       final out = zip.openWrite();
       sink = out;
       var total = 0;
@@ -230,29 +278,100 @@ class DesktopUpdateService {
           await _closeSinkQuietly(sink);
           sink = null;
           await _deleteTree(dir);
-          return DesktopUpdateDownloadResult.err('Stažený soubor je příliš velký (>${_maxZipBytes ~/ (1024 * 1024)} MiB).');
+          return DesktopUpdateDownloadResult.err(
+            'Stažený soubor je příliš velký (>${_maxZipBytes ~/ (1024 * 1024)} MiB).',
+          );
         }
         out.add(chunk);
       }
       await out.flush();
       await out.close();
       sink = null;
+
+      if (total < 64) {
+        await _deleteTree(dir);
+        return DesktopUpdateDownloadResult.err('Stažený soubor je prázdný nebo poškozený ($total B).');
+      }
+      if (expectedLen != null && expectedLen > 0 && total != expectedLen) {
+        await _deleteTree(dir);
+        return DesktopUpdateDownloadResult.err(
+          'Neúplné stažení ($total / $expectedLen B) — pokus $attempt.',
+        );
+      }
+      if (asset.sizeBytes != null && asset.sizeBytes! > 0 && total != asset.sizeBytes) {
+        await _deleteTree(dir);
+        return DesktopUpdateDownloadResult.err(
+          'Velikost nesedí s manifestem ($total / ${asset.sizeBytes} B).',
+        );
+      }
+
+      final magicOk = await _looksLikeZip(zip);
+      if (!magicOk) {
+        await _deleteTree(dir);
+        return DesktopUpdateDownloadResult.err('Stažený soubor není platný ZIP (pokus $attempt).');
+      }
+
       final digest = await sha256.bind(zip.openRead()).first;
       final hash = digest.toString().toLowerCase();
       final expected = asset.sha256Hex.toLowerCase();
       if (hash != expected) {
         await _deleteTree(dir);
-        return DesktopUpdateDownloadResult.err('SHA-256 nesedí (očekáváno $expected, je $hash).');
+        return DesktopUpdateDownloadResult.err(
+          'SHA-256 nesedí (očekáváno $expected, je $hash) — pokus $attempt.',
+        );
       }
       return DesktopUpdateDownloadResult.ok(zip);
     } on TimeoutException {
       await _closeSinkQuietly(sink);
       await _deleteTree(dir);
-      return DesktopUpdateDownloadResult.err('Časový limit stahování nebo manifestu.');
+      return DesktopUpdateDownloadResult.err('Časový limit stahování (pokus $attempt).');
     } catch (e) {
       await _closeSinkQuietly(sink);
       await _deleteTree(dir);
-      return DesktopUpdateDownloadResult.err('$e');
+      return DesktopUpdateDownloadResult.err('$e (pokus $attempt)');
+    }
+  }
+
+  /// Smaže osiřelé `ambi_desktop_up_*` ve %TEMP% starší než [maxAge].
+  static Future<void> purgeStaleDownloadTemps({Duration maxAge = const Duration(hours: 6)}) async {
+    try {
+      final root = Directory.systemTemp;
+      await for (final entity in root.list(followLinks: false)) {
+        if (entity is! Directory) continue;
+        final name = p.basename(entity.path);
+        if (!name.startsWith('ambi_desktop_up_')) continue;
+        try {
+          final stat = await entity.stat();
+          if (DateTime.now().difference(stat.modified) > maxAge) {
+            await entity.delete(recursive: true);
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
+  /// Smaže temp složku kolem staženého ZIPu (`ambi_desktop_up_*`).
+  static Future<void> deleteDownloadTempForZip(File? zip) async {
+    if (zip == null) return;
+    try {
+      final parent = zip.parent;
+      final name = p.basename(parent.path);
+      if (!name.startsWith('ambi_desktop_up_')) return;
+      if (await parent.exists()) await parent.delete(recursive: true);
+    } catch (_) {}
+  }
+
+  static Future<bool> _looksLikeZip(File zip) async {
+    try {
+      final raf = await zip.open();
+      try {
+        final magic = await raf.read(4);
+        return magic.length >= 2 && magic[0] == 0x50 && magic[1] == 0x4b;
+      } finally {
+        await raf.close();
+      }
+    } catch (_) {
+      return false;
     }
   }
 

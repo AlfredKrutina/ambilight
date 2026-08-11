@@ -36,7 +36,21 @@ class DesktopUpdateManifest {
       } else {
         return;
       }
-      assets[key] = DesktopUpdateAsset(url: url, sha256Hex: sha, kind: kind);
+      final sizeRaw = m['size'] ?? m['bytes'] ?? m['size_bytes'];
+      int? sizeBytes;
+      if (sizeRaw is int) {
+        sizeBytes = sizeRaw;
+      } else if (sizeRaw is num) {
+        sizeBytes = sizeRaw.toInt();
+      } else if (sizeRaw != null) {
+        sizeBytes = int.tryParse('$sizeRaw');
+      }
+      assets[key] = DesktopUpdateAsset(
+        url: url,
+        sha256Hex: sha,
+        kind: kind,
+        sizeBytes: sizeBytes,
+      );
     });
     if (assets.isEmpty) return null;
     return DesktopUpdateManifest(
@@ -56,9 +70,12 @@ class DesktopUpdateAsset {
     required this.url,
     required this.sha256Hex,
     required this.kind,
+    this.sizeBytes,
   });
 
   final String url;
   final String sha256Hex;
   final String kind;
+  /// Volitelná velikost z manifestu (`size` / `bytes`) — kontrola po stažení.
+  final int? sizeBytes;
 }

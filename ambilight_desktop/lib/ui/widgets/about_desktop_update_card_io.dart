@@ -94,6 +94,7 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
     });
     final svc = DesktopUpdateService();
     final l10n = context.l10n;
+    File? downloadedZip;
     try {
       final dl = await svc.downloadVerifiedZip(a.asset);
       if (!mounted) return;
@@ -106,6 +107,7 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
         await _showInstallFailure(err);
         return;
       }
+      downloadedZip = dl.zipFile;
 
       // Progress dialog while launch cascade + heartbeat runs.
       unawaited(
@@ -118,7 +120,7 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
       await DesktopOtaReportStore.writePending(detail: 'Applying desktop update…');
 
       final started = await WindowsDesktopUpdater.launchExpandCopyRestart(
-        zipFile: dl.zipFile!,
+        zipFile: downloadedZip!,
         waitPid: pid,
       );
 
@@ -202,6 +204,8 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
         await _showInstallFailure('$e');
       }
     } finally {
+      // Host copies ZIP into OTA and deletes temp; safety net if launch fails earlier.
+      await DesktopUpdateService.deleteDownloadTempForZip(downloadedZip);
       svc.close();
     }
   }
