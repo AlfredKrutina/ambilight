@@ -781,6 +781,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Dark blue = legacy default look. SnowRunner = neutral dark gray.';
 
   @override
+  String get themeGreen => 'NVIDIA green';
+
+  @override
   String get themeSnowrunner => 'Dark (SnowRunner)';
 
   @override
@@ -1952,6 +1955,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get setupWizardThemeOptionCoffeeSubtitle =>
       'Warm cream and brown tones.';
+
+  @override
+  String get setupWizardThemeOptionGreenSubtitle =>
+      'Near-black surfaces with a green accent in the NVIDIA App style.';
 
   @override
   String get setupWizardExpertiseSimpleExplain =>

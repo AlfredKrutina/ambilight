@@ -77,7 +77,6 @@ class HomePage extends StatelessWidget {
         String title,
         String subtitle,
         IconData icon,
-        Gradient gradient,
       })> _modes(BuildContext context) {
     final l = context.l10n;
     return [
@@ -86,44 +85,24 @@ class HomePage extends StatelessWidget {
         title: l.modeLightTitle,
         subtitle: l.modeLightSubtitle,
         icon: Icons.light_mode_rounded,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFFB923C), Color(0xFFF472B6)],
-        ),
       ),
       (
         id: 'screen',
         title: l.modeScreenTitle,
         subtitle: l.modeScreenSubtitle,
         icon: Icons.desktop_windows_rounded,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2563EB), Color(0xFF06B6D4)],
-        ),
       ),
       (
         id: 'music',
         title: l.modeMusicTitle,
         subtitle: l.modeMusicSubtitle,
         icon: Icons.graphic_eq_rounded,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF7C3AED), Color(0xFFDB2777)],
-        ),
       ),
       (
         id: 'pchealth',
         title: l.modePcHealthTitle,
         subtitle: l.modePcHealthSubtitle,
         icon: Icons.monitor_heart_rounded,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF0D9488), Color(0xFF22C55E)],
-        ),
       ),
     ];
   }
@@ -147,36 +126,54 @@ class HomePage extends StatelessWidget {
               maxWidth: cw,
               child: CustomScrollView(
                 slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
-          sliver: SliverToBoxAdapter(
-            child: AmbiPageHeader(
-              title: context.l10n.homeOverviewTitle,
-              subtitle: context.l10n.homeOverviewSubtitle,
-              bottomSpacing: 8,
-            ),
-          ),
-        ),
                   SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.fromLTRB(28, 28, 28, 4),
+                    sliver: SliverToBoxAdapter(
+                      child: AmbiPageHeader(
+                        title: context.l10n.homeOverviewTitle,
+                        subtitle: context.l10n.homeOverviewSubtitle,
+                        bottomSpacing: 12,
+                        trailing: useWideHero
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  OutlinedButton.icon(
+                                    onPressed: () => ctrl.requestOpenDevices(),
+                                    icon: const Icon(Icons.hub_outlined, size: 18),
+                                    label: Text(context.l10n.navDevices),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  OutlinedButton.icon(
+                                    onPressed: () => ctrl.requestOpenUpdates(),
+                                    icon: const Icon(Icons.system_update_alt_rounded, size: 18),
+                                    label: Text(context.l10n.navUpdates),
+                                  ),
+                                ],
+                              )
+                            : null,
+                      ),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
                     sliver: SliverToBoxAdapter(
                       child: useWideHero
                           ? _heroRowWide(context, ctrl, scheme, v, layoutW)
                           : _heroColumn(context, ctrl, scheme, v),
                     ),
                   ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-          sliver: SliverToBoxAdapter(
-            child: AmbiSectionHeader(
-              title: context.l10n.homeModeTitle,
-              subtitle: context.l10n.homeModeSubtitle,
-              helpTooltip: context.l10n.homeSectionModeHelpTooltip,
-            ),
-          ),
-        ),
                   SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: AmbiSectionHeader(
+                        title: context.l10n.homeModeTitle,
+                        subtitle: context.l10n.homeModeSubtitle,
+                        helpTooltip: context.l10n.homeSectionModeHelpTooltip,
+                      ),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
                     sliver: SliverGrid(
                       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                         maxCrossAxisExtent: AppBreakpoints.homeModeTileMaxExtent,
@@ -187,79 +184,35 @@ class HomePage extends StatelessWidget {
                       delegate: SliverChildBuilderDelegate(
                         (context, i) {
                           final m = modes[i];
-                          return ClipRRect(
-                            borderRadius: BorderRadius.circular(DashboardUi.radiusLg),
-                            child: Stack(
-                              fit: StackFit.passthrough,
-                              children: [
-                                AmbiGradientTile(
-                                  gradient: m.gradient,
-                                  icon: m.icon,
-                                  title: m.title,
-                                  subtitle: m.subtitle,
-                                  selected: current == m.id,
-                                  showSelectionCheckIcon: false,
-                                  onTap: () => ctrl.setStartMode(m.id),
-                                  minHeight: 96,
-                                  tooltip: _modeTileTooltip(context, m.id),
-                                ),
-                                Positioned(
-                                  top: 6,
-                                  right: 6,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Material(
-                                        color: Colors.transparent,
-                                        child: IconButton.filledTonal(
-                                          tooltip: context.l10n.modeSettingsTooltip(m.title),
-                                          style: IconButton.styleFrom(
-                                            visualDensity: VisualDensity.compact,
-                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                            backgroundColor: Colors.black.withValues(alpha: 0.28),
-                                            foregroundColor: Colors.white,
-                                            minimumSize: const Size(34, 34),
-                                            maximumSize: const Size(34, 34),
-                                            padding: EdgeInsets.zero,
-                                          ),
-                                          onPressed: () => ctrl.requestOpenSettingsForStartMode(m.id),
-                                          icon: const Icon(Icons.tune_rounded, size: 18),
-                                        ),
-                                      ),
-                                      if (current == m.id) ...[
-                                        const SizedBox(width: 6),
-                                        Icon(
-                                          Icons.check_circle_rounded,
-                                          color: Colors.white.withValues(alpha: 0.95),
-                                          size: 24,
-                                          shadows: const [
-                                            Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
-                                          ],
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                          return AmbiFeatureCard(
+                            icon: m.icon,
+                            title: m.title,
+                            subtitle: m.subtitle,
+                            selected: current == m.id,
+                            showSelectionCheckIcon: true,
+                            onTap: () => ctrl.setStartMode(m.id),
+                            onSecondaryTap: () => ctrl.requestOpenSettingsForStartMode(m.id),
+                            secondaryTooltip: context.l10n.modeSettingsTooltip(m.title),
+                            minHeight: 96,
+                            tooltip: _modeTileTooltip(context, m.id),
                           );
                         },
                         childCount: modes.length,
                       ),
                     ),
                   ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-          sliver: SliverToBoxAdapter(
-            child: AmbiSectionHeader(
-              title: context.l10n.homeIntegrationsTitle,
-              subtitle: context.l10n.homeIntegrationsSubtitle,
-              helpTooltip: context.l10n.homeSectionIntegrationsHelpTooltip,
-            ),
-          ),
-        ),
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: AmbiSectionHeader(
+                        title: context.l10n.homeIntegrationsTitle,
+                        subtitle: context.l10n.homeIntegrationsSubtitle,
+                        helpTooltip: context.l10n.homeSectionIntegrationsHelpTooltip,
+                      ),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(28, 0, 28, 12),
                     sliver: SliverToBoxAdapter(
                       child: _IntegrationsDashboardRow(
                         layoutW: layoutW,
@@ -269,16 +222,16 @@ class HomePage extends StatelessWidget {
                       ),
                     ),
                   ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-          sliver: SliverToBoxAdapter(
-            child: AmbiSectionHeader(
-              title: context.l10n.homeDevicesTitle,
-              subtitle: context.l10n.homeDevicesSubtitle,
-              helpTooltip: context.l10n.homeSectionDevicesHelpTooltip,
-            ),
-          ),
-        ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(28, 8, 28, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: AmbiSectionHeader(
+                        title: context.l10n.homeDevicesTitle,
+                        subtitle: context.l10n.homeDevicesSubtitle,
+                        helpTooltip: context.l10n.homeSectionDevicesHelpTooltip,
+                      ),
+                    ),
+                  ),
                   SliverToBoxAdapter(
                     child: ValueListenableBuilder<Map<String, bool>>(
                       valueListenable: ctrl.connectionSnapshotNotifier,
@@ -287,8 +240,8 @@ class HomePage extends StatelessWidget {
                           height: 132,
                           child: v.devices.isEmpty
                               ? Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                                  child: AmbiGlassPanel(
+                                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                                  child: AmbiSurfacePanel(
                                     padding: const EdgeInsets.all(20),
                                     child: Center(
                                       child: Text(
@@ -303,7 +256,7 @@ class HomePage extends StatelessWidget {
                                 )
                               : ListView.separated(
                                   scrollDirection: Axis.horizontal,
-                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  padding: const EdgeInsets.symmetric(horizontal: 28),
                                   itemCount: v.devices.length,
                                   separatorBuilder: (_, __) => const SizedBox(width: 12),
                                   itemBuilder: (context, i) {
@@ -320,7 +273,7 @@ class HomePage extends StatelessWidget {
                       },
                     ),
                   ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 28)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 36)),
                 ],
               ),
             );
@@ -359,7 +312,7 @@ class HomePage extends StatelessWidget {
             alignment: Alignment.centerRight,
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: (layoutW * 0.46).clamp(280.0, 420.0).toDouble()),
-              child: AmbiGlassPanel(
+              child: AmbiSurfacePanel(
                 padding: const EdgeInsets.all(18),
                 child: _EngineStatus(scheme: scheme),
               ),
@@ -381,7 +334,7 @@ class HomePage extends StatelessWidget {
       children: [
         _PowerHeroCard(c: c, scheme: scheme, enabled: v.enabled),
         const SizedBox(height: 14),
-        AmbiGlassPanel(
+        AmbiSurfacePanel(
           padding: const EdgeInsets.all(18),
           child: _EngineStatus(scheme: scheme),
         ),
@@ -406,57 +359,52 @@ class _PowerHeroCard extends StatelessWidget {
         final titleStyle = bx.maxWidth > 520
             ? Theme.of(context).textTheme.titleLarge
             : Theme.of(context).textTheme.titleMedium;
-        return Material(
-          borderRadius: BorderRadius.circular(DashboardUi.radiusLg),
-          clipBehavior: Clip.antiAlias,
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: on
-                    ? [const Color(0xFF6366F1), const Color(0xFFEC4899)]
-                    : [scheme.surfaceContainerHighest, scheme.surfaceContainerHigh],
+        return AmbiSurfacePanel(
+          padding: EdgeInsets.all(bx.maxWidth > 520 ? 22 : 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    on ? Icons.play_circle_fill_rounded : Icons.pause_circle_outline_rounded,
+                    size: iconSize,
+                    color: on ? scheme.primary : scheme.onSurfaceVariant,
+                  ),
+                  const Spacer(),
+                  Switch.adaptive(
+                    value: on,
+                    onChanged: c.setEnabled,
+                  ),
+                ],
               ),
-              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
-            ),
-            padding: EdgeInsets.all(bx.maxWidth > 520 ? 22 : 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      on ? Icons.play_circle_fill_rounded : Icons.pause_circle_outline_rounded,
-                      size: iconSize,
-                      color: on ? Colors.white : scheme.onSurfaceVariant,
+              const SizedBox(height: 12),
+              Text(
+                context.l10n.homeLedOutputTitle,
+                style: titleStyle?.copyWith(
+                      color: scheme.onSurface,
+                      fontWeight: FontWeight.w800,
                     ),
-                    const Spacer(),
-                    Switch.adaptive(
-                      value: on,
-                      onChanged: c.setEnabled,
-                      activeThumbColor: Colors.white,
-                      activeTrackColor: Colors.white.withValues(alpha: 0.45),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                on ? context.l10n.homeLedOutputOnBody : context.l10n.homeLedOutputOffBody,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  context.l10n.homeLedOutputTitle,
-                  style: titleStyle?.copyWith(
-                        color: on ? Colors.white : scheme.onSurface,
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  on ? context.l10n.homeLedOutputOnBody : context.l10n.homeLedOutputOffBody,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: on ? Colors.white.withValues(alpha: 0.92) : scheme.onSurfaceVariant,
-                      ),
+              ),
+              if (on) ...[
+                const SizedBox(height: 14),
+                Container(
+                  height: 3,
+                  width: 72,
+                  decoration: BoxDecoration(
+                    color: scheme.primary,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ],
-            ),
+            ],
           ),
         );
       },
@@ -483,9 +431,9 @@ class _EngineStatus extends StatelessWidget {
               height: 44,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: scheme.primaryContainer.withValues(alpha: 0.65),
-                  border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.45)),
+                  borderRadius: BorderRadius.circular(DashboardUi.radiusSm),
+                  color: scheme.primary.withValues(alpha: 0.14),
+                  border: Border.all(color: scheme.outlineVariant),
                 ),
                 child: Icon(Icons.blur_on_rounded, color: scheme.primary, size: 26),
               ),
@@ -602,7 +550,7 @@ class _IntegrationMusicCard extends StatelessWidget {
     final clientId = v.spotifyClientId;
     return Tooltip(
       message: context.l10n.integrationMusicCardTooltip,
-      child: AmbiGlassPanel(
+      child: AmbiSurfacePanel(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -698,7 +646,7 @@ class _IntegrationHaCard extends StatelessWidget {
 
     return Tooltip(
       message: context.l10n.integrationHaCardTooltip,
-      child: AmbiGlassPanel(
+      child: AmbiSurfacePanel(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -749,7 +697,7 @@ class _IntegrationFirmwareCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: context.l10n.integrationFirmwareCardTooltip,
-      child: AmbiGlassPanel(
+      child: AmbiSurfacePanel(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -802,7 +750,7 @@ class _DeviceStripCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return SizedBox(
       width: 200,
-      child: AmbiGlassPanel(
+      child: AmbiSurfacePanel(
         padding: const EdgeInsets.all(14),
         borderRadius: DashboardUi.radiusMd,
         child: Column(

@@ -24,10 +24,11 @@ String normalizeAmbilightStartMode(String raw) {
 }
 
 /// UI paleta: historicky uložené `"dark"` = dnešní modrý vzhled → [`dark_blue`].
-/// Neutrální SnowRunner styl = [`snowrunner`].
+/// Neutrální SnowRunner styl = [`snowrunner`]. NVIDIA green = [`green`].
 String normalizeAmbilightUiTheme(String raw) {
   final t = raw.trim().toLowerCase().replaceAll('-', '_');
   if (t.isEmpty) return 'dark_blue';
+  if (t == 'green' || t == 'nvidia' || t == 'nvidia_green') return 'green';
   if (t == 'snowrunner') return 'snowrunner';
   if (t == 'darkblue' || t == 'dark_blue') return 'dark_blue';
   if (t == 'dark') return 'dark_blue';

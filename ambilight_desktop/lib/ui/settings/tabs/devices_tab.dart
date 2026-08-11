@@ -99,7 +99,7 @@ class DevicesTab extends StatelessWidget {
                 return Padding(
                   key: ValueKey<String>('dev-tab-${d.id}'),
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: AmbiGlassPanel(
+                  child: AmbiSurfacePanel(
                     padding: const EdgeInsets.all(14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,

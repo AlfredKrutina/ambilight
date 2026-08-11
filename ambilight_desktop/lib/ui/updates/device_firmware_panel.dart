@@ -490,7 +490,7 @@ class _DeviceFirmwarePanelState extends State<DeviceFirmwarePanel> {
   Widget _section({required Widget child}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: AmbiGlassPanel(
+      child: AmbiSurfacePanel(
         padding: const EdgeInsets.all(18),
         child: child,
       ),

@@ -604,6 +604,13 @@ class _SetupWizardState extends State<SetupWizard> with TickerProviderStateMixin
             Text(l10n.setupWizardAppearanceSubtitle, textAlign: TextAlign.center),
             const SizedBox(height: 18),
             _choiceTile(
+              selected: themeKey == 'green',
+              onTap: () => unawaited(_applyUiTheme('green')),
+              icon: Icons.memory_rounded,
+              title: l10n.themeGreen,
+              subtitle: l10n.setupWizardThemeOptionGreenSubtitle,
+            ),
+            _choiceTile(
               selected: themeKey == 'light',
               onTap: () => unawaited(_applyUiTheme('light')),
               icon: Icons.light_mode_rounded,
@@ -1011,7 +1018,7 @@ class _SetupWizardState extends State<SetupWizard> with TickerProviderStateMixin
                       key: ValueKey<int>(_step),
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: AmbiGlassPanel(
+                        child: AmbiSurfacePanel(
                           padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
                           child: _buildStepBody(l10n),
                         ),

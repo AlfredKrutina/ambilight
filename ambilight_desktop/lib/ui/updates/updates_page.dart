@@ -60,42 +60,26 @@ class _UpdatesPageState extends State<UpdatesPage> {
             return ResponsiveBody(
               maxWidth: constraints.maxWidth,
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+                padding: const EdgeInsets.fromLTRB(28, 28, 28, 40),
                 children: [
                   AmbiPageHeader(
                     title: context.l10n.updatesPageTitle,
                     subtitle: context.l10n.updatesPageSubtitle,
-                    bottomSpacing: 16,
+                    bottomSpacing: 20,
                   ),
-                  Text(
-                    context.l10n.updatesSectionAppTitle,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                  AmbiSectionHeader(
+                    title: context.l10n.updatesSectionAppTitle,
+                    subtitle: context.l10n.updatesSectionAppHint,
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    context.l10n.updatesSectionAppHint,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
-                  const AmbiGlassPanel(
+                  const AmbiSurfacePanel(
                     padding: EdgeInsets.all(18),
                     child: AboutDesktopUpdateCard(),
                   ),
                   const SizedBox(height: 28),
-                  Text(
-                    context.l10n.updatesSectionDeviceTitle,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                  AmbiSectionHeader(
+                    title: context.l10n.updatesSectionDeviceTitle,
+                    subtitle: context.l10n.updatesSectionDeviceHint,
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    context.l10n.updatesSectionDeviceHint,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
                   DeviceFirmwarePanel(
                     key: ValueKey<String>('fw-${_flashDeviceId ?? 'none'}'),
                     draft: draft,

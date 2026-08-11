@@ -1,38 +1,40 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../l10n/generated/app_localizations.dart';
 
-/// Sdílené widgety dashboard UI (glass, gradient, navigace).
+/// Sdílené tokeny a widgety dashboard UI (NVIDIA-like matte chrome).
 abstract final class DashboardUi {
-  static const double sidebarWidth = 264;
-  static const double topChromeHeight = 56;
-  static const double radiusLg = 20;
-  static const double radiusMd = 14;
+  static const double sidebarWidth = 220;
+  static const double settingsRailWidth = 220;
+  @Deprecated('Top chrome removed; kept for callers')
+  static const double topChromeHeight = 0;
+  static const double railWidth = 220;
+  static const double radiusSm = 4;
+  static const double radiusMd = 8;
+  static const double radiusLg = 12;
 
-  /// Jemné pozadí hlavního obsahu.
+  /// Flat canvas — no soft gradients.
   static BoxDecoration pageBackdrop(ColorScheme scheme) {
+    return BoxDecoration(color: scheme.surface);
+  }
+
+  static BoxDecoration railBackdrop(ColorScheme scheme) {
     return BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          scheme.surface,
-          Color.lerp(scheme.surface, scheme.primaryContainer, 0.08)!,
-        ],
+      color: scheme.surfaceContainerLow,
+      border: Border(
+        right: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7)),
       ),
     );
   }
 }
 
-/// Rozmazaný panel (glassmorphism light).
-class AmbiGlassPanel extends StatelessWidget {
-  const AmbiGlassPanel({
+/// Matný panel (NVIDIA-style surface card).
+class AmbiSurfacePanel extends StatelessWidget {
+  const AmbiSurfacePanel({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(16),
-    this.borderRadius = DashboardUi.radiusLg,
+    this.borderRadius = DashboardUi.radiusMd,
   });
 
   final Widget child;
@@ -42,29 +44,36 @@ class AmbiGlassPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final isDark = scheme.brightness == Brightness.dark;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(borderRadius),
-            border: Border.all(
-              color: scheme.outlineVariant.withValues(alpha: isDark ? 0.35 : 0.5),
-            ),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                scheme.surfaceContainerHighest.withValues(alpha: isDark ? 0.42 : 0.75),
-                scheme.surfaceContainerHigh.withValues(alpha: isDark ? 0.28 : 0.55),
-              ],
-            ),
-          ),
-          child: Padding(padding: padding, child: child),
-        ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(borderRadius),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.9)),
       ),
+      child: Padding(padding: padding, child: child),
+    );
+  }
+}
+
+/// Zpětná kompatibilita — glass → matný surface.
+class AmbiGlassPanel extends StatelessWidget {
+  const AmbiGlassPanel({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(16),
+    this.borderRadius = DashboardUi.radiusMd,
+  });
+
+  final Widget child;
+  final EdgeInsets padding;
+  final double borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    return AmbiSurfacePanel(
+      padding: padding,
+      borderRadius: borderRadius,
+      child: child,
     );
   }
 }
@@ -119,15 +128,16 @@ class AmbiHelpIcon extends StatelessWidget {
   }
 }
 
-/// Jednotný nadpis stránky (Přehled, Zařízení, O aplikaci).
+/// Jednotný nadpis stránky (NVIDIA content header).
 class AmbiPageHeader extends StatelessWidget {
   const AmbiPageHeader({
     super.key,
     required this.title,
     this.subtitle,
-    this.bottomSpacing = 16,
+    this.bottomSpacing = 20,
     this.helpTooltip,
     this.helpDetails,
+    this.trailing,
   });
 
   final String title;
@@ -135,6 +145,7 @@ class AmbiPageHeader extends StatelessWidget {
   final double bottomSpacing;
   final String? helpTooltip;
   final String? helpDetails;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -149,17 +160,28 @@ class AmbiPageHeader extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.6,
+                      height: 1.15,
+                    ),
               ),
             ),
+            if (trailing != null) ...[
+              const SizedBox(width: 12),
+              trailing!,
+            ],
             if (hasHelp) AmbiHelpIcon(message: helpTooltip!, details: helpDetails),
           ],
         ),
         if (subtitle != null && subtitle!.isNotEmpty) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             subtitle!,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
           ),
         ],
         SizedBox(height: bottomSpacing),
@@ -168,13 +190,13 @@ class AmbiPageHeader extends StatelessWidget {
   }
 }
 
-/// Nadpis sekce uvnitř stránky (Režim, Integrace, …).
+/// Nadpis sekce uvnitř stránky.
 class AmbiSectionHeader extends StatelessWidget {
   const AmbiSectionHeader({
     super.key,
     required this.title,
     this.subtitle,
-    this.bottomSpacing = 8,
+    this.bottomSpacing = 10,
     this.helpTooltip,
     this.helpDetails,
   });
@@ -198,7 +220,10 @@ class AmbiSectionHeader extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2,
+                    ),
               ),
             ),
             if (hasHelp) AmbiHelpIcon(message: helpTooltip!, details: helpDetails),
@@ -208,7 +233,10 @@ class AmbiSectionHeader extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             subtitle!,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.35),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  height: 1.35,
+                ),
           ),
         ],
         SizedBox(height: bottomSpacing),
@@ -217,8 +245,150 @@ class AmbiSectionHeader extends StatelessWidget {
   }
 }
 
-/// Karta ve stylu „Shortcuts“ — silná výplň, ikona, titulek.
-/// Výšku i šířku určí rodič (např. mřížka); [minHeight] je jen spodní hranice při volném layoutu.
+/// Theme-aware feature card (replaces rainbow gradient tiles).
+class AmbiFeatureCard extends StatelessWidget {
+  const AmbiFeatureCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.selected = false,
+    this.showSelectionCheckIcon = true,
+    required this.onTap,
+    this.onSecondaryTap,
+    this.secondaryTooltip,
+    this.minHeight = 100,
+    this.tooltip,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final bool selected;
+  final bool showSelectionCheckIcon;
+  final VoidCallback onTap;
+  final VoidCallback? onSecondaryTap;
+  final String? secondaryTooltip;
+  final double minHeight;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final semanticsLabel = StringBuffer(title);
+    if (subtitle != null && subtitle!.isNotEmpty) {
+      semanticsLabel.write(', ${subtitle!}');
+    }
+    if (selected) semanticsLabel.write(AppLocalizations.of(context).semanticsSelected);
+
+    Widget tile = Semantics(
+      button: true,
+      selected: selected,
+      label: semanticsLabel.toString(),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(DashboardUi.radiusMd),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(DashboardUi.radiusMd),
+          focusColor: scheme.primary.withValues(alpha: 0.16),
+          hoverColor: scheme.primary.withValues(alpha: 0.08),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(DashboardUi.radiusMd),
+              color: selected
+                  ? scheme.primary.withValues(alpha: 0.12)
+                  : scheme.surfaceContainerHigh,
+              border: Border.all(
+                color: selected ? scheme.primary : scheme.outlineVariant,
+                width: selected ? 1.5 : 1,
+              ),
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: minHeight),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      width: 4,
+                      color: selected ? scheme.primary : scheme.outlineVariant,
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  icon,
+                                  size: 22,
+                                  color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                                ),
+                                const Spacer(),
+                                if (onSecondaryTap != null)
+                                  IconButton(
+                                    tooltip: secondaryTooltip,
+                                    onPressed: onSecondaryTap,
+                                    icon: Icon(Icons.tune_rounded, size: 18, color: scheme.onSurfaceVariant),
+                                    visualDensity: VisualDensity.compact,
+                                    style: IconButton.styleFrom(
+                                      minimumSize: const Size(32, 32),
+                                      padding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                if (selected && showSelectionCheckIcon)
+                                  Icon(Icons.check_circle, color: scheme.primary, size: 18),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: scheme.onSurface,
+                                    letterSpacing: -0.2,
+                                  ),
+                            ),
+                            if (subtitle != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  subtitle!,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: scheme.onSurfaceVariant,
+                                        height: 1.25,
+                                      ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final tip = tooltip;
+    if (tip != null && tip.trim().isNotEmpty) {
+      tile = Tooltip(message: tip, child: tile);
+    }
+    return tile;
+  }
+}
+
+/// Legacy API — maps to [AmbiFeatureCard] (gradient ignored).
 class AmbiGradientTile extends StatelessWidget {
   const AmbiGradientTile({
     super.key,
@@ -238,7 +408,6 @@ class AmbiGradientTile extends StatelessWidget {
   final String title;
   final String? subtitle;
   final bool selected;
-  /// U dlaždice s překryvným tlačítkem v [Stack] vypni, aby fajfka nebyla dvakrát (viz domovský Režim).
   final bool showSelectionCheckIcon;
   final VoidCallback onTap;
   final double minHeight;
@@ -246,109 +415,20 @@ class AmbiGradientTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final semanticsLabel = StringBuffer(title);
-    if (subtitle != null && subtitle!.isNotEmpty) {
-      semanticsLabel.write(', ${subtitle!}');
-    }
-    if (selected) semanticsLabel.write(AppLocalizations.of(context).semanticsSelected);
-    Widget tile = Semantics(
-      button: true,
+    return AmbiFeatureCard(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
       selected: selected,
-      label: semanticsLabel.toString(),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(DashboardUi.radiusLg),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(DashboardUi.radiusLg),
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(DashboardUi.radiusLg),
-              gradient: gradient,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: selected ? 0.35 : 0.2),
-                  blurRadius: selected ? 20 : 12,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-              border: Border.all(
-                color: selected ? Colors.white.withValues(alpha: 0.55) : Colors.white.withValues(alpha: 0.12),
-                width: selected ? 2 : 1,
-              ),
-            ),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: minHeight),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: LayoutBuilder(
-                  builder: (context, c) {
-                    final iconSz = (24 - (c.maxWidth - 220) * 0.012).clamp(20, 24).toDouble();
-                    const designH = 96.0;
-                    return FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.topLeft,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: c.maxWidth, maxHeight: designH),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(icon, color: Colors.white.withValues(alpha: 0.95), size: iconSz),
-                                const Spacer(),
-                                if (selected && showSelectionCheckIcon)
-                                  Icon(
-                                    Icons.check_circle,
-                                    color: Colors.white.withValues(alpha: 0.95),
-                                    size: iconSz * 0.78,
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -0.2,
-                                  ),
-                            ),
-                            if (subtitle != null)
-                              Text(
-                                subtitle!,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Colors.white.withValues(alpha: 0.88),
-                                      height: 1.25,
-                                    ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+      showSelectionCheckIcon: showSelectionCheckIcon,
+      onTap: onTap,
+      minHeight: minHeight,
+      tooltip: tooltip,
     );
-    final tip = tooltip;
-    if (tip != null && tip.trim().isNotEmpty) {
-      tile = Tooltip(message: tip, child: tile);
-    }
-    return tile;
   }
 }
 
-/// Položka levého menu (sidebar).
+/// Položka levého menu (NVIDIA rail).
 class AmbiSidebarTile extends StatelessWidget {
   const AmbiSidebarTile({
     super.key,
@@ -357,6 +437,7 @@ class AmbiSidebarTile extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.tooltip,
+    this.compact = false,
   });
 
   final IconData icon;
@@ -364,50 +445,69 @@ class AmbiSidebarTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final String? tooltip;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     Widget row = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10, vertical: 2),
       child: Material(
-        color: selected ? scheme.primary.withValues(alpha: 0.22) : Colors.transparent,
-        borderRadius: BorderRadius.circular(DashboardUi.radiusMd),
+        color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(DashboardUi.radiusMd),
+          borderRadius: BorderRadius.circular(DashboardUi.radiusSm),
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  size: 22,
-                  color: selected ? scheme.primary : scheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                          color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
-                          letterSpacing: -0.1,
-                        ),
-                  ),
-                ),
-                if (selected)
+          focusColor: scheme.primary.withValues(alpha: 0.18),
+          hoverColor: scheme.onSurface.withValues(alpha: 0.06),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(DashboardUi.radiusSm),
+              color: selected ? scheme.primary.withValues(alpha: 0.14) : Colors.transparent,
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                children: [
                   Container(
-                    width: 4,
-                    height: 22,
+                    width: 3,
+                    margin: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
-                      color: scheme.primary,
-                      borderRadius: BorderRadius.circular(4),
+                      color: selected ? scheme.primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-              ],
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: compact ? 10 : 12,
+                        vertical: compact ? 10 : 12,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            icon,
+                            size: 20,
+                            color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                                    color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
+                                    letterSpacing: -0.1,
+                                    fontSize: compact ? 13 : 14,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -430,13 +530,14 @@ class AmbiSidebarSectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 18, 16, 6),
+      padding: const EdgeInsets.fromLTRB(18, 16, 12, 6),
       child: Text(
         text.toUpperCase(),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              letterSpacing: 1.4,
-              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
+              letterSpacing: 1.2,
+              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
               fontWeight: FontWeight.w600,
+              fontSize: 10.5,
             ),
       ),
     );

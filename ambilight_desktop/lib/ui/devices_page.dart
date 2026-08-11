@@ -300,7 +300,7 @@ class _DevicesPageState extends State<DevicesPage> {
         return ResponsiveBody(
           maxWidth: constraints.maxWidth,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            padding: const EdgeInsets.fromLTRB(28, 28, 28, 40),
             children: [
               AmbiPageHeader(
                 title: context.l10n.devicesPageTitle,
@@ -308,7 +308,7 @@ class _DevicesPageState extends State<DevicesPage> {
                 bottomSpacing: 20,
               ),
               RepaintBoundary(
-                child: AmbiGlassPanel(
+                child: AmbiSurfacePanel(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,

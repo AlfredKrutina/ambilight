@@ -112,7 +112,7 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
           builder: (context, constraints) {
             final w = constraints.maxWidth;
             final useRail = AppBreakpoints.useSettingsSideRail(w);
-            final contentW = useRail ? (w - 252 - 1) : w;
+            final contentW = useRail ? (w - DashboardUi.settingsRailWidth - 1) : w;
 
             // Pořadí indexů musí sedět s [AmbilightAppController.settingsTab*] a přehledem Integrace.
             Widget tabChild(int i) {
@@ -191,9 +191,9 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
         final hint = DecoratedBox(
           decoration: BoxDecoration(
             border: Border(
-              bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.35)),
+              bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.55)),
             ),
-            color: scheme.surfaceContainer.withValues(alpha: 0.5),
+            color: scheme.surfaceContainerLow,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -226,29 +226,12 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  context.l10n.settingsPageTitle,
-                                  style: Theme.of(context).textTheme.headlineSmall,
-                                ),
-                              ),
-                              AmbiHelpIcon(message: context.l10n.settingsPageHelpTooltip),
-                            ],
-                          ),
-                          Text(
-                            context.l10n.settingsRailSubtitle,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ],
+                      padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
+                      child: AmbiPageHeader(
+                        title: context.l10n.settingsPageTitle,
+                        subtitle: context.l10n.settingsRailSubtitle,
+                        helpTooltip: context.l10n.settingsPageHelpTooltip,
+                        bottomSpacing: 12,
                       ),
                     ),
                     hint,
@@ -269,24 +252,22 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      context.l10n.settingsPageTitle,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                  ),
-                  AmbiHelpIcon(message: context.l10n.settingsPageHelpTooltip),
-                ],
+              padding: const EdgeInsets.fromLTRB(28, 24, 28, 0),
+              child: AmbiPageHeader(
+                title: context.l10n.settingsPageTitle,
+                subtitle: context.l10n.settingsRailSubtitle,
+                helpTooltip: context.l10n.settingsPageHelpTooltip,
+                bottomSpacing: 8,
               ),
             ),
             hint,
             TabBar(
               controller: _tabController,
               isScrollable: true,
+              dividerColor: scheme.outlineVariant.withValues(alpha: 0.5),
+              indicatorColor: scheme.primary,
+              labelColor: scheme.primary,
+              unselectedLabelColor: scheme.onSurfaceVariant,
               tabs: [
                 Tab(text: context.l10n.tabGlobal),
                 Tab(text: context.l10n.tabLight),
@@ -326,11 +307,9 @@ class _SettingsSidebar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final l10n = context.l10n;
     return SizedBox(
-      width: 252,
+      width: DashboardUi.settingsRailWidth,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerLow.withValues(alpha: 0.88),
-        ),
+        decoration: DashboardUi.railBackdrop(scheme),
         child: ListView(
           padding: const EdgeInsets.only(top: 8, bottom: 16),
           children: [
@@ -341,6 +320,7 @@ class _SettingsSidebar extends StatelessWidget {
               tooltip: l10n.settingsTabGlobalTooltip,
               selected: selectedIndex == 0,
               onTap: () => onSelect(0),
+              compact: true,
             ),
             AmbiSidebarSectionLabel(l10n.settingsSidebarModes),
             AmbiSidebarTile(
@@ -349,6 +329,7 @@ class _SettingsSidebar extends StatelessWidget {
               tooltip: l10n.settingsTabLightTooltip,
               selected: selectedIndex == 1,
               onTap: () => onSelect(1),
+              compact: true,
             ),
             AmbiSidebarTile(
               icon: Icons.desktop_windows_rounded,
@@ -356,6 +337,7 @@ class _SettingsSidebar extends StatelessWidget {
               tooltip: l10n.settingsTabScreenTooltip,
               selected: selectedIndex == 2,
               onTap: () => onSelect(2),
+              compact: true,
             ),
             AmbiSidebarTile(
               icon: Icons.graphic_eq_rounded,
@@ -363,6 +345,7 @@ class _SettingsSidebar extends StatelessWidget {
               tooltip: l10n.settingsTabMusicTooltip,
               selected: selectedIndex == 3,
               onTap: () => onSelect(3),
+              compact: true,
             ),
             AmbiSidebarTile(
               icon: Icons.monitor_heart_rounded,
@@ -370,6 +353,7 @@ class _SettingsSidebar extends StatelessWidget {
               tooltip: l10n.settingsTabPcHealthTooltip,
               selected: selectedIndex == 4,
               onTap: () => onSelect(4),
+              compact: true,
             ),
             AmbiSidebarSectionLabel(l10n.settingsSidebarIntegrations),
             AmbiSidebarTile(
@@ -378,6 +362,7 @@ class _SettingsSidebar extends StatelessWidget {
               tooltip: l10n.settingsTabSpotifyTooltip,
               selected: selectedIndex == 5,
               onTap: () => onSelect(5),
+              compact: true,
             ),
             AmbiSidebarTile(
               icon: Icons.home_work_outlined,
@@ -385,6 +370,7 @@ class _SettingsSidebar extends StatelessWidget {
               tooltip: l10n.settingsTabSmartHomeTooltip,
               selected: selectedIndex == 6,
               onTap: () => onSelect(6),
+              compact: true,
             ),
           ],
         ),

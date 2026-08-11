@@ -784,6 +784,9 @@ class AppLocalizationsCs extends AppLocalizations {
       'Tmavě modrý = dřívější výchozí vzhled. SnowRunner = neutrální šedý tmavý režim.';
 
   @override
+  String get themeGreen => 'NVIDIA zelená';
+
+  @override
   String get themeSnowrunner => 'Tmavý (SnowRunner)';
 
   @override
@@ -1954,6 +1957,10 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String get setupWizardThemeOptionCoffeeSubtitle =>
       'Teplé krémové a hnědé tóny.';
+
+  @override
+  String get setupWizardThemeOptionGreenSubtitle =>
+      'Téměř černé plochy se zeleným akcentem ve stylu NVIDIA App.';
 
   @override
   String get setupWizardExpertiseSimpleExplain =>

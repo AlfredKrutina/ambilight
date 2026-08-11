@@ -42,7 +42,7 @@ String _configuredOutputKindsFooter(AppConfig c, AppLocalizations l10n) {
 }
 
 List<({IconData icon, String label, String tooltip})> _navSpecs(AppLocalizations l) => [
-      (icon: Icons.grid_view_rounded, label: l.navOverview, tooltip: l.navOverviewTooltip),
+      (icon: Icons.home_outlined, label: l.navOverview, tooltip: l.navOverviewTooltip),
       (icon: Icons.hub_outlined, label: l.navDevices, tooltip: l.navDevicesTooltip),
       (icon: Icons.system_update_alt_rounded, label: l.navUpdates, tooltip: l.navUpdatesTooltip),
       (icon: Icons.tune_rounded, label: l.navSettings, tooltip: l.navSettingsTooltip),
@@ -114,6 +114,9 @@ class _AmbiShellState extends State<AmbiShell> with WidgetsBindingObserver {
     if (!mounted) return;
     final idx = _controller?.takePendingShellIndex();
     if (idx != null) {
+      if (kDebugMode || ambilightReleaseChannel == 'staging') {
+        debugPrint('[AmbiShell] navigate index → $idx');
+      }
       setState(() => _index = idx);
     }
   }
@@ -126,17 +129,15 @@ class _AmbiShellState extends State<AmbiShell> with WidgetsBindingObserver {
         final w = constraints.maxWidth;
         final useSidebar = AppBreakpoints.useShellSideRail(w);
         final navSpecs = _navSpecs(context.l10n);
-
-        final topChrome = const _TopChrome();
         final instant = MediaQuery.disableAnimationsOf(context);
 
         final content = DecoratedBox(
           decoration: DashboardUi.pageBackdrop(scheme),
           child: RepaintBoundary(
             child: AnimatedSwitcher(
-              duration: instant ? Duration.zero : const Duration(milliseconds: 280),
-              switchInCurve: instant ? Curves.linear : Curves.easeOutQuart,
-              switchOutCurve: instant ? Curves.linear : Curves.easeInQuart,
+              duration: instant ? Duration.zero : const Duration(milliseconds: 220),
+              switchInCurve: instant ? Curves.linear : Curves.easeOutCubic,
+              switchOutCurve: instant ? Curves.linear : Curves.easeInCubic,
               layoutBuilder: (currentChild, previousChildren) {
                 return Stack(
                   alignment: Alignment.center,
@@ -149,13 +150,9 @@ class _AmbiShellState extends State<AmbiShell> with WidgetsBindingObserver {
               },
               transitionBuilder: (child, anim) {
                 if (instant) return child;
-                final slide = Tween<Offset>(
-                  begin: const Offset(0.014, 0),
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic));
                 return FadeTransition(
                   opacity: CurvedAnimation(parent: anim, curve: Curves.easeOutQuad),
-                  child: SlideTransition(position: slide, child: child),
+                  child: child,
                 );
               },
               child: KeyedSubtree(
@@ -176,25 +173,17 @@ class _AmbiShellState extends State<AmbiShell> with WidgetsBindingObserver {
         if (useSidebar) {
           return Scaffold(
             backgroundColor: scheme.surface,
-            body: Column(
+            body: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                topChrome,
+                _AmbiAppRail(
+                  key: const Key('ambi-main-sidebar'),
+                  selectedIndex: _index,
+                  onSelect: (i) => setState(() => _index = i),
+                ),
                 Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _MainSidebar(
-                        key: const Key('ambi-main-sidebar'),
-                        selectedIndex: _index,
-                        onSelect: (i) => setState(() => _index = i),
-                      ),
-                      Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, c) => boundedContent(c),
-                        ),
-                      ),
-                    ],
+                  child: LayoutBuilder(
+                    builder: (context, c) => boundedContent(c),
                   ),
                 ),
               ],
@@ -204,19 +193,11 @@ class _AmbiShellState extends State<AmbiShell> with WidgetsBindingObserver {
 
         return Scaffold(
           backgroundColor: scheme.surface,
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              topChrome,
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, c) => boundedContent(c),
-                ),
-              ),
-            ],
+          body: LayoutBuilder(
+            builder: (context, c) => boundedContent(c),
           ),
           bottomNavigationBar: NavigationBar(
-            height: 72,
+            height: 64,
             selectedIndex: _index,
             onDestinationSelected: (i) => setState(() => _index = i),
             destinations: [
@@ -234,113 +215,9 @@ class _AmbiShellState extends State<AmbiShell> with WidgetsBindingObserver {
   }
 }
 
-class _TopChrome extends StatelessWidget {
-  const _TopChrome();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.35),
-      child: Container(
-        height: DashboardUi.topChromeHeight,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color.lerp(scheme.secondary, scheme.surface, 0.15)!,
-              Color.lerp(scheme.tertiary, scheme.surface, 0.2)!,
-              scheme.surfaceContainerHighest.withValues(alpha: 0.9),
-            ],
-          ),
-          border: Border(
-            bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4)),
-          ),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            Icon(Icons.blur_circular, color: scheme.onSurface, size: 26),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                context.l10n.appTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.4,
-                      color: scheme.onSurface,
-                    ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Selector<AmbilightAppController, ({List<String> ids, int total})>(
-              selector: (_, c) => _deviceOnlineMeta(c),
-              builder: (context, meta, _) {
-                if (meta.total <= 0) return const SizedBox.shrink();
-                final ctrl = context.read<AmbilightAppController>();
-                return ValueListenableBuilder<Map<String, bool>>(
-                  valueListenable: ctrl.connectionSnapshotNotifier,
-                  builder: (context, snap, _) {
-                    var online = 0;
-                    for (final id in meta.ids) {
-                      if (snap[id] == true) online++;
-                    }
-                    final ok = online >= meta.total;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: Tooltip(
-                        message: ok
-                            ? context.l10n.allOutputsOnline(online, meta.total)
-                            : context.l10n.someOutputsOffline(online, meta.total),
-                        child: Icon(
-                          ok ? Icons.link_rounded : Icons.link_off_rounded,
-                          size: 22,
-                          color: ok ? scheme.primary : scheme.error.withValues(alpha: 0.92),
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-            Flexible(
-              fit: FlexFit.loose,
-              child: Selector<AmbilightAppController, bool>(
-                selector: (_, c) => c.enabled,
-                builder: (context, on, _) {
-                  final ctrl = context.read<AmbilightAppController>();
-                  return Tooltip(
-                    message: on ? context.l10n.tooltipColorsOn : context.l10n.tooltipColorsOff,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerRight,
-                      child: FilledButton.tonalIcon(
-                        onPressed: () => ctrl.setEnabled(!on),
-                        icon: Icon(on ? Icons.bolt : Icons.bolt_outlined, size: 20),
-                        label: Text(on ? context.l10n.outputOn : context.l10n.outputOff),
-                        style: FilledButton.styleFrom(
-                          foregroundColor: on ? scheme.onTertiaryContainer : scheme.onSurfaceVariant,
-                          backgroundColor: on
-                              ? scheme.tertiaryContainer.withValues(alpha: 0.85)
-                              : scheme.surface.withValues(alpha: 0.55),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MainSidebar extends StatelessWidget {
-  const _MainSidebar({
+/// Full-height NVIDIA-style rail: brand, nav, power/status footer.
+class _AmbiAppRail extends StatelessWidget {
+  const _AmbiAppRail({
     super.key,
     required this.selectedIndex,
     required this.onSelect,
@@ -353,32 +230,38 @@ class _MainSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final navSpecs = _navSpecs(context.l10n);
+    // Primary destinations in rail body; About stays in list (index 4) like NVIDIA secondary.
     return SizedBox(
-      width: DashboardUi.sidebarWidth,
+      width: DashboardUi.railWidth,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerLow.withValues(alpha: 0.92),
-          border: Border(
-            right: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.45)),
-          ),
-        ),
+        decoration: DashboardUi.railBackdrop(scheme),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 16, 8),
-              child: Text(
-                context.l10n.navigationSection,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      letterSpacing: 1.5,
-                      color: scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
+              padding: const EdgeInsets.fromLTRB(18, 22, 16, 20),
+              child: Row(
+                children: [
+                  Icon(Icons.blur_circular, color: scheme.primary, size: 26),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      context.l10n.appTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                            color: scheme.onSurface,
+                          ),
                     ),
+                  ),
+                ],
               ),
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.only(bottom: 8),
                 children: [
                   for (var i = 0; i < navSpecs.length; i++)
                     AmbiSidebarTile(
@@ -391,18 +274,110 @@ class _MainSidebar extends StatelessWidget {
                 ],
               ),
             ),
+            Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.6)),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-              child: Selector<AmbilightAppController, ({AppConfig cfg, Locale locale})>(
-                selector: (_, c) => (cfg: c.config, locale: Localizations.localeOf(context)),
-                builder: (context, snap, _) => Text(
-                  _configuredOutputKindsFooter(snap.cfg, context.l10n),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant.withValues(alpha: 0.75),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+              child: Selector<AmbilightAppController, ({List<String> ids, int total})>(
+                selector: (_, c) => _deviceOnlineMeta(c),
+                builder: (context, meta, _) {
+                  if (meta.total <= 0) {
+                    return Text(
+                      _configuredOutputKindsFooter(
+                        context.read<AmbilightAppController>().config,
+                        context.l10n,
                       ),
-                ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: scheme.onSurfaceVariant.withValues(alpha: 0.8),
+                          ),
+                    );
+                  }
+                  final ctrl = context.read<AmbilightAppController>();
+                  return ValueListenableBuilder<Map<String, bool>>(
+                    valueListenable: ctrl.connectionSnapshotNotifier,
+                    builder: (context, snap, _) {
+                      var online = 0;
+                      for (final id in meta.ids) {
+                        if (snap[id] == true) online++;
+                      }
+                      final ok = online >= meta.total;
+                      return Row(
+                        children: [
+                          Icon(
+                            ok ? Icons.link_rounded : Icons.link_off_rounded,
+                            size: 18,
+                            color: ok ? scheme.primary : scheme.error,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              ok
+                                  ? context.l10n.allOutputsOnline(online, meta.total)
+                                  : context.l10n.someOutputsOffline(online, meta.total),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+              child: Selector<AmbilightAppController, bool>(
+                selector: (_, c) => c.enabled,
+                builder: (context, on, _) {
+                  final ctrl = context.read<AmbilightAppController>();
+                  return Tooltip(
+                    message: on ? context.l10n.tooltipColorsOn : context.l10n.tooltipColorsOff,
+                    child: Material(
+                      color: on
+                          ? scheme.primary.withValues(alpha: 0.18)
+                          : scheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(DashboardUi.radiusSm),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(DashboardUi.radiusSm),
+                        onTap: () => ctrl.setEnabled(!on),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          child: Row(
+                            children: [
+                              Icon(
+                                on ? Icons.bolt : Icons.bolt_outlined,
+                                size: 20,
+                                color: on ? scheme.primary : scheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  on ? context.l10n.outputOn : context.l10n.outputOff,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: on ? scheme.onSurface : scheme.onSurfaceVariant,
+                                      ),
+                                ),
+                              ),
+                              Switch.adaptive(
+                                value: on,
+                                onChanged: ctrl.setEnabled,
+                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -441,14 +416,14 @@ class _AboutPageState extends State<_AboutPage> {
         return ResponsiveBody(
           maxWidth: constraints.maxWidth,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+            padding: const EdgeInsets.fromLTRB(28, 28, 28, 40),
             children: [
               AmbiPageHeader(
                 title: context.l10n.aboutTitle,
                 subtitle: context.l10n.aboutSubtitle,
-                bottomSpacing: 12,
+                bottomSpacing: 16,
               ),
-              AmbiGlassPanel(
+              AmbiSurfacePanel(
                 padding: const EdgeInsets.all(22),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -1413,6 +1413,12 @@ abstract class AppLocalizations {
   /// **'Dark blue = legacy default look. SnowRunner = neutral dark gray.'**
   String get themeHelper;
 
+  /// No description provided for @themeGreen.
+  ///
+  /// In en, this message translates to:
+  /// **'NVIDIA green'**
+  String get themeGreen;
+
   /// No description provided for @themeSnowrunner.
   ///
   /// In en, this message translates to:
@@ -3477,6 +3483,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Warm cream and brown tones.'**
   String get setupWizardThemeOptionCoffeeSubtitle;
+
+  /// No description provided for @setupWizardThemeOptionGreenSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Near-black surfaces with a green accent in the NVIDIA App style.'**
+  String get setupWizardThemeOptionGreenSubtitle;
 
   /// No description provided for @setupWizardExpertiseSimpleExplain.
   ///

@@ -63,6 +63,7 @@ List<Widget> globalSettingsFields(
       ),
       value: normalizeAmbilightUiTheme(g.theme),
       items: [
+        DropdownMenuItem(value: 'green', child: Text(l10n.themeGreen)),
         DropdownMenuItem(value: 'snowrunner', child: Text(l10n.themeSnowrunner)),
         DropdownMenuItem(value: 'dark_blue', child: Text(l10n.themeDarkBlue)),
         DropdownMenuItem(value: 'light', child: Text(l10n.themeLight)),

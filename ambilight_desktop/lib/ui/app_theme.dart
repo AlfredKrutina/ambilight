@@ -5,6 +5,10 @@ abstract final class AmbiLightTheme {
   static const Color _cyan = Color(0xFF22D3EE);
   static const Color _violet = Color(0xFFA78BFA);
   static const Color _coral = Color(0xFFF472B6);
+  // Keep in sync with [DashboardUi] radii (NVIDIA-like flat chrome).
+  static const double _rSm = 4;
+  static const double _rMd = 8;
+  static const double _rLg = 12;
 
   static ThemeData light({bool reducedMotion = false}) {
     final colors = ColorScheme.fromSeed(
@@ -85,6 +89,48 @@ abstract final class AmbiLightTheme {
     return _build(colors, reducedMotion: reducedMotion);
   }
 
+  /// NVIDIA-inspired — near-black surfaces, brand green `#76B900`.
+  static ThemeData green({bool reducedMotion = false}) {
+    const surface = Color(0xFF0D0D0D);
+    final colors = ColorScheme(
+      brightness: Brightness.dark,
+      primary: const Color(0xFF76B900),
+      onPrimary: const Color(0xFF0A0A0A),
+      primaryContainer: const Color(0xFF3D5C00),
+      onPrimaryContainer: const Color(0xFFD4F5A0),
+      secondary: const Color(0xFFB0B0B0),
+      onSecondary: const Color(0xFF121212),
+      secondaryContainer: const Color(0xFF2A2A2A),
+      onSecondaryContainer: const Color(0xFFE8E8E8),
+      tertiary: const Color(0xFF8BC34A),
+      onTertiary: const Color(0xFF0A0A0A),
+      tertiaryContainer: const Color(0xFF2E3D14),
+      onTertiaryContainer: const Color(0xFFE8F5C8),
+      error: const Color(0xFFCF6679),
+      onError: const Color(0xFF1A0004),
+      errorContainer: const Color(0xFF93000A),
+      onErrorContainer: const Color(0xFFFFDAD6),
+      surface: surface,
+      onSurface: const Color(0xFFE8E8E8),
+      surfaceContainerHighest: const Color(0xFF2A2A2A),
+      surfaceContainerHigh: const Color(0xFF1F1F1F),
+      surfaceContainer: const Color(0xFF1A1A1A),
+      surfaceContainerLow: const Color(0xFF121212),
+      surfaceContainerLowest: const Color(0xFF0A0A0A),
+      surfaceBright: const Color(0xFF2A2A2A),
+      surfaceDim: const Color(0xFF0D0D0D),
+      onSurfaceVariant: const Color(0xFFA0A0A0),
+      outline: const Color(0xFF4A4A4A),
+      outlineVariant: const Color(0xFF2E2E2E),
+      shadow: Colors.black,
+      scrim: Colors.black,
+      inverseSurface: const Color(0xFFE8E8E8),
+      onInverseSurface: const Color(0xFF1A1A1A),
+      inversePrimary: const Color(0xFF3D5C00),
+    );
+    return _build(colors, reducedMotion: reducedMotion);
+  }
+
   /// Coffee / kavárna — krémově-hnědé pozadí, tlumený „tmavší light“ (ne čistě bílý).
   static ThemeData coffee({bool reducedMotion = false}) {
     const surface = Color(0xFFDDD2C6);
@@ -136,6 +182,8 @@ abstract final class AmbiLightTheme {
         return coffee(reducedMotion: reducedMotion);
       case 'snowrunner':
         return snowrunner(reducedMotion: reducedMotion);
+      case 'green':
+        return green(reducedMotion: reducedMotion);
       case 'dark_blue':
       default:
         return darkBlue(reducedMotion: reducedMotion);
@@ -143,7 +191,6 @@ abstract final class AmbiLightTheme {
   }
 
   static ThemeData _build(ColorScheme colors, {required bool reducedMotion}) {
-    final isDark = colors.brightness == Brightness.dark;
     return ThemeData(
       colorScheme: colors,
       useMaterial3: true,
@@ -170,26 +217,29 @@ abstract final class AmbiLightTheme {
       ),
       appBarTheme: AppBarTheme(
         elevation: 0,
-        scrolledUnderElevation: 0.5,
-        backgroundColor: colors.surfaceContainer.withValues(alpha: 0.4),
+        scrolledUnderElevation: 0,
+        backgroundColor: colors.surface,
         foregroundColor: colors.onSurface,
-        surfaceTintColor: colors.primary.withValues(alpha: 0.12),
+        surfaceTintColor: Colors.transparent,
       ),
       cardTheme: CardThemeData(
         elevation: 0,
-        color: colors.surfaceContainerHighest.withValues(alpha: isDark ? 0.55 : 0.92),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        color: colors.surfaceContainerHigh,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_rMd),
+          side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.85)),
+        ),
         clipBehavior: Clip.antiAlias,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        height: 72,
+        height: 64,
         elevation: 0,
-        backgroundColor: colors.surfaceContainer.withValues(alpha: 0.95),
-        indicatorColor: colors.primary.withValues(alpha: 0.28),
+        backgroundColor: colors.surfaceContainerLow,
+        indicatorColor: colors.primary.withValues(alpha: 0.22),
         labelTextStyle: WidgetStateProperty.resolveWith((s) {
           final sel = s.contains(WidgetState.selected);
           return TextStyle(
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
             color: sel ? colors.primary : colors.onSurfaceVariant,
           );
@@ -198,41 +248,47 @@ abstract final class AmbiLightTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_rSm)),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_rSm)),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colors.surfaceContainerHigh.withValues(alpha: 0.65),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+        fillColor: colors.surfaceContainerHigh,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(_rSm)),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: colors.outline.withValues(alpha: 0.45)),
+          borderRadius: BorderRadius.circular(_rSm),
+          borderSide: BorderSide(color: colors.outline.withValues(alpha: 0.55)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(_rSm),
           borderSide: BorderSide(color: colors.primary, width: 2),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_rSm)),
         backgroundColor: colors.inverseSurface,
         contentTextStyle: TextStyle(color: colors.onInverseSurface, fontSize: 14),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: colors.surfaceContainerHigh,
-        surfaceTintColor: colors.surfaceTint,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_rLg)),
       ),
       tooltipTheme: TooltipThemeData(
         waitDuration: const Duration(milliseconds: 400),
         showDuration: const Duration(seconds: 5),
         decoration: BoxDecoration(
-          color: colors.inverseSurface.withValues(alpha: 0.94),
-          borderRadius: BorderRadius.circular(10),
+          color: colors.inverseSurface.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(_rSm),
         ),
         textStyle: TextStyle(color: colors.onInverseSurface, fontSize: 12.5),
       ),
@@ -240,6 +296,7 @@ abstract final class AmbiLightTheme {
         color: colors.surfaceContainerHigh,
         surfaceTintColor: Colors.transparent,
         textStyle: TextStyle(color: colors.onSurface, fontSize: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_rSm)),
       ),
     );
   }
