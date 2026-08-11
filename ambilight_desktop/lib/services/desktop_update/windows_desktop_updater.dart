@@ -24,6 +24,8 @@ class WindowsDesktopUpdater {
     }
   }
 
+  /// Spustí PowerShell updater mimo Job Object Flutter procesu (`cmd start /b`),
+  /// jinak `exit(0)` často zabije i „detached“ child a OTA nikdy nedoběhne.
   static Future<Process?> launchExpandCopyRestart({
     required File zipFile,
     required int waitPid,
@@ -36,16 +38,30 @@ class WindowsDesktopUpdater {
     final stageDir = p.join(work.path, 'stage');
     final logPath = p.join(work.path, 'ambi_update.log');
     final script = File(p.join(work.path, 'apply_update.ps1'));
-    final body = _psScript();
-    await script.writeAsString(body, flush: true);
+    await script.writeAsString(_psScript(), flush: true);
+
+    // Marker: pokud PowerShell vůbec nenačte skript, aspoň víme že launch proběhl.
+    try {
+      await File(p.join(work.path, 'ambi_update_launch.txt')).writeAsString(
+        'pid=$waitPid\nzip=${zipFile.path}\ntarget=$targetDir\n',
+        flush: true,
+      );
+    } catch (_) {}
+
+    // `start "" /b` odpojí proces od Job Object rodiče (Flutter Windows runner).
     return Process.start(
-      'powershell.exe',
+      'cmd.exe',
       [
+        '/c',
+        'start',
+        '',
+        '/b',
+        'powershell.exe',
         '-NoProfile',
-        '-WindowStyle',
-        'Hidden',
         '-ExecutionPolicy',
         'Bypass',
+        '-WindowStyle',
+        'Hidden',
         '-File',
         script.path,
         '-WaitPid',
@@ -62,6 +78,7 @@ class WindowsDesktopUpdater {
         logPath,
       ],
       mode: ProcessStartMode.detached,
+      workingDirectory: work.path,
     );
   }
 
@@ -77,14 +94,20 @@ param(
 $ErrorActionPreference = 'Stop'
 function Write-Log([string] $msg) {
   $line = ("[{0}] {1}" -f (Get-Date -Format o), $msg)
-  Add-Content -LiteralPath $LogPath -Value $line -ErrorAction SilentlyContinue
+  try {
+    Add-Content -LiteralPath $LogPath -Value $line -Encoding UTF8
+  } catch {}
 }
 try {
-  Write-Log "start WaitPid=$WaitPid TargetDir=$TargetDir"
+  Write-Log "start WaitPid=$WaitPid TargetDir=$TargetDir ZipPath=$ZipPath"
+  if (-not (Test-Path -LiteralPath $ZipPath)) {
+    throw "ZIP neexistuje: $ZipPath"
+  }
   if (Test-Path -LiteralPath $StageDir) {
     Remove-Item -LiteralPath $StageDir -Recurse -Force -ErrorAction SilentlyContinue
   }
   New-Item -ItemType Directory -Path $StageDir -Force | Out-Null
+  Write-Log "expand archive"
   Expand-Archive -LiteralPath $ZipPath -DestinationPath $StageDir -Force
   $top = @(Get-ChildItem -LiteralPath $StageDir -Force)
   $contentRoot = $StageDir
@@ -93,52 +116,78 @@ try {
   }
   $probeExe = Join-Path $contentRoot $ExeName
   if (-not (Test-Path -LiteralPath $probeExe)) {
-    throw "V archivu chybí $ExeName (kořen ZIPu nebo jedna podsložka)."
+    throw "V archivu chybí $ExeName (kořen ZIPu nebo jedna podsložka). Root=$contentRoot"
   }
+  $liveExe = Join-Path $TargetDir $ExeName
+  $procName = [System.IO.Path]::GetFileNameWithoutExtension($ExeName)
+
+  # Nejdřív počkej na hlavní PID (aplikace volá exit po spuštění updateru).
   $p = Get-Process -Id $WaitPid -ErrorAction SilentlyContinue
   if ($null -ne $p) {
+    Write-Log "waiting for WaitPid=$WaitPid"
     Wait-Process -Id $WaitPid -Timeout 120 -ErrorAction SilentlyContinue
   }
-  $still = Get-Process -Id $WaitPid -ErrorAction SilentlyContinue
-  if ($null -ne $still) {
-    throw "Proces $WaitPid stále běží po 120 s — aktualizace zrušena (soubory by byly zamčené)."
+
+  # Tray / vícenásobné instance drží DLL — ukonči VŠECHNY procesy se stejnou cestou exe.
+  Write-Log "stopping all processes for $liveExe"
+  $deadline = (Get-Date).AddSeconds(90)
+  do {
+    $alive = @(
+      Get-Process -Name $procName -ErrorAction SilentlyContinue |
+        Where-Object {
+          try {
+            $_.Path -and ($_.Path -ieq $liveExe)
+          } catch {
+            $false
+          }
+        }
+    )
+    foreach ($proc in $alive) {
+      Write-Log ("stop pid={0}" -f $proc.Id)
+      Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Milliseconds 500
+    $alive = @(
+      Get-Process -Name $procName -ErrorAction SilentlyContinue |
+        Where-Object {
+          try {
+            $_.Path -and ($_.Path -ieq $liveExe)
+          } catch {
+            $false
+          }
+        }
+    )
+  } while (($alive.Count -gt 0) -and ((Get-Date) -lt $deadline))
+
+  if ($alive.Count -gt 0) {
+    throw ("Procesy stále běží po stop: " + (($alive | ForEach-Object { $_.Id }) -join ','))
   }
+
   Start-Sleep -Seconds 2
-  $liveExe = Join-Path $TargetDir $ExeName
   if (Test-Path -LiteralPath $liveExe) {
     Copy-Item -LiteralPath $liveExe -Destination ($liveExe + '.bak') -Force -ErrorAction SilentlyContinue
   }
-  Get-ChildItem -LiteralPath $contentRoot -Recurse -File -Force | ForEach-Object {
-    $rel = $_.FullName.Substring($contentRoot.Length)
-    if ($rel.StartsWith('\') -or $rel.StartsWith('/')) { $rel = $rel.Substring(1) }
-    $dest = Join-Path $TargetDir $rel
-    $destDir = Split-Path -Parent $dest
-    if (($null -ne $destDir) -and ($destDir.Length -gt 0) -and (-not (Test-Path -LiteralPath $destDir))) {
-      New-Item -ItemType Directory -Path $destDir -Force | Out-Null
-    }
-    $retries = 0
-    while ($retries -lt 50) {
-      try {
-        Copy-Item -LiteralPath $_.FullName -Destination $dest -Force
-        break
-      } catch {
-        Start-Sleep -Milliseconds 400
-        $retries++
-      }
-    }
-    if ($retries -ge 50) {
-      throw "Kopirovani selhalo: $rel"
-    }
+
+  Write-Log "copy from $contentRoot"
+  # robocopy: spolehlivější než Copy-Item u zamčených/retry souborů
+  $rcArgs = @(
+    $contentRoot, $TargetDir, '/E', '/IS', '/IT', '/R:40', '/W:1',
+    '/NFL', '/NDL', '/NJH', '/NJS', '/NP'
+  )
+  & robocopy @rcArgs | Out-Null
+  $rc = $LASTEXITCODE
+  Write-Log "robocopy exit=$rc"
+  # robocopy: 0–7 = success-ish, >=8 = failure
+  if ($rc -ge 8) {
+    throw "robocopy selhal s kódem $rc"
   }
-  Write-Log "copy ok; starting $liveExe"
-  if (Test-Path -LiteralPath $liveExe) {
-    Start-Process -LiteralPath $liveExe
-  } else {
+  if (-not (Test-Path -LiteralPath $liveExe)) {
     throw "Po kopírování chybí $liveExe"
   }
+  Write-Log "starting $liveExe"
+  Start-Process -LiteralPath $liveExe -WorkingDirectory $TargetDir
 } catch {
   Write-Log ("ERROR: " + $_)
-  Write-Error $_
   exit 1
 }
 Write-Log "done"

@@ -121,7 +121,8 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
       final ctrl = context.read<AmbilightAppController>();
       await ctrl.flushPersistToDisk();
       await StartupCrashGuard.markSessionClean();
-      await Future<void>.delayed(const Duration(milliseconds: 400));
+      // Dej cmd/powershell čas odpojit se od Job Object, než Flutter ukončí proces.
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
       exit(0);
     } catch (e) {
       if (mounted) {
