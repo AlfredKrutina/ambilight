@@ -15,6 +15,7 @@ Kompatibilita FW ↔ desktop (matice, limity, checklist): [**FW_APP_PROTOCOL_COM
 | RGB rámec | PC → ESP | `[0x02, bri_u8, r,g,b,…]` | Po `(udp_len - 2)` musí jít o násobek 3; **lamp FW** jinak rámec zahodí. Rate limit ~15–16 ms mezi rámců |
 | RGB chunky | PC → ESP | `[0x06, idx_hi, idx_lo, r,g,b,…]` | jen zápis do bufferu LED; `(len-3)` násobek 3; max ~498 LED / datagram (`ambilight_desktop`) |
 | RGB flush | PC → ESP | `[0x08, bri, total_hi, total_lo]` (4 B) | po sérii `0x06`: `clear_tail` + `update_leds`; sdílený ~15 ms limit s `0x02` |
-| Pixel | PC → ESP | `[0x03, idx_hi, idx_lo, r, g, b]` (6 B) | kalibrace / wizard; index &lt; `g_serial_strip_max` na lampě |
+| RGB pixel | PC → ESP | `[0x03, idx_hi, idx_lo, r, g, b]` (6 B) | kalibrace / wizard; index &lt; `g_serial_strip_max` na lampě |
+| PC release | PC → ESP | jednobajt `0xF0` (USB i UDP) | okamžitý návrat na poslední Home/MQTT stav (power/bri/color); uvolní serial/UDP lock |
 
 Implementace: [`UdpDeviceCommands`](../ambilight_desktop/lib/data/udp_device_commands.dart), [`UdpAmbilightProtocol`](../ambilight_desktop/lib/core/protocol/udp_frame.dart), discovery [`LedDiscoveryService`](../ambilight_desktop/lib/services/led_discovery_service.dart) (`parseEsp32PongDatagram`).

@@ -15,7 +15,8 @@
 | UDP identify | `IDENTIFY` | `UdpDeviceCommands` | modrá 1 s |
 | UDP reset | `RESET_WIFI` | `UdpDeviceCommands` | NVS erase + reboot |
 | UDP OTA | `OTA_HTTP <url>` | `UdpDeviceCommands` / `sendOtaHttpUrlAwaitOtaOk` (stejné kontroly znaků jako FW + bez NUL v UTF‑8) | `ambilight_start_ota(url, notify_addr?)`; FW také vyžaduje `strlen(payload)==len` datagramu; po úspěchu volitelně `AMBILIGHT OTA_OK <ver>` zpět na klienta |
-| Serial | `0xAA→0xBB`, `0xA5 0x5A` + u16 LE, `0xFF…0xFE`, `0xFC…0xFE` | `serial_frame.dart` | `task_serial` |
+| Serial | `0xAA→0xBB`, `0xA5 0x5A` + u16 LE, `0xFF…0xFE`, `0xFC…0xFE`, `0xF0` handoff, `0xF1` temporal | `serial_frame.dart` | `task_serial` |
+| UDP / Serial PC release | jednobajt `0xF0` | `sendPcReleaseHandoff` | okamžitý Home restore (power/bri/color) + clear source lock |
 
 ## Omezení a chování
 

@@ -123,6 +123,8 @@ static void ambilight_debug_rej88_save(bool on) {
 /** NVS + UDP `0xF1` + mode: FW časové vyhlazování (0=vyp, 1=plynulé, 2=snap). */
 #define NVS_KEY_FW_TEMPORAL "fw_temp"
 #define OPCODE_FW_TEMPORAL 0xF1
+/** PC ukončuje řízení (desktop `sendPcReleaseHandoff`) — okamžitý návrat na poslední Home/MQTT stav. */
+#define OPCODE_PC_RELEASE 0xF0
 static uint8_t g_fw_temporal_mode = 0;
 static rgb_t s_smooth_rgb[LED_STRIP_NUM_LEDS];
 
@@ -289,6 +291,81 @@ static void led_strip_fill_logical_rgb(uint8_t r, uint8_t g, uint8_t b) {
     led_strip_set_pixel(led_strip, i, 0, 0, 0);
   }
   led_strip_refresh(led_strip);
+}
+
+/// Poslední Home/MQTT stav na pásek (včetně jasu). Volající drží `led_mutex`.
+static void ambilight_apply_home_leds_locked(void) {
+  if (ambilight_ota_in_progress()) {
+    return;
+  }
+  if (g_home_power) {
+    float factor = g_home_bri / 100.0f;
+    if (factor < 0.0f) {
+      factor = 0.0f;
+    }
+    if (factor > 1.0f) {
+      factor = 1.0f;
+    }
+    uint8_t r = (uint8_t)(g_home_color.r * factor);
+    uint8_t g = (uint8_t)(g_home_color.g * factor);
+    uint8_t b = (uint8_t)(g_home_color.b * factor);
+    led_strip_fill_logical_rgb(r, g, b);
+  } else {
+    led_strip_clear(led_strip);
+    led_strip_refresh(led_strip);
+  }
+}
+
+static void ambilight_publish_home_state_mqtt(void) {
+  if (!g_mqtt_connected || mqtt_client == NULL || g_device_id[0] == '\0') {
+    return;
+  }
+  char state_topic[80];
+  snprintf(state_topic, sizeof(state_topic), "alfred/devices/%s/power/state",
+           g_device_id);
+  esp_mqtt_client_publish(mqtt_client, state_topic,
+                          g_home_power ? "true" : "false", 0, 1, 0);
+
+  snprintf(state_topic, sizeof(state_topic),
+           "alfred/devices/%s/brightness/state", g_device_id);
+  char b_str[8];
+  snprintf(b_str, sizeof(b_str), "%d", g_home_bri);
+  esp_mqtt_client_publish(mqtt_client, state_topic, b_str, 0, 1, 0);
+
+  snprintf(state_topic, sizeof(state_topic), "alfred/devices/%s/color/state",
+           g_device_id);
+  char c_str[32];
+  snprintf(c_str, sizeof(c_str), "%d,%d,%d", g_home_color.r, g_home_color.g,
+           g_home_color.b);
+  esp_mqtt_client_publish(mqtt_client, state_topic, c_str, 0, 1, 0);
+}
+
+/**
+ * Desktop `0xF0`: PC přestal řídit pásek.
+ * Uvolní serial/UDP source lock a okamžitě obnoví poslední Home barvu/jas/power
+ * (dřív se čekalo 2–5 s a 0xF0 se ve FW vůbec nezpracovávalo).
+ */
+static void ambilight_pc_release_handoff(const char *via) {
+  g_last_serial_interaction = 0;
+  g_last_data_interaction = 0;
+  g_last_controller_time = 0;
+  g_controller_ip = 0;
+
+  ESP_LOGI(TAG,
+           "PC release handoff (0xF0 via %s) — restore home power=%d bri=%d "
+           "rgb=%u,%u,%u",
+           via ? via : "?", (int)g_home_power, g_home_bri,
+           (unsigned)g_home_color.r, (unsigned)g_home_color.g,
+           (unsigned)g_home_color.b);
+
+  ambilight_publish_home_state_mqtt();
+
+  if (ambilight_ota_in_progress()) {
+    return;
+  }
+  xSemaphoreTake(led_mutex, portMAX_DELAY);
+  ambilight_apply_home_leds_locked();
+  xSemaphoreGive(led_mutex);
 }
 
 void ambilight_ota_success_client_feedback(
@@ -1415,20 +1492,12 @@ void task_monitor(void *arg) {
           s_has_restored_home = false; // PC is active
         } else {
           // Timeout Exceeded (>2s)
-          if (!s_has_restored_home && !serial_active && g_mqtt_connected &&
+          if (!s_has_restored_home && !serial_active &&
               !ambilight_ota_in_progress()) {
             ESP_LOGI(TAG, "PC Data Stopped. Restoring Home Mode.");
+            ambilight_publish_home_state_mqtt();
             xSemaphoreTake(led_mutex, portMAX_DELAY);
-            if (g_home_power) {
-              float factor = g_home_bri / 100.0f;
-              uint8_t r = (uint8_t)(g_home_color.r * factor);
-              uint8_t g = (uint8_t)(g_home_color.g * factor);
-              uint8_t b = (uint8_t)(g_home_color.b * factor);
-              led_strip_fill_logical_rgb(r, g, b);
-            } else {
-              led_strip_clear(led_strip);
-              led_strip_refresh(led_strip);
-            }
+            ambilight_apply_home_leds_locked();
             xSemaphoreGive(led_mutex);
             s_has_restored_home = true;
           }
@@ -1508,6 +1577,13 @@ void task_serial(void *arg) {
         }
 
         if (state == ST_IDLE) {
+          if (b == OPCODE_PC_RELEASE) {
+            a5_stage = 0;
+            ser_f1_stage = 0;
+            /* Byte už nastavil g_last_serial_interaction — handoff ho znovu vynuluje. */
+            ambilight_pc_release_handoff("serial");
+            continue;
+          }
           if (ser_f1_stage == 1) {
             ser_f1_stage = 0;
             uint8_t m = b;
@@ -1799,30 +1875,13 @@ void task_udp(void *arg) {
           was_pc_mode = false;
 
           // FEEDBACK: Notify HomeKit we are idle (Restore Home State)
-          if (g_mqtt_connected) {
-            char state_topic[64];
-            // 1. Power State
-            snprintf(state_topic, sizeof(state_topic),
-                     "alfred/devices/%s/power/state", g_device_id);
-            esp_mqtt_client_publish(mqtt_client, state_topic,
-                                    g_home_power ? "true" : "false", 0, 1, 0);
-
-            // 2. Color State
-            snprintf(state_topic, sizeof(state_topic),
-                     "alfred/devices/%s/color/state", g_device_id);
-            char c_str[32];
-            snprintf(c_str, sizeof(c_str), "%d,%d,%d", g_home_color.r,
-                     g_home_color.g, g_home_color.b);
-            esp_mqtt_client_publish(mqtt_client, state_topic, c_str, 0, 1, 0);
-          }
+          ambilight_publish_home_state_mqtt();
 
           bool serial_active = (esp_timer_get_time() -
                                 g_last_serial_interaction) < SERIAL_TIMEOUT_US;
-          if (g_mqtt_connected && g_home_power && !serial_active &&
-              !ambilight_ota_in_progress()) {
+          if (!serial_active && !ambilight_ota_in_progress()) {
             xSemaphoreTake(led_mutex, portMAX_DELAY);
-            led_strip_fill_logical_rgb(g_home_color.r, g_home_color.g,
-                                     g_home_color.b);
+            ambilight_apply_home_leds_locked();
             xSemaphoreGive(led_mutex);
           }
         }
@@ -1897,6 +1956,13 @@ void task_udp(void *arg) {
           continue;
         }
 
+        /* PC release: desktop `sendPcReleaseHandoff` (jednobajt 0xF0). */
+        if (len == 1 && (uint8_t)rx_buffer[0] == OPCODE_PC_RELEASE) {
+          was_pc_mode = false;
+          ambilight_pc_release_handoff("udp");
+          continue;
+        }
+
         /* FW temporal smoothing (ambilight_desktop `0xF1` + mode 0…2, NVS). */
         if (len == 2 && (uint8_t)rx_buffer[0] == OPCODE_FW_TEMPORAL) {
           uint8_t m = (uint8_t)rx_buffer[1];
@@ -1918,16 +1984,19 @@ void task_udp(void *arg) {
         if (len >= 14 && strncmp(rx_buffer, "DISCOVER_ESP32", 14) == 0) {
           uint8_t mac[6];
           esp_wifi_get_mac(WIFI_IF_STA, mac);
-          /* 8 polí: …|led|2.2|0|temp|rej88| — desktop parseEsp32PongDatagram */
-          char resp[128];
+          /* 8 polí: …|led|FW_VER|0|temp|rej88| — desktop parseEsp32PongDatagram */
+          char resp[160];
           ESP_LOGI(TAG, "Discovery Broadcast Received from %s",
                    inet_ntoa(source_addr.sin_addr));
+          const esp_app_desc_t *app = esp_app_get_description();
+          const char *fw_ver =
+              (app && app->version[0]) ? app->version : "1.13.0";
           /* ledCount = logická délka z USB 0xA5 0x5A (g_serial_strip_max) */
           int plen = snprintf(
               resp, sizeof(resp),
-              "ESP32_PONG|%02x%02x%02x|Ambilight_%02x|%u|2.2|0|%u|%u",
+              "ESP32_PONG|%02x%02x%02x|Ambilight_%02x|%u|%s|0|%u|%u",
               (unsigned)mac[3], (unsigned)mac[4], (unsigned)mac[5],
-              (unsigned)mac[5], (unsigned)g_serial_strip_max,
+              (unsigned)mac[5], (unsigned)g_serial_strip_max, fw_ver,
               (unsigned)g_fw_temporal_mode,
               g_debug_reject_192_168_88 ? 1u : 0u);
           if (plen <= 0 || (size_t)plen >= sizeof(resp)) {
@@ -2481,7 +2550,8 @@ void app_main(void) {
 
   ESP_LOGW(TAG, "Reset Reason: %d", esp_reset_reason()); // Log why we rebooted
   ESP_LOGE(TAG,
-           "=== LAMP FW: OTA (UDP OTA_HTTP / MQTT …/ota) + serial v1.11+ ===");
+           "=== LAMP FW %s: OTA + serial + 0xF0 home handoff ===",
+           esp_app_get_description()->version);
 
   disable_onboard_leds(); // Turn off onboard LEDs
 
@@ -2728,19 +2798,11 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
       return;
     }
 
-    // IMMEDIATE UPDATE
-    if ((esp_timer_get_time() - g_last_data_interaction) > 5000000) {
+    // IMMEDIATE UPDATE (PC silent / after 0xF0 handoff cleared last_data)
+    if ((esp_timer_get_time() - g_last_data_interaction) > 5000000 ||
+        g_last_data_interaction == 0) {
       xSemaphoreTake(led_mutex, portMAX_DELAY);
-      if (g_home_power) {
-        float factor = g_home_bri / 100.0f;
-        uint8_t r = (uint8_t)(g_home_color.r * factor);
-        uint8_t g = (uint8_t)(g_home_color.g * factor);
-        uint8_t b = (uint8_t)(g_home_color.b * factor);
-        led_strip_fill_logical_rgb(r, g, b);
-      } else {
-        led_strip_clear(led_strip);
-        led_strip_refresh(led_strip);
-      }
+      ambilight_apply_home_leds_locked();
       xSemaphoreGive(led_mutex);
     }
   } else {

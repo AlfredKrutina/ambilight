@@ -7,5 +7,5 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 # Plný graf komponent (MINIMAL_BUILD OFF) je pro lampu v pořádku (HTTPS OTA, MQTT, Wi‑Fi).
 idf_build_set_property(MINIMAL_BUILD OFF)
 # Verze v esp_app_desc (OTA / manifest / log)
-set(PROJECT_VER "1.12.0")
+set(PROJECT_VER "1.13.0")
 project(ambilight_esp32c6)
