@@ -74,6 +74,7 @@
   "showOnboardingAgain": "Znovu zobrazit úvodní průvodce",
   "crashLogFileLabel": "Soubor crash / diagnostického logu:",
   "copyLogPath": "Zkopírovat cestu k logu",
+  "openLogFolder": "Otevřít složku s logem aktualizace",
   "debugSection": "Ladění",
   "engineTickDebug": "Čítač snímků engine: {tick}\n(Obnovuje se při změně připojení zařízení, novém snímku obrazovky nebo v intervalu ~4 s.)",
   "versionLoadError": "Verzi nelze načíst: {error}",

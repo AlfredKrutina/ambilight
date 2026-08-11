@@ -247,6 +247,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get copyLogPath => 'Copy log path';
 
   @override
+  String get openLogFolder => 'Open update log folder';
+
+  @override
   String get debugSection => 'Debug';
 
   @override

@@ -248,6 +248,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get copyLogPath => 'Zkopírovat cestu k logu';
 
   @override
+  String get openLogFolder => 'Otevřít složku s logem aktualizace';
+
+  @override
   String get debugSection => 'Ladění';
 
   @override

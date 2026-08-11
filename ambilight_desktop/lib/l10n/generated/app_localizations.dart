@@ -542,6 +542,12 @@ abstract class AppLocalizations {
   /// **'Copy log path'**
   String get copyLogPath;
 
+  /// No description provided for @openLogFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Open update log folder'**
+  String get openLogFolder;
+
   /// No description provided for @debugSection.
   ///
   /// In en, this message translates to:

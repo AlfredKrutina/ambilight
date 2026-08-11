@@ -96,6 +96,7 @@
   "showOnboardingAgain": "Show onboarding again",
   "crashLogFileLabel": "Crash / diagnostic log file:",
   "copyLogPath": "Copy log path",
+  "openLogFolder": "Open update log folder",
   "debugSection": "Debug",
   "engineTickDebug": "Engine frame counter: {tick}\n(Updates on device connection changes, new screen frame, or ~4 s interval.)",
   "@engineTickDebug": {

@@ -108,21 +108,26 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
         waitPid: pid,
       );
       if (!mounted) return;
-      if (!started) {
+      if (!started.ok) {
         setState(() {
           _busy = false;
-          _downloadError = l10n.desktopUpdateUpdaterStartFailed;
+          _downloadError =
+              '${started.error ?? l10n.desktopUpdateUpdaterStartFailed}\n${started.logPath}';
         });
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.desktopUpdateRestarting)),
+        SnackBar(
+          content: Text(
+            '${l10n.desktopUpdateRestarting}${started.method != null ? ' (${started.method})' : ''}',
+          ),
+        ),
       );
       final ctrl = context.read<AmbilightAppController>();
       await ctrl.flushPersistToDisk();
       await StartupCrashGuard.markSessionClean();
-      // Updater už běží mimo Job Object (WMI) — krátká pauza jen na flush UI.
-      await Future<void>.delayed(const Duration(milliseconds: 400));
+      // Updater běží mimo Job Object a už zapsal heartbeat — bezpečné ukončit UI.
+      await Future<void>.delayed(const Duration(milliseconds: 300));
       exit(0);
     } catch (e) {
       if (mounted) {
@@ -176,6 +181,29 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
                   color: Theme.of(context).colorScheme.error,
                 ),
           ),
+          if (Platform.isWindows) ...[
+            const SizedBox(height: 6),
+            SelectableText(
+              WindowsDesktopUpdater.updateLogPath,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () async {
+                  final dir = Directory(WindowsDesktopUpdater.otaRoot);
+                  if (!await dir.exists()) {
+                    await dir.create(recursive: true);
+                  }
+                  await Process.run('explorer.exe', [dir.path]);
+                },
+                icon: const Icon(Icons.folder_open, size: 16),
+                label: Text(l10n.openLogFolder),
+              ),
+            ),
+          ],
         ],
       ],
     );
