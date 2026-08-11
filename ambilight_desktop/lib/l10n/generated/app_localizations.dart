@@ -4048,6 +4048,66 @@ abstract class AppLocalizations {
   /// **'Brightness (screen): {v}'**
   String screenBrightnessValue(Object v);
 
+  /// No description provided for @screenMasterBrightnessValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Overall brightness: {v} %'**
+  String screenMasterBrightnessValue(int v);
+
+  /// No description provided for @screenMasterBrightnessHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Multiplies Screen mode brightness. Other modes are unaffected.'**
+  String get screenMasterBrightnessHint;
+
+  /// No description provided for @screenBrightnessScheduleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily brightness schedule'**
+  String get screenBrightnessScheduleTitle;
+
+  /// No description provided for @screenBrightnessScheduleSwitch.
+  ///
+  /// In en, this message translates to:
+  /// **'Use schedule during the day'**
+  String get screenBrightnessScheduleSwitch;
+
+  /// No description provided for @screenBrightnessScheduleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Brightness blends smoothly between points. Applies only in Screen mode.'**
+  String get screenBrightnessScheduleHint;
+
+  /// No description provided for @screenBrightnessScheduleNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Now from schedule: {v} %'**
+  String screenBrightnessScheduleNow(int v);
+
+  /// No description provided for @screenBrightnessScheduleAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add point'**
+  String get screenBrightnessScheduleAdd;
+
+  /// No description provided for @screenBrightnessScheduleTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get screenBrightnessScheduleTime;
+
+  /// No description provided for @screenBrightnessSchedulePct.
+  ///
+  /// In en, this message translates to:
+  /// **'Brightness %'**
+  String get screenBrightnessSchedulePct;
+
+  /// No description provided for @screenBrightnessScheduleRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get screenBrightnessScheduleRemove;
+
   /// No description provided for @screenInterpolationMs.
   ///
   /// In en, this message translates to:

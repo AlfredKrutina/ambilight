@@ -2295,6 +2295,42 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String screenMasterBrightnessValue(int v) {
+    return 'Overall brightness: $v %';
+  }
+
+  @override
+  String get screenMasterBrightnessHint =>
+      'Multiplies Screen mode brightness. Other modes are unaffected.';
+
+  @override
+  String get screenBrightnessScheduleTitle => 'Daily brightness schedule';
+
+  @override
+  String get screenBrightnessScheduleSwitch => 'Use schedule during the day';
+
+  @override
+  String get screenBrightnessScheduleHint =>
+      'Brightness blends smoothly between points. Applies only in Screen mode.';
+
+  @override
+  String screenBrightnessScheduleNow(int v) {
+    return 'Now from schedule: $v %';
+  }
+
+  @override
+  String get screenBrightnessScheduleAdd => 'Add point';
+
+  @override
+  String get screenBrightnessScheduleTime => 'Time';
+
+  @override
+  String get screenBrightnessSchedulePct => 'Brightness %';
+
+  @override
+  String get screenBrightnessScheduleRemove => 'Remove';
+
+  @override
   String screenInterpolationMs(Object v) {
     return 'Interpolation (ms): $v';
   }

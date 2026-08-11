@@ -591,6 +591,38 @@ class LedSegment {
   }
 }
 
+/// Bod denního rozvrhu jasu (screen): minuta dne 0–1439 a jas 0–100 %.
+class BrightnessSchedulePoint {
+  const BrightnessSchedulePoint({
+    required this.minutesOfDay,
+    required this.brightnessPct,
+  });
+
+  final int minutesOfDay;
+  final int brightnessPct;
+
+  Map<String, dynamic> toJson() => {
+        'minute': minutesOfDay.clamp(0, 1439),
+        'pct': brightnessPct.clamp(0, 100),
+      };
+
+  factory BrightnessSchedulePoint.fromJson(Map<String, dynamic> j) {
+    return BrightnessSchedulePoint(
+      minutesOfDay: asInt(j['minute'], 0).clamp(0, 1439),
+      brightnessPct: asInt(j['pct'], 100).clamp(0, 100),
+    );
+  }
+
+  BrightnessSchedulePoint copyWith({
+    int? minutesOfDay,
+    int? brightnessPct,
+  }) =>
+      BrightnessSchedulePoint(
+        minutesOfDay: (minutesOfDay ?? this.minutesOfDay).clamp(0, 1439),
+        brightnessPct: (brightnessPct ?? this.brightnessPct).clamp(0, 100),
+      );
+}
+
 class ScreenModeSettings {
   const ScreenModeSettings({
     this.monitorIndex = 1,
@@ -605,6 +637,10 @@ class ScreenModeSettings {
     this.activePreset = 'Balanced',
     this.calibrationPoints,
     this.brightness = 200,
+    /// Násobič celkového jasu jen pro screen (0–100 %).
+    this.masterBrightnessPct = 100,
+    this.brightnessScheduleEnabled = false,
+    this.brightnessSchedule = const [],
     this.colorCalibration,
     this.calibrationProfiles = const {},
     this.activeCalibrationProfile = 'Default',
@@ -636,6 +672,9 @@ class ScreenModeSettings {
   final String activePreset;
   final List<dynamic>? calibrationPoints;
   final int brightness;
+  final int masterBrightnessPct;
+  final bool brightnessScheduleEnabled;
+  final List<BrightnessSchedulePoint> brightnessSchedule;
   final Map<String, dynamic>? colorCalibration;
   final Map<String, Map<String, dynamic>> calibrationProfiles;
   final String activeCalibrationProfile;
@@ -667,6 +706,9 @@ class ScreenModeSettings {
         'active_preset': activePreset,
         'calibration_points': calibrationPoints,
         'brightness': brightness,
+        'master_brightness_pct': masterBrightnessPct.clamp(0, 100),
+        'brightness_schedule_enabled': brightnessScheduleEnabled,
+        'brightness_schedule': brightnessSchedule.map((e) => e.toJson()).toList(),
         'color_calibration': colorCalibration,
         'calibration_profiles': calibrationProfiles,
         'active_calibration_profile': activeCalibrationProfile,
@@ -698,6 +740,12 @@ class ScreenModeSettings {
         profiles[k.toString()] = asMap(v);
       });
     }
+    final sched = <BrightnessSchedulePoint>[];
+    if (j['brightness_schedule'] is List) {
+      for (final e in j['brightness_schedule'] as List) {
+        sched.add(BrightnessSchedulePoint.fromJson(asMap(e)));
+      }
+    }
     return ScreenModeSettings(
       monitorIndex: asInt(j['monitor_index'], 1),
       scanDepthPercent: asInt(j['scan_depth_percent'], 10),
@@ -712,6 +760,9 @@ class ScreenModeSettings {
       calibrationPoints:
           j['calibration_points'] is List ? List<dynamic>.from(j['calibration_points'] as List) : null,
       brightness: asInt(j['brightness'], 200),
+      masterBrightnessPct: asInt(j['master_brightness_pct'], 100).clamp(0, 100),
+      brightnessScheduleEnabled: asBool(j['brightness_schedule_enabled'], false),
+      brightnessSchedule: sched,
       colorCalibration: j['color_calibration'] != null ? asMap(j['color_calibration']) : null,
       calibrationProfiles: profiles,
       activeCalibrationProfile: asString(j['active_calibration_profile'], 'Default'),
@@ -744,6 +795,9 @@ class ScreenModeSettings {
         activePreset: activePreset,
         calibrationPoints: calibrationPoints,
         brightness: b.clamp(0, 255),
+        masterBrightnessPct: masterBrightnessPct,
+        brightnessScheduleEnabled: brightnessScheduleEnabled,
+        brightnessSchedule: brightnessSchedule,
         colorCalibration: colorCalibration,
         calibrationProfiles: calibrationProfiles,
         activeCalibrationProfile: activeCalibrationProfile,
@@ -775,6 +829,9 @@ class ScreenModeSettings {
         activePreset: activePreset,
         calibrationPoints: null,
         brightness: brightness,
+        masterBrightnessPct: masterBrightnessPct,
+        brightnessScheduleEnabled: brightnessScheduleEnabled,
+        brightnessSchedule: brightnessSchedule,
         colorCalibration: colorCalibration,
         calibrationProfiles: calibrationProfiles,
         activeCalibrationProfile: activeCalibrationProfile,
@@ -813,6 +870,9 @@ class ScreenModeSettings {
         activePreset: activePreset ?? this.activePreset,
         calibrationPoints: calibrationPoints,
         brightness: brightness,
+        masterBrightnessPct: masterBrightnessPct,
+        brightnessScheduleEnabled: brightnessScheduleEnabled,
+        brightnessSchedule: brightnessSchedule,
         colorCalibration: colorCalibration,
         calibrationProfiles: calibrationProfiles,
         activeCalibrationProfile: activeCalibrationProfile,
@@ -843,6 +903,9 @@ class ScreenModeSettings {
     String? activePreset,
     List<dynamic>? calibrationPoints,
     int? brightness,
+    int? masterBrightnessPct,
+    bool? brightnessScheduleEnabled,
+    List<BrightnessSchedulePoint>? brightnessSchedule,
     Map<String, dynamic>? colorCalibration,
     Map<String, Map<String, dynamic>>? calibrationProfiles,
     String? activeCalibrationProfile,
@@ -872,6 +935,11 @@ class ScreenModeSettings {
         activePreset: activePreset ?? this.activePreset,
         calibrationPoints: calibrationPoints ?? this.calibrationPoints,
         brightness: brightness ?? this.brightness,
+        masterBrightnessPct: masterBrightnessPct != null
+            ? masterBrightnessPct.clamp(0, 100)
+            : this.masterBrightnessPct,
+        brightnessScheduleEnabled: brightnessScheduleEnabled ?? this.brightnessScheduleEnabled,
+        brightnessSchedule: brightnessSchedule ?? this.brightnessSchedule,
         colorCalibration: colorCalibration ?? this.colorCalibration,
         calibrationProfiles: calibrationProfiles ?? this.calibrationProfiles,
         activeCalibrationProfile: activeCalibrationProfile ?? this.activeCalibrationProfile,

@@ -2296,6 +2296,42 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String screenMasterBrightnessValue(int v) {
+    return 'Celkový jas: $v %';
+  }
+
+  @override
+  String get screenMasterBrightnessHint =>
+      'Násobí jas režimu Screen. Ostatní režimy neovlivní.';
+
+  @override
+  String get screenBrightnessScheduleTitle => 'Denní rozvrh jasu';
+
+  @override
+  String get screenBrightnessScheduleSwitch => 'Použít rozvrh během dne';
+
+  @override
+  String get screenBrightnessScheduleHint =>
+      'Mezi body se jas plynule mění. Platí jen v režimu Screen.';
+
+  @override
+  String screenBrightnessScheduleNow(int v) {
+    return 'Teď podle rozvrhu: $v %';
+  }
+
+  @override
+  String get screenBrightnessScheduleAdd => 'Přidat bod';
+
+  @override
+  String get screenBrightnessScheduleTime => 'Čas';
+
+  @override
+  String get screenBrightnessSchedulePct => 'Jas %';
+
+  @override
+  String get screenBrightnessScheduleRemove => 'Odebrat';
+
+  @override
   String screenInterpolationMs(Object v) {
     return 'Interpolace (ms): $v';
   }

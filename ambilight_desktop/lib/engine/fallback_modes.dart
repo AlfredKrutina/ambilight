@@ -1,4 +1,5 @@
 import '../core/models/config_models.dart';
+import 'brightness_schedule.dart';
 
 /// Placeholder dokud nejsou hotové capture / audio / systémové metriky.
 class MusicModeStub {
@@ -7,12 +8,13 @@ class MusicModeStub {
 }
 
 /// Vrací jas pro režim (stejná pole jako Python typicky 0–255).
-int brightnessForMode(AppConfig c) {
+/// U screen navíc master % a volitelný denní rozvrh.
+int brightnessForMode(AppConfig c, {DateTime? now}) {
   switch (c.globalSettings.startMode) {
     case 'light':
       return c.lightMode.brightness;
     case 'screen':
-      return c.screenMode.brightness;
+      return applyScreenMasterAndScheduleBrightness(c.screenMode, now: now);
     case 'music':
       return c.musicMode.brightness;
     case 'pchealth':

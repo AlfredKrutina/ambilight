@@ -1000,6 +1000,26 @@
   "screenWindowsCaptureBackendCpu": "CPU (GDI)",
   "screenWindowsCaptureBackendGpu": "GPU (DXGI)",
   "screenBrightnessValue": "Brightness (screen): {v}",
+  "screenMasterBrightnessValue": "Overall brightness: {v} %",
+  "@screenMasterBrightnessValue": {
+    "placeholders": {
+      "v": { "type": "int" }
+    }
+  },
+  "screenMasterBrightnessHint": "Multiplies Screen mode brightness. Other modes are unaffected.",
+  "screenBrightnessScheduleTitle": "Daily brightness schedule",
+  "screenBrightnessScheduleSwitch": "Use schedule during the day",
+  "screenBrightnessScheduleHint": "Brightness blends smoothly between points. Applies only in Screen mode.",
+  "screenBrightnessScheduleNow": "Now from schedule: {v} %",
+  "@screenBrightnessScheduleNow": {
+    "placeholders": {
+      "v": { "type": "int" }
+    }
+  },
+  "screenBrightnessScheduleAdd": "Add point",
+  "screenBrightnessScheduleTime": "Time",
+  "screenBrightnessSchedulePct": "Brightness %",
+  "screenBrightnessScheduleRemove": "Remove",
   "screenInterpolationMs": "Interpolation (ms): {v}",
   "screenUniformRegionTitle": "Uniform capture region",
   "screenTechMonitorTitle": "Technical monitor and uniform region",

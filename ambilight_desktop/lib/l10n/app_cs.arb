@@ -739,6 +739,26 @@
   "screenWindowsCaptureBackendCpu": "CPU (GDI)",
   "screenWindowsCaptureBackendGpu": "GPU (DXGI)",
   "screenBrightnessValue": "Jas (screen): {v}",
+  "screenMasterBrightnessValue": "Celkový jas: {v} %",
+  "@screenMasterBrightnessValue": {
+    "placeholders": {
+      "v": { "type": "int" }
+    }
+  },
+  "screenMasterBrightnessHint": "Násobí jas režimu Screen. Ostatní režimy neovlivní.",
+  "screenBrightnessScheduleTitle": "Denní rozvrh jasu",
+  "screenBrightnessScheduleSwitch": "Použít rozvrh během dne",
+  "screenBrightnessScheduleHint": "Mezi body se jas plynule mění. Platí jen v režimu Screen.",
+  "screenBrightnessScheduleNow": "Teď podle rozvrhu: {v} %",
+  "@screenBrightnessScheduleNow": {
+    "placeholders": {
+      "v": { "type": "int" }
+    }
+  },
+  "screenBrightnessScheduleAdd": "Přidat bod",
+  "screenBrightnessScheduleTime": "Čas",
+  "screenBrightnessSchedulePct": "Jas %",
+  "screenBrightnessScheduleRemove": "Odebrat",
   "screenInterpolationMs": "Interpolace (ms): {v}",
   "screenUniformRegionTitle": "Oblast snímání (jednotné)",
   "screenTechMonitorTitle": "Technický monitor a jednotná oblast",

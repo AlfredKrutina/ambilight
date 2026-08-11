@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../../../application/ambilight_app_controller.dart';
 import '../../../core/ambilight_presets.dart';
 import '../../../core/models/config_models.dart';
+import '../../../engine/brightness_schedule.dart';
 import '../../../engine/screen/screen_color_pipeline.dart';
 import '../../../features/screen_capture/screen_capture_source.dart';
 import '../../../features/screen_overlay/scan_overlay_controller.dart';
@@ -42,6 +43,7 @@ class ScreenSettingsTab extends StatefulWidget {
 class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
   List<MonitorInfo> _monitors = const [];
   bool _monitorsLoading = false;
+  Timer? _scheduleUiTimer;
 
   /// Když [listMonitors] selže / vrátí prázdný seznam — MSS indexy 0…12 jako rozumný fallback (0 = virtuální plocha).
   static List<MonitorInfo> _syntheticMonitorPickList() {
@@ -61,6 +63,31 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
   void initState() {
     super.initState();
     unawaited(_loadMonitors());
+    _syncScheduleUiTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant ScreenSettingsTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncScheduleUiTimer();
+  }
+
+  @override
+  void dispose() {
+    _scheduleUiTimer?.cancel();
+    super.dispose();
+  }
+
+  void _syncScheduleUiTimer() {
+    final on = widget.draft.screenMode.brightnessScheduleEnabled;
+    if (on && _scheduleUiTimer == null) {
+      _scheduleUiTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+        if (mounted) setState(() {});
+      });
+    } else if (!on && _scheduleUiTimer != null) {
+      _scheduleUiTimer?.cancel();
+      _scheduleUiTimer = null;
+    }
   }
 
   Future<void> _loadMonitors() async {
@@ -83,6 +110,124 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
   bool get _advanced => !_simpleUi && widget.draft.screenMode.scanMode == 'advanced';
 
   void _patch(ScreenModeSettings next) => widget.onChanged(next);
+
+  static String _formatMinutesOfDay(int minutes) {
+    final m = minutes.clamp(0, 1439);
+    final h = m ~/ 60;
+    final min = m % 60;
+    return '${h.toString().padLeft(2, '0')}:${min.toString().padLeft(2, '0')}';
+  }
+
+  List<Widget> _brightnessScheduleEditor(BuildContext context, ScreenModeSettings s) {
+    final l10n = context.l10n;
+    final pts = List<BrightnessSchedulePoint>.of(
+      s.brightnessSchedule.isEmpty ? kDefaultScreenBrightnessSchedule : s.brightnessSchedule,
+    )..sort((a, b) => a.minutesOfDay.compareTo(b.minutesOfDay));
+    final nowPct = scheduleBrightnessPctAt(pts, DateTime.now()).round().clamp(0, 100);
+
+    void commit(List<BrightnessSchedulePoint> next) {
+      final sorted = List<BrightnessSchedulePoint>.of(next)
+        ..sort((a, b) => a.minutesOfDay.compareTo(b.minutesOfDay));
+      _patch(s.copyWith(brightnessSchedule: sorted));
+    }
+
+    return [
+      Text(
+        l10n.screenBrightnessScheduleNow(nowPct),
+        style: Theme.of(context).textTheme.labelLarge,
+      ),
+      const SizedBox(height: 8),
+      for (var i = 0; i < pts.length; i++) ...[
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              flex: 2,
+              child: OutlinedButton(
+                onPressed: () async {
+                  final initial = TimeOfDay(
+                    hour: pts[i].minutesOfDay ~/ 60,
+                    minute: pts[i].minutesOfDay % 60,
+                  );
+                  final picked = await showTimePicker(
+                    context: context,
+                    initialTime: initial,
+                  );
+                  if (picked == null) return;
+                  final next = List<BrightnessSchedulePoint>.of(pts);
+                  next[i] = pts[i].copyWith(
+                    minutesOfDay: picked.hour * 60 + picked.minute,
+                  );
+                  commit(next);
+                },
+                child: Text(
+                  '${l10n.screenBrightnessScheduleTime}: ${_formatMinutesOfDay(pts[i].minutesOfDay)}',
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '${l10n.screenBrightnessSchedulePct}: ${pts[i].brightnessPct}',
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                  ConfigDragSlider(
+                    value: pts[i].brightnessPct.toDouble(),
+                    min: 0,
+                    max: 100,
+                    divisions: 100,
+                    label: '${pts[i].brightnessPct}%',
+                    onChanged: (v) {
+                      final next = List<BrightnessSchedulePoint>.of(pts);
+                      next[i] = pts[i].copyWith(brightnessPct: v.round());
+                      commit(next);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: l10n.screenBrightnessScheduleRemove,
+              onPressed: pts.length <= 1
+                  ? null
+                  : () {
+                      final next = List<BrightnessSchedulePoint>.of(pts)..removeAt(i);
+                      commit(next);
+                    },
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+      ],
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: () {
+            final used = pts.map((e) => e.minutesOfDay).toSet();
+            var minute = 12 * 60;
+            for (var step = 0; step < 24 * 60; step += 30) {
+              if (!used.contains(step)) {
+                minute = step;
+                break;
+              }
+            }
+            commit([
+              ...pts,
+              BrightnessSchedulePoint(minutesOfDay: minute, brightnessPct: 80),
+            ]);
+          },
+          icon: const Icon(Icons.add),
+          label: Text(l10n.screenBrightnessScheduleAdd),
+        ),
+      ),
+      const SizedBox(height: 8),
+    ];
+  }
 
   /// Shodně s [ScreenColorPipeline] / JSON PyQt `color_sampling`.
   static String _normalizeColorSamplingDropdown(String raw) {
@@ -438,6 +583,45 @@ class _ScreenSettingsTabState extends State<ScreenSettingsTab> {
                 label: '${s.brightness}',
                 onChanged: (v) => _patch(s.copyWith(brightness: v.round())),
               ),
+              Text(
+                l10n.screenMasterBrightnessValue(s.masterBrightnessPct),
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              ConfigDragSlider(
+                value: s.masterBrightnessPct.toDouble(),
+                min: 0,
+                max: 100,
+                divisions: 100,
+                label: '${s.masterBrightnessPct}%',
+                onChanged: (v) => _patch(s.copyWith(masterBrightnessPct: v.round())),
+              ),
+              Text(
+                l10n.screenMasterBrightnessHint,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              Text(l10n.screenBrightnessScheduleTitle, style: Theme.of(context).textTheme.titleSmall),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(l10n.screenBrightnessScheduleSwitch),
+                subtitle: Text(l10n.screenBrightnessScheduleHint),
+                value: s.brightnessScheduleEnabled,
+                onChanged: (on) {
+                  var next = s.copyWith(brightnessScheduleEnabled: on);
+                  if (on && next.brightnessSchedule.isEmpty) {
+                    next = next.copyWith(
+                      brightnessSchedule: List<BrightnessSchedulePoint>.of(
+                        kDefaultScreenBrightnessSchedule,
+                      ),
+                    );
+                  }
+                  _patch(next);
+                },
+              ),
+              if (s.brightnessScheduleEnabled) ..._brightnessScheduleEditor(context, s),
               Text(l10n.screenInterpolationMs(s.interpolationMs), style: Theme.of(context).textTheme.labelLarge),
               ConfigDragSlider(
                 value: s.interpolationMs.toDouble(),
