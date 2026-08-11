@@ -139,6 +139,21 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
         return;
       }
 
+      // Never exit unless THIS session's updater is still alive.
+      final sid = started.sessionId ?? '';
+      final alive = sid.isNotEmpty && await WindowsDesktopUpdater.isSessionHeartbeatAlive(sid);
+      if (!alive) {
+        const err =
+            'Updater se nespustil spolehlive (chybi heartbeat). Aplikace zustava bezet.';
+        await DesktopOtaReportStore.writeHostFailure(err);
+        setState(() {
+          _busy = false;
+          _downloadError = '$err\n${started.logPath}';
+        });
+        await _showInstallFailure(err, logPath: started.logPath);
+        return;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -147,9 +162,33 @@ class _AboutDesktopUpdateCardState extends State<AboutDesktopUpdateCard> {
         ),
       );
       final ctrl = context.read<AmbilightAppController>();
-      await ctrl.flushPersistToDisk();
-      await StartupCrashGuard.markSessionClean();
-      await Future<void>.delayed(const Duration(milliseconds: 300));
+      try {
+        await ctrl.prepareQuitShutdownAsync();
+      } catch (_) {}
+      try {
+        await ctrl.flushPersistToDisk();
+      } catch (_) {}
+      try {
+        await StartupCrashGuard.markSessionClean();
+      } catch (_) {}
+
+      // Last chance abort — if updater died while we were saving, stay alive.
+      final stillAlive = await WindowsDesktopUpdater.isSessionHeartbeatAlive(sid);
+      if (!stillAlive) {
+        const err =
+            'Updater spadl pred ukoncenim aplikace. Nic se neprepisuje — app zustava bezet.';
+        await DesktopOtaReportStore.writeHostFailure(err);
+        if (mounted) {
+          setState(() {
+            _busy = false;
+            _downloadError = '$err\n${started.logPath}';
+          });
+          await _showInstallFailure(err, logPath: started.logPath);
+        }
+        return;
+      }
+
+      await Future<void>.delayed(const Duration(milliseconds: 400));
       exit(0);
     } catch (e) {
       if (mounted) {

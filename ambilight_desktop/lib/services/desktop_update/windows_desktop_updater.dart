@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:path/path.dart' as p;
 
@@ -9,6 +10,7 @@ class WindowsDesktopUpdateLaunchResult {
   const WindowsDesktopUpdateLaunchResult.ok({
     required this.logPath,
     required this.method,
+    required this.sessionId,
   })  : ok = true,
         error = null;
 
@@ -16,12 +18,14 @@ class WindowsDesktopUpdateLaunchResult {
     required this.logPath,
     required this.error,
     this.method,
+    this.sessionId,
   }) : ok = false;
 
   final bool ok;
   final String logPath;
   final String? error;
   final String? method;
+  final String? sessionId;
 }
 
 /// Nahrazení instalace po ukončení běžícího procesu (Windows).
@@ -29,9 +33,10 @@ class WindowsDesktopUpdateLaunchResult {
 /// Odolnost:
 /// - staging + logy v `%LOCALAPPDATA%\AmbiLight\ota`
 /// - konfigurace přes JSON (žádné lámání uvozovek v CLI)
-/// - launch cascade: WMI/VBS → CIM → scheduled task
-/// - ověření heartbeatu v logu před `exit(0)`
-/// - PowerShell: multi expand, taskkill, robocopy+copy fallback, verify, restart retry
+/// - launch cascade: WMI/VBS → CIM → scheduled task → detached Process.start
+/// - heartbeat se session tokenem (nikdy starý log)
+/// - PS skript ASCII + UTF-8 BOM (PS 5.1 -File)
+/// - parse preflight před launch
 class WindowsDesktopUpdater {
   WindowsDesktopUpdater._();
 
@@ -45,6 +50,7 @@ class WindowsDesktopUpdater {
 
   static String get updateLogPath => p.join(otaRoot, 'ambi_update.log');
   static String get statusPath => p.join(otaRoot, 'ambi_update_status.json');
+  static String get heartbeatPath => p.join(otaRoot, 'heartbeat.txt');
 
   /// `null` = OK, jinak lidská chyba.
   static String? preflightWritableInstallDir() {
@@ -55,12 +61,25 @@ class WindowsDesktopUpdater {
       final probe = File(p.join(targetDir, '.ambi_update_write_probe'));
       probe.writeAsStringSync('ok-${DateTime.now().millisecondsSinceEpoch}', flush: true);
       probe.deleteSync();
-      // Disk space soft-check (need ~200 MiB free ideally; warn only via probe).
       return null;
     } catch (e) {
       return 'Do složky instalace nelze zapisovat ($targetDir): $e. '
           'Spusť AmbiLight z rozbaleného ZIP (portable), ne z Program Files, '
           'nebo aktualizuj ručně přes GitHub Releases.';
+    }
+  }
+
+  /// Ověří, že updater této session stále žije (heartbeat s tokenem).
+  static Future<bool> isSessionHeartbeatAlive(String sessionId) async {
+    if (sessionId.trim().isEmpty) return false;
+    try {
+      final hb = File(heartbeatPath);
+      if (!await hb.exists()) return false;
+      final t = (await hb.readAsString()).trim();
+      return t.contains('session=$sessionId') &&
+          (t.contains('ps: boot') || t.contains('ps: early'));
+    } catch (_) {
+      return false;
     }
   }
 
@@ -77,6 +96,8 @@ class WindowsDesktopUpdater {
       );
     }
 
+    final sessionId = _newSessionId();
+
     try {
       final liveExe = Platform.resolvedExecutable;
       final targetDir = p.dirname(liveExe);
@@ -84,22 +105,33 @@ class WindowsDesktopUpdater {
       final work = Directory(otaRoot);
       await work.create(recursive: true);
 
-      await _appendHostLog(logPath, 'host: prepare begin pid=$waitPid target=$targetDir');
+      // Fresh log for this session — never treat old "ps: boot" as success.
+      try {
+        await File(logPath).writeAsString(
+          '[${DateTime.now().toIso8601String()}] host: session=$sessionId log reset\n',
+          flush: true,
+        );
+      } catch (_) {}
+
+      await _appendHostLog(logPath, 'host: prepare begin session=$sessionId pid=$waitPid target=$targetDir');
 
       final zipOk = await _validateZip(zipFile);
       if (zipOk != null) {
         await _appendHostLog(logPath, 'host: zip invalid: $zipOk');
-        return WindowsDesktopUpdateLaunchResult.fail(logPath: logPath, error: zipOk);
+        return WindowsDesktopUpdateLaunchResult.fail(
+          logPath: logPath,
+          error: zipOk,
+          sessionId: sessionId,
+        );
       }
 
       final zipCopy = File(p.join(work.path, 'update.zip'));
       final script = File(p.join(work.path, 'apply_update.ps1'));
       final config = File(p.join(work.path, 'apply_config.json'));
       final stageDir = p.join(work.path, 'stage');
-      final heartbeat = File(p.join(work.path, 'heartbeat.txt'));
+      final heartbeat = File(heartbeatPath);
       final status = File(statusPath);
 
-      // Reset markers
       for (final f in [heartbeat, status]) {
         try {
           if (await f.exists()) await f.delete();
@@ -108,12 +140,17 @@ class WindowsDesktopUpdater {
 
       final copied = await _copyFileWithRetry(zipFile, zipCopy, attempts: 5);
       if (!copied) {
-        const err = 'Nepodařilo se zkopírovat ZIP do OTA složky.';
+        const err = 'Nepodarilo se zkopirovat ZIP do OTA slozky.';
         await _appendHostLog(logPath, 'host: $err');
-        return WindowsDesktopUpdateLaunchResult.fail(logPath: logPath, error: err);
+        return WindowsDesktopUpdateLaunchResult.fail(
+          logPath: logPath,
+          error: err,
+          sessionId: sessionId,
+        );
       }
 
       final cfg = <String, dynamic>{
+        'sessionId': sessionId,
         'waitPid': waitPid,
         'zipPath': zipCopy.path,
         'stageDir': stageDir,
@@ -125,16 +162,37 @@ class WindowsDesktopUpdater {
         'workDir': work.path,
         'startedAt': DateTime.now().toUtc().toIso8601String(),
       };
-      await config.writeAsString(const JsonEncoder.withIndent('  ').convert(cfg), flush: true);
-      await script.writeAsString(_psScript(), flush: true);
+      await _writeUtf8BomFile(config, const JsonEncoder.withIndent('  ').convert(cfg));
+      await _writeUtf8BomFile(script, _psScript());
 
       final psExe = await _resolvePowerShellExe();
+      final parseErr = await _validatePowerShellScript(
+        psExe: psExe,
+        scriptPath: script.path,
+        logPath: logPath,
+      );
+      if (parseErr != null) {
+        await _writeStatusFile({
+          'state': 'error',
+          'message': parseErr,
+          'logPath': logPath,
+          'sessionId': sessionId,
+          'at': DateTime.now().toUtc().toIso8601String(),
+          'source': 'host-parse',
+        });
+        return WindowsDesktopUpdateLaunchResult.fail(
+          logPath: logPath,
+          error: parseErr,
+          sessionId: sessionId,
+        );
+      }
+
+      // Prefer -File with quoted paths; BOM makes PS 5.1 read UTF-8.
       final psArgs =
           '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "${script.path}" -ConfigPath "${config.path}"';
 
       await _appendHostLog(logPath, 'host: powershell=$psExe');
 
-      // Cascade launch methods — first success that produces heartbeat wins.
       final methods = <({String name, Future<bool> Function() run})>[
         (
           name: 'wmi_vbs',
@@ -163,10 +221,25 @@ class WindowsDesktopUpdater {
                 psArgs: psArgs,
               ),
         ),
+        (
+          name: 'detached',
+          run: () => _launchViaDetached(
+                workDir: work.path,
+                logPath: logPath,
+                psExe: psExe,
+                scriptPath: script.path,
+                configPath: config.path,
+              ),
+        ),
       ];
 
       String? lastErr;
       for (final m in methods) {
+        // Clear stale heartbeat between attempts (keep session requirement).
+        try {
+          if (await heartbeat.exists()) await heartbeat.delete();
+        } catch (_) {}
+
         await _appendHostLog(logPath, 'host: try launch method=${m.name}');
         var launched = false;
         try {
@@ -182,45 +255,72 @@ class WindowsDesktopUpdater {
           continue;
         }
 
-        final alive = await _waitForUpdaterHeartbeat(
-          logPath: logPath,
+        final alive = await _waitForSessionHeartbeat(
+          sessionId: sessionId,
           heartbeat: heartbeat,
-          timeout: const Duration(seconds: 20),
+          timeout: const Duration(seconds: 25),
         );
         if (alive) {
-          await _appendHostLog(logPath, 'host: heartbeat OK via ${m.name}');
-          return WindowsDesktopUpdateLaunchResult.ok(logPath: logPath, method: m.name);
+          // Double-check still present (avoid race with instant-crash PS).
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+          final still = await isSessionHeartbeatAlive(sessionId);
+          if (!still) {
+            lastErr = 'method ${m.name}: heartbeat zmizel (updater spadl hned po startu)';
+            await _appendHostLog(logPath, 'host: $lastErr');
+            continue;
+          }
+          await _appendHostLog(logPath, 'host: heartbeat OK via ${m.name} session=$sessionId');
+          return WindowsDesktopUpdateLaunchResult.ok(
+            logPath: logPath,
+            method: m.name,
+            sessionId: sessionId,
+          );
         }
-        lastErr = 'method ${m.name}: updater nespustil heartbeat do 20s';
+        lastErr = 'method ${m.name}: updater nespustil heartbeat session=$sessionId do 25s';
         await _appendHostLog(logPath, 'host: $lastErr');
       }
 
-      final err = lastErr ?? 'Nepodařilo se spustit updater žádnou metodou.';
+      final err = lastErr ?? 'Nepodarilo se spustit updater zadnou metodou.';
       await _writeStatusFile({
         'state': 'error',
         'message': err,
         'logPath': logPath,
+        'sessionId': sessionId,
         'at': DateTime.now().toUtc().toIso8601String(),
         'source': 'host',
       });
       return WindowsDesktopUpdateLaunchResult.fail(
         logPath: logPath,
         error: '$err Log: $logPath',
+        sessionId: sessionId,
       );
     } catch (e, st) {
       await _appendHostLog(logPath, 'host: FATAL $e\n$st');
       await _writeStatusFile({
         'state': 'error',
-        'message': 'Příprava updateru selhala: $e',
+        'message': 'Priprava updateru selhala: $e',
         'logPath': logPath,
+        'sessionId': sessionId,
         'at': DateTime.now().toUtc().toIso8601String(),
         'source': 'host',
       });
       return WindowsDesktopUpdateLaunchResult.fail(
         logPath: logPath,
-        error: 'Příprava updateru selhala: $e\nLog: $logPath',
+        error: 'Priprava updateru selhala: $e\nLog: $logPath',
+        sessionId: sessionId,
       );
     }
+  }
+
+  static String _newSessionId() {
+    final r = Random.secure();
+    final n = List.generate(8, (_) => r.nextInt(16).toRadixString(16)).join();
+    return '${DateTime.now().millisecondsSinceEpoch}-$n';
+  }
+
+  static Future<void> _writeUtf8BomFile(File file, String content) async {
+    final payload = utf8.encode(content);
+    await file.writeAsBytes(<int>[0xEF, 0xBB, 0xBF, ...payload], flush: true);
   }
 
   static Future<void> _writeStatusFile(Map<String, dynamic> map) async {
@@ -233,17 +333,53 @@ class WindowsDesktopUpdater {
     } catch (_) {}
   }
 
+  /// Catch PowerShell parse errors before launch (e.g. `$i:` drive-scope trap).
+  static Future<String?> _validatePowerShellScript({
+    required String psExe,
+    required String scriptPath,
+    required String logPath,
+  }) async {
+    final cmd = '''
+\$errs = \$null
+\$tokens = \$null
+[void][System.Management.Automation.Language.Parser]::ParseFile(@'
+$scriptPath
+'@.Trim(), [ref]\$tokens, [ref]\$errs)
+if (\$errs -and \$errs.Count -gt 0) {
+  \$errs | ForEach-Object { \$_.ToString() }
+  exit 1
+}
+Write-Output 'PARSE_OK'
+exit 0
+''';
+    try {
+      final r = await Process.run(
+        psExe,
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', cmd],
+        runInShell: false,
+      ).timeout(const Duration(seconds: 20));
+      await _appendHostLog(logPath, 'host: ps-parse exit=${r.exitCode} out=${'${r.stdout}'.trim()}');
+      if (r.exitCode != 0) {
+        final detail = '${r.stdout}\n${r.stderr}'.trim();
+        return 'Aktualizacni skript ma chybu syntaxe PowerShell:\n$detail';
+      }
+      return null;
+    } catch (e) {
+      await _appendHostLog(logPath, 'host: ps-parse exception $e');
+      return 'Kontrola syntaxe updater skriptu selhala: $e';
+    }
+  }
+
   static Future<String?> _validateZip(File zip) async {
     try {
       if (!await zip.exists()) return 'ZIP neexistuje.';
       final len = await zip.length();
-      if (len < 64) return 'ZIP je prázdný nebo poškozený ($len B).';
+      if (len < 64) return 'ZIP je prazdny nebo poskozeny ($len B).';
       final raf = await zip.open();
       try {
         final magic = await raf.read(4);
-        // PK\x03\x04 or PK\x05\x06 (empty) or PK\x07\x08
         if (magic.length < 2 || magic[0] != 0x50 || magic[1] != 0x4b) {
-          return 'Soubor není platný ZIP (špatná magická hlavička).';
+          return 'Soubor neni platny ZIP (spatna magicka hlavicka).';
         }
       } finally {
         await raf.close();
@@ -298,30 +434,33 @@ class WindowsDesktopUpdater {
     } catch (_) {}
   }
 
-  static Future<bool> _waitForUpdaterHeartbeat({
-    required String logPath,
+  /// Only trust heartbeat file with this session id — never historical log text.
+  static Future<bool> _waitForSessionHeartbeat({
+    required String sessionId,
     required File heartbeat,
     required Duration timeout,
   }) async {
+    final needle = 'session=$sessionId';
     final deadline = DateTime.now().add(timeout);
     while (DateTime.now().isBefore(deadline)) {
       try {
         if (await heartbeat.exists()) {
           final t = (await heartbeat.readAsString()).trim();
-          if (t.isNotEmpty) return true;
-        }
-      } catch (_) {}
-      try {
-        final log = File(logPath);
-        if (await log.exists()) {
-          final text = await log.readAsString();
-          if (text.contains('ps: boot') || text.contains('ps: start WaitPid')) {
-            return true;
+          if (t.contains(needle) && (t.contains('ps: boot') || t.contains('ps: early'))) {
+            // Prefer full boot; accept early only if it stays and then becomes boot.
+            if (t.contains('ps: boot')) return true;
           }
         }
       } catch (_) {}
-      await Future<void>.delayed(const Duration(milliseconds: 250));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
     }
+    // Final check: early-only is NOT enough to exit the app.
+    try {
+      if (await heartbeat.exists()) {
+        final t = (await heartbeat.readAsString()).trim();
+        if (t.contains(needle) && t.contains('ps: boot')) return true;
+      }
+    } catch (_) {}
     return false;
   }
 
@@ -380,7 +519,7 @@ WScript.Quit 0
   }) async {
     final helper = File(p.join(workDir, 'launch_cim.ps1'));
     final cmdLine = '"$psExe" $psArgs';
-    await helper.writeAsString('''
+    await _writeUtf8BomFile(helper, '''
 \$ErrorActionPreference = 'Stop'
 try {
   \$cmd = @'
@@ -402,7 +541,7 @@ $workDir
   Write-Output ("ERR " + \$_)
   exit 1
 }
-''', flush: true);
+''');
 
     final r = await Process.run(
       psExe,
@@ -430,7 +569,6 @@ $workDir
   }) async {
     const taskName = 'AmbiLightDesktopOTA';
     final runner = File(p.join(workDir, 'schtasks_run.cmd'));
-    // cmd file avoids schtasks quoting hell; runs hidden via powershell -WindowStyle already in args.
     await runner.writeAsString(
       '@echo off\r\n"$psExe" $psArgs\r\n',
       flush: true,
@@ -476,13 +614,64 @@ $workDir
     return run.exitCode == 0;
   }
 
-  /// Masivní apply skript — config JSON, heartbeat, multi-kill, multi-copy, verify.
+  static Future<bool> _launchViaDetached({
+    required String workDir,
+    required String logPath,
+    required String psExe,
+    required String scriptPath,
+    required String configPath,
+  }) async {
+    try {
+      await Process.start(
+        psExe,
+        [
+          '-NoProfile',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-WindowStyle',
+          'Hidden',
+          '-File',
+          scriptPath,
+          '-ConfigPath',
+          configPath,
+        ],
+        workingDirectory: workDir,
+        mode: ProcessStartMode.detached,
+        runInShell: false,
+      );
+      await _appendHostLog(logPath, 'host: detached Process.start issued');
+      return true;
+    } catch (e) {
+      await _appendHostLog(logPath, 'host: detached failed $e');
+      return false;
+    }
+  }
+
+  /// ASCII-only apply script — avoids PS 5.1 -File encoding traps with diacritics.
   static String _psScript() => r'''
 param(
   [Parameter(Mandatory = $true)][string] $ConfigPath
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+
+# Earliest possible alive signal (before JSON parse).
+$script:LogPath = $null
+$script:HeartbeatPath = $null
+$script:StatusPath = $null
+try {
+  $otaDir = Split-Path -Parent $ConfigPath
+  $script:LogPath = Join-Path $otaDir 'ambi_update.log'
+  $script:HeartbeatPath = Join-Path $otaDir 'heartbeat.txt'
+  $sidPeek = 'unknown'
+  try {
+    $rawPeek = Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 -ErrorAction Stop
+    if ($rawPeek -match '"sessionId"\s*:\s*"([^"]+)"') { $sidPeek = $Matches[1] }
+  } catch {}
+  $early = ("[{0}] ps: early session={1}" -f (Get-Date -Format o), $sidPeek)
+  Add-Content -LiteralPath $script:LogPath -Value $early -Encoding UTF8 -ErrorAction SilentlyContinue
+  Set-Content -LiteralPath $script:HeartbeatPath -Value $early -Encoding UTF8 -ErrorAction SilentlyContinue
+} catch {}
 
 function Write-Status([hashtable] $h) {
   try {
@@ -537,7 +726,6 @@ function Stop-AppInstances([string] $liveExe, [string] $procName, [int] $seconds
       Write-Log ("stop pid={0}" -f $proc.Id)
       try { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue } catch {}
     }
-    # Belt-and-suspenders
     try {
       & taskkill.exe /F /IM $procName /T 2>$null | Out-Null
     } catch {}
@@ -583,7 +771,7 @@ function Expand-UpdateZip([string] $ZipPath, [string] $StageDir) {
     }
   }
 
-  if (-not $expanded) { throw "Rozbalení ZIP selhalo všemi metodami." }
+  if (-not $expanded) { throw "ZIP extract failed with all methods." }
 }
 
 function Find-ContentRoot([string] $StageDir, [string] $ExeName) {
@@ -602,23 +790,23 @@ function Find-ContentRoot([string] $StageDir, [string] $ExeName) {
     Write-Log ("contentRoot via recursive find: " + $found.DirectoryName)
     return $found.DirectoryName
   }
-  throw "V archivu chybí $ExeName"
+  throw ("Archive missing " + $ExeName)
 }
 
 function Copy-UpdateTree([string] $ContentRoot, [string] $TargetDir) {
   $ok = $false
   for ($attempt = 1; $attempt -le 4; $attempt++) {
-    Write-Log ("copy attempt=$attempt robocopy")
+    Write-Log ("copy attempt={0} robocopy" -f $attempt)
     $rcArgs = @(
       $ContentRoot, $TargetDir, '/E', '/IS', '/IT', '/R:60', '/W:1',
       '/NFL', '/NDL', '/NJH', '/NJS', '/NP'
     )
     & robocopy.exe @rcArgs | Out-Null
     $rc = $LASTEXITCODE
-    Write-Log "robocopy exit=$rc"
+    Write-Log ("robocopy exit={0}" -f $rc)
     if ($rc -lt 8) { $ok = $true; break }
 
-    Write-Log "copy attempt=$attempt Copy-Item fallback"
+    Write-Log ("copy attempt={0} Copy-Item fallback" -f $attempt)
     try {
       Copy-Item -Path (Join-Path $ContentRoot '*') -Destination $TargetDir -Recurse -Force -ErrorAction Stop
       $ok = $true
@@ -628,7 +816,7 @@ function Copy-UpdateTree([string] $ContentRoot, [string] $TargetDir) {
       Start-Sleep -Seconds (2 * $attempt)
     }
   }
-  if (-not $ok) { throw "Kopírování do instalace selhalo." }
+  if (-not $ok) { throw "Copy into install dir failed." }
 }
 
 function Test-InstallOk([string] $liveExe, [string] $TargetDir) {
@@ -648,58 +836,63 @@ function Test-InstallOk([string] $liveExe, [string] $TargetDir) {
   return $true
 }
 
+$liveExe = $null
+$TargetDir = $null
+$sessionId = 'unknown'
+
 try {
   if (-not (Test-Path -LiteralPath $ConfigPath)) {
-    throw "Config missing: $ConfigPath"
+    throw ("Config missing: " + $ConfigPath)
   }
   $cfg = Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
   $script:LogPath = [string]$cfg.logPath
   $script:HeartbeatPath = [string]$cfg.heartbeatPath
   $script:StatusPath = [string]$cfg.statusPath
+  $sessionId = [string]$cfg.sessionId
+  if (-not $sessionId) { $sessionId = 'unknown' }
   $WaitPid = [int]$cfg.waitPid
   $ZipPath = [string]$cfg.zipPath
   $StageDir = [string]$cfg.stageDir
   $TargetDir = [string]$cfg.targetDir
   $ExeName = [string]$cfg.exeName
 
-  Write-Log "ps: boot"
-  Write-Status @{ state = 'running'; phase = 'boot'; at = (Get-Date -Format o) }
-  Write-Log "ps: start WaitPid=$WaitPid TargetDir=$TargetDir ZipPath=$ZipPath"
+  Write-Log ("ps: boot session={0}" -f $sessionId)
+  Write-Status @{ state = 'running'; phase = 'boot'; sessionId = $sessionId; at = (Get-Date -Format o) }
+  Write-Log ("ps: start WaitPid={0} TargetDir={1} ZipPath={2}" -f $WaitPid, $TargetDir, $ZipPath)
 
-  if (-not (Test-Path -LiteralPath $ZipPath)) { throw "ZIP neexistuje: $ZipPath" }
+  if (-not (Test-Path -LiteralPath $ZipPath)) { throw ("ZIP missing: " + $ZipPath) }
   $zipLen = (Get-Item -LiteralPath $ZipPath).Length
-  Write-Log "ps: zip bytes=$zipLen"
+  Write-Log ("ps: zip bytes={0}" -f $zipLen)
 
   Expand-UpdateZip -ZipPath $ZipPath -StageDir $StageDir
-  Write-Status @{ state = 'running'; phase = 'expanded'; at = (Get-Date -Format o) }
+  Write-Status @{ state = 'running'; phase = 'expanded'; sessionId = $sessionId; at = (Get-Date -Format o) }
 
   $contentRoot = Find-ContentRoot -StageDir $StageDir -ExeName $ExeName
   $probeExe = Join-Path $contentRoot $ExeName
-  Write-Log "ps: contentRoot=$contentRoot probe=$probeExe"
+  Write-Log ("ps: contentRoot={0} probe={1}" -f $contentRoot, $probeExe)
 
   $liveExe = Join-Path $TargetDir $ExeName
   $procName = [System.IO.Path]::GetFileNameWithoutExtension($ExeName)
 
   $p = Get-Process -Id $WaitPid -ErrorAction SilentlyContinue
   if ($null -ne $p) {
-    Write-Log "ps: waiting for WaitPid=$WaitPid"
+    Write-Log ("ps: waiting for WaitPid={0}" -f $WaitPid)
     Wait-Process -Id $WaitPid -Timeout 240 -ErrorAction SilentlyContinue
   } else {
     Write-Log "ps: WaitPid already gone"
   }
 
   Write-Log "ps: stopping app instances"
-  Write-Status @{ state = 'running'; phase = 'stopping'; at = (Get-Date -Format o) }
+  Write-Status @{ state = 'running'; phase = 'stopping'; sessionId = $sessionId; at = (Get-Date -Format o) }
   $left = Stop-AppInstances -liveExe $liveExe -procName $procName -seconds 120
   if ($left.Count -gt 0) {
-    # Last resort: kill by name only (same install folder risk accepted for OTA)
     Write-Log "ps: force taskkill by image name"
     & taskkill.exe /F /IM ($procName + '.exe') /T 2>$null | Out-Null
     Start-Sleep -Seconds 2
     $left = Stop-AppInstances -liveExe $liveExe -procName $procName -seconds 30
   }
   if ($left.Count -gt 0) {
-    throw ("Procesy stále běží: " + (($left | ForEach-Object { $_.Id }) -join ','))
+    throw ("Processes still running: " + (($left | ForEach-Object { $_.Id }) -join ','))
   }
 
   Start-Sleep -Seconds 1
@@ -709,19 +902,20 @@ try {
     }
   } catch {}
 
-  Write-Status @{ state = 'running'; phase = 'copying'; at = (Get-Date -Format o) }
+  Write-Status @{ state = 'running'; phase = 'copying'; sessionId = $sessionId; at = (Get-Date -Format o) }
   Copy-UpdateTree -ContentRoot $contentRoot -TargetDir $TargetDir
 
   if (-not (Test-InstallOk -liveExe $liveExe -TargetDir $TargetDir)) {
-    throw "Po kopírování instalace nevypadá kompletní ($liveExe)."
+    throw ("Install looks incomplete after copy: " + $liveExe)
   }
 
-  Write-Log "ps: starting $liveExe"
-  Write-Status @{ state = 'running'; phase = 'starting'; at = (Get-Date -Format o) }
+  Write-Log ("ps: starting {0}" -f $liveExe)
+  Write-Status @{ state = 'running'; phase = 'starting'; sessionId = $sessionId; at = (Get-Date -Format o) }
   $started = $false
   for ($i = 1; $i -le 5; $i++) {
     try {
-      Start-Process -LiteralPath $liveExe -WorkingDirectory $TargetDir
+      # PS 5.1 Start-Process uses -FilePath (NOT -LiteralPath).
+      Start-Process -FilePath $liveExe -WorkingDirectory $TargetDir
       Start-Sleep -Seconds 2
       $running = @(Get-MatchingProcs $liveExe $procName)
       if ($running.Count -gt 0) {
@@ -729,18 +923,25 @@ try {
         $started = $true
         break
       }
-      Write-Log "ps: start attempt=$i — process not seen yet"
+      Write-Log ("ps: start attempt={0} - process not seen yet" -f $i)
     } catch {
-      Write-Log ("ps: Start-Process failed attempt=$i: " + $_)
+      Write-Log ("ps: Start-Process failed attempt={0} err={1}" -f $i, $_)
       Start-Sleep -Seconds $i
     }
   }
   if (-not $started) {
-    throw "Aplikace se po aktualizaci nespustila."
+    throw "App did not start after update."
   }
 
-  Write-Status @{ state = 'ok'; phase = 'done'; message = 'Update applied'; logPath = $script:LogPath; at = (Get-Date -Format o) }
-  Write-Log "ps: done"
+  Write-Status @{
+    state = 'ok'
+    phase = 'done'
+    message = 'Update applied'
+    sessionId = $sessionId
+    logPath = $script:LogPath
+    at = (Get-Date -Format o)
+  }
+  Write-Log ("ps: done session={0}" -f $sessionId)
   exit 0
 } catch {
   $errMsg = "$_"
@@ -749,12 +950,12 @@ try {
     Write-Status @{
       state = 'error'
       message = $errMsg
+      sessionId = $sessionId
       logPath = $script:LogPath
       at = (Get-Date -Format o)
     }
   } catch {}
 
-  # Pokus o obnovu .bak, ať app vůbec naběhne a ukáže chybu uživateli.
   try {
     if ($liveExe -and (Test-Path -LiteralPath ($liveExe + '.bak'))) {
       Write-Log "ps: restoring exe from .bak"
@@ -767,7 +968,7 @@ try {
   try {
     if ($liveExe -and (Test-Path -LiteralPath $liveExe) -and $TargetDir) {
       Write-Log "ps: restarting app after failure so UI can show error"
-      Start-Process -LiteralPath $liveExe -WorkingDirectory $TargetDir
+      Start-Process -FilePath $liveExe -WorkingDirectory $TargetDir
     }
   } catch {
     Write-Log ("ps: restart after failure failed: " + $_)
