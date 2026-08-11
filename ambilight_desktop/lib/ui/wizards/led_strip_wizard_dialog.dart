@@ -10,6 +10,7 @@ import '../../core/protocol/serial_frame.dart';
 import '../../features/screen_capture/screen_capture_source.dart';
 import '../../l10n/context_ext.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../app_navigator.dart';
 import '../widgets/config_drag_slider.dart';
 import 'wizard_dialog_shell.dart';
 
@@ -39,7 +40,7 @@ class LedStripWizardDialog extends StatefulWidget {
     int? overrideMonitorIndex,
     bool appendMode = false,
   }) {
-    return showDialog<void>(
+    return showAmbiDialog<void>(
       context: context,
       builder: (_) => LedStripWizardDialog(
         initialDeviceId: deviceId,

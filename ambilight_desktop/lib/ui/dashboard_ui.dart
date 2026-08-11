@@ -389,6 +389,8 @@ class AmbiSidebarTile extends StatelessWidget {
                 Expanded(
                   child: Text(
                     label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                           color: selected ? scheme.onSurface : scheme.onSurfaceVariant,

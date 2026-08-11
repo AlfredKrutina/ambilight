@@ -785,12 +785,16 @@ class _SetupWizardState extends State<SetupWizard> with TickerProviderStateMixin
             const SizedBox(height: 14),
             Row(
               children: [
-                Text(
-                  l10n.setupWizardUsbListTitle,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                Expanded(
+                  child: Text(
+                    l10n.setupWizardUsbListTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  ),
                 ),
-                const Spacer(),
                 IconButton(
+                  tooltip: '',
                   onPressed: _comLoading ? null : () => unawaited(_refreshComPorts()),
                   icon: _comLoading
                       ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))

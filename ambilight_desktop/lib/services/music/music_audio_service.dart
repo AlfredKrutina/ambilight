@@ -112,8 +112,9 @@ class MusicAudioService {
   }
 
   static Future<List<MusicCaptureDeviceInfo>> listDevices() async {
+    AudioRecorder? r;
     try {
-      final r = AudioRecorder();
+      r = AudioRecorder();
       final inputs = await r.listInputDevices();
       final out = <MusicCaptureDeviceInfo>[];
       for (var i = 0; i < inputs.length; i++) {
@@ -130,28 +131,50 @@ class MusicAudioService {
     } catch (e, st) {
       _log.warning('listDevices: $e', e, st);
       return [];
+    } finally {
+      try {
+        await r?.dispose();
+      } catch (_) {}
     }
   }
 
-  Future<void> syncWithConfig(AppConfig config) async {
-    final mode = config.globalSettings.startMode;
-    if (mode != 'music') {
-      await _stopInternal();
-      _lastConfig = config;
-      return;
-    }
-    final mm = config.musicMode;
-    await _ensureFftIsolate();
-    _pushAnalyzerConfig(mm);
+  /// Serializace start/stop — rychlé přepínání režimu / apply settings jinak dispose-uje
+  /// recorder uprostřed `startStream` → PlatformException(Record, … disposed).
+  Future<void> _captureMutex = Future<void>.value();
 
-    final prev = _lastConfig;
-    final needRestart = !_running ||
-        prev?.musicMode.audioDeviceIndex != mm.audioDeviceIndex ||
-        prev?.musicMode.micEnabled != mm.micEnabled;
-    _lastConfig = config;
-    if (needRestart) {
-      await _restartCapture(mm);
-    }
+  Future<T> _withCaptureLock<T>(Future<T> Function() action) {
+    final done = Completer<T>();
+    _captureMutex = _captureMutex.then((_) async {
+      try {
+        done.complete(await action());
+      } catch (e, st) {
+        done.completeError(e, st);
+      }
+    });
+    return done.future;
+  }
+
+  Future<void> syncWithConfig(AppConfig config) {
+    return _withCaptureLock(() async {
+      final mode = config.globalSettings.startMode;
+      if (mode != 'music') {
+        await _stopInternal();
+        _lastConfig = config;
+        return;
+      }
+      final mm = config.musicMode;
+      await _ensureFftIsolate();
+      _pushAnalyzerConfig(mm);
+
+      final prev = _lastConfig;
+      final needRestart = !_running ||
+          prev?.musicMode.audioDeviceIndex != mm.audioDeviceIndex ||
+          prev?.musicMode.micEnabled != mm.micEnabled;
+      _lastConfig = config;
+      if (needRestart) {
+        await _restartCapture(mm);
+      }
+    });
   }
 
   Future<bool> _tryStartWindowsWasapiLoopback(MusicModeSettings mm) async {
@@ -338,20 +361,27 @@ class MusicAudioService {
     await _disposeWindowsWasapiOnly();
     await _sub?.cancel();
     _sub = null;
-    try {
-      await _recorder?.stop();
-    } catch (_) {}
-    await _recorder?.dispose();
+    final recorder = _recorder;
     _recorder = null;
+    if (recorder != null) {
+      try {
+        await recorder.stop();
+      } catch (_) {}
+      try {
+        await recorder.dispose();
+      } catch (_) {}
+    }
     _pcmAcc.clear();
     _latest = MusicAnalysisSnapshot.silent();
   }
 
   Future<void> dispose() async {
-    await _stopInternal();
-    await _fftBridge?.dispose();
-    _fftBridge = null;
-    _fftIsolateReady = false;
-    _fallbackAnalyzer = null;
+    await _withCaptureLock(() async {
+      await _stopInternal();
+      await _fftBridge?.dispose();
+      _fftBridge = null;
+      _fftIsolateReady = false;
+      _fallbackAnalyzer = null;
+    });
   }
 }

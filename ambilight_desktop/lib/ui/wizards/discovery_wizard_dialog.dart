@@ -15,11 +15,8 @@ class DiscoveryWizardDialog extends StatefulWidget {
   const DiscoveryWizardDialog({super.key});
 
   static Future<void> show(BuildContext context) {
-    final dialogContext = ambiNavigatorModalContext(context);
-    if (dialogContext == null) return Future.value();
-    return showDialog<void>(
-      context: dialogContext,
-      useRootNavigator: true,
+    return showAmbiDialog<void>(
+      context: context,
       barrierDismissible: false,
       builder: (ctx) => const DiscoveryWizardDialog(),
     );

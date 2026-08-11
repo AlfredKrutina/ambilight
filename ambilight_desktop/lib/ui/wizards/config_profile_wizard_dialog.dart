@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../application/ambilight_app_controller.dart';
 import '../../l10n/context_ext.dart';
+import '../app_navigator.dart';
 import 'wizard_dialog_shell.dart';
 
 /// D14 — uloží aktuální `screen_mode` jako uživatelský preset do `user_screen_presets`.
@@ -10,7 +11,10 @@ class ConfigProfileWizardDialog extends StatefulWidget {
   const ConfigProfileWizardDialog({super.key});
 
   static Future<void> show(BuildContext context) {
-    return showDialog<void>(context: context, builder: (_) => const ConfigProfileWizardDialog());
+    return showAmbiDialog<void>(
+      context: context,
+      builder: (_) => const ConfigProfileWizardDialog(),
+    );
   }
 
   @override

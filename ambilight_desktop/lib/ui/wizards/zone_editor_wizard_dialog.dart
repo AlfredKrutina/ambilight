@@ -8,6 +8,7 @@ import '../../core/models/config_models.dart';
 import '../../engine/screen/screen_color_pipeline.dart';
 import '../../l10n/context_ext.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../app_navigator.dart';
 import '../widgets/config_drag_slider.dart';
 import 'wizard_dialog_shell.dart';
 
@@ -77,7 +78,10 @@ class ZoneEditorWizardDialog extends StatefulWidget {
   const ZoneEditorWizardDialog({super.key});
 
   static Future<void> show(BuildContext context) {
-    return showDialog<void>(context: context, builder: (_) => const ZoneEditorWizardDialog());
+    return showAmbiDialog<void>(
+      context: context,
+      builder: (_) => const ZoneEditorWizardDialog(),
+    );
   }
 
   @override

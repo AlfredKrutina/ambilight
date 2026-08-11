@@ -240,32 +240,36 @@ class _AmbiLightRootState extends State<AmbiLightRoot> {
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 14, vertical: 10),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.grid_on_rounded,
-                                          size: 18,
-                                          color:
-                                              Colors.lightBlueAccent.shade100,
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Text(
-                                          AppLocalizations.of(context)
-                                              .scanZonesChip,
-                                          style: TextStyle(
-                                            color: Colors.blueGrey.shade50,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.grid_on_rounded,
+                                            size: 18,
+                                            color: Colors
+                                                .lightBlueAccent.shade100,
                                           ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Icon(
-                                          Icons.close_rounded,
-                                          color: Colors.white.withOpacity(0.9),
-                                          size: 20,
-                                        ),
-                                      ],
+                                          const SizedBox(width: 10),
+                                          Text(
+                                            AppLocalizations.of(context)
+                                                .scanZonesChip,
+                                            style: TextStyle(
+                                              color: Colors.blueGrey.shade50,
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Icon(
+                                            Icons.close_rounded,
+                                            color: Colors.white
+                                                .withOpacity(0.9),
+                                            size: 20,
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -297,13 +301,17 @@ class _AmbiLightRootState extends State<AmbiLightRoot> {
                     child: inner,
                   );
                   final mqChild = MediaQuery(data: mqMerged, child: inner);
-                  return Selector<AmbilightAppController, bool>(
-                    selector: (_, c) =>
-                        c.config.globalSettings.onboardingCompleted,
-                    builder: (context, onboardingDone, _) {
-                      if (!onboardingDone) return mqChild;
-                      return wrapWithAppFaultBanner(mqChild);
-                    },
+                  // Builder je mimo Navigatorův Overlay — onboarding / fault banner /
+                  // Slider+Tooltip by jinak padaly na „No Overlay widget found“.
+                  return AmbiBuilderOverlay(
+                    child: Selector<AmbilightAppController, bool>(
+                      selector: (_, c) =>
+                          c.config.globalSettings.onboardingCompleted,
+                      builder: (context, onboardingDone, _) {
+                        if (!onboardingDone) return mqChild;
+                        return wrapWithAppFaultBanner(mqChild);
+                      },
+                    ),
                   );
                 },
                 home: const AmbiShell(),

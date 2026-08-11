@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../application/ambilight_app_controller.dart';
 import '../../l10n/context_ext.dart';
+import '../app_navigator.dart';
 import 'wizard_dialog_shell.dart';
 
 /// D12 — výběr aktivního kalibračního profilu z `calibration_profiles`.
@@ -10,7 +11,10 @@ class CalibrationWizardDialog extends StatefulWidget {
   const CalibrationWizardDialog({super.key});
 
   static Future<void> show(BuildContext context) {
-    return showDialog<void>(context: context, builder: (_) => const CalibrationWizardDialog());
+    return showAmbiDialog<void>(
+      context: context,
+      builder: (_) => const CalibrationWizardDialog(),
+    );
   }
 
   @override
