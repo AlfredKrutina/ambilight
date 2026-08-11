@@ -87,6 +87,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navDevices => 'Devices';
 
   @override
+  String get navUpdates => 'Updates';
+
+  @override
   String get navSettings => 'Settings';
 
   @override
@@ -99,10 +102,79 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navDevicesTooltip => 'Discovery, strips and calibration';
 
   @override
+  String get navUpdatesTooltip => 'Strip firmware and desktop app updates';
+
+  @override
   String get navSettingsTooltip => 'Modes, integrations and config backup';
 
   @override
-  String get navAboutTooltip => 'Version and basics';
+  String get navAboutTooltip => 'Version, diagnostics and basics';
+
+  @override
+  String get updatesPageTitle => 'Updates';
+
+  @override
+  String get updatesPageSubtitle =>
+      'Device firmware and AmbiLight Desktop updates.';
+
+  @override
+  String get updatesSectionAppTitle => 'App';
+
+  @override
+  String get updatesSectionAppHint =>
+      'Check and install a new version from GitHub Releases.';
+
+  @override
+  String get updatesSectionDeviceTitle => 'Devices (firmware)';
+
+  @override
+  String get updatesSectionDeviceHint =>
+      'Pick a strip, download the build, then flash via USB or OTA.';
+
+  @override
+  String get updatesSelectDeviceLabel => 'Target device';
+
+  @override
+  String get updatesSelectDeviceHint =>
+      'Choose a saved device — IP/COM will be prefilled.';
+
+  @override
+  String get updatesNoDevicesTitle => 'No devices';
+
+  @override
+  String get updatesNoDevicesBody =>
+      'Add a strip on the Devices page first, then come back here to flash.';
+
+  @override
+  String get updatesGoToDevices => 'Go to Devices';
+
+  @override
+  String get updatesDeviceOnline => 'online';
+
+  @override
+  String get updatesDeviceOffline => 'offline';
+
+  @override
+  String get updatesDeviceTypeSerial => 'USB / serial';
+
+  @override
+  String get updatesDeviceTypeWifi => 'Wi‑Fi';
+
+  @override
+  String get updatesAdvancedDebugTitle => 'Advanced debug';
+
+  @override
+  String get updatesOpenAppUpdatesCta => 'App updates';
+
+  @override
+  String get updatesOpenAppUpdatesHint =>
+      'Checking and installing a new version is on the Updates page.';
+
+  @override
+  String get devicesFlashFirmwareTooltip => 'Update firmware';
+
+  @override
+  String get devicesFlashFirmwareAction => 'Firmware';
 
   @override
   String get navigationSection => 'Navigation';

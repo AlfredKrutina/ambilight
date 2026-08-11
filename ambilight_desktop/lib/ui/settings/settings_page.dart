@@ -17,7 +17,6 @@ import 'tabs/light_settings_tab.dart';
 import 'tabs/music_settings_tab.dart';
 import 'tabs/pc_health_settings_tab.dart';
 import 'tabs/screen_settings_tab.dart';
-import 'tabs/firmware_settings_tab.dart';
 import 'tabs/smart_integration_tab.dart';
 import 'tabs/spotify_settings_tab.dart';
 
@@ -35,7 +34,8 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    _tabLength = ambilightPcHealthUiAvailable ? 8 : 7;
+    // Bez Firmware záložky (ta je na stránce Aktualizace).
+    _tabLength = ambilightPcHealthUiAvailable ? 7 : 6;
     final boot = context.read<AmbilightAppController>().takePendingSettingsTabIndex();
     final initialTab =
         (boot != null && boot >= 0 && boot < _tabLength) ? boot : 0;
@@ -170,11 +170,6 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                       maxWidth: contentW,
                       onSmartLightsChanged: _patchSmartLights,
                     ),
-                  7 => FirmwareSettingsTab(
-                      draft: draft,
-                      maxWidth: contentW,
-                      onGlobalChanged: _patchGlobal,
-                    ),
                   _ => const SizedBox.shrink(),
                 };
               }
@@ -192,11 +187,6 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                     draft: draft,
                     maxWidth: contentW,
                     onSmartLightsChanged: _patchSmartLights,
-                  ),
-                6 => FirmwareSettingsTab(
-                    draft: draft,
-                    maxWidth: contentW,
-                    onGlobalChanged: _patchGlobal,
                   ),
                 _ => const SizedBox.shrink(),
               };
@@ -325,7 +315,6 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                 if (ambilightPcHealthUiAvailable) Tab(text: context.l10n.tabPcHealth),
                 Tab(text: context.l10n.tabSpotify),
                 Tab(text: context.l10n.tabSmartHome),
-                Tab(text: context.l10n.tabFirmware),
               ],
             ),
             Expanded(
@@ -419,13 +408,6 @@ class _SettingsSidebar extends StatelessWidget {
               tooltip: l10n.settingsTabSmartHomeTooltip,
               selected: selectedIndex == (showPcHealthTab ? 6 : 5),
               onTap: () => onSelect(showPcHealthTab ? 6 : 5),
-            ),
-            AmbiSidebarTile(
-              icon: Icons.system_update_alt_rounded,
-              label: l10n.tabFirmware,
-              tooltip: l10n.settingsTabFirmwareTooltip,
-              selected: selectedIndex == (showPcHealthTab ? 7 : 6),
-              onTap: () => onSelect(showPcHealthTab ? 7 : 6),
             ),
           ],
         ),

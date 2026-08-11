@@ -254,6 +254,12 @@ abstract class AppLocalizations {
   /// **'Devices'**
   String get navDevices;
 
+  /// No description provided for @navUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Updates'**
+  String get navUpdates;
+
   /// No description provided for @navSettings.
   ///
   /// In en, this message translates to:
@@ -278,6 +284,12 @@ abstract class AppLocalizations {
   /// **'Discovery, strips and calibration'**
   String get navDevicesTooltip;
 
+  /// No description provided for @navUpdatesTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Strip firmware and desktop app updates'**
+  String get navUpdatesTooltip;
+
   /// No description provided for @navSettingsTooltip.
   ///
   /// In en, this message translates to:
@@ -287,8 +299,128 @@ abstract class AppLocalizations {
   /// No description provided for @navAboutTooltip.
   ///
   /// In en, this message translates to:
-  /// **'Version and basics'**
+  /// **'Version, diagnostics and basics'**
   String get navAboutTooltip;
+
+  /// No description provided for @updatesPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Updates'**
+  String get updatesPageTitle;
+
+  /// No description provided for @updatesPageSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Device firmware and AmbiLight Desktop updates.'**
+  String get updatesPageSubtitle;
+
+  /// No description provided for @updatesSectionAppTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'App'**
+  String get updatesSectionAppTitle;
+
+  /// No description provided for @updatesSectionAppHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Check and install a new version from GitHub Releases.'**
+  String get updatesSectionAppHint;
+
+  /// No description provided for @updatesSectionDeviceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Devices (firmware)'**
+  String get updatesSectionDeviceTitle;
+
+  /// No description provided for @updatesSectionDeviceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a strip, download the build, then flash via USB or OTA.'**
+  String get updatesSectionDeviceHint;
+
+  /// No description provided for @updatesSelectDeviceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Target device'**
+  String get updatesSelectDeviceLabel;
+
+  /// No description provided for @updatesSelectDeviceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a saved device — IP/COM will be prefilled.'**
+  String get updatesSelectDeviceHint;
+
+  /// No description provided for @updatesNoDevicesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No devices'**
+  String get updatesNoDevicesTitle;
+
+  /// No description provided for @updatesNoDevicesBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a strip on the Devices page first, then come back here to flash.'**
+  String get updatesNoDevicesBody;
+
+  /// No description provided for @updatesGoToDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to Devices'**
+  String get updatesGoToDevices;
+
+  /// No description provided for @updatesDeviceOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'online'**
+  String get updatesDeviceOnline;
+
+  /// No description provided for @updatesDeviceOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'offline'**
+  String get updatesDeviceOffline;
+
+  /// No description provided for @updatesDeviceTypeSerial.
+  ///
+  /// In en, this message translates to:
+  /// **'USB / serial'**
+  String get updatesDeviceTypeSerial;
+
+  /// No description provided for @updatesDeviceTypeWifi.
+  ///
+  /// In en, this message translates to:
+  /// **'Wi‑Fi'**
+  String get updatesDeviceTypeWifi;
+
+  /// No description provided for @updatesAdvancedDebugTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced debug'**
+  String get updatesAdvancedDebugTitle;
+
+  /// No description provided for @updatesOpenAppUpdatesCta.
+  ///
+  /// In en, this message translates to:
+  /// **'App updates'**
+  String get updatesOpenAppUpdatesCta;
+
+  /// No description provided for @updatesOpenAppUpdatesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking and installing a new version is on the Updates page.'**
+  String get updatesOpenAppUpdatesHint;
+
+  /// No description provided for @devicesFlashFirmwareTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Update firmware'**
+  String get devicesFlashFirmwareTooltip;
+
+  /// No description provided for @devicesFlashFirmwareAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware'**
+  String get devicesFlashFirmwareAction;
 
   /// No description provided for @navigationSection.
   ///

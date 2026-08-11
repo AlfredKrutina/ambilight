@@ -760,7 +760,7 @@ class _IntegrationFirmwareCard extends StatelessWidget {
             title: context.l10n.fwCardTitle,
             icon: Icons.system_update_alt_rounded,
             scheme: scheme,
-            onOpenSettings: () => ctrl.requestOpenSettingsTabIndex(AmbilightAppController.settingsTabFirmware),
+            onOpenSettings: () => ctrl.requestOpenUpdates(),
           ),
           const SizedBox(height: 12),
           Text(

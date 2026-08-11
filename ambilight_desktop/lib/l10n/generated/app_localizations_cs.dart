@@ -87,6 +87,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get navDevices => 'Zařízení';
 
   @override
+  String get navUpdates => 'Aktualizace';
+
+  @override
   String get navSettings => 'Nastavení';
 
   @override
@@ -99,10 +102,80 @@ class AppLocalizationsCs extends AppLocalizations {
   String get navDevicesTooltip => 'Discovery, pásky a kalibrace';
 
   @override
+  String get navUpdatesTooltip =>
+      'Firmware pásků a aktualizace desktop aplikace';
+
+  @override
   String get navSettingsTooltip => 'Režimy, integrace a záloha konfigurace';
 
   @override
-  String get navAboutTooltip => 'Verze a základní informace';
+  String get navAboutTooltip => 'Verze, diagnostika a základní informace';
+
+  @override
+  String get updatesPageTitle => 'Aktualizace';
+
+  @override
+  String get updatesPageSubtitle =>
+      'Firmware zařízení a aktualizace AmbiLight Desktop.';
+
+  @override
+  String get updatesSectionAppTitle => 'Aplikace';
+
+  @override
+  String get updatesSectionAppHint =>
+      'Kontrola a instalace nové verze z GitHub Releases.';
+
+  @override
+  String get updatesSectionDeviceTitle => 'Zařízení (firmware)';
+
+  @override
+  String get updatesSectionDeviceHint =>
+      'Vyber konkrétní pásek, stáhni build a flashni přes USB nebo OTA.';
+
+  @override
+  String get updatesSelectDeviceLabel => 'Cílové zařízení';
+
+  @override
+  String get updatesSelectDeviceHint =>
+      'Vyber uložené zařízení — IP/COM se předvyplní.';
+
+  @override
+  String get updatesNoDevicesTitle => 'Žádné zařízení';
+
+  @override
+  String get updatesNoDevicesBody =>
+      'Nejdřív přidej pásek na stránce Zařízení, pak se vrať sem k flashi.';
+
+  @override
+  String get updatesGoToDevices => 'Přejít na Zařízení';
+
+  @override
+  String get updatesDeviceOnline => 'online';
+
+  @override
+  String get updatesDeviceOffline => 'offline';
+
+  @override
+  String get updatesDeviceTypeSerial => 'USB / serial';
+
+  @override
+  String get updatesDeviceTypeWifi => 'Wi‑Fi';
+
+  @override
+  String get updatesAdvancedDebugTitle => 'Pokročilé ladění';
+
+  @override
+  String get updatesOpenAppUpdatesCta => 'Aktualizace aplikace';
+
+  @override
+  String get updatesOpenAppUpdatesHint =>
+      'Kontrola a instalace nové verze je na stránce Aktualizace.';
+
+  @override
+  String get devicesFlashFirmwareTooltip => 'Aktualizovat firmware';
+
+  @override
+  String get devicesFlashFirmwareAction => 'Firmware';
 
   @override
   String get navigationSection => 'Navigace';

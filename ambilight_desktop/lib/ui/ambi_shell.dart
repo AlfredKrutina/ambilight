@@ -20,7 +20,7 @@ import 'home_page.dart';
 import 'layout_breakpoints.dart';
 import 'responsive_body.dart';
 import 'settings_page.dart';
-import 'widgets/about_desktop_update_card.dart';
+import 'updates/updates_page.dart';
 
 /// Stručný popis nakonfigurovaných výstupů (odpovídá `devices`, ignoruje HA-only).
 String _configuredOutputKindsFooter(AppConfig c, AppLocalizations l10n) {
@@ -44,6 +44,7 @@ String _configuredOutputKindsFooter(AppConfig c, AppLocalizations l10n) {
 List<({IconData icon, String label, String tooltip})> _navSpecs(AppLocalizations l) => [
       (icon: Icons.grid_view_rounded, label: l.navOverview, tooltip: l.navOverviewTooltip),
       (icon: Icons.hub_outlined, label: l.navDevices, tooltip: l.navDevicesTooltip),
+      (icon: Icons.system_update_alt_rounded, label: l.navUpdates, tooltip: l.navUpdatesTooltip),
       (icon: Icons.tune_rounded, label: l.navSettings, tooltip: l.navSettingsTooltip),
       (icon: Icons.info_outline_rounded, label: l.navAbout, tooltip: l.navAboutTooltip),
     ];
@@ -70,6 +71,7 @@ class _AmbiShellState extends State<AmbiShell> with WidgetsBindingObserver {
   static const _pages = <Widget>[
     HomePage(),
     DevicesPage(),
+    UpdatesPage(),
     SettingsPage(),
     _AboutPage(),
   ];
@@ -487,7 +489,19 @@ class _AboutPageState extends State<_AboutPage> {
                           children: [
                             SelectableText(buf.toString(), style: Theme.of(context).textTheme.bodySmall),
                             const SizedBox(height: 14),
-                            const AboutDesktopUpdateCard(),
+                            Text(
+                              context.l10n.updatesOpenAppUpdatesHint,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                            const SizedBox(height: 10),
+                            FilledButton.tonalIcon(
+                              onPressed: () =>
+                                  context.read<AmbilightAppController>().requestOpenUpdates(),
+                              icon: const Icon(Icons.system_update_alt_rounded, size: 18),
+                              label: Text(context.l10n.updatesOpenAppUpdatesCta),
+                            ),
                             const SizedBox(height: 14),
                             OutlinedButton.icon(
                               onPressed: () async {
